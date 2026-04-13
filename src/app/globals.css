@@ -31,73 +31,147 @@ body {
 
 @layer base {
   :root {
-    --background: 250 100% 99%;
-    --foreground: 240 10% 10%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 10%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 10%;
-    --primary: 263 70% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 252 94% 97%;
-    --secondary-foreground: 263 50% 40%;
-    --muted: 250 40% 96%;
-    --muted-foreground: 240 5% 46%;
-    --accent: 260 60% 95%;
-    --accent-foreground: 263 50% 40%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 260 20% 90%;
-    --input: 260 20% 90%;
-    --ring: 263 70% 58%;
-    --chart-1: 263 70% 58%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.75rem;
-    --sidebar-background: 252 94% 98%;
-    --sidebar-foreground: 240 10% 20%;
-    --sidebar-primary: 263 70% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 260 60% 95%;
-    --sidebar-accent-foreground: 263 50% 40%;
-    --sidebar-border: 260 20% 92%;
-    --sidebar-ring: 263 70% 58%;
+    --radius: 0.5rem;
   }
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 263 70% 58%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 222 47% 14%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 222 47% 14%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 62% 30%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 222 30% 16%;
-    --input: 222 30% 16%;
-    --ring: 263 70% 58%;
-    --chart-1: 263 70% 58%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 222 47% 7%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 263 70% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 12%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 222 30% 14%;
-    --sidebar-ring: 263 70% 58%;
+  }
+
+  /* Print styles for ticket */
+  @media print {
+    .ticket-print {
+      background: white !important;
+      color: black !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .ticket-print * {
+      color: black !important;
+      background: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .ticket-print .bg-emerald-500 {
+      background: #10b981 !important; /* emerald-500 */
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .ticket-print .text-emerald-100 {
+      color: #a7f3d0 !important; /* emerald-100 */
+    }
+
+    .ticket-print .bg-gray-50 {
+      background: #f9fafb !important; /* gray-50 */
+    }
+
+    .ticket-print .bg-gray-900 {
+      background: #111827 !important; /* gray-900 */
+    }
+
+    .ticket-print .text-gray-900 {
+      color: #111827 !important; /* gray-900 */
+    }
+
+    .ticket-print .text-gray-600 {
+      color: #4b5563 !important; /* gray-600 */
+    }
+
+    .ticket-print .text-gray-500 {
+      color: #6b7280 !important; /* gray-500 */
+    }
+
+    .ticket-print .border-gray-200 {
+      border-color: #e5e7eb !important; /* gray-200 */
+    }
+
+    .ticket-print .bg-emerald-100 {
+      background: #d1fae5 !important; /* emerald-100 */
+    }
+
+    .ticket-print .text-emerald-800 {
+      color: #065f46 !important; /* emerald-800 */
+    }
+
+    .ticket-print .bg-red-100 {
+      background: #fee2e2 !important; /* red-100 */
+    }
+
+    .ticket-print .text-red-800 {
+      color: #991b1b !important; /* red-800 */
+    }
+
+    /* Hide everything except the ticket when printing */
+    body * {
+      visibility: hidden !important;
+    }
+
+    .ticket-print,
+    .ticket-print * {
+      visibility: visible !important;
+    }
+
+    .ticket-print {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      z-index: 9999 !important;
+    }
   }
 }
 
@@ -135,7 +209,7 @@ body {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(200, 180, 240, 0.3);
+  border: 1px solid rgba(180, 240, 220, 0.3);
 }
 
 .dark .glass {
@@ -147,7 +221,7 @@ body {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(200, 180, 240, 0.25);
+  border-bottom: 1px solid rgba(180, 240, 220, 0.25);
 }
 
 .dark .glass-dark {
@@ -157,7 +231,7 @@ body {
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
+  background: linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #5eead4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -190,7 +264,7 @@ body {
 .dots-bg {
   background-image: radial-gradient(
     circle,
-    rgba(124, 58, 237, 0.08) 1px,
+    rgba(16, 185, 129, 0.08) 1px,
     transparent 1px
   );
   background-size: 28px 28px;
@@ -198,7 +272,7 @@ body {
 .dark .dots-bg {
   background-image: radial-gradient(
     circle,
-    rgba(139, 92, 246, 0.12) 1px,
+    rgba(52, 211, 153, 0.12) 1px,
     transparent 1px
   );
 }
@@ -209,10 +283,10 @@ body {
 }
 .card-hover:hover {
   transform: translateY(-6px);
-  box-shadow: 0 20px 40px -12px rgba(124, 58, 237, 0.12);
+  box-shadow: 0 20px 40px -12px rgba(16, 185, 129, 0.12);
 }
 .dark .card-hover:hover {
-  box-shadow: 0 20px 40px -12px rgba(139, 92, 246, 0.18);
+  box-shadow: 0 20px 40px -12px rgba(52, 211, 153, 0.18);
 }
 
 /* Password strength meter colors */
@@ -231,10 +305,10 @@ body {
 
 /* Input focus glow */
 .input-glow:focus-within {
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
 }
 .dark .input-glow:focus-within {
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
 }
 
 /* Scrollbar styling */
@@ -245,15 +319,15 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(124, 58, 237, 0.2);
+  background: rgba(16, 185, 129, 0.2);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(124, 58, 237, 0.35);
+  background: rgba(16, 185, 129, 0.35);
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(52, 211, 153, 0.3);
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.5);
+  background: rgba(52, 211, 153, 0.5);
 }

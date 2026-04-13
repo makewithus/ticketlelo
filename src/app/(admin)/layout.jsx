@@ -3,29 +3,35 @@
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
-import { LogOut, Calendar, Package, Users, QrCode } from "lucide-react";
+import { LogOut, Calendar, Users, QrCode, FormInput } from "lucide-react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
-export default function AdminLayout({ children }) {
+export default function OrganiserLayout({ children }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
 
-  // Check if user is admin
-  if (!loading && (!user || !user.isAdmin)) {
-    router.push("/login");
-    return null;
-  }
+  // Check if user is organiser/admin
+  useEffect(() => {
+    if (!loading && (!user || !user.isAdmin)) {
+      router.push("/");
+    }
+  }, [loading, user, router]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
-          <p className="text-slate-600">Loading admin panel...</p>
+          <p className="text-slate-600">Loading organiser panel...</p>
         </div>
       </div>
     );
+  }
+
+  if (!user || !user.isAdmin) {
+    return null;
   }
 
   const handleLogout = async () => {
@@ -38,19 +44,21 @@ export default function AdminLayout({ children }) {
   };
 
   const navItems = [
-    { href: "/admin/dashboard", icon: Calendar, label: "Events" },
-    { href: "/admin/batches", icon: Package, label: "Batches" },
+    { href: "/admin/dashboard", icon: Calendar, label: "Create Event" },
+    { href: "/admin/form-generator", icon: FormInput, label: "Form Generator" },
     { href: "/admin/registrations", icon: Users, label: "Registrations" },
     { href: "/admin/scanner", icon: QrCode, label: "QR Scanner" },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 flex">
+    <div className="min-h-screen bg-black flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-white flex flex-col">
-        <div className="p-6 border-b border-slate-800">
-          <h1 className="text-2xl font-bold">TicketLelo</h1>
-          <p className="text-sm text-slate-400 mt-1">Admin Panel</p>
+      <aside className="w-64 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-r border-emerald-500/20 text-white flex flex-col">
+        <div className="p-6 border-b border-emerald-500/20">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+            Ticketलेलो
+          </h1>
+          <p className="text-sm text-emerald-400 mt-1">Organiser Panel</p>
         </div>
 
         {/* Navigation */}
@@ -59,7 +67,7 @@ export default function AdminLayout({ children }) {
             <Link key={item.href} href={item.href}>
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-3 text-slate-300 hover:text-white hover:bg-slate-800"
+                className="w-full justify-start gap-3 text-slate-300 hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20"
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}
@@ -69,15 +77,14 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-slate-800 space-y-3">
+        <div className="p-4 border-t border-emerald-500/20 space-y-3">
           <div className="text-sm">
             <p className="text-slate-400">Logged in as</p>
             <p className="font-medium text-white truncate">{user?.email}</p>
           </div>
           <Button
             onClick={handleLogout}
-            variant="destructive"
-            className="w-full justify-start gap-2"
+            className="w-full justify-start gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -86,7 +93,9 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+        {children}
+      </main>
     </div>
   );
 }

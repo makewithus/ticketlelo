@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   LogOut,
   Calendar,
-  Package,
   Users,
   QrCode,
   Ticket,
@@ -16,6 +15,7 @@ import {
   Sun,
   Moon,
   Loader2,
+  FormInput,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -31,25 +31,43 @@ export default function AdminLayout({ children }) {
     setMounted(true);
   }, []);
 
-  if (!loading && (!user || !user.isAdmin)) {
-    router.push("/login");
-    return null;
-  }
+  useEffect(() => {
+    // Check if user should have access
+    const hasAdminAccess = user?.isAdmin || user?.role === "organiser";
+
+    if (!loading && (!user || !hasAdminAccess)) {
+      console.log("❌ No admin access, redirecting to homepage");
+      router.push("/");
+    }
+
+    // Redirect super admin to super admin panel
+    if (!loading && user && user.role === "superAdmin") {
+      console.log("🔀 Super admin detected, redirecting to super admin panel");
+      router.push("/superadmin");
+    }
+  }, [loading, user, router]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-violet-50 dark:bg-[#0a0c1c]">
+      <div className="min-h-screen flex items-center justify-center bg-emerald-50 dark:bg-[#0a0c1c]">
         <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-violet-500/30 animate-pulse-glow">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl shadow-emerald-500/30 animate-pulse-glow">
             <Ticket className="w-8 h-8 text-white" />
           </div>
-          <Loader2 className="w-6 h-6 animate-spin text-violet-500" />
+          <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
           <p className="text-gray-500 dark:text-slate-400">
             Loading admin panel...
           </p>
         </div>
       </div>
     );
+  }
+
+  // Check if user has admin access (either isAdmin flag OR organiser role)
+  const hasAdminAccess = user?.isAdmin || user?.role === "organiser";
+
+  if (!user || !hasAdminAccess) {
+    return null;
   }
 
   const handleLogout = async () => {
@@ -62,8 +80,8 @@ export default function AdminLayout({ children }) {
   };
 
   const navItems = [
-    { href: "/admin/dashboard", icon: Calendar, label: "Events" },
-    { href: "/admin/batches", icon: Package, label: "Batches" },
+    { href: "/admin/dashboard", icon: Calendar, label: "Create Event" },
+    { href: "/admin/form-generator", icon: FormInput, label: "Form Generator" },
     { href: "/admin/registrations", icon: Users, label: "Registrations" },
     { href: "/admin/scanner", icon: QrCode, label: "QR Scanner" },
   ];
@@ -71,23 +89,16 @@ export default function AdminLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0c1c] flex text-gray-900 dark:text-white transition-colors">
       {/* Sidebar */}
-      <aside className="w-72 border-r border-violet-100 dark:border-slate-800 bg-white dark:bg-[#0d0f1f] flex flex-col">
+      <aside className="w-72 border-r border-emerald-100 dark:border-slate-800 bg-white dark:bg-[#0d0f1f] flex flex-col">
         {/* Logo */}
-        <div className="p-6 border-b border-violet-100 dark:border-slate-800">
+        <div className="p-6 border-b border-emerald-100 dark:border-slate-800">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <Image
-              src="/logo.png"
-              alt="TicketLelo"
-              width={40}
-              height={40}
-              className="rounded-xl shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow"
-            />
             <div>
               <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">
-                Ticket<span className="gradient-text">Lelo</span>
+                Ticket<span className="text-emerald-500">लेलो</span>
               </span>
               <p className="text-xs text-gray-400 dark:text-slate-500">
-                Admin Panel
+                Organiser Panel
               </p>
             </div>
           </Link>
@@ -105,24 +116,24 @@ export default function AdminLayout({ children }) {
                 <div
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                     isActive
-                      ? "bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20"
-                      : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-violet-50/50 dark:hover:bg-slate-800/50 border border-transparent"
+                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-emerald-50/50 dark:hover:bg-slate-800/50 border border-transparent"
                   }`}
                 >
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                       isActive
-                        ? "bg-violet-100 dark:bg-violet-500/20"
-                        : "bg-gray-100 dark:bg-slate-800/50 group-hover:bg-violet-50 dark:group-hover:bg-slate-800"
+                        ? "bg-emerald-100 dark:bg-emerald-500/20"
+                        : "bg-gray-100 dark:bg-slate-800/50 group-hover:bg-emerald-50 dark:group-hover:bg-slate-800"
                     }`}
                   >
                     <item.icon
-                      className={`w-4 h-4 ${isActive ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-slate-500 group-hover:text-violet-500 dark:group-hover:text-slate-300"}`}
+                      className={`w-4 h-4 ${isActive ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-slate-500 group-hover:text-emerald-500 dark:group-hover:text-slate-300"}`}
                     />
                   </div>
                   <span className="flex-1">{item.label}</span>
                   {isActive && (
-                    <ChevronRight className="w-4 h-4 text-violet-500" />
+                    <ChevronRight className="w-4 h-4 text-emerald-500" />
                   )}
                 </div>
               </Link>
@@ -131,18 +142,18 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-violet-100 dark:border-slate-800 space-y-3">
+        <div className="p-4 border-t border-emerald-100 dark:border-slate-800 space-y-3">
           {/* Theme toggle */}
           {mounted && (
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-violet-50/50 dark:hover:bg-slate-800/50 border border-transparent transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-emerald-50/50 dark:hover:bg-slate-800/50 border border-transparent transition-all"
             >
               <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-slate-800/50 flex items-center justify-center">
                 {theme === "dark" ? (
                   <Sun className="w-4 h-4 text-amber-400" />
                 ) : (
-                  <Moon className="w-4 h-4 text-violet-500" />
+                  <Moon className="w-4 h-4 text-emerald-500" />
                 )}
               </div>
               <span className="flex-1 text-left">
@@ -152,7 +163,7 @@ export default function AdminLayout({ children }) {
           )}
 
           <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-violet-500/20">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-emerald-500/20">
               {user?.fullName?.charAt(0)?.toUpperCase() || "A"}
             </div>
             <div className="flex-1 min-w-0">
@@ -167,7 +178,7 @@ export default function AdminLayout({ children }) {
           <Button
             onClick={handleLogout}
             variant="outline"
-            className="w-full h-10 gap-2 border-violet-200 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
+            className="w-full h-10 gap-2 border-emerald-200 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
           >
             <LogOut className="w-4 h-4" /> Sign Out
           </Button>

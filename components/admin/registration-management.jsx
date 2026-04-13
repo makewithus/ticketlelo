@@ -24,19 +24,19 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import {
   getAllEvents,
-  getBatchesByEvent,
+  getEventsByOrganiser,
   getEvent,
   subscribeToEventRegistrations,
 } from "@/lib/firestore";
+import { useAuth } from "@/context/auth-context";
 
 export function RegistrationManagement() {
+  const { user } = useAuth();
   const [events, setEvents] = useState([]);
-  const [batches, setBatches] = useState([]);
   const [registrations, setRegistrations] = useState([]);
 
   // IMPORTANT: Use "" instead of null
   const [selectedEventId, setSelectedEventId] = useState("");
-  const [selectedBatchId, setSelectedBatchId] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -47,8 +47,26 @@ export function RegistrationManagement() {
   ==========================*/
   useEffect(() => {
     const loadEvents = async () => {
+      if (!user) return;
+      
       try {
-        const allEvents = await getAllEvents();
+        let allEvents;
+        
+        // SuperAdmin sees all events
+        if (user.role === "superAdmin") {
+          allEvents = await getAllEvents();
+        } else if (user.role === "organiser") {
+          // Organisers only see their own event
+          allEvents = await getEventsByOrganiser(user.id);
+          
+          // Auto-select the organiser's event
+          if (allEvents.length > 0) {
+            setSelectedEventId(allEvents[0].id);
+          }
+        } else {
+          allEvents = [];
+        }
+        
         setEvents(allEvents || []);
       } catch (error) {
         console.error("Error loading events:", error);
@@ -59,15 +77,14 @@ export function RegistrationManagement() {
     };
 
     loadEvents();
-  }, []);
+  }, [user]);
 
   /* =========================
-     LOAD BATCHES + REGISTRATIONS
+     LOAD REGISTRATIONS
   ==========================*/
   useEffect(() => {
     if (!selectedEventId) {
       setRegistrations([]);
-      setBatches([]);
       return;
     }
 
@@ -75,9 +92,6 @@ export function RegistrationManagement() {
 
     const loadData = async () => {
       try {
-        const batchData = await getBatchesByEvent(selectedEventId);
-        setBatches(batchData || []);
-
         unsubscribe = subscribeToEventRegistrations(
           selectedEventId,
           (regData) => {
@@ -109,10 +123,7 @@ export function RegistrationManagement() {
       (reg.whatsappPhone || "").includes(search) ||
       (reg.ticketId || "").includes(search);
 
-    const matchesBatch =
-      selectedBatchId === "" || reg.batchId === selectedBatchId;
-
-    return matchesSearch && matchesBatch;
+    return matchesSearch;
   });
 
   /* =========================
@@ -195,8 +206,8 @@ export function RegistrationManagement() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-extrabold">Registrations</h2>
-        <p className="text-gray-500 mt-1">
+        <h2 className="text-3xl font-extrabold text-white">Registrations</h2>
+        <p className="text-gray-400 mt-1">
           View and manage event registrations
         </p>
       </div>
@@ -204,59 +215,44 @@ export function RegistrationManagement() {
       {/* EVENT SELECT */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <label className="text-sm font-medium flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5" /> Event
+          <label className="text-sm font-medium flex items-center gap-1 text-emerald-400">
+            <Filter className="w-3.5 h-3.5" /> {user?.role === "organiser" ? "Your Event" : "Event"}
           </label>
 
-          <Select
-            value={selectedEventId}
-            onValueChange={(val) => {
-              setSelectedEventId(val);
-              setSelectedBatchId("");
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select event" />
-            </SelectTrigger>
-            <SelectContent>
-              {events.map((event) => (
-                <SelectItem key={event.id} value={event.id}>
-                  {event.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* BATCH SELECT */}
-        {selectedEventId && (
-          <div>
-            <label className="text-sm font-medium">Batch</label>
-
+          {user?.role === "organiser" ? (
+            /* Show event name for organisers (not editable) */
+            <div className="w-full h-10 px-3 py-2 bg-black/50 border border-emerald-500/30 rounded-md text-white flex items-center">
+              {events.length > 0 ? (
+                <span className="font-medium">{events[0].name}</span>
+              ) : (
+                <span className="text-gray-400">No event created</span>
+              )}
+            </div>
+          ) : (
+            /* Show dropdown for superadmin */
             <Select
-              value={selectedBatchId}
-              onValueChange={(val) =>
-                setSelectedBatchId(val === "__all__" ? "" : val)
-              }
+              value={selectedEventId}
+              onValueChange={(val) => {
+                setSelectedEventId(val);
+              }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="All batches" />
+                <SelectValue placeholder="Select event" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All Batches</SelectItem>
-                {batches.map((batch) => (
-                  <SelectItem key={batch.id} value={batch.id}>
-                    {batch.name}
+                {events.map((event) => (
+                  <SelectItem key={event.id} value={event.id}>
+                    {event.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* SEARCH */}
         <div>
-          <label className="text-sm font-medium flex items-center gap-1">
+          <label className="text-sm font-medium flex items-center gap-1 text-emerald-400">
             <Search className="w-3.5 h-3.5" /> Search
           </label>
 
@@ -264,6 +260,7 @@ export function RegistrationManagement() {
             placeholder="Name, email, ticket ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="bg-black/50 border-emerald-500/30 text-white placeholder-gray-500"
           />
         </div>
 
@@ -294,68 +291,68 @@ export function RegistrationManagement() {
       {/* STATS */}
       {selectedEventId && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 border rounded-xl text-center">
-            <Users className="mx-auto mb-2" />
-            <p className="text-2xl font-bold">{stats.total}</p>
-            <p>Total</p>
+          <div className="p-4 border border-emerald-500/30 bg-black/50 rounded-xl text-center">
+            <Users className="mx-auto mb-2 text-emerald-400" />
+            <p className="text-2xl font-bold text-white">{stats.total}</p>
+            <p className="text-gray-400">Total</p>
           </div>
 
-          <div className="p-4 border rounded-xl text-center">
-            <CheckCircle2 className="mx-auto mb-2 text-green-600" />
-            <p className="text-2xl font-bold text-green-600">{stats.used}</p>
-            <p>Scanned</p>
+          <div className="p-4 border border-emerald-500/30 bg-black/50 rounded-xl text-center">
+            <CheckCircle2 className="mx-auto mb-2 text-green-500" />
+            <p className="text-2xl font-bold text-green-500">{stats.used}</p>
+            <p className="text-gray-400">Scanned</p>
           </div>
 
-          <div className="p-4 border rounded-xl text-center">
-            <Clock className="mx-auto mb-2 text-yellow-600" />
-            <p className="text-2xl font-bold text-yellow-600">{stats.unused}</p>
-            <p>Pending</p>
+          <div className="p-4 border border-emerald-500/30 bg-black/50 rounded-xl text-center">
+            <Clock className="mx-auto mb-2 text-yellow-500" />
+            <p className="text-2xl font-bold text-yellow-500">{stats.unused}</p>
+            <p className="text-gray-400">Pending</p>
           </div>
         </div>
       )}
 
       {/* REGISTRATIONS TABLE */}
       {selectedEventId && (
-        <div className="rounded-2xl border border-violet-100 bg-white overflow-hidden mt-6 shadow-sm">
+        <div className="rounded-2xl border border-emerald-500/30 bg-black/50 overflow-hidden mt-6 shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b">
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-emerald-500/20">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                     Ticket ID
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                     Full Name
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                     Phone
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                     Registered
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
+              <tbody className="divide-y divide-emerald-500/10">
                 {isLoading ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-12 text-center">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-violet-500" />
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-emerald-500" />
                     </td>
                   </tr>
                 ) : filteredRegistrations.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-5 py-12 text-center text-gray-500"
+                      className="px-5 py-12 text-center text-gray-400"
                     >
-                      <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center mx-auto mb-3">
-                        <Ticket className="w-6 h-6 text-violet-300" />
+                      <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
+                        <Ticket className="w-6 h-6 text-emerald-400" />
                       </div>
                       No registrations found
                     </td>
@@ -364,21 +361,21 @@ export function RegistrationManagement() {
                   filteredRegistrations.map((reg) => (
                     <tr
                       key={reg.id}
-                      className="hover:bg-violet-50 transition-colors"
+                      className="hover:bg-emerald-500/5 transition-colors"
                     >
-                      <td className="px-5 py-4 text-sm font-mono text-violet-600">
+                      <td className="px-5 py-4 text-sm font-mono text-emerald-400">
                         {reg.ticketId}
                       </td>
-                      <td className="px-5 py-4 text-sm font-medium">
+                      <td className="px-5 py-4 text-sm font-medium text-white">
                         {reg.fullName || "-"}
                       </td>
-                      <td className="px-5 py-4 text-sm">{reg.email || "-"}</td>
-                      <td className="px-5 py-4 text-sm">
+                      <td className="px-5 py-4 text-sm text-gray-300">{reg.email || "-"}</td>
+                      <td className="px-5 py-4 text-sm text-gray-300">
                         {reg.whatsappPhone || "-"}
                       </td>
                       <td className="px-5 py-4 text-sm">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${reg.status === "Used" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${reg.status === "Used" ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}
                         >
                           {reg.status === "Used" ? (
                             <CheckCircle2 className="w-3 h-3" />
@@ -388,7 +385,7 @@ export function RegistrationManagement() {
                           {reg.status || "-"}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-sm text-gray-500">
+                      <td className="px-5 py-4 text-sm text-gray-400">
                         {reg.createdAt?.toDate
                           ? reg.createdAt.toDate().toLocaleDateString()
                           : reg.createdAt
@@ -406,11 +403,11 @@ export function RegistrationManagement() {
 
       {!selectedEventId && (
         <div className="text-center py-20">
-          <div className="w-20 h-20 rounded-full bg-violet-50 flex items-center justify-center mx-auto mb-6">
-            <Users className="w-10 h-10 text-violet-300" />
+          <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-10 h-10 text-emerald-400" />
           </div>
-          <h3 className="text-2xl font-bold">Select an Event</h3>
-          <p className="text-gray-500">
+          <h3 className="text-2xl font-bold text-white">Select an Event</h3>
+          <p className="text-gray-400">
             Choose an event above to view registrations
           </p>
         </div>

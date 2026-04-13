@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Storage Rules for Ticketलेलो
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to upload logos for their events
+    match /logos/{allPaths=**} {
+      // Read: Anyone can view logos
+      allow read: if true;
+      
+      // Write: Only authenticated organisers can upload
+      allow write: if request.auth != null && 
+                      request.auth.token.role == "organiser" ||
+                      request.auth.token.role == "superAdmin";
+    }
+    
+    // Allow authenticated users to upload tickets/QR codes
+    match /tickets/{allPaths=**} {
+      // Read: Anyone with the link can view
+      allow read: if true;
+      
+      // Write: Only authenticated users
+      allow write: if request.auth != null;
+    }
+    
+    // Default: Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

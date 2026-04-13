@@ -1,38 +1,222 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { RegistrationForm } from "@/components/forms/registration-form";
-import { getActiveEvents } from "@/lib/firestore";
-import {
-  Loader2,
-  Calendar,
-  MapPin,
-  Ticket,
-  ArrowLeft,
-  Sparkles,
-  Shield,
-  Zap,
-  QrCode,
-  ArrowRight,
-  ChevronDown,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  useVelocity,
+  useAnimationFrame,
+  useMotionValue,
+} from "framer-motion";
+import {
+  Ticket,
+  QrCode,
+  Users,
+  Calendar,
+  ChevronDown,
+  ArrowRight,
+  Zap,
+  Shield,
+  MapPin,
+  Loader2,
+  ArrowLeft,
+  Sparkles,
+  FormInput,
+} from "lucide-react";
+import React from "react";
+import { getActiveEvents } from "@/lib/firestore";
+import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration-form";
+import Header from "@/components/Header";
+import { Spotlight } from "@/components/Spotlight";
+import ShimmerButton from "@/components/ShimmerButton";
+import TicketAnimation from "@/components/TicketAnimation";
 
+// ─────────────────────────────────────────────
+// Scroll Velocity Ticker
+// ─────────────────────────────────────────────
+
+const wrap = (min, max, v) => {
+  const rangeSize = max - min;
+  return ((((v - min) % rangeSize) + rangeSize) % rangeSize) + min;
+};
+
+const ScrollVelocityContext = React.createContext(null);
+
+function ScrollVelocityContainer({ children, className, ...props }) {
+  const { scrollY } = useScroll();
+  const scrollVelocity = useVelocity(scrollY);
+  const smoothVelocity = useSpring(scrollVelocity, {
+    damping: 50,
+    stiffness: 400,
+  });
+  const velocityFactor = useTransform(smoothVelocity, (v) => {
+    const sign = v < 0 ? -1 : 1;
+    return sign * Math.min(5, (Math.abs(v) / 1000) * 5);
+  });
+  return (
+    <ScrollVelocityContext.Provider value={velocityFactor}>
+      <div className={`relative w-full ${className || ""}`} {...props}>
+        {children}
+      </div>
+    </ScrollVelocityContext.Provider>
+  );
+}
+
+function ScrollVelocityRowImpl({
+  children,
+  baseVelocity = 5,
+  direction = 1,
+  className,
+  velocityFactor,
+  ...props
+}) {
+  const containerRef = useRef(null);
+  const blockRef = useRef(null);
+  const [numCopies, setNumCopies] = useState(3);
+  const baseX = useMotionValue(0);
+  const baseDirectionRef = useRef(direction >= 0 ? 1 : -1);
+  const currentDirectionRef = useRef(direction >= 0 ? 1 : -1);
+  const unitWidth = useMotionValue(0);
+  const isInViewRef = useRef(true);
+  const isPageVisibleRef = useRef(true);
+  const prefersReducedMotionRef = useRef(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const block = blockRef.current;
+    if (!container || !block) return;
+    const updateSizes = () => {
+      const bw = block.scrollWidth || 0;
+      unitWidth.set(bw);
+      if (bw > 0) {
+        const copies = Math.max(
+          3,
+          Math.ceil((container.offsetWidth * 2) / bw) + 2,
+        );
+        setNumCopies(copies);
+      }
+    };
+    updateSizes();
+    const ro = new ResizeObserver(updateSizes);
+    ro.observe(container);
+    ro.observe(block);
+    const io = new IntersectionObserver(([e]) => {
+      isInViewRef.current = e.isIntersecting;
+    });
+    io.observe(container);
+    const handleVis = () => {
+      isPageVisibleRef.current = document.visibilityState === "visible";
+    };
+    document.addEventListener("visibilitychange", handleVis, { passive: true });
+    handleVis();
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handlePRM = () => {
+      prefersReducedMotionRef.current = mq.matches;
+    };
+    mq.addEventListener("change", handlePRM);
+    handlePRM();
+    return () => {
+      ro.disconnect();
+      io.disconnect();
+      document.removeEventListener("visibilitychange", handleVis);
+      mq.removeEventListener("change", handlePRM);
+    };
+  }, [unitWidth]);
+
+  const x = useTransform(
+    [baseX, unitWidth],
+    ([v, bw]) => `${-wrap(0, Number(bw) || 1, Number(v) || 0)}px`,
+  );
+
+  useAnimationFrame((_, delta) => {
+    if (!isInViewRef.current || !isPageVisibleRef.current) return;
+    const dt = delta / 1000;
+    const vf = velocityFactor.get();
+    const absVf = Math.min(5, Math.abs(vf));
+    if (absVf > 0.1)
+      currentDirectionRef.current =
+        baseDirectionRef.current * (vf >= 0 ? 1 : -1);
+    const bw = unitWidth.get() || 0;
+    if (bw <= 0) return;
+    const speed = (bw * baseVelocity) / 100;
+    baseX.set(
+      baseX.get() +
+        currentDirectionRef.current *
+          speed *
+          (1 + (prefersReducedMotionRef.current ? 0 : absVf)) *
+          dt,
+    );
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      className={`w-full overflow-hidden ${className || ""}`}
+      style={{ whiteSpace: "nowrap" }}
+      {...props}
+    >
+      <motion.div
+        className="inline-flex transform-gpu will-change-transform select-none items-center"
+        style={{ x }}
+      >
+        {Array.from({ length: numCopies }).map((_, i) => (
+          <div
+            key={i}
+            ref={i === 0 ? blockRef : null}
+            aria-hidden={i !== 0}
+            className="inline-flex shrink-0 items-center"
+          >
+            {children}
+          </div>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+function ScrollVelocityRow({
+  children,
+  baseVelocity = 5,
+  direction = 1,
+  className,
+  ...props
+}) {
+  const shared = React.useContext(ScrollVelocityContext);
+  const { scrollY } = useScroll();
+  const lv = useVelocity(scrollY);
+  const ls = useSpring(lv, { damping: 50, stiffness: 400 });
+  const lvf = useTransform(
+    ls,
+    (v) => (v < 0 ? -1 : 1) * Math.min(5, (Math.abs(v) / 1000) * 5),
+  );
+  const factor = shared || lvf;
+  return (
+    <ScrollVelocityRowImpl
+      {...props}
+      velocityFactor={factor}
+      baseVelocity={baseVelocity}
+      direction={direction}
+      className={className}
+    >
+      {children}
+    </ScrollVelocityRowImpl>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Main Page
+// ─────────────────────────────────────────────
 export default function HomePage() {
+  const router = useRouter();
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [prefetchedForms, setPrefetchedForms] = useState({});
 
   useEffect(() => {
     const loadEvents = async () => {
@@ -48,246 +232,359 @@ export default function HomePage() {
     loadEvents();
   }, []);
 
-  const handleEventSelect = (event) => setSelectedEvent(event);
-  const handleBack = () => setSelectedEvent(null);
+  // Prefetch form on hover for instant loading
+  const prefetchForm = async (eventId) => {
+    // Skip if already prefetched (check if key exists, not just truthy value)
+    if (eventId in prefetchedForms) {
+      console.log(`[Prefetch] ✅ Form already cached for event: ${eventId}`);
+      return;
+    }
+
+    console.log(`[Prefetch] 🚀 Prefetching form for event: ${eventId}`);
+    const startTime = Date.now();
+
+    try {
+      const response = await fetch(`/api/get-custom-form?eventId=${eventId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.form) {
+          setPrefetchedForms((prev) => ({
+            ...prev,
+            [eventId]: data.form,
+          }));
+          const prefetchTime = Date.now() - startTime;
+          console.log(`[Prefetch] ✅ Form cached in ${prefetchTime}ms for event: ${eventId}`);
+        } else if (data.success && !data.form) {
+          // No custom form - mark as "no form" so we don't keep trying
+          console.log(`[Prefetch] ℹ️ No custom form found - will use default`);
+          setPrefetchedForms((prev) => ({
+            ...prev,
+            [eventId]: null, // Explicitly set to null to prevent re-fetching
+          }));
+        }
+      }
+    } catch (error) {
+      console.log(`[Prefetch] ⚠️ Failed to prefetch form:`, error.message);
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-violet-50 via-white to-white dark:from-[#0a0c1c] dark:via-[#0d0f1f] dark:to-[#0a0c1c] text-gray-900 dark:text-white transition-colors">
-      {/* Navbar */}
-      <header className="fixed top-0 inset-x-0 z-50 glass-dark">
-        <nav className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 p-[2.5px] shadow-lg shadow-violet-500/30 group-hover:shadow-violet-500/50 group-hover:scale-110 transition-all duration-300">
-              <div className="w-full h-full rounded-[13px] overflow-hidden bg-white dark:bg-slate-900">
-                <Image
-                  src="/logo.png"
-                  alt="TicketLelo"
-                  width={44}
-                  height={44}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
+      {/* ── Fixed Grid Background ── */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #4f4f4f2e 1px, transparent 1px), linear-gradient(to bottom, #4f4f4f2e 1px, transparent 1px)",
+          backgroundSize: "14px 24px",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 110%)",
+          maskImage:
+            "radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 110%)",
+        }}
+      />
+
+      {/* ── Spotlight ── */}
+      <Spotlight
+        gradientFirst="radial-gradient(68.54% 68.72% at 55.02% 31.46%, hsla(142, 71%, 85%, .08) 0, hsla(142, 71%, 55%, .02) 50%, hsla(142, 71%, 45%, 0) 80%)"
+        gradientSecond="radial-gradient(50% 50% at 50% 50%, hsla(142, 71%, 85%, .06) 0, hsla(142, 71%, 55%, .02) 80%, transparent 100%)"
+        gradientThird="radial-gradient(50% 50% at 50% 50%, hsla(142, 71%, 85%, .04) 0, hsla(142, 71%, 45%, .02) 80%, transparent 100%)"
+        translateY={-350}
+        width={560}
+        height={1380}
+        smallWidth={240}
+        duration={7}
+        xOffset={100}
+      />
+
+      {/* ── Ambient Glow Blobs ── */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl animate-pulse delay-500" />
+      </div>
+
+      {/* ── Header ── */}
+      <Header />
+
+      {/* ════════════════════════════════════════
+          HERO
+      ════════════════════════════════════════ */}
+      <section className="relative w-full pt-20 sm:pt-24 pb-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center min-h-[500px]">
+            {/* Left — text */}
+            <div className="order-2 lg:order-1 flex flex-col">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md mb-6 w-fit"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-sm font-medium text-emerald-400">
+                  India&apos;s Smartest Event Platform
+                </span>
+              </motion.div>
+
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
+              >
+                Event Registration,
+                <br />
+                <span className="text-emerald-400">MADE EFFORTLESS!</span>
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="text-lg sm:text-xl text-gray-400 mb-8 max-w-lg leading-relaxed"
+              >
+                Register for events, receive your digital ticket with QR code
+                instantly on email, and walk in like a VIP.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="flex flex-col sm:flex-row gap-4"
+              >
+                <a href="#events">
+                  <ShimmerButton className="px-8 py-4">
+                    Browse Events
+                    <ArrowRight className="w-5 h-5" />
+                  </ShimmerButton>
+                </a>
+                <Link href="/host-event">
+                  <button className="px-8 py-4 bg-white/5 border border-white/10 text-white font-semibold rounded-lg flex items-center gap-2 hover:bg-white/10 transition-all">
+                    Host Your Event
+                  </button>
+                </Link>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.4 }}
+                transition={{ delay: 1.4, duration: 0.6 }}
+                className="mt-10 flex items-center gap-2 animate-bounce"
+              >
+                <ChevronDown className="w-5 h-5 text-emerald-400" />
+                <span className="text-xs text-gray-500 tracking-widest uppercase">
+                  Scroll to explore
+                </span>
+              </motion.div>
             </div>
-            <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Ticket<span className="gradient-text">Lelo</span>
-            </span>
-          </Link>
-          <div className="flex gap-3 items-center">
-            {mounted && (
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="w-10 h-10 rounded-xl flex items-center justify-center border border-violet-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-violet-50 dark:hover:bg-slate-700 transition-all"
-              >
-                {theme === "dark" ? (
-                  <Sun className="w-4 h-4 text-amber-400" />
-                ) : (
-                  <Moon className="w-4 h-4 text-violet-600" />
-                )}
-              </button>
-            )}
-            <Link href="/signup">
-              <Button className="h-10 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white border-0 shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all">
-                Sign Up
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button
-                variant="outline"
-                className="h-10 border-violet-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 hover:text-violet-700 dark:hover:text-white hover:border-violet-400 dark:hover:border-violet-500/50 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
-              >
-                Sign In
-              </Button>
-            </Link>
-          </div>
-        </nav>
-      </header>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
-        <div className="absolute inset-0 gradient-bg" />
-        <div className="absolute inset-0 dots-bg opacity-40" />
-        <div className="absolute top-20 left-10 w-72 h-72 bg-violet-400/15 dark:bg-violet-600/20 rounded-full blur-[100px] animate-float" />
-        <div
-          className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/10 dark:bg-purple-600/15 rounded-full blur-[120px] animate-float"
-          style={{ animationDelay: "1.5s" }}
-        />
-
-        <div className="relative max-w-5xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-violet-300/50 dark:border-violet-500/30 bg-violet-100/80 dark:bg-violet-500/10 mb-8 animate-fade-in">
-            <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-            <span className="text-sm font-medium text-violet-700 dark:text-violet-300">
-              India&apos;s Smartest Event Platform
-            </span>
-          </div>
-
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-tight mb-6 opacity-0 animate-fade-in-up text-gray-900 dark:text-white">
-            Event Registration
-            <br />
-           <div className="mt-5">
-             <span className="gradient-text">Made Effortless</span>
-           </div>
-          </h1>
-
-          <p className="text-lg sm:text-xl text-gray-500 dark:text-slate-400 max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in-up stagger-2">
-            Register for events, receive your digital ticket with QR code
-            instantly on email, and walk in like a VIP.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center opacity-0 animate-fade-in-up stagger-3">
-            <a href="#events">
-              <Button className="h-12 px-8 text-base bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-xl shadow-violet-500/25 hover:shadow-violet-500/40 transition-all gap-2">
-                Browse Events <ArrowRight className="w-4 h-4" />
-              </Button>
-            </a>
-            <Link href="/login">
-              <Button
-                variant="outline"
-                className="h-12 px-8 text-base border-violet-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 hover:text-violet-700 dark:hover:text-white hover:border-violet-400 dark:hover:border-violet-500/50 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-all"
-              >
-                View My Tickets
-              </Button>
-            </Link>
-          </div>
-
-          <div className="mt-16 flex justify-center animate-bounce opacity-40">
-            <ChevronDown className="w-6 h-6 text-violet-500 dark:text-violet-400" />
+            {/* Right — ticket animation */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.15, ease: "easeOut" }}
+              className="order-1 lg:order-2 flex items-center justify-center"
+            >
+              <TicketAnimation />
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-20 relative">
-        <div className="absolute inset-0 dots-bg opacity-20" />
-        <div className="relative max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Zap,
-                title: "Instant Registration",
-                desc: "Register in seconds. No queues, no hassle.",
-                color: "from-amber-500 to-orange-500",
-                shadow: "shadow-amber-500/20",
-                bg: "bg-amber-50 dark:bg-amber-500/10",
-              },
-              {
-                icon: QrCode,
-                title: "QR Code Tickets",
-                desc: "Get a unique QR code. Scan & enter at the gate.",
-                color: "from-violet-500 to-purple-500",
-                shadow: "shadow-violet-500/20",
-                bg: "bg-violet-50 dark:bg-violet-500/10",
-              },
-              {
-                icon: Shield,
-                title: "Secure & Verified",
-                desc: "Each ticket is verified to prevent duplication.",
-                color: "from-emerald-500 to-teal-500",
-                shadow: "shadow-emerald-500/20",
-                bg: "bg-emerald-50 dark:bg-emerald-500/10",
-              },
-            ].map((f, i) => (
-              <div
-                key={f.title}
-                className={`group p-8 rounded-2xl border bg-white dark:bg-slate-900/50 border-violet-100 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-500/30 transition-all duration-300 card-hover opacity-0 animate-fade-in-up stagger-${i + 1}`}
-              >
-                <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-5 shadow-lg ${f.shadow} group-hover:scale-110 transition-transform`}
+      {/* ════════════════════════════════════════
+          SCROLL TICKER
+      ════════════════════════════════════════ */}
+      <section className="relative overflow-hidden py-3">
+        <ScrollVelocityContainer>
+          <ScrollVelocityRow
+            baseVelocity={8}
+            direction={1}
+            className="text-2xl sm:text-4xl font-bold text-emerald-400/20"
+          >
+            <span className="px-6">Digital Passes</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-6">QR Codes</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-6">Ticketलेलो</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-6">Free Registration</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+          </ScrollVelocityRow>
+          <ScrollVelocityRow
+            baseVelocity={8}
+            direction={-1}
+            className="text-2xl sm:text-4xl font-bold text-emerald-400/20"
+          >
+            <span className="px-6">Instant Tickets</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-6">Event Pass</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-6">Secure Entry</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-6">Smart Platform</span>
+            <span className="px-2 text-emerald-500/30">•</span>
+          </ScrollVelocityRow>
+        </ScrollVelocityContainer>
+      </section>
+
+      {/* ════════════════════════════════════════
+          HOST YOUR EVENT
+      ════════════════════════════════════════ */}
+      <section className="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="text-center"
+          >
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 border-2 border-emerald-500/30 rounded-2xl mb-6">
+              <Sparkles className="w-10 h-10 text-emerald-400" />
+            </div>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
+              Want to Host Your Event?
+            </h2>
+            <p className="text-lg sm:text-xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+              Join Ticketलेलो and take your event management to the next level.
+              Create custom forms, track registrations, scan QR codes, and more!
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 max-w-3xl mx-auto">
+              {[
+                { icon: FormInput, text: "Custom Forms" },
+                { icon: Users, text: "Track Registrations" },
+                { icon: QrCode, text: "QR Scanner" },
+              ].map((item, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  viewport={{ once: true }}
+                  className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-4"
                 >
-                  <f.icon className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                  {f.title}
-                </h3>
-                <p className="text-gray-600 dark:text-slate-400 text-sm leading-relaxed">
-                  {f.desc}
-                </p>
-              </div>
-            ))}
-          </div>
+                  <item.icon className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                  <span className="text-sm font-medium">{item.text}</span>
+                </motion.div>
+              ))}
+            </div>
+
+            <Link href="/host-event">
+              <ShimmerButton className="px-10 py-5 text-lg">
+                Host Your Event
+                <ArrowRight className="w-5 h-5" />
+              </ShimmerButton>
+            </Link>
+          </motion.div>
         </div>
       </section>
 
-      {/* Events Section */}
-      <section id="events" className="py-20 relative scroll-mt-20">
-        <div className="max-w-6xl mx-auto px-6">
+      {/* ════════════════════════════════════════
+          EVENTS
+      ════════════════════════════════════════ */}
+      <section
+        id="events"
+        className="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-zinc-950 scroll-mt-20"
+      >
+        <div className="max-w-7xl mx-auto">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-10 h-10 animate-spin text-violet-500 mb-4" />
-              <p className="text-gray-500 dark:text-slate-400">
-                Loading events...
-              </p>
+              <Loader2 className="w-10 h-10 animate-spin text-emerald-400 mb-4" />
+              <p className="text-gray-400">Loading events...</p>
             </div>
           ) : events.length === 0 ? (
-            <div className="text-center py-20 opacity-0 animate-fade-in">
-              <div className="w-20 h-20 rounded-full bg-violet-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
-                <Calendar className="w-10 h-10 text-violet-300 dark:text-slate-600" />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-20"
+            >
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mb-6">
+                <Calendar className="w-10 h-10 text-emerald-400" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                No Events Yet
-              </h3>
-              <p className="text-gray-500 dark:text-slate-400">
+              <h3 className="text-2xl font-bold mb-2">No Events Yet</h3>
+              <p className="text-gray-400">
                 Check back soon for upcoming events!
               </p>
-            </div>
+            </motion.div>
           ) : selectedEvent ? (
-            <div className="max-w-2xl mx-auto opacity-0 animate-scale-in">
-              <Button
-                onClick={handleBack}
-                variant="outline"
-                className="mb-8 gap-2 border-violet-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-violet-700 dark:hover:text-white hover:border-violet-400 dark:hover:border-violet-500/50 hover:bg-violet-50 dark:hover:bg-violet-500/10"
+            /* Registration Form */
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="max-w-2xl mx-auto"
+            >
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="mb-8 flex items-center gap-2 text-sm text-gray-400 hover:text-white border border-white/10 px-4 py-2 rounded-lg hover:border-emerald-500/40 hover:bg-white/5 transition-all"
               >
                 <ArrowLeft className="w-4 h-4" /> Back to Events
-              </Button>
-              <div className="p-8 rounded-2xl border bg-white dark:bg-slate-900/80 border-violet-100 dark:border-slate-800 backdrop-blur">
+              </button>
+              <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                    <Ticket className="w-5 h-5 text-white" />
+                  <div className="inline-flex items-center justify-center w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                    <Ticket className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-2xl font-bold">
                     Register for {selectedEvent.name}
                   </h2>
                 </div>
-                <p className="text-gray-500 dark:text-slate-400 mb-8 ml-[52px]">
-                  Fill in your details below to secure your spot.
-                </p>
-                <RegistrationForm
-                  events={events}
-                  preSelectedEventId={selectedEvent.id}
+                <DynamicRegistrationForm
+                  eventId={selectedEvent.id}
+                  event={selectedEvent}
+                  {...(selectedEvent.id in prefetchedForms && {
+                    initialForm: prefetchedForms[selectedEvent.id],
+                  })}
                 />
               </div>
-            </div>
+            </motion.div>
           ) : (
+            /* Events Grid */
             <div>
-              <div className="text-center mb-12">
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 opacity-0 animate-fade-in-up">
-                  Upcoming <span className="gradient-text">Events</span>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                viewport={{ once: true }}
+                className="text-center mb-12 sm:mb-16"
+              >
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+                  Upcoming <span className="text-emerald-400">Events</span>
                 </h2>
-                <p className="text-gray-500 dark:text-slate-400 opacity-0 animate-fade-in-up stagger-1">
+                <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto">
                   Pick an event and register in seconds
                 </p>
-              </div>
+              </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {events.map((event, i) => (
-                  <div
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+                {events.map((event, index) => (
+                  <motion.div
                     key={event.id}
-                    className={`group relative rounded-2xl border bg-white dark:bg-slate-900/60 border-violet-100 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-500/40 transition-all duration-300 cursor-pointer card-hover overflow-hidden flex flex-col opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}
-                    onClick={() => handleEventSelect(event)}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: (index % 6) * 0.07 }}
+                    viewport={{ once: true }}
+                    onMouseEnter={() => prefetchForm(event.id)}
+                    onClick={() => setSelectedEvent(event)}
+                    className="group relative bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 hover:border-emerald-500/40 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 flex flex-col hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]"
                   >
-                    <div className="h-1 bg-gradient-to-r from-violet-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="h-0.5 bg-gradient-to-r from-emerald-500 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="p-6 flex flex-col flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors line-clamp-1">
+                      <h3 className="text-xl font-bold mb-2 group-hover:text-emerald-400 transition-colors line-clamp-1">
                         {event.name}
                       </h3>
-                      <p className="text-gray-500 dark:text-slate-400 text-sm mb-5 line-clamp-2 min-h-[2.5rem]">
+                      <p className="text-gray-400 text-sm mb-5 line-clamp-2 min-h-[2.5rem] leading-relaxed">
                         {event.description}
                       </p>
                       <div className="space-y-3 mb-6">
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center shrink-0">
-                            <Calendar className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                            <Calendar className="w-4 h-4 text-emerald-400" />
                           </div>
-                          <span className="text-gray-700 dark:text-slate-300 truncate">
+                          <span className="text-gray-300 truncate">
                             {event.date?.toDate
                               ? event.date
                                   .toDate()
@@ -307,30 +604,30 @@ export default function HomePage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center shrink-0">
-                            <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                            <MapPin className="w-4 h-4 text-emerald-400" />
                           </div>
-                          <span className="text-gray-700 dark:text-slate-300 truncate">
+                          <span className="text-gray-300 truncate">
                             {event.location}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0">
-                            <Ticket className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                            <Ticket className="w-4 h-4 text-emerald-400" />
                           </div>
-                          <span className="text-gray-700 dark:text-slate-300">
+                          <span className="text-gray-300">
                             {event.totalTickets} tickets available
                           </span>
                         </div>
                       </div>
                       <div className="mt-auto">
-                        <Button className="w-full h-11 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white shadow-lg shadow-violet-500/20 group-hover:shadow-violet-500/30 transition-all gap-2">
-                          Register Now{" "}
+                        <button className="w-full py-3 bg-emerald-500 text-black font-semibold rounded-lg flex items-center justify-center gap-2 group-hover:bg-emerald-400 transition-all">
+                          Register Now
                           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </Button>
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -338,23 +635,131 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-violet-100 dark:border-slate-800 py-10">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-gray-500 dark:text-slate-500 text-sm mb-3">
-            Already registered?{" "}
-            <Link
-              href="/login"
-              className="text-violet-600 dark:text-violet-400 hover:text-violet-500 dark:hover:text-violet-300 font-medium transition-colors"
-            >
-              Sign in to view your tickets
-            </Link>
-          </p>
-          <p className="text-gray-400 dark:text-slate-600 text-xs">
-            &copy; {new Date().getFullYear()} TicketLelo. Built with ❤️
-          </p>
+      {/* ════════════════════════════════════════
+          HOW IT WORKS
+      ════════════════════════════════════════ */}
+      <section
+        id="how-it-works"
+        className="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8"
+      >
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="text-center mb-12 sm:mb-16"
+          >
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+              How It Works
+            </h2>
+            <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto">
+              Get your event pass in three simple steps
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+            {[
+              {
+                step: "01",
+                icon: Users,
+                title: "Select Event",
+                desc: "Browse upcoming events and choose the one you want to attend.",
+              },
+              {
+                step: "02",
+                icon: Ticket,
+                title: "Fill Details",
+                desc: "Complete the registration form with your details in seconds.",
+              },
+              {
+                step: "03",
+                icon: Zap,
+                title: "Get Your Pass",
+                desc: "Receive your QR code ticket instantly via email and download.",
+              },
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                <div className="text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-xl mb-6">
+                    <item.icon className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <div className="text-sm font-bold text-emerald-400 mb-3 tracking-widest">
+                    STEP {item.step}
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                  <p className="text-gray-400 leading-relaxed">{item.desc}</p>
+                </div>
+                {index < 2 && (
+                  <div className="hidden md:block absolute top-8 left-full w-full h-px bg-gradient-to-r from-zinc-700 to-transparent" />
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════
+          CTA
+      ════════════════════════════════════════ */}
+      <section className="relative py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-zinc-950">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
+              Ready to Get Started?
+            </h2>
+            <p className="text-lg sm:text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+              Browse events, register in seconds, and get your digital pass
+              instantly.
+            </p>
+            <a href="#events">
+              <button className="px-10 py-4 bg-emerald-500 text-black font-semibold rounded-lg text-lg inline-flex items-center gap-2 hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20">
+                Browse Events
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </a>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════
+          FOOTER
+      ════════════════════════════════════════ */}
+      <footer className="relative border-t border-zinc-900 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div>
+              <div className="text-xl font-bold mb-1">
+                Ticket<span className="text-emerald-400">लेलो</span>
+              </div>
+              <div className="text-sm text-gray-500">
+                © {new Date().getFullYear()} Ticketलेलो. All rights reserved.
+              </div>
+            </div>
+            <p className="text-gray-500 text-sm">
+              Want to host an event?{" "}
+              <Link
+                href="/host-event"
+                className="text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                Submit a hosting request
+              </Link>
+            </p>
+          </div>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }

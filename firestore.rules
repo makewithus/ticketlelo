@@ -3,9 +3,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if user is admin
+    // Helper function to check if user is super admin
+    function isSuperAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superAdmin";
+    }
+    
+    // Helper function to check if user has super admin email (for initial setup)
+    function isSuperAdminEmail() {
+      return request.auth != null && request.auth.token.email == "superadmin@ticketlelo.com";
+    }
+    
+    // Helper function to check if user is organiser
+    function isOrganiser() {
+      return request.auth != null && 
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "organiser" ||
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
+              // Fallback: Check if email ends with @ticketlelo.com (except superadmin)
+              (request.auth.token.email.matches('.*@ticketlelo.com$') && 
+               request.auth.token.email != 'superadmin@ticketlelo.com'));
+    }
+    
+    // Helper function to check if user is admin (backward compatibility)
     function isAdmin() {
       return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
     
@@ -13,46 +37,92 @@ service cloud.firestore {
     match /events/{eventId} {
       // Anyone can read events
       allow read: if true;
-      // Admins can manage events
-      allow write: if isAdmin();
+      // Organisers and Super Admins can manage events
+      allow write: if isOrganiser() || isSuperAdmin();
     }
     
-    // Batches collection
-    match /batches/{batchId} {
-      // Anyone can read batches for active events
+    // Hosting Requests collection
+    match /hostingRequests/{requestId} {
+      // Anyone can create a hosting request (no authentication required)
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']);
+      // Super Admins can read all requests (including by email before doc exists)
+      allow read: if isSuperAdmin() || isSuperAdminEmail();
+      // Super Admins can update/delete hosting requests
+      allow update, delete: if isSuperAdmin() || isSuperAdminEmail();
+      // Allow the newly created organiser to update their own request status (for approval flow)
+      allow update: if request.auth != null && 
+                       request.resource.data.status == "approved" &&
+                       request.resource.data.organiserId == request.auth.uid;
+    }
+    
+    // Custom Forms collection
+    match /customForms/{formId} {
+      // Anyone can read forms (API sanitizes sensitive data before returning)
       allow read: if true;
-      // Admins can manage batches
-      allow write: if isAdmin();
+      // Only organisers and super admins can create forms
+      allow create: if isOrganiser() || isSuperAdmin();
+      // Only the organiser who created it or super admin can update
+      allow update: if isOrganiser() || isSuperAdmin();
+      // Only super admin can delete forms
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Coupons collection
+    match /coupons/{couponId} {
+      // Anyone can read to validate coupons
+      allow read: if true;
+      // Only super admins can create/delete coupons
+      allow create, delete: if isSuperAdmin();
+      // Anyone can update (to mark as used)
+      allow update: if true;
     }
     
     // Registrations collection
     match /registrations/{registrationId} {
       // Users can read their own registrations
       allow read: if request.auth != null && 
-                     (request.auth.uid == resource.data.userId || isAdmin());
+                     (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
       // Allow unauthenticated reads for ticket verification (API routes)
       allow read: if true;
       // Anyone can create registrations (for public event registration)
       allow create: if true;
       // Allow updates for ticket verification (status change to "Used")
       allow update: if true;
-      // Only admins can delete registrations
-      allow delete: if isAdmin();
+      // Only organisers and super admins can delete registrations
+      allow delete: if isOrganiser() || isSuperAdmin();
     }
     
-    // Admins collection (only readable by admins themselves)
-    match /admins/{adminId} {
-      allow read: if request.auth != null && request.auth.uid == adminId;
-      // Only existing admins can add new admins
-      allow write: if isAdmin();
+    // Payments collection
+    match /payments/{paymentId} {
+      // Anyone can read their own payments
+      allow read: if true;
+      // Anyone can create payment records (for payment verification)
+      allow create: if true;
+      // Only organisers and super admins can update/delete payments
+      allow update, delete: if isOrganiser() || isSuperAdmin();
     }
     
     // Users collection
     match /users/{userId} {
-      // Users can read and write their own data
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      // Admins can read all users
-      allow read: if isAdmin();
+      // Super admin email has full access to everything (checked first)
+      allow read, write, create, update, delete: if isSuperAdminEmail();
+      
+      // Super admins with role can do everything
+      allow read, write, update, delete: if isSuperAdmin();
+      
+      // Allow anyone to query users collection (needed for registration flow)
+      allow read: if true;
+      
+      // Any authenticated user can create their own user document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow unauthenticated updates ONLY for password and whatsappPhone (account migration)
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'email', 'id', 'createdAt', 'fullName']);
+      
+      // Users can update their own data but cannot change role or isAdmin fields
+      allow update: if request.auth != null && 
+                       request.auth.uid == userId && 
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin']);
     }
   }
 }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRegistrationByTicketId } from "@/lib/firestore";
-import { getEvent, getBatchesByEvent } from "@/lib/firestore";
+import { getRegistrationByTicketId, getEvent } from "@/lib/firestore";
 import { generatePDFTicket } from "@/lib/tickets";
 
 /**
@@ -23,31 +22,20 @@ export async function GET(request, { params }) {
     const registration = await getRegistrationByTicketId(ticketId);
 
     if (!registration) {
-      return NextResponse.json(
-        { error: "Ticket not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
     // Fetch event details
     const event = await getEvent(registration.eventId);
 
     if (!event) {
-      return NextResponse.json(
-        { error: "Event not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
-
-    // Fetch batch details
-    const batches = await getBatchesByEvent(registration.eventId);
-    const batch = batches.find((b) => b.id === registration.batchId);
 
     // Generate PDF blob
     const pdfBlob = await generatePDFTicket(
       registration,
       event,
-      batch,
       registration.qrCode,
     );
 
