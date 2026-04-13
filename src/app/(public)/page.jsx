@@ -253,7 +253,9 @@ export default function HomePage() {
             [eventId]: data.form,
           }));
           const prefetchTime = Date.now() - startTime;
-          console.log(`[Prefetch] ✅ Form cached in ${prefetchTime}ms for event: ${eventId}`);
+          console.log(
+            `[Prefetch] ✅ Form cached in ${prefetchTime}ms for event: ${eventId}`,
+          );
         } else if (data.success && !data.form) {
           // No custom form - mark as "no form" so we don't keep trying
           console.log(`[Prefetch] ℹ️ No custom form found - will use default`);

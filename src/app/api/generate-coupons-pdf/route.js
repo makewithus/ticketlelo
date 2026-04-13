@@ -116,12 +116,12 @@ export async function POST(request) {
     yPosition -= 65;
 
     // Info line
-    const infoText = `Generated: ${new Date().toLocaleDateString("en-US", { 
-      month: "short", 
-      day: "numeric", 
-      year: "numeric" 
+    const infoText = `Generated: ${new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     })}  |  Total Coupons: ${allCoupons.length}`;
-    
+
     currentPage.drawText(infoText, {
       x: margin,
       y: yPosition - 5,
@@ -240,7 +240,7 @@ export async function POST(request) {
       // Validity date
       const validDate = new Date(coupon.validUntil).toLocaleDateString(
         "en-US",
-        { month: "short", day: "numeric", year: "numeric" }
+        { month: "short", day: "numeric", year: "numeric" },
       );
       currentPage.drawText(`Valid Until: ${validDate}`, {
         x: contentX,
@@ -266,7 +266,7 @@ export async function POST(request) {
     const pages = pdfDoc.getPages();
     pages.forEach((page, index) => {
       const footerY = 25;
-      
+
       // Footer line
       page.drawLine({
         start: { x: margin, y: footerY + 15 },
@@ -274,7 +274,7 @@ export async function POST(request) {
         thickness: 0.5,
         color: rgb(0.8, 0.8, 0.8),
       });
-      
+
       // Footer text
       page.drawText(
         `${eventName || "TicketLelo"} - Discount Coupons | Page ${index + 1} of ${pages.length}`,
@@ -284,7 +284,7 @@ export async function POST(request) {
           size: 8,
           font: timesRomanFont,
           color: rgb(0.6, 0.6, 0.6),
-        }
+        },
       );
     });
 

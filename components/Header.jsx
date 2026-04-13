@@ -132,7 +132,7 @@ export default function Header() {
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
-    
+
     if (!resetEmail || !resetEmail.includes("@")) {
       toast.error("Please enter a valid email address");
       return;
@@ -144,8 +144,12 @@ export default function Header() {
         url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}`,
         handleCodeInApp: false,
       };
-      
-      await sendPasswordResetEmail(auth, resetEmail.toLowerCase().trim(), actionCodeSettings);
+
+      await sendPasswordResetEmail(
+        auth,
+        resetEmail.toLowerCase().trim(),
+        actionCodeSettings,
+      );
       toast.success("✅ Password reset link sent! Check your email.");
       setShowForgotPassword(false);
       setResetEmail("");
@@ -476,7 +480,8 @@ export default function Header() {
 
                       <div className="text-center space-y-2">
                         <p className="text-xs text-gray-400">
-                          💡 Use the email and password you set during registration.
+                          💡 Use the email and password you set during
+                          registration.
                         </p>
                         <button
                           type="button"
@@ -493,7 +498,8 @@ export default function Header() {
                     {/* Password Reset Form */}
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-4">
                       <p className="text-sm text-blue-400">
-                        📧 Enter your email address and we'll send you a password reset link.
+                        📧 Enter your email address and we'll send you a
+                        password reset link.
                       </p>
                     </div>
 

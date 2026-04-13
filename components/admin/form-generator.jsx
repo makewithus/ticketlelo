@@ -314,19 +314,21 @@ export function FormGenerator() {
         setExistingFormId(result.id);
         toast.success("Draft created successfully");
       }
-      
+
       // Automatically generate and download coupons PDF if coupons are enabled
       if (enableCoupons && couponConfigs.length > 0) {
         console.log("🎟️ Coupons enabled - Auto-generating PDF");
         toast.info("Generating coupons PDF...");
-        
+
         // Delay slightly to ensure Firestore is updated
         setTimeout(async () => {
           try {
             await handleDownloadCouponsPDF();
           } catch (error) {
             console.error("Failed to auto-generate coupons PDF:", error);
-            toast.error("Draft saved but PDF generation failed. Use the 'Download Coupons PDF' button.");
+            toast.error(
+              "Draft saved but PDF generation failed. Use the 'Download Coupons PDF' button.",
+            );
           }
         }, 1000);
       }
@@ -396,19 +398,21 @@ export function FormGenerator() {
       }
 
       toast.success("Form published successfully!");
-      
+
       // Automatically generate and download coupons PDF if coupons are enabled
       if (enableCoupons && couponConfigs.length > 0) {
         console.log("🎟️ Coupons enabled - Auto-generating PDF");
         toast.info("Generating coupons PDF...");
-        
+
         // Delay slightly to ensure Firestore is updated
         setTimeout(async () => {
           try {
             await handleDownloadCouponsPDF();
           } catch (error) {
             console.error("Failed to auto-generate coupons PDF:", error);
-            toast.error("Form published but PDF generation failed. Use the 'Download Coupons PDF' button.");
+            toast.error(
+              "Form published but PDF generation failed. Use the 'Download Coupons PDF' button.",
+            );
           }
         }, 1000);
       }
@@ -1336,11 +1340,11 @@ export function FormGenerator() {
               {/* Info Box */}
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                 <p className="text-xs text-blue-400">
-                  💡 <strong>How it works:</strong> When you save or publish the form,
-                  coupon codes will be automatically generated and a PDF containing all codes will 
-                  download automatically. Organizers can distribute these codes to
-                  attendees, who can apply them during registration to get
-                  discounts.
+                  💡 <strong>How it works:</strong> When you save or publish the
+                  form, coupon codes will be automatically generated and a PDF
+                  containing all codes will download automatically. Organizers
+                  can distribute these codes to attendees, who can apply them
+                  during registration to get discounts.
                 </p>
               </div>
 

@@ -55,17 +55,20 @@ export function EventManagement() {
 
   const checkEventCreationEligibility = async () => {
     if (!user) return;
-    
+
     // SuperAdmin can create unlimited events
     if (user.role === "superAdmin") {
       setCanCreateEvent(true);
       return;
     }
-    
+
     // Organisers check against eventsAllowed limit
     if (user.role === "organiser") {
       const canCreate = await canOrganiserCreateEvent(user.id);
-      console.log(`📊 Event creation eligibility for ${user.email}:`, canCreate);
+      console.log(
+        `📊 Event creation eligibility for ${user.email}:`,
+        canCreate,
+      );
       setCanCreateEvent(canCreate);
     }
   };
@@ -73,7 +76,7 @@ export function EventManagement() {
   const loadEvents = async () => {
     try {
       let allEvents;
-      
+
       // SuperAdmin sees all events
       if (user.role === "superAdmin") {
         allEvents = await getAllEvents();
@@ -83,7 +86,7 @@ export function EventManagement() {
       } else {
         allEvents = [];
       }
-      
+
       setEvents(allEvents);
     } catch (error) {
       console.error("Failed to load events:", error);
@@ -95,13 +98,15 @@ export function EventManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Check if organiser already has an event (for new event creation)
     if (!editingEvent && user.role === "organiser" && !canCreateEvent) {
-      toast.error("You can only create one event. Request approval for another event through the hosting request form.");
+      toast.error(
+        "You can only create one event. Request approval for another event through the hosting request form.",
+      );
       return;
     }
-    
+
     setIsLoading(true);
     try {
       if (editingEvent) {
@@ -112,11 +117,14 @@ export function EventManagement() {
         });
         toast.success("Event updated successfully");
       } else {
-        await createEvent({
-          ...formData,
-          date: new Date(formData.date),
-          totalTickets: parseInt(formData.totalTickets),
-        }, user.id); // Pass userId to link event to organiser
+        await createEvent(
+          {
+            ...formData,
+            date: new Date(formData.date),
+            totalTickets: parseInt(formData.totalTickets),
+          },
+          user.id,
+        ); // Pass userId to link event to organiser
         toast.success("Event created successfully");
         setCanCreateEvent(false); // Disable further creation for organisers
       }
@@ -207,7 +215,7 @@ export function EventManagement() {
           </Button>
         )}
       </div>
-      
+
       {/* Warning for organisers who already created an event */}
       {!canCreateEvent && user?.role === "organiser" && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-900/20 p-4 flex items-start gap-3">
@@ -217,7 +225,8 @@ export function EventManagement() {
               Event Creation Limit Reached
             </p>
             <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-              You have reached your event creation limit. To host another event, please submit a new hosting request and wait for approval.
+              You have reached your event creation limit. To host another event,
+              please submit a new hosting request and wait for approval.
             </p>
           </div>
         </div>

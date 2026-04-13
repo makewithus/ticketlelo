@@ -70,7 +70,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         // Custom form exists - use it
         console.log("⚡ Using prefetched form - instant load!");
         setCustomForm(initialForm);
-        
+
         // Initialize form data with empty values
         const initialData = {};
         initialForm.fields?.forEach((field) => {
@@ -118,17 +118,20 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           status: "published",
           isDefault: true,
         };
-        
+
         setCustomForm(defaultForm);
         setFormData({
           fullName: "",
           email: "",
           phone: "",
         });
-        
-        toast.info("Using default registration form. Contact event organizer for custom forms.", {
-          duration: 4000,
-        });
+
+        toast.info(
+          "Using default registration form. Contact event organizer for custom forms.",
+          {
+            duration: 4000,
+          },
+        );
       }
       return;
     }
@@ -137,15 +140,18 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       try {
         console.log("📋 Loading custom form for event:", eventId);
         setFormLoadError(null);
-        
+
         // Create abort controller for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-        const response = await fetch(`/api/get-custom-form?eventId=${eventId}`, {
-          signal: controller.signal,
-        });
-        
+        const response = await fetch(
+          `/api/get-custom-form?eventId=${eventId}`,
+          {
+            signal: controller.signal,
+          },
+        );
+
         clearTimeout(timeoutId);
         const data = await response.json();
 
@@ -208,7 +214,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             status: "published",
             isDefault: true,
           };
-          
+
           setCustomForm(defaultForm);
           setFormData({
             fullName: "",
@@ -216,22 +222,27 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             phone: "",
           });
           setRetryCount(0);
-          
-          toast.info("Using default registration form. Contact event organizer for custom forms.", {
-            duration: 4000,
-          });
+
+          toast.info(
+            "Using default registration form. Contact event organizer for custom forms.",
+            {
+              duration: 4000,
+            },
+          );
         } else {
           throw new Error(data.message || "Failed to load registration form");
         }
       } catch (error) {
         console.error("❌ Error loading custom form:", error);
-        
-        if (error.name === 'AbortError') {
+
+        if (error.name === "AbortError") {
           setFormLoadError("Form loading timed out. Click retry to try again.");
           toast.error("Loading timed out. Please retry.");
         } else {
           setFormLoadError(error.message || "Failed to load registration form");
-          toast.error("Failed to load form: " + (error.message || "Unknown error"));
+          toast.error(
+            "Failed to load form: " + (error.message || "Unknown error"),
+          );
         }
       }
     }
@@ -256,7 +267,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
     customForm.fields?.forEach((field) => {
       if (field.required && !formData[field.id]?.trim()) {
-        newErrors[field.id] = `${field.label || field.name || "This field"} is required`;
+        newErrors[field.id] =
+          `${field.label || field.name || "This field"} is required`;
       }
 
       // Email validation
@@ -515,7 +527,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       // Send ticket email
       try {
-        console.log("📧 [registerExistingUser] Sending ticket email WITHOUT password");
+        console.log(
+          "📧 [registerExistingUser] Sending ticket email WITHOUT password",
+        );
         await sendRegistrationConfirmation(
           user.email,
           tempFormData.fullName || user.fullName || user.email,
@@ -577,7 +591,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       // Send confirmation email with PDF ticket AND CREDENTIALS
       try {
-        console.log("📧 [proceedWithRegistration - NEW USER] Sending ticket WITH password");
+        console.log(
+          "📧 [proceedWithRegistration - NEW USER] Sending ticket WITH password",
+        );
         console.log("📧 Sending ticket with credentials to email:", email);
         console.log(
           "   Password being sent:",
@@ -724,7 +740,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           console.log("   User ID:", existingUser.id);
           console.log("   Email:", existingUser.email);
           console.log("   Name:", existingUser.fullName);
-          console.log("   → Will NOT send password (user already has credentials)");
+          console.log(
+            "   → Will NOT send password (user already has credentials)",
+          );
           toast.info(`Welcome back! We found your account for ${email}`, {
             duration: 4000,
           });
@@ -742,7 +760,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         });
       }
 
-      const isPaidEvent = customForm?.isPaid &&customForm?.amount > 0;
+      const isPaidEvent = customForm?.isPaid && customForm?.amount > 0;
 
       console.log("=".repeat(60));
       console.log("💰 PAYMENT CHECK:");
@@ -781,7 +799,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         if (existingUser) {
           console.log("=".repeat(50));
           console.log("🔄 EXISTING USER - FREE EVENT");
-          console.log("   No password will be sent (user already has credentials)");
+          console.log(
+            "   No password will be sent (user already has credentials)",
+          );
           console.log("=".repeat(50));
           await registerExistingUserDirectly(
             existingUser,
@@ -976,7 +996,10 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       console.log("🔐 Creating/Updating user account with new credentials...");
       console.log("   Email:", email);
       console.log("   Password:", password);
-      console.log("   Using tempFormData:", tempFormData ? "Available" : "Missing");
+      console.log(
+        "   Using tempFormData:",
+        tempFormData ? "Available" : "Missing",
+      );
 
       let user = null;
       let isNewUser = false;
@@ -986,70 +1009,75 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       if (existingUserCheck) {
         // EXISTING USER - Update their password in both Firebase Auth AND Firestore
-        console.log("🔄 User exists - Updating password in Firebase Auth and Firestore");
-        
+        console.log(
+          "🔄 User exists - Updating password in Firebase Auth and Firestore",
+        );
+
         try {
           // Update Firebase Auth password via Admin SDK
-          const updatePasswordResponse = await fetch("/api/update-user-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              uid: existingUserCheck.id,
-              newPassword: password,
-            }),
-          });
+          const updatePasswordResponse = await fetch(
+            "/api/update-user-password",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                uid: existingUserCheck.id,
+                newPassword: password,
+              }),
+            },
+          );
 
           const updatePasswordResult = await updatePasswordResponse.json();
-          
+
           if (!updatePasswordResult.success) {
             throw new Error("Failed to update Firebase Auth password");
           }
-          
+
           console.log("✅ Firebase Auth password updated");
 
           // Update Firestore password and name
           const userRef = doc(db, "users", existingUserCheck.id);
-          
+
           const updateData = {
             password: password,
           };
-          
+
           // Update fullName if provided
           if (fullName && fullName.trim()) {
             updateData.fullName = fullName.trim();
           }
-          
+
           // Only update phone if it's different and provided
           if (phone && phone !== existingUserCheck.whatsappPhone) {
             updateData.whatsappPhone = phone;
           }
-          
+
           await updateDoc(userRef, updateData);
-          
+
           user = {
             ...existingUserCheck,
             password: password,
             fullName: fullName?.trim() || existingUserCheck.fullName,
             whatsappPhone: phone || existingUserCheck.whatsappPhone,
           };
-          
-          console.log("✅ Existing user updated with new password in both Auth and Firestore");
+
+          console.log(
+            "✅ Existing user updated with new password in both Auth and Firestore",
+          );
           isNewUser = false;
         } catch (updateError) {
-          console.error("❌ Failed to update existing user password:", updateError);
+          console.error(
+            "❌ Failed to update existing user password:",
+            updateError,
+          );
           throw new Error("Failed to update password. Please try again.");
         }
       } else {
         // NEW USER - Create Firebase Auth account and Firestore document
         console.log("🆕 Creating new user account");
-        
-        user = await signup(
-          email,
-          password,
-          fullName || email,
-          phone || "",
-        );
-        
+
+        user = await signup(email, password, fullName || email, phone || "");
+
         console.log("✅ New user account created:", user.id);
         isNewUser = true;
       }
@@ -1080,7 +1108,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       // Send ticket email WITH CREDENTIALS (for both new and existing users)
       try {
         console.log("=".repeat(60));
-        console.log(`📧 [${isNewUser ? 'NEW' : 'EXISTING'} USER] Sending ticket WITH password`);
+        console.log(
+          `📧 [${isNewUser ? "NEW" : "EXISTING"} USER] Sending ticket WITH password`,
+        );
         console.log("=== 📧 CALLING sendRegistrationConfirmation ===");
         console.log("   Email:", email);
         console.log("   FullName:", user.fullName || fullName || email);
@@ -1159,7 +1189,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       // Send ticket email (NOT credentials - they already have them)
       try {
-        console.log("📧 [registerExistingUserDirectly] Sending ticket email WITHOUT password");
+        console.log(
+          "📧 [registerExistingUserDirectly] Sending ticket email WITHOUT password",
+        );
         await sendRegistrationConfirmation(
           email,
           fullName || user.fullName || email,
@@ -1338,7 +1370,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             {formLoadError}
           </p>
           <Button
-            onClick={() => setRetryCount(prev => prev + 1)}
+            onClick={() => setRetryCount((prev) => prev + 1)}
             className="bg-red-600 hover:bg-red-500 text-white rounded-xl"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
@@ -1639,8 +1671,18 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5">
-                    <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                   </div>
                   <div className="flex-1">
@@ -1659,25 +1701,41 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                 <div className="bg-slate-50 dark:bg-slate-800 border-2 border-emerald-500 rounded-lg p-5">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      <svg
+                        className="w-5 h-5 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                        />
                       </svg>
                     </div>
-                    <h4 className="text-slate-900 dark:text-white font-semibold text-base">Your Login Credentials</h4>
+                    <h4 className="text-slate-900 dark:text-white font-semibold text-base">
+                      Your Login Credentials
+                    </h4>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">Email Address</label>
+                      <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">
+                        Email Address
+                      </label>
                       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5">
                         <p className="font-mono text-slate-900 dark:text-white text-sm break-all">
                           {userCredentials.email}
                         </p>
                       </div>
                     </div>
-                    
+
                     <div>
-                      <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">Password</label>
+                      <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">
+                        Password
+                      </label>
                       <div className="bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-lg px-4 py-3">
                         <p className="font-mono text-slate-900 dark:text-white text-xl font-bold tracking-wider text-center">
                           {userCredentials.password}
@@ -1688,7 +1746,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
                   <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5">
                     <p className="text-amber-800 dark:text-amber-300 text-xs text-center font-medium">
-                      💾 Save these credentials - you'll need them to sign in and access your dashboard
+                      💾 Save these credentials - you'll need them to sign in
+                      and access your dashboard
                     </p>
                   </div>
                 </div>
@@ -1697,7 +1756,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               {/* Info Message */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <p className="text-sm text-blue-900 dark:text-blue-300">
-                  <strong>What's next?</strong> Use the credentials above to login and view your tickets, or change your password anytime from your dashboard.
+                  <strong>What's next?</strong> Use the credentials above to
+                  login and view your tickets, or change your password anytime
+                  from your dashboard.
                 </p>
               </div>
             </div>
@@ -1707,9 +1768,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               <Button
                 onClick={() => {
                   setShowSuccessModal(false);
-                  toast.info("Please sign in with your credentials to access your dashboard", {
-                    duration: 4000,
-                  });
+                  toast.info(
+                    "Please sign in with your credentials to access your dashboard",
+                    {
+                      duration: 4000,
+                    },
+                  );
                   router.push("/");
                 }}
                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-medium"

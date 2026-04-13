@@ -110,7 +110,7 @@ export async function POST(request) {
       // Increase event creation limit (eventsAllowed)
       const currentAllowed = userData?.eventsAllowed || 1;
       const currentCreated = userData?.eventsCreated || 0;
-      
+
       await adminDb
         .collection("users")
         .doc(organiserId)
@@ -123,7 +123,9 @@ export async function POST(request) {
         `✅ Event limit increased: ${currentAllowed} → ${currentAllowed + 1}`,
       );
       console.log(`   Events created: ${currentCreated}`);
-      console.log(`   Can create ${currentAllowed + 1 - currentCreated} more events`);
+      console.log(
+        `   Can create ${currentAllowed + 1 - currentCreated} more events`,
+      );
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📧 FINAL CREDENTIALS TO SEND:");
       console.log(

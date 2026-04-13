@@ -21,7 +21,7 @@ export async function GET(request) {
     const formsRef = collection(db, "customForms");
     const q = query(formsRef, where("eventId", "==", eventId));
     const querySnapshot = await getDocs(q);
-    
+
     const queryTime = Date.now() - startTime;
     console.log(`[API] Firestore query completed in ${queryTime}ms`);
 
@@ -45,8 +45,10 @@ export async function GET(request) {
     }
 
     const totalTime = Date.now() - startTime;
-    console.log(`[API] ✅ Custom form sent successfully (Total: ${totalTime}ms)`);
-    
+    console.log(
+      `[API] ✅ Custom form sent successfully (Total: ${totalTime}ms)`,
+    );
+
     return NextResponse.json(
       {
         success: true,
@@ -54,13 +56,16 @@ export async function GET(request) {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
         },
-      }
+      },
     );
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    console.error(`[API] ❌ Error fetching custom form (after ${totalTime}ms):`, error);
+    console.error(
+      `[API] ❌ Error fetching custom form (after ${totalTime}ms):`,
+      error,
+    );
     return NextResponse.json(
       { error: error.message || "Failed to fetch form" },
       { status: 500 },

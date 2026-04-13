@@ -165,7 +165,6 @@ export default function DashboardPage() {
                 icon: Ticket,
                 color: "from-emerald-500 to-teal-500",
                 shadow: "shadow-emerald-500/20",
-                bg: "bg-emerald-50 dark:bg-emerald-500/10",
               },
               {
                 label: "Upcoming",
@@ -173,7 +172,6 @@ export default function DashboardPage() {
                 icon: CalendarDays,
                 color: "from-emerald-500 to-teal-500",
                 shadow: "shadow-emerald-500/20",
-                bg: "bg-emerald-50 dark:bg-emerald-500/10",
               },
               {
                 label: "Used",
@@ -181,7 +179,6 @@ export default function DashboardPage() {
                 icon: TicketCheck,
                 color: "from-amber-500 to-orange-500",
                 shadow: "shadow-amber-500/20",
-                bg: "bg-amber-50 dark:bg-amber-500/10",
               },
             ].map((stat, i) => (
               <div
@@ -207,7 +204,7 @@ export default function DashboardPage() {
 
           {/* Filter Tabs */}
           <div className="flex items-center gap-3 mb-8 opacity-0 animate-fade-in-up stagger-4">
-            <Filter className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+            <Filter className="w-4 h-4 text-slate-500" />
             {[
               { key: "All", label: `All (${registrations.length})` },
               { key: "Unused", label: `Upcoming (${unusedCount})` },
