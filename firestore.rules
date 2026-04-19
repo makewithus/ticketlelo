@@ -45,10 +45,10 @@ service cloud.firestore {
     match /hostingRequests/{requestId} {
       // Anyone can create a hosting request (no authentication required)
       allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']);
-      // Super Admins can read all requests (including by email before doc exists)
-      allow read: if isSuperAdmin() || isSuperAdminEmail();
-      // Super Admins can update/delete hosting requests
-      allow update, delete: if isSuperAdmin() || isSuperAdminEmail();
+      // Super Admins and admins (isAdmin: true) can read all requests
+      allow read: if isSuperAdmin() || isSuperAdminEmail() || isAdmin() || isOrganiser();
+      // Super Admins and admins can update/delete hosting requests
+      allow update, delete: if isSuperAdmin() || isSuperAdminEmail() || isAdmin();
       // Allow the newly created organiser to update their own request status (for approval flow)
       allow update: if request.auth != null && 
                        request.resource.data.status == "approved" &&
@@ -116,13 +116,53 @@ service cloud.firestore {
       // Any authenticated user can create their own user document
       allow create: if request.auth != null && request.auth.uid == userId;
       
-      // Allow unauthenticated updates ONLY for password and whatsappPhone (account migration)
-      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'email', 'id', 'createdAt', 'fullName']);
+      // Allow unauthenticated updates for account migration (password, phone, fullName)
+      // This allows existing users to get updated credentials when registering for new events
+      // Protected fields: role, isAdmin, email, id, createdAt
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'email', 'id', 'createdAt']);
       
       // Users can update their own data but cannot change role or isAdmin fields
       allow update: if request.auth != null && 
                        request.auth.uid == userId && 
                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin']);
+    }
+    
+    // Messages collection (Broadcast Messaging)
+    match /messages/{messageId} {
+      // Organisers can read their own event messages
+      allow read: if isOrganiser() || isSuperAdmin();
+      // Organisers can create messages for their events
+      allow create: if isOrganiser() || isSuperAdmin();
+      // Only message creator or admin can update/delete
+      allow update, delete: if isOrganiser() || isSuperAdmin();
+    }
+    
+    // Message Receipts collection
+    match /messageReceipts/{receiptId} {
+      // Only organisers and admins can read receipts
+      allow read: if isOrganiser() || isSuperAdmin();
+      // Server-side only creation
+      allow create: if true;
+      // No direct updates/deletes from client
+      allow update, delete: if isSuperAdmin();
+    }
+    
+    // Plans collection
+    match /plans/{planId} {
+      // Anyone can read plans (for pricing page)
+      allow read: if true;
+      // Only super admins can modify plans
+      allow create, update, delete: if isSuperAdmin();
+    }
+    
+    // Analytics collection
+    match /analytics/{analyticsId} {
+      // Organisers can read analytics for their events
+      allow read: if isOrganiser() || isSuperAdmin();
+      // Server-side only writes
+      allow create, update: if true;
+      // Only super admin can delete
+      allow delete: if isSuperAdmin();
     }
   }
 }

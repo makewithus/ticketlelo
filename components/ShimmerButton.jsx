@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
+import { motion } from "framer-motion";
 
 export default function ShimmerButton({
   children,
   onClick,
-  className = '',
+  className = "",
   disabled = false,
-  type = 'button',
+  type = "button",
   ...props
 }) {
   return (
@@ -18,16 +18,17 @@ export default function ShimmerButton({
       whileTap={{ scale: disabled ? 1 : 0.98 }}
       className={`
         relative overflow-hidden cursor-pointer
-        px-6 py-3 rounded-md font-medium text-white
-        bg-gradient-to-r from-emerald-600 to-emerald-600
-        border border-emerald-500/30
-        hover:from-emerald-500 hover:to-emerald-500
+        px-6 py-3 rounded-md font-medium text-black
+        bg-[#FEDF05]
+        border border-[#FE760B]/30
+        hover:bg-[#FE760B] hover:text-white
         transition-all duration-300 ease-out
         disabled:opacity-50 disabled:cursor-not-allowed
         before:absolute before:inset-0 before:bg-gradient-to-r
         before:from-transparent before:via-white/15 before:to-transparent
         before:-translate-x-full hover:before:translate-x-full
         before:transition-transform before:duration-700
+        font-bold
         ${className}
       `}
       {...props}

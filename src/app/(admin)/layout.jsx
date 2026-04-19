@@ -15,7 +15,7 @@ export default function OrganiserLayout({ children }) {
   // Check if user is organiser/admin
   useEffect(() => {
     if (!loading && (!user || !user.isAdmin)) {
-      router.push("/");
+      router.push("/organiser-login");
     }
   }, [loading, user, router]);
 
@@ -37,7 +37,7 @@ export default function OrganiserLayout({ children }) {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/");
+      router.push("/organiser-login");
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -53,12 +53,12 @@ export default function OrganiserLayout({ children }) {
   return (
     <div className="min-h-screen bg-black flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-r border-emerald-500/20 text-white flex flex-col">
-        <div className="p-6 border-b border-emerald-500/20">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
+      <aside className="w-64 bg-gradient-to-b from-black via-slate-950 to-black border-r border-[#FE760B]/20 text-white flex flex-col">
+        <div className="p-6 border-b border-[#FE760B]/20">
+          <h1 className="text-2xl font-bold text-white">
             Ticketलेलो
           </h1>
-          <p className="text-sm text-emerald-400 mt-1">Organiser Panel</p>
+          <p className="text-sm text-[#FE760B] mt-1">Organiser Panel</p>
         </div>
 
         {/* Navigation */}
@@ -67,7 +67,7 @@ export default function OrganiserLayout({ children }) {
             <Link key={item.href} href={item.href}>
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-3 text-slate-300 hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20"
+                className="w-full justify-start gap-3 text-slate-300 hover:text-[#FE760B] hover:bg-[#FE760B]/10 border border-transparent hover:border-[#FE760B]/20"
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}
@@ -77,7 +77,7 @@ export default function OrganiserLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-emerald-500/20 space-y-3">
+        <div className="p-4 border-t border-[#FE760B]/20 space-y-3">
           <div className="text-sm">
             <p className="text-slate-400">Logged in as</p>
             <p className="font-medium text-white truncate">{user?.email}</p>
@@ -93,7 +93,7 @@ export default function OrganiserLayout({ children }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <main className="flex-1 overflow-auto bg-black">
         {children}
       </main>
     </div>

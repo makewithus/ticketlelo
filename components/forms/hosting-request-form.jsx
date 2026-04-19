@@ -79,7 +79,7 @@ export function HostingRequestForm() {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-emerald-500/20 rounded-2xl shadow-2xl p-8">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FE760B]/20 rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
             Host Your Event on Ticketलेलो
@@ -101,7 +101,7 @@ export function HostingRequestForm() {
                 onChange={handleChange}
                 placeholder="John Doe"
                 required
-                className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+                className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
               />
             </div>
 
@@ -116,7 +116,7 @@ export function HostingRequestForm() {
                 onChange={handleChange}
                 placeholder="john@example.com"
                 required
-                className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+                className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
               />
             </div>
 
@@ -131,7 +131,7 @@ export function HostingRequestForm() {
                 onChange={handleChange}
                 placeholder="+91 98765 43210"
                 required
-                className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+                className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
               />
             </div>
 
@@ -144,7 +144,7 @@ export function HostingRequestForm() {
                 value={formData.college}
                 onChange={handleChange}
                 placeholder="ABC University"
-                className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+                className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
               />
             </div>
           </div>
@@ -159,7 +159,7 @@ export function HostingRequestForm() {
               onChange={handleChange}
               placeholder="Tech Fest 2026"
               required
-              className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+              className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
             />
           </div>
 
@@ -173,7 +173,7 @@ export function HostingRequestForm() {
               onChange={handleChange}
               placeholder="Describe your event..."
               rows={4}
-              className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+              className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
             />
           </div>
 
@@ -185,7 +185,7 @@ export function HostingRequestForm() {
                   name="isPaid"
                   checked={formData.isPaid}
                   onChange={handleChange}
-                  className="w-5 h-5 text-emerald-500 bg-black/30 border-emerald-500/20 rounded focus:ring-emerald-500"
+                  className="w-5 h-5 text-[#FE760B] bg-black/30 border-[#FE760B]/20 rounded focus:ring-[#FE760B]"
                 />
                 <span className="text-sm font-medium text-gray-300">
                   Paid Event
@@ -204,7 +204,7 @@ export function HostingRequestForm() {
                 onChange={handleChange}
                 placeholder="0"
                 min="0"
-                className="w-full bg-black/30 border-emerald-500/20 text-white placeholder:text-gray-500 focus:border-emerald-500/50"
+                className="w-full bg-black/30 border-[#FE760B]/20 text-white placeholder:text-gray-500 focus:border-[#FE760B]/50"
               />
             </div>
           </div>
@@ -222,7 +222,7 @@ export function HostingRequestForm() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold"
+              className="flex-1 bg-[#FE760B] hover:bg-[#FEDF05] text-black font-semibold"
             >
               {isLoading ? (
                 <>

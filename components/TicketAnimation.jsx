@@ -11,7 +11,7 @@ export default function TicketAnimation() {
 
   useEffect(() => {
     // Fetch the animation JSON
-    fetch("/ticket-blue.json")
+    fetch("/ticket-orange.json")
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to load animation");
@@ -32,7 +32,7 @@ export default function TicketAnimation() {
   if (loading) {
     return (
       <div className="w-full max-w-[500px] aspect-square flex items-center justify-center mx-auto">
-        <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-[#FE760B]/30 border-t-[#FE760B] rounded-full animate-spin" />
       </div>
     );
   }

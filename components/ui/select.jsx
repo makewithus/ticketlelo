@@ -76,7 +76,9 @@ const SelectTrigger = React.forwardRef(
       }
     });
 
-    const displayText = hasSelection ? selectedLabel || placeholder : placeholder;
+    const displayText = hasSelection
+      ? selectedLabel || placeholder
+      : placeholder;
 
     return (
       <button
@@ -89,8 +91,8 @@ const SelectTrigger = React.forwardRef(
         disabled={disabled}
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition-all",
-          "bg-white border-emerald-200 text-gray-900 hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400",
-          "dark:bg-slate-900/80 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:focus:ring-emerald-500/20 dark:focus:border-emerald-500",
+          "bg-white border-[#FE760B]/20 text-gray-900 hover:border-[#FE760B]/30 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/20 focus:border-[#FE760B]",
+          "dark:bg-slate-900/80 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:focus:ring-[#FE760B]/20 dark:focus:border-[#FE760B]",
           !hasSelection && "text-gray-400 dark:text-slate-500",
           disabled && "opacity-50 cursor-not-allowed",
           className,
@@ -127,7 +129,7 @@ const SelectContent = ({ children, className }) => {
     <div
       className={cn(
         "absolute z-50 mt-1.5 w-full rounded-xl border shadow-xl overflow-hidden",
-        "bg-white border-emerald-200/80 dark:bg-slate-900 dark:border-slate-700",
+        "bg-white border-[#FE760B]/20 dark:bg-slate-900 dark:border-slate-700",
       )}
     >
       <div className={cn("max-h-60 overflow-auto p-1", className)}>
@@ -139,8 +141,11 @@ const SelectContent = ({ children, className }) => {
 SelectContent.displayName = "SelectContent";
 
 const SelectItem = ({ children, value, className, ...props }) => {
-  const { value: selectedValue, handleSelect, registerItem } =
-    React.useContext(SelectContext);
+  const {
+    value: selectedValue,
+    handleSelect,
+    registerItem,
+  } = React.useContext(SelectContext);
 
   const isSelected = selectedValue === value;
   const label = typeof children === "string" ? children : String(value ?? "");
@@ -159,10 +164,10 @@ const SelectItem = ({ children, value, className, ...props }) => {
       }}
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm transition-colors",
-        "text-gray-700 hover:bg-emerald-50 hover:text-emerald-700",
+        "text-gray-700 hover:bg-[#FE760B]/5 hover:text-[#FE760B]",
         "dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
         isSelected &&
-          "bg-emerald-50 text-emerald-700 font-medium dark:bg-emerald-500/10 dark:text-emerald-400",
+          "bg-[#FEDF05]/10 text-[#FE760B] font-medium dark:bg-[#FE760B]/10 dark:text-[#FE760B]",
         className,
       )}
       {...props}
@@ -170,7 +175,7 @@ const SelectItem = ({ children, value, className, ...props }) => {
       {children}
       {isSelected && (
         <svg
-          className="ml-auto h-4 w-4 text-emerald-500"
+          className="ml-auto h-4 w-4 text-[#FE760B]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

@@ -16,6 +16,10 @@ import {
   Moon,
   Loader2,
   FormInput,
+  BarChart2,
+  MessageSquare,
+  Globe,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -36,8 +40,8 @@ export default function AdminLayout({ children }) {
     const hasAdminAccess = user?.isAdmin || user?.role === "organiser";
 
     if (!loading && (!user || !hasAdminAccess)) {
-      console.log("❌ No admin access, redirecting to homepage");
-      router.push("/");
+      console.log("❌ No admin access, redirecting to organiser login");
+      router.push("/organiser-login");
     }
 
     // Redirect super admin to super admin panel
@@ -49,12 +53,12 @@ export default function AdminLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-emerald-50 dark:bg-[#0a0c1c]">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0a0c1c]">
         <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-2xl shadow-emerald-500/30 animate-pulse-glow">
-            <Ticket className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center shadow-2xl shadow-[#FE760B]/30 animate-pulse-glow">
+            <Ticket className="w-8 h-8 text-black" />
           </div>
-          <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
           <p className="text-gray-500 dark:text-slate-400">
             Loading admin panel...
           </p>
@@ -73,7 +77,7 @@ export default function AdminLayout({ children }) {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/");
+      router.push("/organiser-login");
     } catch (e) {
       console.error("Logout error:", e);
     }
@@ -84,18 +88,22 @@ export default function AdminLayout({ children }) {
     { href: "/admin/form-generator", icon: FormInput, label: "Form Generator" },
     { href: "/admin/registrations", icon: Users, label: "Registrations" },
     { href: "/admin/scanner", icon: QrCode, label: "QR Scanner" },
+    { href: "/admin/analytics", icon: BarChart2, label: "Analytics" },
+    { href: "/admin/messages", icon: MessageSquare, label: "Messages" },
+    { href: "/admin/customize", icon: Globe, label: "Customize Event" },
+    { href: "/account", icon: CreditCard, label: "Plan & Account" },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0c1c] flex text-gray-900 dark:text-white transition-colors">
       {/* Sidebar */}
-      <aside className="w-72 border-r border-emerald-100 dark:border-slate-800 bg-white dark:bg-[#0d0f1f] flex flex-col">
+      <aside className="w-72 border-r border-[#FE760B]/10 dark:border-slate-800 bg-white dark:bg-[#0d0f1f] flex flex-col">
         {/* Logo */}
-        <div className="p-6 border-b border-emerald-100 dark:border-slate-800">
+        <div className="p-6 border-b border-[#FE760B]/10 dark:border-slate-800">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div>
               <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">
-                Ticket<span className="text-emerald-500">लेलो</span>
+                Ticket<span className="text-[#FE760B]">लेलो</span>
               </span>
               <p className="text-xs text-gray-400 dark:text-slate-500">
                 Organiser Panel
@@ -116,24 +124,24 @@ export default function AdminLayout({ children }) {
                 <div
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                     isActive
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
-                      : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-emerald-50/50 dark:hover:bg-slate-800/50 border border-transparent"
+                      ? "bg-[#FE760B]/10 dark:bg-[#FE760B]/10 text-[#FE760B] dark:text-[#FE760B] border border-[#FE760B]/30 dark:border-[#FE760B]/20"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FE760B]/5 dark:hover:bg-slate-800/50 border border-transparent"
                   }`}
                 >
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                       isActive
-                        ? "bg-emerald-100 dark:bg-emerald-500/20"
-                        : "bg-gray-100 dark:bg-slate-800/50 group-hover:bg-emerald-50 dark:group-hover:bg-slate-800"
+                        ? "bg-[#FE760B]/20 dark:bg-[#FE760B]/20"
+                        : "bg-gray-100 dark:bg-slate-800/50 group-hover:bg-[#FE760B]/10 dark:group-hover:bg-slate-800"
                     }`}
                   >
                     <item.icon
-                      className={`w-4 h-4 ${isActive ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-slate-500 group-hover:text-emerald-500 dark:group-hover:text-slate-300"}`}
+                      className={`w-4 h-4 ${isActive ? "text-[#FE760B] dark:text-[#FE760B]" : "text-gray-400 dark:text-slate-500 group-hover:text-[#FE760B] dark:group-hover:text-slate-300"}`}
                     />
                   </div>
                   <span className="flex-1">{item.label}</span>
                   {isActive && (
-                    <ChevronRight className="w-4 h-4 text-emerald-500" />
+                    <ChevronRight className="w-4 h-4 text-[#FE760B]" />
                   )}
                 </div>
               </Link>
@@ -142,18 +150,18 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-emerald-100 dark:border-slate-800 space-y-3">
+        <div className="p-4 border-t border-[#FE760B]/10 dark:border-slate-800 space-y-3">
           {/* Theme toggle */}
           {mounted && (
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-emerald-50/50 dark:hover:bg-slate-800/50 border border-transparent transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FE760B]/5 dark:hover:bg-slate-800/50 border border-transparent transition-all"
             >
               <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-slate-800/50 flex items-center justify-center">
                 {theme === "dark" ? (
                   <Sun className="w-4 h-4 text-amber-400" />
                 ) : (
-                  <Moon className="w-4 h-4 text-emerald-500" />
+                  <Moon className="w-4 h-4 text-[#FE760B]" />
                 )}
               </div>
               <span className="flex-1 text-left">
@@ -163,7 +171,7 @@ export default function AdminLayout({ children }) {
           )}
 
           <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-emerald-500/20">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center text-xs font-bold text-black shadow-lg shadow-[#FE760B]/20">
               {user?.fullName?.charAt(0)?.toUpperCase() || "A"}
             </div>
             <div className="flex-1 min-w-0">
@@ -178,7 +186,7 @@ export default function AdminLayout({ children }) {
           <Button
             onClick={handleLogout}
             variant="outline"
-            className="w-full h-10 gap-2 border-emerald-200 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
+            className="w-full h-10 gap-2 border-slate-200 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
           >
             <LogOut className="w-4 h-4" /> Sign Out
           </Button>

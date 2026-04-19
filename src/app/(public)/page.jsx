@@ -301,9 +301,9 @@ export default function HomePage() {
 
       {/* ── Ambient Glow Blobs ── */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl animate-pulse delay-500" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#FE760B]/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#FEDF05]/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-[#FE760B]/5 rounded-full blur-3xl animate-pulse delay-500" />
       </div>
 
       {/* ── Header ── */}
@@ -321,10 +321,10 @@ export default function HomePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md mb-6 w-fit"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#FE760B]/10 border border-[#FE760B]/20 rounded-md mb-6 w-fit"
               >
-                <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-sm font-medium text-emerald-400">
+                <Sparkles className="w-4 h-4 text-[#FEDF05] shrink-0" />
+                <span className="text-sm font-medium text-[#FE760B]">
                   India&apos;s Smartest Event Platform
                 </span>
               </motion.div>
@@ -337,7 +337,7 @@ export default function HomePage() {
               >
                 Event Registration,
                 <br />
-                <span className="text-emerald-400">MADE EFFORTLESS!</span>
+                <span className="text-[#FE760B]">MADE EFFORTLESS!</span>
               </motion.h1>
 
               <motion.p
@@ -375,7 +375,7 @@ export default function HomePage() {
                 transition={{ delay: 1.4, duration: 0.6 }}
                 className="mt-10 flex items-center gap-2 animate-bounce"
               >
-                <ChevronDown className="w-5 h-5 text-emerald-400" />
+                <ChevronDown className="w-5 h-5 text-[#FE760B]" />
                 <span className="text-xs text-gray-500 tracking-widest uppercase">
                   Scroll to explore
                 </span>
@@ -403,30 +403,30 @@ export default function HomePage() {
           <ScrollVelocityRow
             baseVelocity={8}
             direction={1}
-            className="text-2xl sm:text-4xl font-bold text-emerald-400/20"
+            className="text-2xl sm:text-4xl font-bold text-[#FE760B]/20"
           >
             <span className="px-6">Digital Passes</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
             <span className="px-6">QR Codes</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
             <span className="px-6">Ticketलेलो</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
             <span className="px-6">Free Registration</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
           </ScrollVelocityRow>
           <ScrollVelocityRow
             baseVelocity={8}
             direction={-1}
-            className="text-2xl sm:text-4xl font-bold text-emerald-400/20"
+            className="text-2xl sm:text-4xl font-bold text-[#FE760B]/20"
           >
             <span className="px-6">Instant Tickets</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
             <span className="px-6">Event Pass</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
             <span className="px-6">Secure Entry</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
             <span className="px-6">Smart Platform</span>
-            <span className="px-2 text-emerald-500/30">•</span>
+            <span className="px-2 text-[#FEDF05]/30">•</span>
           </ScrollVelocityRow>
         </ScrollVelocityContainer>
       </section>
@@ -443,8 +443,8 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center"
           >
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 border-2 border-emerald-500/30 rounded-2xl mb-6">
-              <Sparkles className="w-10 h-10 text-emerald-400" />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-[#FE760B]/10 border-2 border-[#FE760B]/30 rounded-2xl mb-6">
+              <Sparkles className="w-10 h-10 text-[#FEDF05]" />
             </div>
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6">
               Want to Host Your Event?
@@ -468,7 +468,7 @@ export default function HomePage() {
                   viewport={{ once: true }}
                   className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-lg p-4"
                 >
-                  <item.icon className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                  <item.icon className="w-5 h-5 text-[#FEDF05] flex-shrink-0" />
                   <span className="text-sm font-medium">{item.text}</span>
                 </motion.div>
               ))}
@@ -494,7 +494,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-10 h-10 animate-spin text-emerald-400 mb-4" />
+              <Loader2 className="w-10 h-10 animate-spin text-[#FE760B] mb-4" />
               <p className="text-gray-400">Loading events...</p>
             </div>
           ) : events.length === 0 ? (
@@ -503,8 +503,8 @@ export default function HomePage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-center py-20"
             >
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mb-6">
-                <Calendar className="w-10 h-10 text-emerald-400" />
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-[#FE760B]/10 border border-[#FE760B]/20 rounded-2xl mb-6">
+                <Calendar className="w-10 h-10 text-[#FEDF05]" />
               </div>
               <h3 className="text-2xl font-bold mb-2">No Events Yet</h3>
               <p className="text-gray-400">
@@ -521,14 +521,14 @@ export default function HomePage() {
             >
               <button
                 onClick={() => setSelectedEvent(null)}
-                className="mb-8 flex items-center gap-2 text-sm text-gray-400 hover:text-white border border-white/10 px-4 py-2 rounded-lg hover:border-emerald-500/40 hover:bg-white/5 transition-all"
+                className="mb-8 flex items-center gap-2 text-sm text-gray-400 hover:text-white border border-white/10 px-4 py-2 rounded-lg hover:border-[#FE760B]/40 hover:bg-white/5 transition-all"
               >
                 <ArrowLeft className="w-4 h-4" /> Back to Events
               </button>
               <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="inline-flex items-center justify-center w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                    <Ticket className="w-5 h-5 text-emerald-400" />
+                  <div className="inline-flex items-center justify-center w-10 h-10 bg-[#FE760B]/10 border border-[#FE760B]/20 rounded-xl">
+                    <Ticket className="w-5 h-5 text-[#FEDF05]" />
                   </div>
                   <h2 className="text-2xl font-bold">
                     Register for {selectedEvent.name}
@@ -554,7 +554,7 @@ export default function HomePage() {
                 className="text-center mb-12 sm:mb-16"
               >
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-                  Upcoming <span className="text-emerald-400">Events</span>
+                  Upcoming <span className="text-[#FE760B]">Events</span>
                 </h2>
                 <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto">
                   Pick an event and register in seconds
@@ -571,11 +571,11 @@ export default function HomePage() {
                     viewport={{ once: true }}
                     onMouseEnter={() => prefetchForm(event.id)}
                     onClick={() => setSelectedEvent(event)}
-                    className="group relative bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 hover:border-emerald-500/40 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 flex flex-col hover:shadow-[0_0_30px_rgba(16,185,129,0.08)]"
+                    className="group relative bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 hover:border-[#FE760B]/40 rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 flex flex-col hover:shadow-[0_0_30px_rgba(254,118,11,0.12)]"
                   >
-                    <div className="h-0.5 bg-gradient-to-r from-emerald-500 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="h-0.5 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="p-6 flex flex-col flex-1">
-                      <h3 className="text-xl font-bold mb-2 group-hover:text-emerald-400 transition-colors line-clamp-1">
+                      <h3 className="text-xl font-bold mb-2 group-hover:text-[#FE760B] transition-colors line-clamp-1">
                         {event.name}
                       </h3>
                       <p className="text-gray-400 text-sm mb-5 line-clamp-2 min-h-[2.5rem] leading-relaxed">
@@ -583,8 +583,8 @@ export default function HomePage() {
                       </p>
                       <div className="space-y-3 mb-6">
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                            <Calendar className="w-4 h-4 text-emerald-400" />
+                          <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center shrink-0">
+                            <Calendar className="w-4 h-4 text-[#FEDF05]" />
                           </div>
                           <span className="text-gray-300 truncate">
                             {event.date?.toDate
@@ -606,16 +606,16 @@ export default function HomePage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                            <MapPin className="w-4 h-4 text-emerald-400" />
+                          <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center shrink-0">
+                            <MapPin className="w-4 h-4 text-[#FEDF05]" />
                           </div>
                           <span className="text-gray-300 truncate">
                             {event.location}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 text-sm">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                            <Ticket className="w-4 h-4 text-emerald-400" />
+                          <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center shrink-0">
+                            <Ticket className="w-4 h-4 text-[#FEDF05]" />
                           </div>
                           <span className="text-gray-300">
                             {event.totalTickets} tickets available
@@ -623,7 +623,7 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="mt-auto">
-                        <button className="w-full py-3 bg-emerald-500 text-black font-semibold rounded-lg flex items-center justify-center gap-2 group-hover:bg-emerald-400 transition-all">
+                        <button className="w-full py-3 bg-[#FEDF05] text-black font-bold rounded-lg flex items-center justify-center gap-2 group-hover:bg-[#FE760B] group-hover:text-white transition-all">
                           Register Now
                           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
@@ -690,10 +690,10 @@ export default function HomePage() {
                 className="relative"
               >
                 <div className="text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-xl mb-6">
-                    <item.icon className="w-8 h-8 text-emerald-400" />
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-[#FE760B]/10 border border-[#FE760B]/20 rounded-xl mb-6">
+                    <item.icon className="w-8 h-8 text-[#FEDF05]" />
                   </div>
-                  <div className="text-sm font-bold text-emerald-400 mb-3 tracking-widest">
+                  <div className="text-sm font-bold text-[#FE760B] mb-3 tracking-widest">
                     STEP {item.step}
                   </div>
                   <h3 className="text-xl font-bold mb-3">{item.title}</h3>
@@ -727,7 +727,7 @@ export default function HomePage() {
               instantly.
             </p>
             <a href="#events">
-              <button className="px-10 py-4 bg-emerald-500 text-black font-semibold rounded-lg text-lg inline-flex items-center gap-2 hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20">
+              <button className="px-10 py-4 bg-[#FEDF05] text-black font-bold rounded-lg text-lg inline-flex items-center gap-2 hover:bg-[#FE760B] hover:text-white transition-all shadow-lg shadow-[#FEDF05]/20">
                 Browse Events
                 <ArrowRight className="w-5 h-5" />
               </button>
@@ -744,7 +744,7 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div>
               <div className="text-xl font-bold mb-1">
-                Ticket<span className="text-emerald-400">लेलो</span>
+                Ticket<span className="text-[#FE760B]">लेलो</span>
               </div>
               <div className="text-sm text-gray-500">
                 © {new Date().getFullYear()} Ticketलेलो. All rights reserved.
@@ -754,7 +754,7 @@ export default function HomePage() {
               Want to host an event?{" "}
               <Link
                 href="/host-event"
-                className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="text-[#FE760B] hover:text-[#FEDF05] transition-colors font-semibold"
               >
                 Submit a hosting request
               </Link>
