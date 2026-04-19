@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/lib/mailer";
 
 /**
  * Email Reminders Cron Job
