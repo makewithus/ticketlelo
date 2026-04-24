@@ -55,10 +55,10 @@ export default function AdminLayout({ children }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0a0c1c]">
         <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center shadow-2xl shadow-[#FE760B]/30 animate-pulse-glow">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6A00] to-[#FFB800] flex items-center justify-center shadow-2xl shadow-[#FF6A00]/30 animate-pulse-glow">
             <Ticket className="w-8 h-8 text-black" />
           </div>
-          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#FF6A00]" />
           <p className="text-gray-500 dark:text-slate-400">
             Loading admin panel...
           </p>
@@ -97,13 +97,13 @@ export default function AdminLayout({ children }) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0c1c] flex text-gray-900 dark:text-white transition-colors">
       {/* Sidebar */}
-      <aside className="w-72 border-r border-[#FE760B]/10 dark:border-slate-800 bg-white dark:bg-[#0d0f1f] flex flex-col">
+      <aside className="w-72 border-r border-[#FF6A00]/10 dark:border-slate-800 bg-white dark:bg-[#0d0f1f] flex flex-col">
         {/* Logo */}
-        <div className="p-6 border-b border-[#FE760B]/10 dark:border-slate-800">
+        <div className="p-6 border-b border-[#FF6A00]/10 dark:border-slate-800">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div>
               <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white">
-                Ticket<span className="text-[#FE760B]">लेलो</span>
+                Ticket<span className="text-[#FF6A00]">लेलो</span>
               </span>
               <p className="text-xs text-gray-400 dark:text-slate-500">
                 Organiser Panel
@@ -124,24 +124,24 @@ export default function AdminLayout({ children }) {
                 <div
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                     isActive
-                      ? "bg-[#FE760B]/10 dark:bg-[#FE760B]/10 text-[#FE760B] dark:text-[#FE760B] border border-[#FE760B]/30 dark:border-[#FE760B]/20"
-                      : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FE760B]/5 dark:hover:bg-slate-800/50 border border-transparent"
+                      ? "bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 text-[#FF6A00] dark:text-[#FF6A00] border border-[#FF6A00]/30 dark:border-[#FF6A00]/20"
+                      : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FF6A00]/5 dark:hover:bg-slate-800/50 border border-transparent"
                   }`}
                 >
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
                       isActive
-                        ? "bg-[#FE760B]/20 dark:bg-[#FE760B]/20"
-                        : "bg-gray-100 dark:bg-slate-800/50 group-hover:bg-[#FE760B]/10 dark:group-hover:bg-slate-800"
+                        ? "bg-[#FF6A00]/20 dark:bg-[#FF6A00]/20"
+                        : "bg-gray-100 dark:bg-slate-800/50 group-hover:bg-[#FF6A00]/10 dark:group-hover:bg-slate-800"
                     }`}
                   >
                     <item.icon
-                      className={`w-4 h-4 ${isActive ? "text-[#FE760B] dark:text-[#FE760B]" : "text-gray-400 dark:text-slate-500 group-hover:text-[#FE760B] dark:group-hover:text-slate-300"}`}
+                      className={`w-4 h-4 ${isActive ? "text-[#FF6A00] dark:text-[#FF6A00]" : "text-gray-400 dark:text-slate-500 group-hover:text-[#FF6A00] dark:group-hover:text-slate-300"}`}
                     />
                   </div>
                   <span className="flex-1">{item.label}</span>
                   {isActive && (
-                    <ChevronRight className="w-4 h-4 text-[#FE760B]" />
+                    <ChevronRight className="w-4 h-4 text-[#FF6A00]" />
                   )}
                 </div>
               </Link>
@@ -150,18 +150,18 @@ export default function AdminLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-[#FE760B]/10 dark:border-slate-800 space-y-3">
+        <div className="p-4 border-t border-[#FF6A00]/10 dark:border-slate-800 space-y-3">
           {/* Theme toggle */}
           {mounted && (
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FE760B]/5 dark:hover:bg-slate-800/50 border border-transparent transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FF6A00]/5 dark:hover:bg-slate-800/50 border border-transparent transition-all"
             >
               <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-slate-800/50 flex items-center justify-center">
                 {theme === "dark" ? (
                   <Sun className="w-4 h-4 text-amber-400" />
                 ) : (
-                  <Moon className="w-4 h-4 text-[#FE760B]" />
+                  <Moon className="w-4 h-4 text-[#FF6A00]" />
                 )}
               </div>
               <span className="flex-1 text-left">
@@ -171,7 +171,7 @@ export default function AdminLayout({ children }) {
           )}
 
           <div className="flex items-center gap-3 px-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center text-xs font-bold text-black shadow-lg shadow-[#FE760B]/20">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#FF6A00] to-[#FFB800] flex items-center justify-center text-xs font-bold text-black shadow-lg shadow-[#FF6A00]/20">
               {user?.fullName?.charAt(0)?.toUpperCase() || "A"}
             </div>
             <div className="flex-1 min-w-0">

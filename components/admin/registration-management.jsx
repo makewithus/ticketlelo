@@ -215,13 +215,13 @@ export function RegistrationManagement() {
       {/* EVENT SELECT */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <label className="text-sm font-medium flex items-center gap-1 text-[#FE760B]">
+          <label className="text-sm font-medium flex items-center gap-1 text-[#FF6A00]">
             <Filter className="w-3.5 h-3.5" /> {user?.role === "organiser" ? "Your Event" : "Event"}
           </label>
 
           {user?.role === "organiser" ? (
             /* Show event name for organisers (not editable) */
-            <div className="w-full h-10 px-3 py-2 bg-white dark:bg-black/50 border border-[#FE760B]/30 rounded-md text-gray-900 dark:text-white flex items-center">
+            <div className="w-full h-10 px-3 py-2 bg-white dark:bg-black/50 border border-[#FF6A00]/30 rounded-md text-gray-900 dark:text-white flex items-center">
               {events.length > 0 ? (
                 <span className="font-medium">{events[0].name}</span>
               ) : (
@@ -252,7 +252,7 @@ export function RegistrationManagement() {
 
         {/* SEARCH */}
         <div>
-          <label className="text-sm font-medium flex items-center gap-1 text-[#FE760B]">
+          <label className="text-sm font-medium flex items-center gap-1 text-[#FF6A00]">
             <Search className="w-3.5 h-3.5" /> Search
           </label>
 
@@ -260,7 +260,7 @@ export function RegistrationManagement() {
             placeholder="Name, email, ticket ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-white dark:bg-black/50 border-[#FE760B]/30 text-gray-900 dark:text-white placeholder-gray-400"
+            className="bg-white dark:bg-black/50 border-[#FF6A00]/30 text-gray-900 dark:text-white placeholder-gray-400"
           />
         </div>
 
@@ -291,19 +291,19 @@ export function RegistrationManagement() {
       {/* STATS */}
       {selectedEventId && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 border border-[#FE760B]/30 bg-white dark:bg-black/50 rounded-xl text-center">
-            <Users className="mx-auto mb-2 text-[#FE760B]" />
+          <div className="p-4 border border-[#FF6A00]/30 bg-white dark:bg-black/50 rounded-xl text-center">
+            <Users className="mx-auto mb-2 text-[#FF6A00]" />
             <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
             <p className="text-gray-500 dark:text-gray-400">Total</p>
           </div>
 
-          <div className="p-4 border border-[#FE760B]/30 bg-white dark:bg-black/50 rounded-xl text-center">
-            <CheckCircle2 className="mx-auto mb-2 text-[#FE760B]" />
-            <p className="text-2xl font-bold text-[#FE760B]">{stats.used}</p>
+          <div className="p-4 border border-[#FF6A00]/30 bg-white dark:bg-black/50 rounded-xl text-center">
+            <CheckCircle2 className="mx-auto mb-2 text-[#FF6A00]" />
+            <p className="text-2xl font-bold text-[#FF6A00]">{stats.used}</p>
             <p className="text-gray-500 dark:text-gray-400">Scanned</p>
           </div>
 
-          <div className="p-4 border border-[#FE760B]/30 bg-white dark:bg-black/50 rounded-xl text-center">
+          <div className="p-4 border border-[#FF6A00]/30 bg-white dark:bg-black/50 rounded-xl text-center">
             <Clock className="mx-auto mb-2 text-yellow-500" />
             <p className="text-2xl font-bold text-yellow-500">{stats.unused}</p>
             <p className="text-gray-500 dark:text-gray-400">Pending</p>
@@ -313,36 +313,36 @@ export function RegistrationManagement() {
 
       {/* REGISTRATIONS TABLE */}
       {selectedEventId && (
-        <div className="rounded-2xl border border-[#FE760B]/30 bg-white dark:bg-black/50 overflow-hidden mt-6 shadow-sm">
+        <div className="rounded-2xl border border-[#FF6A00]/30 bg-white dark:bg-black/50 overflow-hidden mt-6 shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#FE760B]/20">
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FE760B] uppercase tracking-wider">
+                <tr className="border-b border-[#FF6A00]/20">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
                     Ticket ID
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FE760B] uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
                     Full Name
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FE760B] uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FE760B] uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
                     Phone
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FE760B] uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FE760B] uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
                     Registered
                   </th>
                 </tr>
               </thead>
-                <tbody className="divide-y divide-[#FE760B]/10">
+                <tbody className="divide-y divide-[#FF6A00]/10">
                 {isLoading ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-12 text-center">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#FE760B]" />
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#FF6A00]" />
                     </td>
                   </tr>
                 ) : filteredRegistrations.length === 0 ? (
@@ -351,8 +351,8 @@ export function RegistrationManagement() {
                       colSpan={6}
                       className="px-5 py-12 text-center text-gray-400"
                     >
-                      <div className="w-12 h-12 rounded-full bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-3">
-                        <Ticket className="w-6 h-6 text-[#FE760B]" />
+                      <div className="w-12 h-12 rounded-full bg-[#FF6A00]/10 flex items-center justify-center mx-auto mb-3">
+                        <Ticket className="w-6 h-6 text-[#FF6A00]" />
                       </div>
                       No registrations found
                     </td>
@@ -361,9 +361,9 @@ export function RegistrationManagement() {
                   filteredRegistrations.map((reg) => (
                     <tr
                       key={reg.id}
-                      className="hover:bg-[#FE760B]/5 transition-colors"
+                      className="hover:bg-[#FF6A00]/5 transition-colors"
                     >
-                      <td className="px-5 py-4 text-sm font-mono text-[#FE760B]">
+                      <td className="px-5 py-4 text-sm font-mono text-[#FF6A00]">
                         {reg.ticketId}
                       </td>
                       <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">
@@ -375,7 +375,7 @@ export function RegistrationManagement() {
                       </td>
                       <td className="px-5 py-4 text-sm">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${reg.status === "Used" ? "bg-[#FE760B]/20 text-[#FE760B] border border-[#FE760B]/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${reg.status === "Used" ? "bg-[#FF6A00]/20 text-[#FF6A00] border border-[#FF6A00]/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}
                         >
                           {reg.status === "Used" ? (
                             <CheckCircle2 className="w-3 h-3" />
@@ -403,8 +403,8 @@ export function RegistrationManagement() {
 
       {!selectedEventId && (
         <div className="text-center py-20">
-          <div className="w-20 h-20 rounded-full bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-6">
-            <Users className="w-10 h-10 text-[#FE760B]" />
+          <div className="w-20 h-20 rounded-full bg-[#FF6A00]/10 flex items-center justify-center mx-auto mb-6">
+            <Users className="w-10 h-10 text-[#FF6A00]" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Select an Event</h3>
           <p className="text-gray-500 dark:text-gray-400">

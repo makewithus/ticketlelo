@@ -88,7 +88,7 @@ function MetricCard({
   loading,
 }) {
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FE760B]/10 p-5 flex items-center gap-4 shadow-sm">
+    <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 p-5 flex items-center gap-4 shadow-sm">
       <div
         className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}
       >
@@ -230,8 +230,8 @@ export default function AdminDashboardPage() {
           icon={Inbox}
           label="Total Requests"
           value={total}
-          iconBg="bg-[#FE760B]/10"
-          iconColor="text-[#FE760B]"
+          iconBg="bg-[#FF6A00]/10"
+          iconColor="text-[#FF6A00]"
           loading={loading}
         />
         <MetricCard
@@ -260,7 +260,7 @@ export default function AdminDashboardPage() {
             onClick={() => setActiveTab(t.id)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               activeTab === t.id
-                ? "bg-[#FE760B] text-white shadow-sm"
+                ? "bg-[#FF6A00] text-white shadow-sm"
                 : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
             }`}
           >
@@ -271,14 +271,14 @@ export default function AdminDashboardPage() {
 
       {/* Tab: Events */}
       {activeTab === "events" && (
-        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FE760B]/10 p-6 shadow-sm">
+        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 p-6 shadow-sm">
           <EventManagement />
         </div>
       )}
 
       {/* Tab: Hosting Requests */}
       {activeTab === "requests" && (
-        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FE760B]/10 shadow-sm">
+        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 shadow-sm">
           <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
             <div className="flex gap-1.5 flex-wrap">
               {FILTERS.map((f) => (
@@ -287,7 +287,7 @@ export default function AdminDashboardPage() {
                   onClick={() => setFilter(f)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     filter === f
-                      ? "bg-[#FE760B] text-white"
+                      ? "bg-[#FF6A00] text-white"
                       : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-700"
                   }`}
                 >
@@ -310,7 +310,7 @@ export default function AdminDashboardPage() {
                 placeholder="Search requests…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-[#FE760B]/30 text-gray-900 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 w-52"
+                className="pl-8 pr-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-[#FF6A00]/30 text-gray-900 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 w-52"
               />
             </div>
           </div>
@@ -360,9 +360,9 @@ export default function AdminDashboardPage() {
 
       {/* Tab: Activity Log */}
       {activeTab === "activity" && (
-        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FE760B]/10 shadow-sm">
+        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
-            <Activity size={16} className="text-[#FE760B]" />
+            <Activity size={16} className="text-[#FF6A00]" />
             <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm">
               Recent Activity
             </h3>

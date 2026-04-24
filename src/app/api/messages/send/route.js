@@ -90,12 +90,12 @@ export async function POST(request) {
               subject: message.title,
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <div style="background: linear-gradient(135deg, #FE760B 0%, #FEDF05 100%); padding: 30px; text-align: center;">
+                  <div style="background: linear-gradient(135deg, #FF6A00 0%, #FFD60A 100%); padding: 30px; text-align: center;">
                     <h1 style="color: #000; margin: 0; font-size: 28px;">Event Update</h1>
                   </div>
                   <div style="padding: 30px; background: #fff;">
                     <p style="font-size: 16px; color: #333;">Hello ${recipient.name},</p>
-                    <div style="background-color: #f5f5f5; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #FE760B;">
+                    <div style="background-color: #f5f5f5; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #FF6A00;">
                       <div style="font-size: 15px; line-height: 1.6; color: #333; white-space: pre-wrap;">${message.content}</div>
                     </div>
                     <p style="color: #666; font-size: 14px; margin-top: 30px;">

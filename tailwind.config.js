@@ -62,6 +62,37 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // ─── Ticketlelo Design System ───────────────────────────────
+        brand: {
+          primary:      "#FF6A00", // CTA buttons, active states
+          hover:        "#E65C00", // primary hover
+          accent:       "#FFD60A", // sparingly: icons, highlights
+          gradient:     "#FFB800", // gradient end (hero only)
+        },
+        // Light mode
+        light: {
+          bg:           "#F8FAFC",
+          surface:      "#FFFFFF",
+          secondary:    "#F1F5F9",
+          text:         "#0F172A",
+          textSecondary:"#475569",
+          muted:        "#94A3B8",
+          border:       "#E2E8F0",
+        },
+        // Dark mode
+        dark: {
+          bg:           "#0B0F14",
+          surface:      "#111827",
+          elevated:     "#1F2937",
+          text:         "#F9FAFB",
+          textSecondary:"#D1D5DB",
+          muted:        "#6B7280",
+          border:       "#374151",
+        },
+        // Functional
+        success:  { DEFAULT: "#22C55E", dark: "#4ADE80" },
+        warning:  { DEFAULT: "#F59E0B", dark: "#FBBF24" },
+        error:    { DEFAULT: "#EF4444", dark: "#F87171" },
       },
       borderRadius: {
         lg: "var(--radius)",

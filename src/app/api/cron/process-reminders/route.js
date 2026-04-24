@@ -218,7 +218,7 @@ async function processEventReminder(event, reminderType) {
     const reminderLabel =
       reminderType === REMINDER_TYPES.ONE_DAY ? "Tomorrow" : "In 2 Hours";
     const urgencyColor =
-      reminderType === REMINDER_TYPES.ONE_DAY ? "#FE760B" : "#e53e3e";
+      reminderType === REMINDER_TYPES.ONE_DAY ? "#FF6A00" : "#e53e3e";
 
     let successCount = 0;
     const batchSize = 10;
@@ -307,12 +307,12 @@ async function processScheduledMessage(messageId, message) {
         subject: message.title,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #FE760B 0%, #FEDF05 100%); padding: 30px; text-align: center;">
+            <div style="background: linear-gradient(135deg, #FF6A00 0%, #FFD60A 100%); padding: 30px; text-align: center;">
               <h1 style="color: #000; margin: 0; font-size: 28px;">Event Update</h1>
             </div>
             <div style="padding: 30px; background: #fff;">
               <p style="font-size: 16px; color: #333;">Hello ${recipient.name},</p>
-              <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; border-left: 4px solid #FE760B;">
+              <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; border-left: 4px solid #FF6A00;">
                 <div style="font-size: 15px; line-height: 1.6; color: #333; white-space: pre-wrap;">${message.content}</div>
               </div>
             </div>
@@ -370,7 +370,7 @@ function buildReminderEmailHtml({
       <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         
         <!-- Header -->
-        <div style="background: linear-gradient(135deg, #FE760B 0%, #FEDF05 100%); padding: 30px; text-align: center;">
+        <div style="background: linear-gradient(135deg, #FF6A00 0%, #FFD60A 100%); padding: 30px; text-align: center;">
           <h1 style="color: #000; margin: 0; font-size: 28px; font-weight: bold;">TicketLelo</h1>
           <p style="color: #000; margin: 5px 0 0; font-size: 14px; opacity: 0.8;">Smart Ticketing Platform</p>
         </div>

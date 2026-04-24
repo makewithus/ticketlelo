@@ -77,7 +77,7 @@ export function EventPublish({ event, userId, onPublished }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
       <div className="flex items-center gap-2">
-        <Globe size={18} className="text-[#FE760B]" />
+        <Globe size={18} className="text-[#FF6A00]" />
         <h3 className="font-bold text-gray-800">Event Publishing</h3>
         {isPublished && (
           <span className="ml-auto px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">
@@ -109,7 +109,7 @@ export function EventPublish({ event, userId, onPublished }) {
               href={shareUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 text-gray-400 hover:text-[#FE760B] transition-colors rounded-lg hover:bg-gray-200"
+              className="p-1.5 text-gray-400 hover:text-[#FF6A00] transition-colors rounded-lg hover:bg-gray-200"
             >
               <ExternalLink size={14} />
             </a>
@@ -120,7 +120,7 @@ export function EventPublish({ event, userId, onPublished }) {
             {typeof navigator !== "undefined" && navigator.share && (
               <button
                 onClick={shareNative}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#FE760B] text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#FF6A00] text-white text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity"
               >
                 <Share2 size={14} /> Share
               </button>
@@ -148,7 +148,7 @@ export function EventPublish({ event, userId, onPublished }) {
           <button
             onClick={handlePublish}
             disabled={loading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold rounded-xl text-sm hover:opacity-90 transition-opacity shadow-md shadow-[#FE760B]/20 disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity shadow-md shadow-[#FF6A00]/20 disabled:opacity-50"
           >
             {loading ? (
               <Loader2 size={15} className="animate-spin" />

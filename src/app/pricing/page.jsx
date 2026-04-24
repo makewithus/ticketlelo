@@ -37,10 +37,10 @@ const PLANS = [
     name: "Starter",
     price: 999,
     icon: Zap,
-    iconColor: "text-[#FE760B]",
+    iconColor: "text-[#FF6A00]",
     iconBg: "bg-orange-100",
-    borderColor: "border-[#FE760B]/30",
-    badgeColor: "bg-orange-100 text-[#FE760B]",
+    borderColor: "border-[#FF6A00]/30",
+    badgeColor: "bg-orange-100 text-[#FF6A00]",
     badge: "Popular",
     features: [
       "3 events",
@@ -138,7 +138,7 @@ export default function PricingPage() {
           name: user.fullName || user.email,
           email: user.email,
         },
-        theme: { color: "#FE760B" },
+        theme: { color: "#FF6A00" },
         handler: async (response) => {
           try {
             // Step 3: Verify payment and upgrade plan
@@ -193,7 +193,7 @@ export default function PricingPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50/30 py-16 px-4">
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto mb-14">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-100 text-[#FE760B] rounded-full text-sm font-semibold mb-6">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-100 text-[#FF6A00] rounded-full text-sm font-semibold mb-6">
           <Zap size={14} />
           Simple, Transparent Pricing
         </div>
@@ -218,7 +218,7 @@ export default function PricingPage() {
               key={plan.id}
               className={`relative bg-white rounded-3xl border-2 ${plan.borderColor} shadow-sm p-8 flex flex-col transition-all hover:shadow-md ${
                 plan.highlighted
-                  ? "ring-2 ring-[#FE760B]/30 shadow-lg shadow-[#FE760B]/10"
+                  ? "ring-2 ring-[#FF6A00]/30 shadow-lg shadow-[#FF6A00]/10"
                   : ""
               }`}
             >
@@ -294,7 +294,7 @@ export default function PricingPage() {
                   isCurrent
                     ? "bg-gray-100 text-gray-400 cursor-default"
                     : plan.highlighted
-                      ? "bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black hover:opacity-90 shadow-md shadow-[#FE760B]/20"
+                      ? "bg-[#FF6A00] text-white hover:opacity-90 shadow-md shadow-[#FF6A00]/20"
                       : plan.id === "pro"
                         ? "bg-purple-600 text-white hover:bg-purple-700"
                         : "bg-gray-100 text-gray-400 cursor-default"

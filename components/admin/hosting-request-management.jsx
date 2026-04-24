@@ -306,7 +306,7 @@ export function HostingRequestManagement() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF6A00]" />
       </div>
     );
   }
@@ -331,7 +331,7 @@ export function HostingRequestManagement() {
             pendingRequests.map((request) => (
               <div
                 key={request.id}
-                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6 border-l-4 border-[#FEDF05]"
+                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 border-l-4 border-[#FFD60A]"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -347,7 +347,7 @@ export function HostingRequestManagement() {
                       size="sm"
                       onClick={() => handleApprove(request.id, request)}
                       disabled={processingId === request.id}
-                      className="bg-[#FE760B] hover:bg-[#FE760B]/90 text-black font-bold"
+                      className="bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
                     >
                       {processingId === request.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -399,7 +399,7 @@ export function HostingRequestManagement() {
 
                 <div className="mt-4 flex items-center gap-4">
                   {request.isPaid && (
-                    <span className="px-3 py-1 bg-[#FEDF05]/20 text-[#FE760B] rounded-full text-xs font-medium">
+                    <span className="px-3 py-1 bg-[#FFD60A]/20 text-[#FF6A00] rounded-full text-xs font-medium">
                       Paid Event
                     </span>
                   )}
@@ -427,7 +427,7 @@ export function HostingRequestManagement() {
           {approvedRequests.map((request) => (
             <div
               key={request.id}
-                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6 border-l-4 border-[#FE760B]"
+                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 border-l-4 border-[#FF6A00]"
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -438,45 +438,45 @@ export function HostingRequestManagement() {
                     Organiser: {request.name}
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-[#FEDF05]/20 text-[#FE760B] rounded-full text-xs font-medium">
+                <span className="px-3 py-1 bg-[#FFD60A]/20 text-[#FF6A00] rounded-full text-xs font-medium">
                   Approved
                 </span>
               </div>
 
-              <div className="bg-gray-50 dark:bg-black border border-[#FE760B]/30 rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-[#FE760B] flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-black border border-[#FF6A00]/30 rounded-lg p-4 space-y-3">
+                <h4 className="font-semibold text-[#FF6A00] flex items-center gap-2">
                   <span>🔐</span> Organiser Credentials
                 </h4>
 
                 {editingCredentials === request.id ? (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-[#FE760B] mb-1">
+                      <label className="block text-xs text-[#FF6A00] mb-1">
                         Email
                       </label>
                       <Input
                         value={newEmail}
                         onChange={(e) => setNewEmail(e.target.value)}
                         placeholder={request.organiserEmail}
-                        className="text-sm bg-gray-50 dark:bg-black/50 border-[#FE760B]/30 text-[#FE760B]"
+                        className="text-sm bg-gray-50 dark:bg-black/50 border-[#FF6A00]/30 text-[#FF6A00]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-[#FE760B] mb-1">
+                      <label className="block text-xs text-[#FF6A00] mb-1">
                         Password
                       </label>
                       <Input
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="New password"
-                        className="text-sm bg-gray-50 dark:bg-black/50 border-[#FE760B]/30 text-[#FE760B]"
+                        className="text-sm bg-gray-50 dark:bg-black/50 border-[#FF6A00]/30 text-[#FF6A00]"
                       />
                     </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         onClick={() => handleUpdateCredentials(request)}
-                        className="bg-[#FE760B] hover:bg-[#FE760B]/90 text-black font-bold"
+                        className="bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
                       >
                         Save
                       </Button>
@@ -488,7 +488,7 @@ export function HostingRequestManagement() {
                           setNewEmail("");
                           setNewPassword("");
                         }}
-                        className="border-[#FE760B]/30 text-[#FE760B] hover:bg-[#FE760B]/10"
+                        className="border-[#FF6A00]/30 text-[#FF6A00] hover:bg-[#FF6A00]/10"
                       >
                         Cancel
                       </Button>
@@ -496,18 +496,18 @@ export function HostingRequestManagement() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between bg-gray-100 dark:bg-black/50 p-3 rounded border border-[#FE760B]/20">
+                    <div className="flex items-center justify-between bg-gray-100 dark:bg-black/50 p-3 rounded border border-[#FF6A00]/20">
                       <div>
-                        <p className="text-xs text-[#FE760B]/70">Email</p>
-                        <p className="font-mono text-sm text-[#FE760B]">
+                        <p className="text-xs text-[#FF6A00]/70">Email</p>
+                        <p className="font-mono text-sm text-[#FF6A00]">
                           {request.organiserEmail}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between bg-gray-100 dark:bg-black/50 p-3 rounded border border-[#FE760B]/20">
+                    <div className="flex items-center justify-between bg-gray-100 dark:bg-black/50 p-3 rounded border border-[#FF6A00]/20">
                       <div className="flex-1">
-                        <p className="text-xs text-[#FE760B]/70">Password</p>
-                        <p className="font-mono text-sm text-[#FE760B]">
+                        <p className="text-xs text-[#FF6A00]/70">Password</p>
+                        <p className="font-mono text-sm text-[#FF6A00]">
                           {showCredentials[request.id]
                             ? request.organiserPassword
                             : "••••••••••••"}
@@ -517,7 +517,7 @@ export function HostingRequestManagement() {
                         size="sm"
                         variant="ghost"
                         onClick={() => toggleShowPassword(request.id)}
-                        className="text-[#FE760B] hover:text-[#FEDF05] hover:bg-[#FE760B]/10"
+                        className="text-[#FF6A00] hover:text-[#FFD60A] hover:bg-[#FF6A00]/10"
                       >
                         {showCredentials[request.id] ? (
                           <EyeOff className="w-4 h-4" />
@@ -534,7 +534,7 @@ export function HostingRequestManagement() {
                         setNewEmail(request.organiserEmail);
                         setNewPassword(request.organiserPassword);
                       }}
-                      className="w-full border-[#FE760B]/30 text-[#FE760B] hover:bg-[#FE760B]/10"
+                      className="w-full border-[#FF6A00]/30 text-[#FF6A00] hover:bg-[#FF6A00]/10"
                     >
                       Edit Credentials
                     </Button>
@@ -563,7 +563,7 @@ export function HostingRequestManagement() {
             {rejectedRequests.map((request) => (
               <div
                 key={request.id}
-                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6 border-l-4 border-red-500 opacity-75"
+                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 border-l-4 border-red-500 opacity-75"
               >
                 <div className="flex justify-between items-start">
                   <div>
@@ -596,7 +596,7 @@ export function HostingRequestManagement() {
             }}
           />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[51] w-[90vw] max-w-lg">
-            <div className="bg-gray-900 border border-[#FE760B]/20 rounded-2xl p-6 shadow-2xl">
+            <div className="bg-gray-900 border border-[#FF6A00]/20 rounded-2xl p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-white">
                   Reject Hosting Request
@@ -614,8 +614,8 @@ export function HostingRequestManagement() {
               </div>
 
               {requestToReject && (
-                <div className="mb-4 p-4 bg-black/30 rounded-xl border border-[#FE760B]/10">
-                  <h4 className="text-[#FE760B] font-semibold mb-1">
+                <div className="mb-4 p-4 bg-black/30 rounded-xl border border-[#FF6A00]/10">
+                  <h4 className="text-[#FF6A00] font-semibold mb-1">
                     {requestToReject.eventTitle}
                   </h4>
                   <p className="text-sm text-gray-400">
@@ -636,7 +636,7 @@ export function HostingRequestManagement() {
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Please provide a detailed reason for rejection..."
                   rows={5}
-                  className="w-full px-4 py-3 bg-black/30 border border-[#FE760B]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FE760B]/50 transition-colors resize-none"
+                  className="w-full px-4 py-3 bg-black/30 border border-[#FF6A00]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6A00]/50 transition-colors resize-none"
                 />
                 <p className="text-xs text-gray-400 mt-2">
                   This reason will be sent to the user via email.
@@ -690,11 +690,11 @@ export function HostingRequestManagement() {
             }}
           />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[51] w-[90vw] max-w-lg">
-            <div className="bg-gray-900 border border-[#FE760B]/30 rounded-2xl p-6 shadow-2xl">
+            <div className="bg-gray-900 border border-[#FF6A00]/30 rounded-2xl p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-[#FE760B]/20 flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-[#FE760B]" />
+                  <div className="w-12 h-12 rounded-full bg-[#FF6A00]/20 flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-[#FF6A00]" />
                   </div>
                   <h3 className="text-xl font-bold text-white">
                     Request Approved!
@@ -714,8 +714,8 @@ export function HostingRequestManagement() {
               </div>
 
               {approvedRequestData && (
-                <div className="mb-4 p-4 bg-black/30 rounded-xl border border-[#FE760B]/10">
-                  <h4 className="text-[#FE760B] font-semibold mb-1">
+                <div className="mb-4 p-4 bg-black/30 rounded-xl border border-[#FF6A00]/10">
+                  <h4 className="text-[#FF6A00] font-semibold mb-1">
                     {approvedRequestData.eventTitle}
                   </h4>
                   <p className="text-sm text-gray-400">
@@ -727,22 +727,22 @@ export function HostingRequestManagement() {
                 </div>
               )}
 
-              <div className="mb-4 p-4 bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-xl">
-                <p className="text-sm text-[#FE760B] flex items-center gap-2">
+              <div className="mb-4 p-4 bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-xl">
+                <p className="text-sm text-[#FF6A00] flex items-center gap-2">
                   <Mail className="w-4 h-4" />
                   Approval email sent to {approvedRequestData?.email}
                 </p>
               </div>
 
-              <div className="bg-black border border-[#FE760B]/30 rounded-xl p-4 space-y-4 mb-6">
-                <h4 className="font-semibold text-[#FE760B] flex items-center gap-2">
+              <div className="bg-black border border-[#FF6A00]/30 rounded-xl p-4 space-y-4 mb-6">
+                <h4 className="font-semibold text-[#FF6A00] flex items-center gap-2">
                   <span>🔐</span> Organiser Credentials
                 </h4>
 
-                <div className="bg-black/50 p-3 rounded border border-[#FE760B]/20">
-                  <p className="text-xs text-[#FE760B]/70 mb-1">EMAIL</p>
+                <div className="bg-black/50 p-3 rounded border border-[#FF6A00]/20">
+                  <p className="text-xs text-[#FF6A00]/70 mb-1">EMAIL</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-mono text-sm text-[#FE760B]">
+                    <p className="font-mono text-sm text-[#FF6A00]">
                       {approvedCredentials.organiserEmail}
                     </p>
                     <button
@@ -752,17 +752,17 @@ export function HostingRequestManagement() {
                         );
                         toast.success("Email copied!");
                       }}
-                      className="p-1.5 hover:bg-[#FE760B]/10 rounded transition-colors"
+                      className="p-1.5 hover:bg-[#FF6A00]/10 rounded transition-colors"
                     >
-                      <Copy className="w-4 h-4 text-[#FE760B]" />
+                      <Copy className="w-4 h-4 text-[#FF6A00]" />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-black/50 p-3 rounded border border-[#FE760B]/20">
-                  <p className="text-xs text-[#FE760B]/70 mb-1">PASSWORD</p>
+                <div className="bg-black/50 p-3 rounded border border-[#FF6A00]/20">
+                  <p className="text-xs text-[#FF6A00]/70 mb-1">PASSWORD</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-mono text-sm text-[#FE760B]">
+                    <p className="font-mono text-sm text-[#FF6A00]">
                       {approvedCredentials.organiserPassword}
                     </p>
                     <button
@@ -772,15 +772,15 @@ export function HostingRequestManagement() {
                         );
                         toast.success("Password copied!");
                       }}
-                      className="p-1.5 hover:bg-[#FE760B]/10 rounded transition-colors"
+                      className="p-1.5 hover:bg-[#FF6A00]/10 rounded transition-colors"
                     >
-                      <Copy className="w-4 h-4 text-[#FE760B]" />
+                      <Copy className="w-4 h-4 text-[#FF6A00]" />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-lg p-3">
-                  <p className="text-xs text-[#FE760B]">
+                <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-lg p-3">
+                  <p className="text-xs text-[#FF6A00]">
                     {isExistingOrganiser ? (
                       <>
                         💡 <strong>IMPORTANT:</strong> This organiser already
@@ -808,7 +808,7 @@ export function HostingRequestManagement() {
                   setApprovedRequestData(null);
                   setIsExistingOrganiser(false);
                 }}
-                className="w-full bg-[#FE760B] hover:bg-[#FEDF05] text-black font-semibold py-2.5 rounded-xl transition-all"
+                className="w-full bg-[#FF6A00] hover:bg-[#FFD60A] text-white font-semibold py-2.5 rounded-xl transition-all"
               >
                 Done
               </Button>

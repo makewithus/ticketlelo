@@ -249,7 +249,7 @@ export async function GET(request) {
         location: event.location,
         date: event.date?.toDate?.()?.toISOString() || null,
         bannerUrl: event.bannerUrl,
-        themeColor: event.themeColor || "#FE760B",
+        themeColor: event.themeColor || "#FF6A00",
         slug: event.slug,
         ticketPrice: event.ticketPrice || 0,
         isPaid: event.isPaid || false,

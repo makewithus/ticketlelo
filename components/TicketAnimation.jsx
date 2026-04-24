@@ -32,7 +32,7 @@ export default function TicketAnimation() {
   if (loading) {
     return (
       <div className="w-full max-w-[500px] aspect-square flex items-center justify-center mx-auto">
-        <div className="w-12 h-12 border-4 border-[#FE760B]/30 border-t-[#FE760B] rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-[#FF6A00]/30 border-t-[#FF6A00] rounded-full animate-spin" />
       </div>
     );
   }

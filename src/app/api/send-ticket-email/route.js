@@ -99,7 +99,7 @@ export async function POST(request) {
                   <tr>
                     <td style="padding: 35px 30px; text-align: center; background: #000000;">
                       <img src="cid:emailLogo" alt="Ticketलेलो" style="height: 60px; margin-bottom: 15px;" />
-                      <p style="margin: 0; color: #FEDF05; font-size: 13px; letter-spacing: 3px; font-weight: 800; text-transform: uppercase;">
+                      <p style="margin: 0; color: #FFD60A; font-size: 13px; letter-spacing: 3px; font-weight: 800; text-transform: uppercase;">
                         EVENT ENTRY PASS
                       </p>
                     </td>
@@ -111,12 +111,12 @@ export async function POST(request) {
                       <h2 style="color: #000000; margin-top: 0; font-size: 24px; font-weight: 800;">Hi ${fullName || registration.fullName}!</h2>
                       
                       <p style="color: #333333; line-height: 1.8; font-size: 15px; margin-bottom: 20px;">
-                        🎉 Your registration for <strong style="color: #FE760B; font-size: 16px;">${eventName || event.name}</strong> is confirmed! 
+                        🎉 Your registration for <strong style="color: #FF6A00; font-size: 16px;">${eventName || event.name}</strong> is confirmed! 
                         Your event entry pass with QR code is attached to this email.
                       </p>
                       
-                      <div style="background: linear-gradient(135deg, #FFF5E6 0%, #FFF9F0 100%); border-left: 5px solid #FE760B; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 4px 12px rgba(254, 118, 11, 0.1);">
-                        <h3 style="color: #FE760B; margin-top: 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ IMPORTANT - Entry Instructions</h3>
+                      <div style="background: linear-gradient(135deg, #FFF5E6 0%, #FFF9F0 100%); border-left: 5px solid #FF6A00; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 4px 12px rgba(254, 118, 11, 0.1);">
+                        <h3 style="color: #FF6A00; margin-top: 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ IMPORTANT - Entry Instructions</h3>
                         <ol style="color: #333333; line-height: 2; margin: 10px 0; padding-left: 20px; font-size: 14px;">
                           <li style="margin-bottom: 8px;"><strong style="color: #000000;">Download the PDF ticket</strong> attached to this email</li>
                           <li style="margin-bottom: 8px;"><strong style="color: #000000;">Show the QR code</strong> at the entry gate</li>
@@ -129,7 +129,7 @@ export async function POST(request) {
               password
                 ? `
             <!-- Login Credentials Box - Orange to Yellow Gradient -->
-            <table role="presentation" style="width: 100%; background: linear-gradient(135deg, #FE760B 0%, #FEDF05 100%); border-radius: 15px; padding: 30px; margin: 25px 0; box-shadow: 0 8px 20px rgba(254, 118, 11, 0.3);">
+            <table role="presentation" style="width: 100%; background: linear-gradient(135deg, #FF6A00 0%, #FFD60A 100%); border-radius: 15px; padding: 30px; margin: 25px 0; box-shadow: 0 8px 20px rgba(254, 118, 11, 0.3);">
               <tr>
                 <td>
                   <p style="margin: 0 0 20px 0; color: #000000; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -141,7 +141,7 @@ export async function POST(request) {
                       Email
                     </p>
                     <div style="background: #000000; padding: 15px 18px; border-radius: 10px; border: 2px solid rgba(0, 0, 0, 0.2);">
-                      <p style="margin: 0; color: #FEDF05; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace; word-break: break-all;">
+                      <p style="margin: 0; color: #FFD60A; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace; word-break: break-all;">
                         ${email}
                       </p>
                     </div>
@@ -152,7 +152,7 @@ export async function POST(request) {
                       Password
                     </p>
                     <div style="background: #000000; padding: 15px 18px; border-radius: 10px; border: 2px solid rgba(0, 0, 0, 0.2);">
-                      <p style="margin: 0; color: #FEDF05; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace;">
+                      <p style="margin: 0; color: #FFD60A; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace;">
                         ${password}
                       </p>
                     </div>
@@ -162,8 +162,8 @@ export async function POST(request) {
             </table>
 
             <!-- Security Notice - Black with Yellow Accents -->
-            <div style="background: #000000; padding: 28px; border-radius: 15px; margin-bottom: 25px; border: 2px solid #FEDF05; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-              <p style="margin: 0 0 18px 0; color: #FEDF05; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; line-height: 24px; text-transform: uppercase; letter-spacing: 1px;">
+            <div style="background: #000000; padding: 28px; border-radius: 15px; margin-bottom: 25px; border: 2px solid #FFD60A; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+              <p style="margin: 0 0 18px 0; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; line-height: 24px; text-transform: uppercase; letter-spacing: 1px;">
                 ⚠️ SECURITY NOTICE
               </p>
               <ul style="margin: 0; padding-left: 20px; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 26px;">
@@ -179,7 +179,7 @@ export async function POST(request) {
               <tr>
                 <td align="center">
                   <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/user-login" 
-                     style="display: inline-block; background: #000000; color: #FEDF05; text-decoration: none; padding: 20px 50px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); border: 3px solid #FEDF05;">
+                     style="display: inline-block; background: #000000; color: #FFD60A; text-decoration: none; padding: 20px 50px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); border: 3px solid #FFD60A;">
                     LOGIN TO DASHBOARD →
                   </a>
                 </td>
@@ -195,7 +195,7 @@ export async function POST(request) {
                   <tr>
                     <td style="padding: 30px; background: #000000; text-align: center;">
                       <img src="cid:emailLogo" alt="Ticketलेलो" style="height: 70px; margin-bottom: 10px;" />
-                      <p style="margin: 0; color: #FEDF05; font-size: 12px; font-weight: 700; letter-spacing: 1px;">
+                      <p style="margin: 0; color: #FFD60A; font-size: 12px; font-weight: 700; letter-spacing: 1px;">
                         ticketlelo.in
                       </p>
                     </td>

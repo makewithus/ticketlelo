@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <BarChart2 size={22} className="text-[#FE760B]" />
+        <BarChart2 size={22} className="text-[#FF6A00]" />
         <h1 className="text-2xl font-extrabold text-gray-900 dark:text-slate-100">Analytics</h1>
       </div>
 
@@ -42,7 +42,7 @@ export default function AnalyticsPage() {
           <Loader2 size={20} className="animate-spin" /> Loading events…
         </div>
       ) : events.length === 0 ? (
-        <div className="bg-black rounded-2xl border border-[#FE760B]/20 p-10 text-center text-[#FE760B] font-medium">
+        <div className="bg-black rounded-2xl border border-[#FF6A00]/20 p-10 text-center text-[#FF6A00] font-medium">
           No events found. Create an event first.
         </div>
       ) : (
@@ -51,7 +51,7 @@ export default function AnalyticsPage() {
             <select
               value={selectedEventId}
               onChange={(e) => setSelectedEventId(e.target.value)}
-              className="px-4 py-2.5 bg-white dark:bg-black border border-[#FE760B]/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FE760B]"
+              className="px-4 py-2.5 bg-white dark:bg-black border border-[#FF6A00]/30 rounded-xl text-sm font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00]"
             >
               <option value="" className="bg-slate-900">
                 Select an event
@@ -67,7 +67,7 @@ export default function AnalyticsPage() {
           {selectedEventId ? (
             <AnalyticsDashboard eventId={selectedEventId} userId={user?.id} />
           ) : (
-            <div className="bg-black rounded-2xl border border-[#FE760B]/20 p-10 text-center text-[#FE760B] text-sm font-medium">
+            <div className="bg-black rounded-2xl border border-[#FF6A00]/20 p-10 text-center text-[#FF6A00] text-sm font-medium">
               Select an event to view analytics
             </div>
           )}

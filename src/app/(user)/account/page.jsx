@@ -34,11 +34,11 @@ const PLAN_META = {
   starter: {
     label: "Starter",
     Icon: Zap,
-    iconColor: "text-[#FE760B]",
+    iconColor: "text-[#FF6A00]",
     bg: "bg-orange-50",
-    border: "border-[#FE760B]/30",
-    badgeClass: "bg-orange-100 text-[#FE760B]",
-    progressColor: "bg-[#FE760B]",
+    border: "border-[#FF6A00]/30",
+    badgeClass: "bg-orange-100 text-[#FF6A00]",
+    progressColor: "bg-[#FF6A00]",
   },
   pro: {
     label: "Pro",
@@ -138,7 +138,7 @@ export default function AccountPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-[#FE760B]" size={32} />
+        <Loader2 className="animate-spin text-[#FF6A00]" size={32} />
       </div>
     );
   }
@@ -188,7 +188,7 @@ export default function AccountPage() {
           {currentPlanId !== "pro" && (
             <Link
               href="/pricing"
-              className="flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold rounded-xl text-sm hover:opacity-90 transition-opacity shadow-md shadow-[#FE760B]/20"
+              className="flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity shadow-md shadow-[#FF6A00]/20"
             >
               <Zap size={14} />
               Upgrade Plan
@@ -243,12 +243,12 @@ export default function AccountPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
-              <BarChart2 size={16} className="text-[#FE760B]" />
+              <BarChart2 size={16} className="text-[#FF6A00]" />
               Your Events
             </h3>
             <Link
               href="/admin/dashboard"
-              className="text-xs text-[#FE760B] font-medium hover:underline flex items-center gap-1"
+              className="text-xs text-[#FF6A00] font-medium hover:underline flex items-center gap-1"
             >
               Manage <ArrowRight size={12} />
             </Link>
@@ -264,7 +264,7 @@ export default function AccountPage() {
                 <p className="text-gray-400 text-sm">No events yet</p>
                 <Link
                   href="/admin/dashboard"
-                  className="mt-4 inline-flex items-center gap-1.5 text-sm text-[#FE760B] font-medium hover:underline"
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm text-[#FF6A00] font-medium hover:underline"
                 >
                   Create your first event <ArrowRight size={13} />
                 </Link>
@@ -319,7 +319,7 @@ export default function AccountPage() {
                     Free
                   </th>
                   <th
-                    className={`text-center py-2 text-sm font-bold ${currentPlanId === "starter" ? "text-[#FE760B]" : "text-gray-400"}`}
+                    className={`text-center py-2 text-sm font-bold ${currentPlanId === "starter" ? "text-[#FF6A00]" : "text-gray-400"}`}
                   >
                     Starter
                   </th>
@@ -385,7 +385,7 @@ export default function AccountPage() {
           </div>
 
           {currentPlanId !== "pro" && (
-            <div className="mt-6 flex items-center justify-between p-4 bg-gradient-to-r from-[#FE760B]/10 to-[#FEDF05]/10 rounded-xl border border-[#FE760B]/20">
+            <div className="mt-6 flex items-center justify-between p-4 bg-gradient-to-r from-[#FF6A00]/10 to-[#FFD60A]/10 rounded-xl border border-[#FF6A00]/20">
               <div>
                 <p className="font-bold text-gray-800 text-sm">
                   Ready to unlock more features?
@@ -396,7 +396,7 @@ export default function AccountPage() {
               </div>
               <Link
                 href="/pricing"
-                className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 px-5 py-2 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
               >
                 View Plans <ArrowRight size={13} />
               </Link>

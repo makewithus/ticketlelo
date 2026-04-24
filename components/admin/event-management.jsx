@@ -217,7 +217,7 @@ export function EventManagement() {
           <Button
             onClick={() => setIsCreating(true)}
             disabled={!canCreateEvent}
-            className="gap-2 h-11 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black shadow-lg shadow-[#FE760B]/25 hover:shadow-[#FE760B]/40 transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className="gap-2 h-11 bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             {canCreateEvent ? "Create Event" : "Event Limit Reached"}
@@ -243,7 +243,7 @@ export function EventManagement() {
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   onClick={() => router.push("/pricing")}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
                 >
                   <Zap className="w-4 h-4" />
                   Upgrade Plan
@@ -262,10 +262,10 @@ export function EventManagement() {
 
       {/* Create/Edit Form */}
       {isCreating && (
-        <div className="rounded-2xl border border-[#FE760B]/20 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur p-8 opacity-0 animate-scale-in shadow-sm">
+        <div className="rounded-2xl border border-[#FF6A00]/20 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur p-8 opacity-0 animate-scale-in shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6A00] to-[#FFB800] flex items-center justify-center">
                 {editingEvent ? (
                   <Edit className="w-5 h-5 text-black" />
                 ) : (
@@ -298,7 +298,7 @@ export function EventManagement() {
                   }
                   placeholder="Enter event name"
                   required
-                  className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl"
+                  className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
                 />
               </div>
             </div>
@@ -314,7 +314,7 @@ export function EventManagement() {
                 }
                 placeholder="Describe your event..."
                 required
-                className="min-h-[100px] bg-white dark:bg-slate-900 border-[#FE760B]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl resize-none"
+                className="min-h-[100px] bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl resize-none"
               />
             </div>
 
@@ -330,7 +330,7 @@ export function EventManagement() {
                     setFormData({ ...formData, date: e.target.value })
                   }
                   required
-                  className="h-12 bg-white dark:bg-slate-900 border-[#FE760B]/30 dark:border-slate-800 text-gray-900 dark:text-white focus:border-[#FE760B] rounded-xl dark:[color-scheme:dark]"
+                  className="h-12 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white focus:border-[#FF6A00] rounded-xl dark:[color-scheme:dark]"
                 />
               </div>
               <div className="space-y-2">
@@ -348,7 +348,7 @@ export function EventManagement() {
                     placeholder="100"
                     required
                     min="1"
-                    className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl"
+                    className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
                   />
                 </div>
               </div>
@@ -367,7 +367,7 @@ export function EventManagement() {
                   }
                   placeholder="Enter event location"
                   required
-                  className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl"
+                  className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
                 />
               </div>
             </div>
@@ -379,7 +379,7 @@ export function EventManagement() {
                 onClick={() =>
                   setFormData({ ...formData, isActive: !formData.isActive })
                 }
-                className={`relative w-11 h-6 rounded-full transition-colors ${formData.isActive ? "bg-[#FE760B]" : "bg-gray-300 dark:bg-slate-700"}`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${formData.isActive ? "bg-[#FF6A00]" : "bg-gray-300 dark:bg-slate-700"}`}
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.isActive ? "translate-x-5" : ""}`}
@@ -395,7 +395,7 @@ export function EventManagement() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="h-11 gap-2 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black shadow-lg shadow-[#FE760B]/25 transition-all rounded-xl"
+                className="h-11 gap-2 bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 transition-all rounded-xl"
               >
                 {isLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -412,7 +412,7 @@ export function EventManagement() {
                 type="button"
                 variant="outline"
                 onClick={resetForm}
-                className="h-11 border-[#FE760B]/30 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FE760B]/5 dark:hover:bg-slate-800 rounded-xl"
+                className="h-11 border-[#FF6A00]/30 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FF6A00]/5 dark:hover:bg-slate-800 rounded-xl"
               >
                 Cancel
               </Button>
@@ -426,17 +426,17 @@ export function EventManagement() {
         {events.map((event, i) => (
           <div
             key={event.id}
-            className={`group rounded-2xl border border-[#FE760B]/10 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-[#FE760B]/30 dark:hover:border-[#FE760B]/30 transition-all duration-300 overflow-hidden card-hover shadow-sm opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}
+            className={`group rounded-2xl border border-[#FF6A00]/10 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-[#FF6A00]/30 dark:hover:border-[#FF6A00]/30 transition-all duration-300 overflow-hidden card-hover shadow-sm opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}
           >
             {/* Gradient bar */}
             <div
-              className={`h-1 ${event.isActive ? "bg-gradient-to-r from-[#FE760B] to-[#FEDF05]" : "bg-gray-200 dark:bg-slate-700"}`}
+              className={`h-1 ${event.isActive ? "bg-[#FF6A00] hover:bg-[#E65C00]" : "bg-gray-200 dark:bg-slate-700"}`}
             />
 
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-[#FE760B] dark:group-hover:text-[#FE760B] transition-colors">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-[#FF6A00] dark:group-hover:text-[#FF6A00] transition-colors">
                     {event.name}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 line-clamp-2">
@@ -446,7 +446,7 @@ export function EventManagement() {
                 <span
                   className={`ml-4 shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
                     event.isActive
-                      ? "bg-[#FE760B]/10 dark:bg-[#FE760B]/10 text-[#FE760B] dark:text-[#FE760B] border border-[#FE760B]/30 dark:border-[#FE760B]/20"
+                      ? "bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 text-[#FF6A00] dark:text-[#FF6A00] border border-[#FF6A00]/30 dark:border-[#FF6A00]/20"
                       : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-500 border border-gray-200 dark:border-slate-700"
                   }`}
                 >
@@ -456,8 +456,8 @@ export function EventManagement() {
 
               <div className="space-y-2.5 mb-6">
                 <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 dark:bg-[#FE760B]/10 flex items-center justify-center">
-                    <Calendar className="w-4 h-4 text-[#FE760B] dark:text-[#FE760B]" />
+                  <div className="w-8 h-8 rounded-lg bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 flex items-center justify-center">
+                    <Calendar className="w-4 h-4 text-[#FF6A00] dark:text-[#FF6A00]" />
                   </div>
                   <span className="text-gray-700 dark:text-slate-300">
                     {(event.date?.toDate
@@ -471,16 +471,16 @@ export function EventManagement() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-[#FEDF05]/10 dark:bg-[#FEDF05]/10 flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-[#FEDF05] dark:text-[#FEDF05]" />
+                  <div className="w-8 h-8 rounded-lg bg-[#FFD60A]/10 dark:bg-[#FFD60A]/10 flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-[#FFD60A] dark:text-[#FFD60A]" />
                   </div>
                   <span className="text-gray-700 dark:text-slate-300">
                     {event.location}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 dark:bg-[#FE760B]/10 flex items-center justify-center">
-                    <Ticket className="w-4 h-4 text-[#FE760B] dark:text-[#FE760B]" />
+                  <div className="w-8 h-8 rounded-lg bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 flex items-center justify-center">
+                    <Ticket className="w-4 h-4 text-[#FF6A00] dark:text-[#FF6A00]" />
                   </div>
                   <span className="text-gray-700 dark:text-slate-300">
                     {event.totalTickets} tickets
@@ -493,7 +493,7 @@ export function EventManagement() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleEdit(event)}
-                  className="flex-1 gap-2 h-10 border-[#FE760B]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-[#FE760B] dark:hover:text-[#FE760B] hover:border-[#FE760B] dark:hover:border-[#FE760B]/30 hover:bg-[#FE760B]/5 dark:hover:bg-[#FE760B]/10 transition-all rounded-xl"
+                  className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-[#FF6A00] dark:hover:text-[#FF6A00] hover:border-[#FF6A00] dark:hover:border-[#FF6A00]/30 hover:bg-[#FF6A00]/5 dark:hover:bg-[#FF6A00]/10 transition-all rounded-xl"
                 >
                   <Edit className="w-3.5 h-3.5" />
                   Edit
@@ -502,7 +502,7 @@ export function EventManagement() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleDelete(event.id)}
-                  className="flex-1 gap-2 h-10 border-[#FE760B]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
+                  className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Delete
@@ -515,8 +515,8 @@ export function EventManagement() {
 
       {events.length === 0 && !isCreating && (
         <div className="text-center py-20 opacity-0 animate-fade-in">
-          <div className="w-20 h-20 rounded-full bg-[#FE760B]/10 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
-            <Calendar className="w-10 h-10 text-[#FE760B]/50 dark:text-slate-600" />
+          <div className="w-20 h-20 rounded-full bg-[#FF6A00]/10 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
+            <Calendar className="w-10 h-10 text-[#FF6A00]/50 dark:text-slate-600" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             No Events Yet
@@ -526,7 +526,7 @@ export function EventManagement() {
           </p>
           <Button
             onClick={() => setIsCreating(true)}
-            className="gap-2 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black shadow-lg shadow-[#FE760B]/25 rounded-xl"
+            className="gap-2 bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 rounded-xl"
           >
             <Plus className="w-4 h-4" />
             Create Event

@@ -100,7 +100,7 @@ export default function UserLoginPage() {
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#FE760B]/10 via-transparent to-[#FEDF05]/10 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#FF6A00]/10 via-transparent to-[#FFD60A]/10 pointer-events-none" />
       <div
         className="absolute inset-0 opacity-[0.02] pointer-events-none"
         style={{
@@ -111,8 +111,8 @@ export default function UserLoginPage() {
       />
 
       {/* Floating orbs */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-[#FE760B]/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#FEDF05]/20 rounded-full blur-3xl" />
+      <div className="absolute top-20 left-10 w-72 h-72 bg-[#FF6A00]/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#FFD60A]/20 rounded-full blur-3xl" />
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
@@ -133,12 +133,12 @@ export default function UserLoginPage() {
 
           {showForgotPassword ? (
             /* Forgot Password Form */
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FE760B]/20 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FF6A00]/20 rounded-2xl p-8 shadow-2xl">
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#FE760B] to-[#FEDF05] rounded-2xl mb-4 shadow-lg shadow-[#FE760B]/30">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#FF6A00] to-[#FFB800] rounded-2xl mb-4 shadow-lg shadow-[#FF6A00]/30">
                   <Mail className="w-8 h-8 text-black" />
                 </div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FE760B] to-[#FEDF05] bg-clip-text text-transparent mb-2">
+                <h1 className="text-3xl font-bold bg-[#FF6A00] hover:bg-[#E65C00] bg-clip-text text-transparent mb-2">
                   Reset Password
                 </h1>
                 <p className="text-gray-400 text-sm">
@@ -157,7 +157,7 @@ export default function UserLoginPage() {
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-black/30 border border-[#FE760B]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FE760B]/50 focus:ring-2 focus:ring-[#FE760B]/20 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-black/30 border border-[#FF6A00]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6A00]/50 focus:ring-2 focus:ring-[#FF6A00]/20 transition-all"
                       placeholder="your.email@example.com"
                       required
                     />
@@ -167,7 +167,7 @@ export default function UserLoginPage() {
                 <button
                   type="submit"
                   disabled={resetLoading}
-                  className="w-full bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#FE760B]/30 flex items-center justify-center gap-2"
+                  className="w-full bg-[#FF6A00] hover:bg-[#E65C00] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#FF6A00]/30 flex items-center justify-center gap-2"
                 >
                   {resetLoading ? (
                     <>
@@ -190,13 +190,13 @@ export default function UserLoginPage() {
             </div>
           ) : (
             /* Login Form */
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FE760B]/20 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FF6A00]/20 rounded-2xl p-8 shadow-2xl">
               {/* Header */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#FE760B] to-[#FEDF05] rounded-2xl mb-4 shadow-lg shadow-[#FE760B]/30">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#FF6A00] to-[#FFB800] rounded-2xl mb-4 shadow-lg shadow-[#FF6A00]/30">
                   <User className="w-8 h-8 text-black" />
                 </div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#FE760B] to-[#FEDF05] bg-clip-text text-transparent mb-2">
+                <h1 className="text-3xl font-bold bg-[#FF6A00] hover:bg-[#E65C00] bg-clip-text text-transparent mb-2">
                   Welcome Back
                 </h1>
                 <p className="text-gray-400 text-sm">
@@ -217,7 +217,7 @@ export default function UserLoginPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-black/30 border border-[#FE760B]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FE760B]/50 focus:ring-2 focus:ring-[#FE760B]/20 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-black/30 border border-[#FF6A00]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6A00]/50 focus:ring-2 focus:ring-[#FF6A00]/20 transition-all"
                       placeholder="your.email@example.com"
                       required
                     />
@@ -233,7 +233,7 @@ export default function UserLoginPage() {
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
-                      className="text-xs text-[#FEDF05] hover:text-[#FE760B] transition-colors"
+                      className="text-xs text-[#FFD60A] hover:text-[#FF6A00] transition-colors"
                     >
                       Forgot password?
                     </button>
@@ -244,7 +244,7 @@ export default function UserLoginPage() {
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 bg-black/30 border border-[#FE760B]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FE760B]/50 focus:ring-2 focus:ring-[#FE760B]/20 transition-all"
+                      className="w-full pl-11 pr-4 py-3 bg-black/30 border border-[#FF6A00]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6A00]/50 focus:ring-2 focus:ring-[#FF6A00]/20 transition-all"
                       placeholder="••••••••"
                       required
                     />
@@ -266,7 +266,7 @@ export default function UserLoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#FE760B]/30 flex items-center justify-center gap-2"
+                  className="w-full bg-[#FF6A00] hover:bg-[#E65C00] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#FF6A00]/30 flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <>
@@ -288,7 +288,7 @@ export default function UserLoginPage() {
                   Don't have an account?{" "}
                   <Link
                     href="/"
-                    className="text-[#FEDF05] hover:text-[#FE760B] font-medium transition-colors"
+                    className="text-[#FFD60A] hover:text-[#FF6A00] font-medium transition-colors"
                   >
                     Browse events
                   </Link>
@@ -301,7 +301,7 @@ export default function UserLoginPage() {
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>
               Are you an organizer?{" "}
-              <Link href="/organiser-login" className="text-[#FEDF05] hover:underline">
+              <Link href="/organiser-login" className="text-[#FFD60A] hover:underline">
                 Login here
               </Link>
             </p>

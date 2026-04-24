@@ -94,10 +94,10 @@ export default function DashboardPage() {
     return (
       <main className="min-h-screen flex items-center justify-center bg-black">
         <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center shadow-2xl shadow-[#FE760B]/30 animate-pulse-glow">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF6A00] to-[#FFB800] flex items-center justify-center shadow-2xl shadow-[#FF6A00]/30 animate-pulse-glow">
             <Ticket className="w-8 h-8 text-black" />
           </div>
-          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+          <Loader2 className="w-6 h-6 animate-spin text-[#FF6A00]" />
           <p className="text-slate-400">Loading your tickets...</p>
         </div>
       </main>
@@ -120,7 +120,7 @@ export default function DashboardPage() {
       <header className="fixed top-0 inset-x-0 z-50 glass-dark">
         <nav className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#FE760B] to-[#FEDF05] flex items-center justify-center shadow-lg shadow-[#FE760B]/25">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#FF6A00] to-[#FFB800] flex items-center justify-center shadow-lg shadow-[#FF6A00]/25">
               <Ticket className="w-5 h-5 text-black" />
             </div>
             <span className="text-xl font-bold tracking-tight text-white">
@@ -128,14 +128,14 @@ export default function DashboardPage() {
             </span>
           </Link>
           <div className="flex gap-3 items-center">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 border border-[#FE760B]/30">
-              <div className="w-2 h-2 rounded-full bg-[#FE760B] animate-pulse" />
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 border border-[#FF6A00]/30">
+              <div className="w-2 h-2 rounded-full bg-[#FF6A00] animate-pulse" />
               <span className="text-sm text-slate-400">{user.email}</span>
             </div>
             <Button
               onClick={handleLogout}
               variant="outline"
-              className="h-10 gap-2 border-[#FE760B]/30 text-[#FE760B] hover:text-white hover:border-red-500/50 hover:bg-red-500/10 transition-all"
+              className="h-10 gap-2 border-[#FF6A00]/30 text-[#FF6A00] hover:text-white hover:border-red-500/50 hover:bg-red-500/10 transition-all"
             >
               <LogOut className="w-4 h-4" /> Sign Out
             </Button>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
           {/* Welcome */}
           <div className="mb-10 opacity-0 animate-fade-in-up">
             <h1 className="text-4xl font-extrabold mb-2 text-white">
-              Welcome, <span className="text-[#FE760B]">{user.fullName}</span>!
+              Welcome, <span className="text-[#FF6A00]">{user.fullName}</span>!
             </h1>
             <p className="text-slate-400 text-lg">
               Your event tickets, all in one place.
@@ -162,27 +162,27 @@ export default function DashboardPage() {
                 label: "Total Tickets",
                 value: registrations.length,
                 icon: Ticket,
-                color: "from-[#FE760B] to-[#FEDF05]",
-                shadow: "shadow-[#FE760B]/20",
+                color: "from-[#FF6A00] to-[#FFD60A]",
+                shadow: "shadow-[#FF6A00]/20",
               },
               {
                 label: "Upcoming",
                 value: unusedCount,
                 icon: CalendarDays,
-                color: "from-[#FE760B] to-[#FEDF05]",
-                shadow: "shadow-[#FE760B]/20",
+                color: "from-[#FF6A00] to-[#FFD60A]",
+                shadow: "shadow-[#FF6A00]/20",
               },
               {
                 label: "Used",
                 value: usedCount,
                 icon: TicketCheck,
-                color: "from-[#FE760B] to-[#FEDF05]",
-                shadow: "shadow-[#FE760B]/20",
+                color: "from-[#FF6A00] to-[#FFD60A]",
+                shadow: "shadow-[#FF6A00]/20",
               },
             ].map((stat, i) => (
               <div
                 key={stat.label}
-                className={`p-5 rounded-2xl border bg-black/50 border-[#FE760B]/30 opacity-0 animate-fade-in-up stagger-${i + 1}`}
+                className={`p-5 rounded-2xl border bg-black/50 border-[#FF6A00]/30 opacity-0 animate-fade-in-up stagger-${i + 1}`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -214,8 +214,8 @@ export default function DashboardPage() {
                 onClick={() => setFilter(f.key)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   filter === f.key
-                    ? "bg-[#FE760B]/20 text-[#FE760B] border border-[#FE760B]/30"
-                    : "text-slate-400 hover:text-slate-300 border border-transparent hover:border-[#FE760B]/20 hover:bg-black/50"
+                    ? "bg-[#FF6A00]/20 text-[#FF6A00] border border-[#FF6A00]/30"
+                    : "text-slate-400 hover:text-slate-300 border border-transparent hover:border-[#FF6A00]/20 hover:bg-black/50"
                 }`}
               >
                 {f.label}
@@ -239,7 +239,7 @@ export default function DashboardPage() {
               </p>
               {filter === "All" && (
                 <Link href="/">
-                  <Button className="h-11 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black font-bold shadow-lg shadow-[#FE760B]/25 gap-2">
+                  <Button className="h-11 bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold shadow-lg shadow-[#FF6A00]/25 gap-2">
                     Browse Events
                   </Button>
                 </Link>

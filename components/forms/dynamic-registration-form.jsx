@@ -1284,7 +1284,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isLoading}
-              className="h-12 bg-slate-900/60 border-[#FE760B]/30 text-white placeholder:text-slate-500 focus:border-[#FE760B] rounded-xl"
+              className="h-12 bg-slate-900/60 border-[#FF6A00]/30 text-white placeholder:text-slate-500 focus:border-[#FF6A00] rounded-xl"
             />
             {error && (
               <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
@@ -1307,7 +1307,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isLoading}
-              className="min-h-[80px] bg-slate-900/60 border-[#FE760B]/30 text-white placeholder:text-slate-500 focus:border-[#FE760B] rounded-xl resize-none"
+              className="min-h-[80px] bg-slate-900/60 border-[#FF6A00]/30 text-white placeholder:text-slate-500 focus:border-[#FF6A00] rounded-xl resize-none"
             />
             {error && (
               <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
@@ -1326,7 +1326,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               {field.options?.map((option, idx) => (
                 <label
                   key={idx}
-                  className="flex items-center gap-3 p-3 bg-slate-900/60 border border-[#FE760B]/30 rounded-xl hover:border-[#FE760B] cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-3 bg-slate-900/60 border border-[#FF6A00]/30 rounded-xl hover:border-[#FF6A00] cursor-pointer transition-colors"
                 >
                   <input
                     type="radio"
@@ -1335,7 +1335,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                     checked={value === option}
                     onChange={(e) => updateValue(e.target.value)}
                     disabled={isLoading}
-                    className="w-4 h-4 text-[#FE760B] border-[#FE760B]/30 focus:ring-[#FE760B]"
+                    className="w-4 h-4 text-[#FF6A00] border-[#FF6A00]/30 focus:ring-[#FF6A00]"
                   />
                   <span className="text-sm text-slate-300">{option}</span>
                 </label>
@@ -1359,12 +1359,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               onValueChange={updateValue}
               disabled={isLoading}
             >
-              <SelectTrigger className="h-12 bg-slate-900/60 border-[#FE760B]/30 text-white focus:border-[#FE760B] rounded-xl">
+              <SelectTrigger className="h-12 bg-slate-900/60 border-[#FF6A00]/30 text-white focus:border-[#FF6A00] rounded-xl">
                 <SelectValue
                   placeholder={`Select ${(field.label || field.name)?.toLowerCase() || "option"}`}
                 />
               </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-[#FE760B]/30">
+              <SelectContent className="bg-slate-900 border-[#FF6A00]/30">
                 {field.options?.map((option, idx) => (
                   <SelectItem
                     key={idx}
@@ -1413,7 +1413,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   if (!customForm) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B] mb-4" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF6A00] mb-4" />
         <p className="text-sm text-slate-400 animate-pulse">
           Loading registration form...
         </p>
@@ -1438,8 +1438,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
         {/* Show amount if paid event */}
         {customForm.isPaid && customForm.amount > 0 && (
-          <div className="mb-6 p-4 bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-xl">
-            <p className="text-sm font-medium text-[#FE760B]">
+          <div className="mb-6 p-4 bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-xl">
+            <p className="text-sm font-medium text-[#FF6A00]">
               Amount: ₹{customForm.amount}
             </p>
           </div>
@@ -1468,7 +1468,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                           setCouponCode(e.target.value.toUpperCase())
                         }
                         disabled={isLoading || couponValidating}
-                        className="h-12 bg-slate-900/60 border-[#FE760B]/30 text-white placeholder:text-slate-500 focus:border-[#FE760B] rounded-xl uppercase"
+                        className="h-12 bg-slate-900/60 border-[#FF6A00]/30 text-white placeholder:text-slate-500 focus:border-[#FF6A00] rounded-xl uppercase"
                       />
                     </div>
                     <Button
@@ -1487,18 +1487,18 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                     </Button>
                   </div>
                 ) : (
-                  <div className="bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-xl p-4">
+                  <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle className="w-4 h-4 text-[#FE760B]" />
-                          <span className="text-sm font-semibold text-[#FE760B]">
+                          <CheckCircle className="w-4 h-4 text-[#FF6A00]" />
+                          <span className="text-sm font-semibold text-[#FF6A00]">
                             Coupon Applied: {couponCode}
                           </span>
                         </div>
                         <div className="text-xs text-slate-400">
                           <div>Original: ₹{couponData.originalAmount}</div>
-                          <div className="text-[#FE760B]  font-semibold">
+                          <div className="text-[#FF6A00]  font-semibold">
                             {couponData.discountPercent}% OFF - You save ₹
                             {couponData.discountAmount}
                           </div>
@@ -1529,7 +1529,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           <Button
             type="submit"
             disabled={isLoading || paymentProcessing}
-            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black shadow-lg shadow-[#FE760B]/25 hover:shadow-[#FE760B]/40 transition-all rounded-xl gap-2"
+            className="w-full h-12 text-base font-semibold bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 transition-all rounded-xl gap-2"
           >
             {isLoading || paymentProcessing ? (
               <>
@@ -1670,11 +1670,11 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl p-8 shadow-2xl max-w-lg w-full border border-[#FE760B]/30">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl p-8 shadow-2xl max-w-lg w-full border border-[#FF6A00]/30">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#FE760B] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-[#FF6A00] flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -1695,11 +1695,11 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             {/* Content */}
             <div className="space-y-5">
               {/* Ticket Info */}
-              <div className="bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-lg p-4">
+              <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5">
                     <svg
-                      className="w-5 h-5 text-[#FE760B]"
+                      className="w-5 h-5 text-[#FF6A00]"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -1713,10 +1713,10 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-[#FE760B] mb-1">
+                    <p className="font-medium text-[#FF6A00] mb-1">
                       Ticket Sent to Email
                     </p>
-                    <p className="text-sm text-[#FE760B]/70">
+                    <p className="text-sm text-[#FF6A00]/70">
                       Check your inbox for the PDF ticket with QR code
                     </p>
                   </div>
@@ -1725,9 +1725,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
               {/* LOGIN CREDENTIALS - Show if password exists */}
               {userCredentials.password && (
-                <div className="bg-slate-50 dark:bg-slate-800 border-2 border-[#FE760B] rounded-lg p-5">
+                <div className="bg-slate-50 dark:bg-slate-800 border-2 border-[#FF6A00] rounded-lg p-5">
                   <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
-                    <div className="w-8 h-8 rounded-lg bg-[#FE760B] flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-[#FF6A00] flex items-center justify-center">
                       <svg
                         className="w-5 h-5 text-white"
                         fill="none"
@@ -1763,7 +1763,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                       <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">
                         Password
                       </label>
-                      <div className="bg-white dark:bg-slate-900 border-2 border-[#FE760B] rounded-lg px-4 py-3">
+                      <div className="bg-white dark:bg-slate-900 border-2 border-[#FF6A00] rounded-lg px-4 py-3">
                         <p className="font-mono text-slate-900 dark:text-white text-xl font-bold tracking-wider text-center">
                           {userCredentials.password}
                         </p>
@@ -1803,7 +1803,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                   );
                   router.push("/user-login");
                 }}
-                className="flex-1 bg-[#FE760B] hover:bg-[#FEDF05] text-black font-medium"
+                className="flex-1 bg-[#FF6A00] hover:bg-[#FFD60A] text-black font-medium"
               >
                 Sign In to Dashboard
               </Button>

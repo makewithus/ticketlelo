@@ -64,7 +64,7 @@ export async function POST(request) {
                 <tr>
                   <td style="padding: 40px 40px 30px; text-align: center; background: #000000;">
                     <img src="cid:emailLogo" alt="Ticketलेलो" style="height: 50px; margin-bottom: 12px;" />
-                    <p style="margin: 0; color: #FEDF05; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700;">
+                    <p style="margin: 0; color: #FFD60A; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700;">
                       ORGANIZE EVENTS SEAMLESSLY
                     </p>
                   </td>
@@ -78,19 +78,19 @@ export async function POST(request) {
                       REQUEST UPDATE
                     </h2>
                     
-                    <h3 style="margin: 0 0 35px; color: #FE760B; font-size: 24px; font-weight: 800; text-align: center;">
+                    <h3 style="margin: 0 0 35px; color: #FF6A00; font-size: 24px; font-weight: 800; text-align: center;">
                       ${name}
                     </h3>
                     
                     <p style="margin: 0 0 25px; color: #333333; font-size: 16px; line-height: 1.8; text-align: center;">
-                      Thank you for your interest in hosting <strong style="color: #FE760B;">"${eventTitle}"</strong> on Ticketलेलो. After careful review, we regret to inform you that your hosting request has been <strong style="color: #ef4444;">not approved</strong> at this time.
+                      Thank you for your interest in hosting <strong style="color: #FF6A00;">"${eventTitle}"</strong> on Ticketलेलो. After careful review, we regret to inform you that your hosting request has been <strong style="color: #ef4444;">not approved</strong> at this time.
                     </p>
                     
                     <!-- Event Details Card -->
-                    <table role="presentation" style="width: 100%; background: linear-gradient(135deg, rgba(254, 118, 11, 0.05) 0%, rgba(254, 223, 5, 0.05) 100%); border-radius: 15px; padding: 25px; margin: 30px 0; border-left: 5px solid #FE760B;">
+                    <table role="presentation" style="width: 100%; background: linear-gradient(135deg, rgba(254, 118, 11, 0.05) 0%, rgba(254, 223, 5, 0.05) 100%); border-radius: 15px; padding: 25px; margin: 30px 0; border-left: 5px solid #FF6A00;">
                       <tr>
                         <td>
-                          <h3 style="margin: 0 0 20px; color: #FE760B; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                          <h3 style="margin: 0 0 20px; color: #FF6A00; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
                             📋 YOUR REQUEST DETAILS
                           </h3>
                           <table style="width: 100%; border-collapse: collapse;">
@@ -131,7 +131,7 @@ export async function POST(request) {
                     
                     <!-- Rejection Reason - Dark Brown Box -->
                     <div style="background: #351E27; padding: 25px; margin: 30px 0; border-radius: 15px;">
-                      <h3 style="margin: 0 0 15px; color: #FEDF05; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 500; line-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">
+                      <h3 style="margin: 0 0 15px; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 500; line-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">
                         ⚠️ REASON FOR DECLINE
                       </h3>
                       <p style="margin: 0; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 24px;">
@@ -165,7 +165,7 @@ export async function POST(request) {
                 <tr>
                   <td style="padding: 0 40px 50px; text-align: center;">
                     <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/host-event" 
-                       style="display: inline-block; background: #FEDF05; color: #000000; text-decoration: none; padding: 18px 50px; border-radius: 12px; font-weight: 900; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(254, 223, 5, 0.4);">
+                       style="display: inline-block; background: #FFD60A; color: #000000; text-decoration: none; padding: 18px 50px; border-radius: 12px; font-weight: 900; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(254, 223, 5, 0.4);">
                       SUBMIT NEW REQUEST →
                     </a>
                   </td>
@@ -175,7 +175,7 @@ export async function POST(request) {
                 <tr>
                   <td style="padding: 30px 40px; background: #000000; text-align: center;">
                     <img src="cid:emailLogo" alt="Ticketलेलो" style="height: 50px; margin-bottom: 8px;" />
-                    <p style="margin: 0; color: #FEDF05; font-size: 11px; font-weight: 600;">
+                    <p style="margin: 0; color: #FFD60A; font-size: 11px; font-weight: 600;">
                       ticketlelo.in
                     </p>
                   </td>

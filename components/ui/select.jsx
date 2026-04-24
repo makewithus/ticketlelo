@@ -91,8 +91,8 @@ const SelectTrigger = React.forwardRef(
         disabled={disabled}
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition-all",
-          "bg-white border-[#FE760B]/20 text-gray-900 hover:border-[#FE760B]/30 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/20 focus:border-[#FE760B]",
-          "dark:bg-slate-900/80 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:focus:ring-[#FE760B]/20 dark:focus:border-[#FE760B]",
+          "bg-white border-[#FF6A00]/20 text-gray-900 hover:border-[#FF6A00]/30 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/20 focus:border-[#FF6A00]",
+          "dark:bg-slate-900/80 dark:border-slate-700 dark:text-slate-200 dark:hover:border-slate-600 dark:focus:ring-[#FF6A00]/20 dark:focus:border-[#FF6A00]",
           !hasSelection && "text-gray-400 dark:text-slate-500",
           disabled && "opacity-50 cursor-not-allowed",
           className,
@@ -129,7 +129,7 @@ const SelectContent = ({ children, className }) => {
     <div
       className={cn(
         "absolute z-50 mt-1.5 w-full rounded-xl border shadow-xl overflow-hidden",
-        "bg-white border-[#FE760B]/20 dark:bg-slate-900 dark:border-slate-700",
+        "bg-white border-[#FF6A00]/20 dark:bg-slate-900 dark:border-slate-700",
       )}
     >
       <div className={cn("max-h-60 overflow-auto p-1", className)}>
@@ -164,10 +164,10 @@ const SelectItem = ({ children, value, className, ...props }) => {
       }}
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm transition-colors",
-        "text-gray-700 hover:bg-[#FE760B]/5 hover:text-[#FE760B]",
+        "text-gray-700 hover:bg-[#FF6A00]/5 hover:text-[#FF6A00]",
         "dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white",
         isSelected &&
-          "bg-[#FEDF05]/10 text-[#FE760B] font-medium dark:bg-[#FE760B]/10 dark:text-[#FE760B]",
+          "bg-[#FFD60A]/10 text-[#FF6A00] font-medium dark:bg-[#FF6A00]/10 dark:text-[#FF6A00]",
         className,
       )}
       {...props}
@@ -175,7 +175,7 @@ const SelectItem = ({ children, value, className, ...props }) => {
       {children}
       {isSelected && (
         <svg
-          className="ml-auto h-4 w-4 text-[#FE760B]"
+          className="ml-auto h-4 w-4 text-[#FF6A00]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

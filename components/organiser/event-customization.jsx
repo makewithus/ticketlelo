@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 
 const PRESET_COLORS = [
-  { hex: "#FE760B", name: "Orange" },
-  { hex: "#FEDF05", name: "Yellow" },
+  { hex: "#FF6A00", name: "Orange" },
+  { hex: "#FFD60A", name: "Yellow" },
   { hex: "#3b82f6", name: "Blue" },
   { hex: "#22c55e", name: "Green" },
   { hex: "#a855f7", name: "Purple" },
@@ -31,7 +31,7 @@ export default function EventCustomization({
   onUpdate,
 }) {
   const [slug, setSlug] = useState(event?.slug || "");
-  const [themeColor, setThemeColor] = useState(event?.themeColor || "#FE760B");
+  const [themeColor, setThemeColor] = useState(event?.themeColor || "#FF6A00");
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(event?.bannerUrl || null);
   const [loading, setLoading] = useState(false);
@@ -193,7 +193,7 @@ export default function EventCustomization({
 
           <div className="space-y-3">
             <div className="relative">
-              <div className="flex rounded-xl overflow-hidden border border-gray-200 focus-within:border-[#FE760B] focus-within:ring-2 focus-within:ring-[#FE760B]/20 transition-all">
+              <div className="flex rounded-xl overflow-hidden border border-gray-200 focus-within:border-[#FF6A00] focus-within:ring-2 focus-within:ring-[#FF6A00]/20 transition-all">
                 <span className="flex items-center px-3 bg-gray-50 text-gray-400 text-sm border-r border-gray-200 whitespace-nowrap">
                   ticketlelo.in/
                 </span>
@@ -276,7 +276,7 @@ export default function EventCustomization({
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
-              <Palette size={18} className="text-[#FE760B]" />
+              <Palette size={18} className="text-[#FF6A00]" />
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Theme Color</h3>
@@ -365,11 +365,11 @@ export default function EventCustomization({
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FE760B] hover:bg-orange-50/30 transition-all group">
+              <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FF6A00] hover:bg-orange-50/30 transition-all group">
                 <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-orange-100 transition-colors">
                   <ImageIcon
                     size={22}
-                    className="text-gray-400 group-hover:text-[#FE760B] transition-colors"
+                    className="text-gray-400 group-hover:text-[#FF6A00] transition-colors"
                   />
                 </div>
                 <div className="text-center">
@@ -395,7 +395,7 @@ export default function EventCustomization({
         <button
           type="submit"
           disabled={loading || (slug && slugAvailable === false)}
-          className="w-full py-3.5 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold rounded-xl disabled:opacity-60 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          className="w-full py-3.5 bg-[#FF6A00] text-white font-bold rounded-xl disabled:opacity-60 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           {loading ? (
             <>

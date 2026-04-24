@@ -31,8 +31,8 @@ import {
 } from "lucide-react";
 
 const COLORS = {
-  primary: "#FE760B",
-  secondary: "#FEDF05",
+  primary: "#FF6A00",
+  secondary: "#FFD60A",
   success: "#22c55e",
   danger: "#ef4444",
   info: "#3b82f6",
@@ -51,8 +51,8 @@ function StatCard({
     orange: {
       bg: "from-orange-50 to-amber-50",
       border: "border-orange-100",
-      icon: "bg-orange-100 text-[#FE760B]",
-      text: "text-[#FE760B]",
+      icon: "bg-orange-100 text-[#FF6A00]",
+      text: "text-[#FF6A00]",
     },
     green: {
       bg: "from-green-50 to-emerald-50",
@@ -163,7 +163,7 @@ export default function AnalyticsDashboard({ eventId, userId }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 min-h-[400px]">
-        <Loader2 size={40} className="animate-spin text-[#FE760B] mb-4" />
+        <Loader2 size={40} className="animate-spin text-[#FF6A00] mb-4" />
         <p className="text-gray-500 text-sm">Loading analytics...</p>
       </div>
     );
@@ -247,7 +247,7 @@ export default function AnalyticsDashboard({ eventId, userId }) {
               onClick={() => setDays(d)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 days === d
-                  ? "bg-[#FE760B] text-white shadow-sm"
+                  ? "bg-[#FF6A00] text-white shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -314,13 +314,13 @@ export default function AnalyticsDashboard({ eventId, userId }) {
             <span className="text-sm font-semibold text-gray-700">
               Capacity Utilization
             </span>
-            <span className="text-sm font-bold text-[#FE760B]">
+            <span className="text-sm font-bold text-[#FF6A00]">
               {summary.totalRegistrations} / {summary.capacity}
             </span>
           </div>
           <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-[#FE760B] to-[#FEDF05] rounded-full transition-all duration-700"
+              className="h-full bg-[#FF6A00] hover:bg-[#E65C00] rounded-full transition-all duration-700"
               style={{
                 width: `${Math.min(summary.capacityUtilization, 100)}%`,
               }}
@@ -344,7 +344,7 @@ export default function AnalyticsDashboard({ eventId, userId }) {
                 onClick={() => setActiveChart("registrations")}
                 className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                   activeChart === "registrations"
-                    ? "bg-white shadow-sm text-[#FE760B]"
+                    ? "bg-white shadow-sm text-[#FF6A00]"
                     : "text-gray-500"
                 }`}
               >
@@ -354,7 +354,7 @@ export default function AnalyticsDashboard({ eventId, userId }) {
                 onClick={() => setActiveChart("revenue")}
                 className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
                   activeChart === "revenue"
-                    ? "bg-white shadow-sm text-[#FE760B]"
+                    ? "bg-white shadow-sm text-[#FF6A00]"
                     : "text-gray-500"
                 }`}
               >
@@ -372,8 +372,8 @@ export default function AnalyticsDashboard({ eventId, userId }) {
             >
               <defs>
                 <linearGradient id="colorRegs" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FE760B" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#FE760B" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#FF6A00" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#FF6A00" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
@@ -399,12 +399,12 @@ export default function AnalyticsDashboard({ eventId, userId }) {
                 <Area
                   type="monotone"
                   dataKey="registrations"
-                  stroke="#FE760B"
+                  stroke="#FF6A00"
                   strokeWidth={2.5}
                   fill="url(#colorRegs)"
                   name="Registrations"
                   dot={false}
-                  activeDot={{ r: 5, fill: "#FE760B" }}
+                  activeDot={{ r: 5, fill: "#FF6A00" }}
                 />
               ) : (
                 <Area
@@ -553,7 +553,7 @@ export default function AnalyticsDashboard({ eventId, userId }) {
               />
               <Bar
                 dataKey="registrations"
-                fill="#FE760B"
+                fill="#FF6A00"
                 radius={[6, 6, 0, 0]}
                 name="Registrations"
               />

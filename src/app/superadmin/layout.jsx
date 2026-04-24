@@ -55,15 +55,15 @@ export default function SuperAdminLayout({ children }) {
   return (
     <div className="min-h-screen bg-black flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-black via-slate-950 to-black border-r border-[#FE760B]/20 text-white flex flex-col">
-        <div className="p-6 border-b border-[#FE760B]/20">
+      <aside className="w-64 bg-gradient-to-b from-black via-slate-950 to-black border-r border-[#FF6A00]/20 text-white flex flex-col">
+        <div className="p-6 border-b border-[#FF6A00]/20">
           <div className="flex items-center gap-2 mb-2">
-            <Shield className="w-6 h-6 text-[#FE760B]" />
+            <Shield className="w-6 h-6 text-[#FF6A00]" />
             <h1 className="text-2xl font-bold text-white">
               Ticketलेलो
             </h1>
           </div>
-          <p className="text-sm text-[#FE760B] font-semibold">
+          <p className="text-sm text-[#FF6A00] font-semibold">
             Super Admin Panel
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function SuperAdminLayout({ children }) {
             <Link key={item.href} href={item.href}>
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-3 text-slate-300 hover:text-[#FE760B] hover:bg-[#FE760B]/10 border border-transparent hover:border-[#FE760B]/20"
+                className="w-full justify-start gap-3 text-slate-300 hover:text-[#FF6A00] hover:bg-[#FF6A00]/10 border border-transparent hover:border-[#FF6A00]/20"
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}
@@ -84,11 +84,11 @@ export default function SuperAdminLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-[#FE760B]/20 space-y-3">
+        <div className="p-4 border-t border-[#FF6A00]/20 space-y-3">
           <div className="text-sm">
             <p className="text-slate-400">Logged in as</p>
             <p className="font-medium text-white truncate">{user?.email}</p>
-            <p className="text-xs text-[#FE760B] mt-1">Super Administrator</p>
+            <p className="text-xs text-[#FF6A00] mt-1">Super Administrator</p>
           </div>
           <Button
             onClick={handleLogout}

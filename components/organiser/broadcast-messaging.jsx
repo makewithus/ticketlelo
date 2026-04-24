@@ -163,7 +163,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-[#FE760B]/20 rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-slate-900 border border-[#FF6A00]/20 rounded-2xl shadow-2xl w-full max-w-lg">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-100">
@@ -200,7 +200,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
                 setForm((f) => ({ ...f, title: e.target.value }))
               }
               placeholder="e.g. Important Update About Your Ticket"
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/50 focus:border-[#FE760B]/50 transition text-sm"
+              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:border-[#FF6A00]/50 transition text-sm"
               maxLength={100}
             />
             <p className="text-xs text-slate-500 mt-1 text-right">
@@ -219,7 +219,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
               }
               placeholder="Write your message here..."
               rows={6}
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/50 focus:border-[#FE760B]/50 transition text-sm resize-none"
+              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:border-[#FF6A00]/50 transition text-sm resize-none"
               maxLength={2000}
             />
             <p className="text-xs text-slate-500 mt-1 text-right">
@@ -280,7 +280,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, scheduledAt: e.target.value }))
                   }
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/50 text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 text-sm"
                 />
               </div>
             )}
@@ -297,7 +297,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 px-4 py-3 bg-[#FF6A00] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {loading ? (
                 <>
@@ -520,7 +520,7 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
         </div>
         <button
           onClick={() => setShowCompose(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-semibold rounded-xl shadow-sm hover:opacity-90 transition-opacity text-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6A00] text-white font-semibold rounded-xl shadow-sm hover:opacity-90 transition-opacity text-sm"
         >
           <Mail size={16} />
           Compose Message
@@ -543,7 +543,7 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
               onClick={() => setFilter(option.value)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 filter === option.value
-                  ? "bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/30"
+                  ? "bg-[#FF6A00]/10 text-[#FF6A00] border border-[#FF6A00]/30"
                   : "bg-slate-800/60 text-slate-400 border border-slate-700 hover:border-slate-600"
               }`}
             >
@@ -552,7 +552,7 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
                 <span
                   className={`ml-2 px-1.5 py-0.5 rounded-full text-xs font-bold ${
                     filter === option.value
-                      ? "bg-[#FE760B]/20 text-[#FE760B]"
+                      ? "bg-[#FF6A00]/20 text-[#FF6A00]"
                       : "bg-slate-700 text-slate-400"
                   }`}
                 >
@@ -570,7 +570,7 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
           <div className="text-center">
             <Loader2
               size={36}
-              className="animate-spin text-[#FE760B] mx-auto mb-4"
+              className="animate-spin text-[#FF6A00] mx-auto mb-4"
             />
             <p className="text-slate-400 text-sm">Loading messages...</p>
           </div>
@@ -605,7 +605,7 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
           {filter === "all" && (
             <button
               onClick={() => setShowCompose(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-semibold rounded-xl text-sm hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6A00] text-white font-semibold rounded-xl text-sm hover:opacity-90 transition-opacity"
             >
               <Mail size={15} />
               Send First Message

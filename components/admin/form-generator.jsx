@@ -495,7 +495,7 @@ export function FormGenerator() {
 
   const renderFieldPreview = (field) => {
     const baseClasses =
-      "w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FE760B] bg-white text-slate-900";
+      "w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white text-slate-900";
 
     switch (field.type) {
       case "text":
@@ -567,7 +567,7 @@ export function FormGenerator() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#FF6A00]" />
       </div>
     );
   }
@@ -575,7 +575,7 @@ export function FormGenerator() {
   return (
     <div className="space-y-6">
       {/* Event Selection */}
-      <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6">
+      <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6">
         <h3 className="text-lg font-semibold text-slate-100 dark:text-slate-100 mb-4">
           {user?.role === "organiser"
             ? events.length > 1
@@ -586,7 +586,7 @@ export function FormGenerator() {
 
         {user?.role === "organiser" && events.length === 1 ? (
           /* Show event name for organisers with single event (not editable) */
-          <div className="w-full p-3 bg-black/50 border border-[#FE760B]/30 rounded-lg text-white">
+          <div className="w-full p-3 bg-black/50 border border-[#FF6A00]/30 rounded-lg text-white">
             {events.length > 0 ? (
               <span className="font-medium">{events[0].name}</span>
             ) : (
@@ -600,7 +600,7 @@ export function FormGenerator() {
           <select
             value={selectedEventId}
             onChange={(e) => setSelectedEventId(e.target.value)}
-            className="w-full p-3 bg-black/50 border border-[#FE760B]/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FE760B] focus:border-[#FE760B] transition-colors"
+            className="w-full p-3 bg-black/50 border border-[#FF6A00]/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] transition-colors"
           >
             <option value="" className="bg-slate-900 text-gray-400">
               Choose an event
@@ -621,7 +621,7 @@ export function FormGenerator() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Side - Form Builder */}
           <div className="space-y-6">
-            <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6">
+            <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6">
               <h3 className="text-lg font-semibold text-slate-100 dark:text-slate-100 mb-4">
                 Form Builder
               </h3>
@@ -643,7 +643,7 @@ export function FormGenerator() {
                     // Reset options when changing type
                     setNewField({ ...newField, type: newType, options: [] });
                   }}
-                  className="w-full p-3 bg-black/50 border border-[#FE760B]/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FE760B] focus:border-[#FE760B] transition-colors"
+                  className="w-full p-3 bg-black/50 border border-[#FF6A00]/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] transition-colors"
                 >
                   <option value="text" className="bg-slate-900 text-white">
                     Text Box
@@ -676,7 +676,7 @@ export function FormGenerator() {
                         setNewOption("");
                         setShowOptionsModal(true);
                       }}
-                      className="w-full bg-[#FE760B]/20 hover:bg-[#FE760B]/30 border border-[#FE760B]/40 text-[#FE760B]"
+                      className="w-full bg-[#FF6A00]/20 hover:bg-[#FF6A00]/30 border border-[#FF6A00]/40 text-[#FF6A00]"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       {newField.options?.length > 0
@@ -684,13 +684,13 @@ export function FormGenerator() {
                         : `Add Options (Required)`}
                     </Button>
                     {newField.options?.length > 0 && (
-                      <div className="text-xs text-[#FE760B] space-y-1">
+                      <div className="text-xs text-[#FF6A00] space-y-1">
                         {newField.options.map((opt, idx) => (
                           <div
                             key={idx}
                             className="flex items-center gap-2 bg-black/30 rounded px-2 py-1"
                           >
-                            <span className="text-[#FE760B]">•</span> {opt}
+                            <span className="text-[#FF6A00]">•</span> {opt}
                           </div>
                         ))}
                       </div>
@@ -714,7 +714,7 @@ export function FormGenerator() {
 
                 <Button
                   onClick={addField}
-                  className="w-full bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black font-bold"
+                  className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Field
@@ -759,7 +759,7 @@ export function FormGenerator() {
             </div>
 
             {/* Options */}
-            <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6 space-y-4">
+            <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 space-y-4">
               <h3 className="text-lg font-semibold text-slate-100 dark:text-slate-100">
                 Options
               </h3>
@@ -810,7 +810,7 @@ export function FormGenerator() {
                 onClick={saveDraft}
                 disabled={isSaving}
                 variant="outline"
-                className="flex-1 text-white border-[#FE760B]/30 hover:bg-[#FE760B]/10 hover:text-white"
+                className="flex-1 text-white border-[#FF6A00]/30 hover:bg-[#FF6A00]/10 hover:text-white"
               >
                 {isSaving ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -822,7 +822,7 @@ export function FormGenerator() {
               <Button
                 onClick={handlePublish}
                 disabled={isSaving}
-                className="flex-1 bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black font-bold"
+                className="flex-1 bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
               >
                 {isSaving ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -837,7 +837,7 @@ export function FormGenerator() {
           {/* Right Side - Live Preview */}
           <div className="lg:sticky lg:top-8 lg:self-start">
             <div
-              className="bg-slate-900/60 rounded-lg shadow border border-[#FE760B]/10 p-6"
+              className="bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6"
               style={{
                 backgroundColor:
                   customizeTheme && theme.applyTheme
@@ -882,8 +882,8 @@ export function FormGenerator() {
 
                 {/* Amount Display */}
                 {isPaid && amount && parseFloat(amount) > 0 && (
-                  <div className="p-4 bg-[#FE760B]/10 rounded-lg border border-[#FE760B]/30">
-                    <p className="text-sm font-medium text-[#FE760B]">
+                  <div className="p-4 bg-[#FF6A00]/10 rounded-lg border border-[#FF6A00]/30">
+                    <p className="text-sm font-medium text-[#FF6A00]">
                       Amount: ₹{amount}
                     </p>
                   </div>
@@ -904,7 +904,7 @@ export function FormGenerator() {
                       />
                       <Button
                         disabled
-                        className="bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold"
+                        className="bg-[#FF6A00] text-white font-bold"
                         style={{
                           backgroundColor:
                             customizeTheme && theme.applyTheme
@@ -922,7 +922,7 @@ export function FormGenerator() {
                 {fields.length > 0 && (
                   <Button
                     disabled
-                    className="w-full bg-gradient-to-r from-[#FE760B] to-[#FEDF05] text-black font-bold"
+                    className="w-full bg-[#FF6A00] text-white font-bold"
                     style={{
                       backgroundColor:
                         customizeTheme && theme.applyTheme
@@ -941,10 +941,10 @@ export function FormGenerator() {
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FE760B]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FE760B]" />
+                <Palette className="w-5 h-5 text-[#FF6A00]" />
                 <h3 className="text-xl font-bold text-white">
                   Payment Integration
                 </h3>
@@ -973,7 +973,7 @@ export function FormGenerator() {
                     })
                   }
                   placeholder="rzp_test_xxxxxxxxxxxxx"
-                  className="bg-black/30 border-#FE760B]/20 text-white placeholder-gray-500 focus:border-#FE760B]/50"
+                  className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
                 />
               </div>
 
@@ -991,7 +991,7 @@ export function FormGenerator() {
                     })
                   }
                   placeholder="••••••••••••••••••••"
-                  className="bg-black/30 border-#FE760B]/20 text-white placeholder-gray-500 focus:border-#FE760B]/50"
+                  className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
                 />
               </div>
 
@@ -1006,7 +1006,7 @@ export function FormGenerator() {
                   placeholder="500"
                   min="0"
                   step="1"
-                  className="bg-black/30 border-#FE760B]/20 text-white placeholder-gray-500 focus:border-#FE760B]/50"
+                  className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
                 />
                 <p className="text-xs text-gray-400 mt-1.5">
                   Enter the amount to charge for each ticket registration
@@ -1015,7 +1015,7 @@ export function FormGenerator() {
 
               <Button
                 onClick={() => setShowPaymentModal(false)}
-                className="w-full bg-gradient-to-r from-[#FE760B] to-[#FEDF05] hover:from-[#FE760B]/90 hover:to-[#FEDF05]/90 text-black font-bold shadow-lg shadow-[#FE760B]/20"
+                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold shadow-lg shadow-[#FF6A00]/20"
               >
                 Save Payment Settings
               </Button>
@@ -1026,10 +1026,10 @@ export function FormGenerator() {
       {/* Theme Customization Modal */}
       {showThemeModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FE760B]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FE760B]" />
+                <Palette className="w-5 h-5 text-[#FF6A00]" />
                 <h3 className="text-xl font-bold text-white">
                   Customize Theme
                 </h3>
@@ -1046,7 +1046,7 @@ export function FormGenerator() {
 
             <div className="space-y-5">
               {/* Logo Upload Section */}
-              <div className="bg-black/30 rounded-xl p-4 border border-#FE760B]/10">
+              <div className="bg-black/30 rounded-xl p-4 border border-#FF6A00]/10">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   🖼️ Upload Event Logo
                 </label>
@@ -1063,7 +1063,7 @@ export function FormGenerator() {
                   />
                   <label
                     htmlFor="logo-upload"
-                    className="flex items-center gap-2 px-4 py-2 bg-[#FE760B]/20 border border-[#FE760B]/30 text-[#FE760B] rounded-lg cursor-pointer hover:bg-[#FE760B]/30 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00]/20 border border-[#FF6A00]/30 text-[#FF6A00] rounded-lg cursor-pointer hover:bg-[#FF6A00]/30 transition-colors"
                   >
                     <ImageIcon className="w-4 h-4" />
                     Choose File
@@ -1073,16 +1073,16 @@ export function FormGenerator() {
                       <img
                         src={theme.logoPreview}
                         alt="Preview"
-                        className="h-12 max-w-[120px] object-contain rounded border border-[#FE760B]/20 bg-white/5 p-1"
+                        className="h-12 max-w-[120px] object-contain rounded border border-[#FF6A00]/20 bg-white/5 p-1"
                       />
-                      <span className="text-xs text-[#FE760B]">✓</span>
+                      <span className="text-xs text-[#FF6A00]">✓</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Color Picker Section */}
-              <div className="bg-black/30 rounded-xl p-4 border border-#FE760B]/10">
+              <div className="bg-black/30 rounded-xl p-4 border border-#FF6A00]/10">
                 <label className="block text-sm font-medium text-gray-300 mb-3">
                   🎨 Brand Color
                 </label>
@@ -1094,10 +1094,10 @@ export function FormGenerator() {
                       onChange={(e) =>
                         setTheme({ ...theme, color: e.target.value })
                       }
-                      className="w-16 h-16 rounded-lg cursor-pointer border-2 border-#FE760B]/30 shadow-lg"
+                      className="w-16 h-16 rounded-lg cursor-pointer border-2 border-#FF6A00]/30 shadow-lg"
                       style={{ backgroundColor: theme.color }}
                     />
-                    <div className="absolute -bottom-1 -right-1 bg-[#FE760B] rounded-full p-1">
+                    <div className="absolute -bottom-1 -right-1 bg-[#FF6A00] rounded-full p-1">
                       <Palette className="w-3 h-3 text-black" />
                     </div>
                   </div>
@@ -1109,7 +1109,7 @@ export function FormGenerator() {
                       }
                       placeholder="#10b981"
                       maxLength={7}
-                      className="bg-black/50 border-#FE760B]/20 text-white placeholder-gray-500 focus:border-#FE760B]/50 font-mono text-lg"
+                      className="bg-black/50 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50 font-mono text-lg"
                     />
                     <p className="text-xs text-gray-400 mt-1.5">
                       Hex color code for your brand
@@ -1119,7 +1119,7 @@ export function FormGenerator() {
               </div>
 
               {/* Apply Theme Toggle */}
-              <div className="bg-#FE760B]/10 border border-#FE760B]/20 rounded-xl p-4">
+              <div className="bg-#FF6A00]/10 border border-#FF6A00]/20 rounded-xl p-4">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1127,7 +1127,7 @@ export function FormGenerator() {
                     onChange={(e) =>
                       setTheme({ ...theme, applyTheme: e.target.checked })
                     }
-                    className="w-5 h-5 rounded border-#FE760B]/30 bg-black/30 checked:bg-[#FE760B] cursor-pointer"
+                    className="w-5 h-5 rounded border-#FF6A00]/30 bg-black/30 checked:bg-[#FF6A00] cursor-pointer"
                   />
                   <div className="flex-1">
                     <span className="block text-sm font-medium text-white">
@@ -1143,7 +1143,7 @@ export function FormGenerator() {
               {/* Save Button */}
               <Button
                 onClick={() => setShowThemeModal(false)}
-                className="w-full bg-[#FE760B] hover:bg-[#FE760B] text-black font-semibold shadow-lg shadow-#FE760B]/20 py-6 text-base"
+                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold shadow-lg shadow-#FF6A00]/20 py-6 text-base"
               >
                 Save Theme
               </Button>
@@ -1154,10 +1154,10 @@ export function FormGenerator() {
       {/* Coupon Management Modal */}
       {showCouponModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FE760B]/20 rounded-2xl p-6 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FE760B]" />
+                <Palette className="w-5 h-5 text-[#FF6A00]" />
                 <h3 className="text-xl font-bold text-white">
                   Coupon Code Management
                 </h3>
@@ -1174,8 +1174,8 @@ export function FormGenerator() {
 
             <div className="space-y-6">
               {/* Add New Coupon Configuration */}
-              <div className="bg-#FE760B]/10 border border-#FE760B]/30 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-[#FE760B] mb-4">
+              <div className="bg-#FF6A00]/10 border border-#FF6A00]/30 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-[#FF6A00] mb-4">
                   ➕ Add Coupon Batch
                 </h4>
 
@@ -1196,7 +1196,7 @@ export function FormGenerator() {
                         })
                       }
                       placeholder="e.g., 50"
-                      className="bg-black/30 border-#FE760B]/20 text-white placeholder-gray-500"
+                      className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500"
                     />
                   </div>
 
@@ -1216,7 +1216,7 @@ export function FormGenerator() {
                         })
                       }
                       placeholder="e.g., 20"
-                      className="bg-black/30 border-#FE760B]/20 text-white placeholder-gray-500"
+                      className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500"
                     />
                   </div>
 
@@ -1233,7 +1233,7 @@ export function FormGenerator() {
                           validityDate: e.target.value,
                         })
                       }
-                      className="bg-black/30 border-#FE760B]/20 text-white"
+                      className="bg-black/30 border-#FF6A00]/20 text-white"
                     />
                   </div>
                 </div>
@@ -1269,7 +1269,7 @@ export function FormGenerator() {
                       `Added ${config.quantity} coupons with ${config.discountPercent}% discount`,
                     );
                   }}
-                  className="w-full bg-[#FE760B] hover:bg-[#FE760B] text-black font-semibold"
+                  className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Coupon Batch
@@ -1283,7 +1283,7 @@ export function FormGenerator() {
                 </h4>
 
                 {couponConfigs.length === 0 ? (
-                  <div className="text-center py-8 bg-black/20 rounded-xl border border-#FE760B]/10">
+                  <div className="text-center py-8 bg-black/20 rounded-xl border border-#FF6A00]/10">
                     <p className="text-gray-400 text-sm">
                       No coupon batches configured yet
                     </p>
@@ -1370,7 +1370,7 @@ export function FormGenerator() {
               {/* Save Button */}
               <Button
                 onClick={() => setShowCouponModal(false)}
-                className="w-full bg-[#FE760B] hover:bg-[#FE760B] text-black font-semibold py-6"
+                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold py-6"
               >
                 Save Coupon Settings
               </Button>
@@ -1381,10 +1381,10 @@ export function FormGenerator() {
       {/* Options Modal (for Radio and Dropdown) */}
       {showOptionsModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FE760B]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FE760B]" />
+                <Palette className="w-5 h-5 text-[#FF6A00]" />
                 <h3 className="text-xl font-bold text-white">
                   Customize Options
                 </h3>
@@ -1418,7 +1418,7 @@ export function FormGenerator() {
                     }
                   }}
                   placeholder={`Enter option (e.g., ${newField.type === "radio" && newField.name.toLowerCase().includes("gender") ? "Male, Female, Other" : "Option 1"})`}
-                  className="flex-1 bg-black/30 border-#FE760B]/20 text-white placeholder-gray-500 focus:border-#FE760B]/50"
+                  className="flex-1 bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
                 />
                 <Button
                   onClick={() => {
@@ -1428,7 +1428,7 @@ export function FormGenerator() {
                       toast.success("Option added");
                     }
                   }}
-                  className="bg-[#FE760B] hover:bg-[#FE760B] text-black"
+                  className="bg-[#FF6A00] hover:bg-[#E65C00] text-black"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -1447,7 +1447,7 @@ export function FormGenerator() {
                   tempOptions.map((option, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between bg-black/30 border border-#FE760B]/10 rounded-lg p-3"
+                      className="flex items-center justify-between bg-black/30 border border-#FF6A00]/10 rounded-lg p-3"
                     >
                       <span className="text-white">{option}</span>
                       <div className="flex gap-2">
@@ -1484,7 +1484,7 @@ export function FormGenerator() {
                   toast.success("Options saved");
                 }}
                 disabled={tempOptions.length === 0}
-                className="w-full bg-[#FE760B] hover:bg-[#FE760B] text-black font-semibold disabled:bg-gray-600 disabled:text-gray-400"
+                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold disabled:bg-gray-600 disabled:text-gray-400"
               >
                 Save Options
               </Button>

@@ -87,7 +87,7 @@ export async function POST(request) {
                     <h2 style="margin: 0 0 10px 0; color: #000000; font-size: 26px; font-weight: 900; text-align: center;">
                       CONGRATULATIONS
                     </h2>
-                    <h3 style="margin: 0 0 10px 0; color: #FE760B; font-size: 22px; font-weight: 800; text-align: center; text-transform: uppercase;">
+                    <h3 style="margin: 0 0 10px 0; color: #FF6A00; font-size: 22px; font-weight: 800; text-align: center; text-transform: uppercase;">
                       ${name}!
                     </h3>
                     
@@ -97,11 +97,11 @@ export async function POST(request) {
                       <br/>
                       <strong style="color: #000000; font-size: 17px;">${eventTitle}</strong>
                       <br/>
-                      HAS BEEN <strong style="color: #FE760B;">APPROVED</strong>
+                      HAS BEEN <strong style="color: #FF6A00;">APPROVED</strong>
                     </p>
 
                     <!-- Credentials Box - Orange -->
-                    <table role="presentation" style="width: 100%; background: #FE760B; border-radius: 15px; padding: 25px; margin-bottom: 25px;">
+                    <table role="presentation" style="width: 100%; background: #FF6A00; border-radius: 15px; padding: 25px; margin-bottom: 25px;">
                       <tr>
                         <td>
                           <p style="margin: 0 0 20px 0; color: #ffffff; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
@@ -135,7 +135,7 @@ export async function POST(request) {
 
                     <!-- Security Notice - Dark Brown/Black -->
                     <div style="background: #351E27; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
-                      <p style="margin: 0 0 15px 0; color: #FEDF05; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 500; line-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">
+                      <p style="margin: 0 0 15px 0; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 500; line-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">
                         ⚠️ SECURITY NOTICE
                       </p>
                       <ul style="margin: 0; padding-left: 20px; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 24px;">
@@ -162,7 +162,7 @@ export async function POST(request) {
                       <tr>
                         <td align="center">
                           <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/organiser-login" 
-                             style="display: inline-block; background: #FEDF05; color: #000000; text-decoration: none; padding: 18px 40px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 4px 15px rgba(254, 223, 5, 0.4);">
+                             style="display: inline-block; background: #FFD60A; color: #000000; text-decoration: none; padding: 18px 40px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 4px 15px rgba(254, 223, 5, 0.4);">
                             LOGIN TO ADMIN PANEL →
                           </a>
                         </td>

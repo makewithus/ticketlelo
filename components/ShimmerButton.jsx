@@ -19,9 +19,9 @@ export default function ShimmerButton({
       className={`
         relative overflow-hidden cursor-pointer
         px-6 py-3 rounded-md font-medium text-black
-        bg-[#FEDF05]
-        border border-[#FE760B]/30
-        hover:bg-[#FE760B] hover:text-white
+        bg-[#FFD60A]
+        border border-[#FF6A00]/30
+        hover:bg-[#FF6A00] hover:text-white
         transition-all duration-300 ease-out
         disabled:opacity-50 disabled:cursor-not-allowed
         before:absolute before:inset-0 before:bg-gradient-to-r
