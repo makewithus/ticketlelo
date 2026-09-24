@@ -126,19 +126,13 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           phone: "",
         });
 
-        toast.info(
-          "Using default registration form. Contact event organizer for custom forms.",
-          {
-            duration: 4000,
-          },
-        );
+
       }
       return;
     }
 
     async function loadForm() {
       try {
-        console.log("📋 Loading custom form for event:", eventId);
         setFormLoadError(null);
 
         // Create abort controller for timeout
@@ -177,7 +171,6 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           setRetryCount(0); // Reset retry count on success
         } else if (data.success && !data.form) {
           // No custom form exists - create a default one
-          console.log("ℹ️ No custom form found, using default form");
           const defaultForm = {
             eventId: eventId,
             fields: [
@@ -223,12 +216,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           });
           setRetryCount(0);
 
-          toast.info(
-            "Using default registration form. Contact event organizer for custom forms.",
-            {
-              duration: 4000,
-            },
-          );
+
         } else {
           throw new Error(data.message || "Failed to load registration form");
         }
@@ -1428,9 +1416,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     <>
       <div className="w-full">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">
-            Register for {event?.name || "Event"}
-          </h2>
+
           <p className="text-sm text-slate-400">
             Fill in your details below to secure your spot.
           </p>

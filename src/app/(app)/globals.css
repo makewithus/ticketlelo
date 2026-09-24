@@ -1,0 +1,346 @@
+/* stylelint-disable at-rule-no-unknown */
+/* Load Inter from Google Fonts to ensure a good default font */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
+
+/* tailwind.config.js `font-sans` starts with var(--font-inter); when the variable
+   is undefined the whole declaration is invalid and text falls back to serif. */
+:root {
+  --font-inter: "Inter";
+}
+
+body {
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    "Liberation Sans",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    /* shadcn/ui tokens */
+    --background: 210 40% 98%;       /* #F8FAFC */
+    --foreground: 222 47% 11%;       /* #0F172A */
+    --card: 0 0% 100%;               /* #FFFFFF */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 20 100% 50%;          /* #FF6A00 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 95%;        /* #F1F5F9 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 95%;
+    --muted-foreground: 215 16% 57%; /* #94A3B8 */
+    --accent: 210 40% 95%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84.2% 60.2%;   /* #EF4444 */
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 91%;           /* #E2E8F0 */
+    --input: 214 32% 91%;
+    --ring: 20 100% 50%;             /* #FF6A00 */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+
+    /* ── Ticketlelo brand CSS variables ── */
+    --brand-primary:   #FF6A00;
+    --brand-hover:     #E65C00;
+    --brand-accent:    #FFD60A;
+    --brand-gradient:  linear-gradient(135deg, #FF6A00, #FFB800);
+  }
+  .dark {
+    --background: 222 47% 6%;        /* #0B0F14 */
+    --foreground: 210 20% 98%;       /* #F9FAFB */
+    --card: 221 39% 11%;             /* #111827 */
+    --card-foreground: 210 20% 98%;
+    --popover: 221 39% 11%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 20 100% 50%;          /* #FF6A00 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 18%;        /* #1F2937 */
+    --secondary-foreground: 210 20% 98%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 220 9% 46%;  /* #6B7280 */
+    --accent: 217 33% 18%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 63% 70%;        /* #F87171 */
+    --destructive-foreground: 0 0% 98%;
+    --border: 215 28% 25%;           /* #374151 */
+    --input: 215 28% 25%;
+    --ring: 20 100% 50%;             /* #FF6A00 */
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+
+  /* Print styles for ticket */
+  @media print {
+    .ticket-print {
+      background: white !important;
+      color: black !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .ticket-print * {
+      color: black !important;
+      background: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .ticket-print .bg-emerald-500 {
+      background: #10b981 !important; /* emerald-500 */
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .ticket-print .text-emerald-100 {
+      color: #a7f3d0 !important; /* emerald-100 */
+    }
+
+    .ticket-print .bg-gray-50 {
+      background: #f9fafb !important; /* gray-50 */
+    }
+
+    .ticket-print .bg-gray-900 {
+      background: #111827 !important; /* gray-900 */
+    }
+
+    .ticket-print .text-gray-900 {
+      color: #111827 !important; /* gray-900 */
+    }
+
+    .ticket-print .text-gray-600 {
+      color: #4b5563 !important; /* gray-600 */
+    }
+
+    .ticket-print .text-gray-500 {
+      color: #6b7280 !important; /* gray-500 */
+    }
+
+    .ticket-print .border-gray-200 {
+      border-color: #e5e7eb !important; /* gray-200 */
+    }
+
+    .ticket-print .bg-emerald-100 {
+      background: #d1fae5 !important; /* emerald-100 */
+    }
+
+    .ticket-print .text-emerald-800 {
+      color: #065f46 !important; /* emerald-800 */
+    }
+
+    .ticket-print .bg-red-100 {
+      background: #fee2e2 !important; /* red-100 */
+    }
+
+    .ticket-print .text-red-800 {
+      color: #991b1b !important; /* red-800 */
+    }
+
+    /* Hide everything except the ticket when printing */
+    body * {
+      visibility: hidden !important;
+    }
+
+    .ticket-print,
+    .ticket-print * {
+      visibility: visible !important;
+    }
+
+    .ticket-print {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+      z-index: 9999 !important;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Stagger animation delays */
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+.stagger-5 {
+  animation-delay: 0.5s;
+}
+.stagger-6 {
+  animation-delay: 0.6s;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(180, 240, 220, 0.3);
+}
+
+.dark .glass {
+  background: rgba(15, 18, 35, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-dark {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(180, 240, 220, 0.25);
+}
+
+.dark .glass-dark {
+  background: rgba(10, 12, 28, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #5eead4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated gradient background */
+.gradient-bg {
+  background: linear-gradient(-45deg, #f5f3ff, #ede9fe, #f0e5ff, #e8e0ff);
+  background-size: 400% 400%;
+  animation: gradientShift 12s ease infinite;
+}
+.dark .gradient-bg {
+  background: linear-gradient(-45deg, #0a0c1c, #1a1040, #0c1a3a, #0d0820);
+  background-size: 400% 400%;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Particle dots background */
+.dots-bg {
+  background-image: radial-gradient(
+    circle,
+    rgba(16, 185, 129, 0.08) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+}
+.dark .dots-bg {
+  background-image: radial-gradient(
+    circle,
+    rgba(52, 211, 153, 0.12) 1px,
+    transparent 1px
+  );
+}
+
+/* Smooth card hover */
+.card-hover {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px -12px rgba(16, 185, 129, 0.12);
+}
+.dark .card-hover:hover {
+  box-shadow: 0 20px 40px -12px rgba(52, 211, 153, 0.18);
+}
+
+/* Password strength meter colors */
+.strength-weak {
+  background: #ef4444;
+}
+.strength-fair {
+  background: #f59e0b;
+}
+.strength-good {
+  background: #3b82f6;
+}
+.strength-strong {
+  background: #10b981;
+}
+
+/* Input focus glow */
+.input-glow:focus-within {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+}
+.dark .input-glow:focus-within {
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.35);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(52, 211, 153, 0.3);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(52, 211, 153, 0.5);
+}
