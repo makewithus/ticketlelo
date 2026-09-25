@@ -6,7 +6,7 @@ export async function POST(request) {
   try {
     // Check if Firebase Admin is properly initialized (call as function)
     if (!isFirebaseAdminReady() || !adminAuth || !adminDb) {
-      console.error("❌ Firebase Admin SDK not initialized");
+      console.error(" Firebase Admin SDK not initialized");
       return NextResponse.json(
         {
           success: false,
@@ -32,12 +32,12 @@ export async function POST(request) {
       await request.json();
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("🔄 ORGANISER ACCOUNT CREATION REQUEST");
+    console.log(" ORGANISER ACCOUNT CREATION REQUEST");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📧 Generated email (eventname@ticketlelo.com):", email);
+    console.log(" Generated email (eventname@ticketlelo.com):", email);
     console.log("📱 Phone number (for duplicate detection):", phone);
     console.log("👤 Name:", name);
-    console.log("🎉 Event:", eventTitle);
+    console.log(" Event:", eventTitle);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Check if organizer already exists (by email OR phone)
@@ -49,11 +49,11 @@ export async function POST(request) {
     try {
       existingUser = await adminAuth.getUserByEmail(email);
       organiserId = existingUser.uid;
-      console.log("✅ Found existing organiser by email:", organiserId);
+      console.log(" Found existing organiser by email:", organiserId);
     } catch (error) {
       if (error.code === "auth/user-not-found") {
         console.log(
-          "ℹ️ No user found with request email, checking by phone...",
+          " No user found with request email, checking by phone...",
         );
 
         // STEP 2: Try to find by phone number in Firestore
@@ -67,7 +67,7 @@ export async function POST(request) {
 
           if (!usersSnapshot.empty) {
             organiserId = usersSnapshot.docs[0].id;
-            console.log("✅ Found existing organiser by phone:", organiserId);
+            console.log(" Found existing organiser by phone:", organiserId);
 
             // Get the Firebase Auth user
             existingUser = await adminAuth.getUser(organiserId);
@@ -81,7 +81,7 @@ export async function POST(request) {
     // If we found an existing organizer (by email OR phone)
     if (existingUser && organiserId) {
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("✅ EXISTING ORGANISER FOUND!");
+      console.log(" EXISTING ORGANISER FOUND!");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       // ALWAYS get the ORIGINAL login email from Firestore database (NOT from request)
@@ -90,10 +90,10 @@ export async function POST(request) {
       originalLoginEmail = userData.email; // This is their ORIGINAL email they use to login
 
       console.log(
-        "📧 ORIGINAL login email (from database):",
+        " ORIGINAL login email (from database):",
         originalLoginEmail,
       );
-      console.log("📧 Generated email (will be IGNORED):", email);
+      console.log(" Generated email (will be IGNORED):", email);
       console.log("🔐 Action: Update password + Increase limit");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
@@ -105,7 +105,7 @@ export async function POST(request) {
         password: newPassword,
       });
 
-      console.log("✅ Password updated successfully");
+      console.log(" Password updated successfully");
 
       // Increase event creation limit (eventsAllowed)
       const currentAllowed = userData?.eventsAllowed || 1;
@@ -120,14 +120,14 @@ export async function POST(request) {
         });
 
       console.log(
-        `✅ Event limit increased: ${currentAllowed} → ${currentAllowed + 1}`,
+        ` Event limit increased: ${currentAllowed} → ${currentAllowed + 1}`,
       );
       console.log(`   Events created: ${currentCreated}`);
       console.log(
         `   Can create ${currentAllowed + 1 - currentCreated} more events`,
       );
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      console.log("📧 FINAL CREDENTIALS TO SEND:");
+      console.log(" FINAL CREDENTIALS TO SEND:");
       console.log(
         "   Email:",
         originalLoginEmail,
@@ -152,7 +152,7 @@ export async function POST(request) {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("🆕 CREATING NEW ORGANISER ACCOUNT");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📧 Email:", email);
+    console.log(" Email:", email);
     console.log("🔑 Password:", password);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
@@ -164,7 +164,7 @@ export async function POST(request) {
     });
 
     organiserId = userRecord.uid;
-    console.log("✅ Created Firebase Auth user:", organiserId);
+    console.log(" Created Firebase Auth user:", organiserId);
 
     // Create Firestore document
     await adminDb
@@ -183,9 +183,9 @@ export async function POST(request) {
         createdAt: Timestamp.now(),
       });
 
-    console.log("✅ Created Firestore user document");
+    console.log(" Created Firestore user document");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("📧 FINAL CREDENTIALS TO SEND:");
+    console.log(" FINAL CREDENTIALS TO SEND:");
     console.log("   Email:", email, "(NEW)");
     console.log("   Password:", password, "(NEW)");
     console.log("   Events Allowed: 1");
@@ -201,7 +201,7 @@ export async function POST(request) {
       message: "New organiser account created",
     });
   } catch (error) {
-    console.error("❌ Error creating organiser:", error);
+    console.error(" Error creating organiser:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },

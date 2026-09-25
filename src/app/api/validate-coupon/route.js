@@ -30,7 +30,7 @@ export async function POST(request) {
       .get();
 
     if (couponsSnapshot.empty) {
-      console.log("❌ Coupon not found");
+      console.log(" Coupon not found");
       return NextResponse.json({
         valid: false,
         message: "Invalid coupon code",
@@ -42,7 +42,7 @@ export async function POST(request) {
 
     // Check if coupon is already used
     if (coupon.isUsed) {
-      console.log("❌ Coupon already used");
+      console.log(" Coupon already used");
       return NextResponse.json({
         valid: false,
         message: "This coupon code has already been used",
@@ -52,7 +52,7 @@ export async function POST(request) {
     // Check expiry date
     const validUntil = coupon.validUntil.toDate();
     if (validUntil < new Date()) {
-      console.log("❌ Coupon expired");
+      console.log(" Coupon expired");
       return NextResponse.json({
         valid: false,
         message: "This coupon code has expired",
@@ -65,7 +65,7 @@ export async function POST(request) {
     const discountAmount = (originalAmount * discountPercent) / 100;
     const finalAmount = originalAmount - discountAmount;
 
-    console.log(`✅ Coupon valid: ${discountPercent}% off`);
+    console.log(` Coupon valid: ${discountPercent}% off`);
     console.log(`   Original: ₹${originalAmount}`);
     console.log(`   Discount: ₹${discountAmount}`);
     console.log(`   Final: ₹${finalAmount}`);
@@ -80,7 +80,7 @@ export async function POST(request) {
       finalAmount: Math.round(finalAmount * 100) / 100, // Round to 2 decimals
     });
   } catch (error) {
-    console.error("❌ Error validating coupon:", error);
+    console.error(" Error validating coupon:", error);
     return NextResponse.json(
       { success: false, error: "Error validating coupon" },
       { status: 500 },

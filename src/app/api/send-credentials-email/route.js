@@ -58,7 +58,7 @@ export async function POST(request) {
               <h2 style="color: #111827; margin-top: 0; font-size: 22px;">Welcome, ${fullName}!</h2>
               
               <p style="color: #374151; line-height: 1.6; font-size: 15px;">
-                ${eventName ? `🎉 Thank you for registering for <strong style="color: #10b981;">${eventName}</strong>!<br><br>` : ""}
+                ${eventName ? ` Thank you for registering for <strong style="color: #10b981;">${eventName}</strong>!<br><br>` : ""}
                 Your Ticketलेलो account has been created successfully. Below are your login credentials to access your dashboard.
               </p>
               
@@ -94,7 +94,7 @@ export async function POST(request) {
               <!-- Warning -->
               <div style="background-color: #fef3c7; border-left: 5px solid #f59e0b; padding: 20px; margin: 25px 0; border-radius: 8px;">
                 <p style="color: #92400e; margin: 0; font-size: 14px; line-height: 1.6;">
-                  <strong style="font-size: 16px;">⚠️ IMPORTANT:</strong><br>
+                  <strong style="font-size: 16px;"> IMPORTANT:</strong><br>
                   Save these credentials in a safe place! You will need them to login to your dashboard.<br>
                   You can change your password anytime after logging in.
                 </p>
@@ -129,7 +129,7 @@ export async function POST(request) {
                   <a href="${dashboardUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;">📊 My Dashboard</a>
                 </p>
                 <p style="margin: 10px 0;">
-                  <a href="${appUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;">🎉 Browse Events</a>
+                  <a href="${appUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;"> Browse Events</a>
                 </p>
               </div>
               
@@ -158,14 +158,14 @@ export async function POST(request) {
 
     await transporter.sendMail(mailOptions);
 
-    console.log("✅ Credentials email sent successfully to:", email);
+    console.log(" Credentials email sent successfully to:", email);
 
     return NextResponse.json({
       success: true,
       message: "Credentials email sent successfully",
     });
   } catch (error) {
-    console.error("❌ Error sending credentials email:", error);
+    console.error(" Error sending credentials email:", error);
     return NextResponse.json(
       { error: "Failed to send credentials email", details: error.message },
       { status: 500 },

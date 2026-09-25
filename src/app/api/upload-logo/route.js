@@ -103,7 +103,7 @@ export async function POST(request) {
         .end(buffer);
     });
 
-    console.log("✅ Logo uploaded to Cloudinary");
+    console.log(" Logo uploaded to Cloudinary");
     console.log("URL:", uploadResult.secure_url);
 
     return NextResponse.json({
@@ -115,7 +115,7 @@ export async function POST(request) {
       height: uploadResult.height,
     });
   } catch (error) {
-    console.error("❌ Error uploading to Cloudinary:", error);
+    console.error(" Error uploading to Cloudinary:", error);
     return NextResponse.json(
       {
         error: error.message || "Failed to upload image",

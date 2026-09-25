@@ -62,7 +62,7 @@ export async function POST(request) {
       updatedAt: new Date(),
     });
 
-    console.log(`✅ Plan upgraded: userId=${userId} planId=${planId} paymentId=${razorpay_payment_id}`);
+    console.log(` Plan upgraded: userId=${userId} planId=${planId} paymentId=${razorpay_payment_id}`);
 
     return NextResponse.json({
       success: true,

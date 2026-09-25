@@ -46,7 +46,7 @@ export async function GET(request) {
 
     const totalTime = Date.now() - startTime;
     console.log(
-      `[API] ✅ Custom form sent successfully (Total: ${totalTime}ms)`,
+      `[API]  Custom form sent successfully (Total: ${totalTime}ms)`,
     );
 
     return NextResponse.json(
@@ -63,7 +63,7 @@ export async function GET(request) {
   } catch (error) {
     const totalTime = Date.now() - startTime;
     console.error(
-      `[API] ❌ Error fetching custom form (after ${totalTime}ms):`,
+      `[API]  Error fetching custom form (after ${totalTime}ms):`,
       error,
     );
     return NextResponse.json(

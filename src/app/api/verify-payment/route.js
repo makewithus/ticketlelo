@@ -64,7 +64,7 @@ export async function POST(request) {
       );
     }
 
-    console.log("✅ Razorpay secret retrieved");
+    console.log(" Razorpay secret retrieved");
 
     // 2. Verify signature
     const generatedSignature = crypto
@@ -73,14 +73,14 @@ export async function POST(request) {
       .digest("hex");
 
     if (generatedSignature !== razorpay_signature) {
-      console.log("❌ Signature verification failed");
+      console.log(" Signature verification failed");
       return NextResponse.json(
         { error: "Invalid payment signature" },
         { status: 400 },
       );
     }
 
-    console.log("✅ Payment signature verified");
+    console.log(" Payment signature verified");
 
     // 3. Fetch event details (using client SDK)
     const eventDoc = await getDoc(doc(db, "events", eventId));
@@ -103,7 +103,7 @@ export async function POST(request) {
     };
 
     const paymentRef = await addDoc(collection(db, "payments"), paymentData);
-    console.log("✅ Payment record created:", paymentRef.id);
+    console.log(" Payment record created:", paymentRef.id);
 
     // 5. Update registration with payment status (using client SDK)
     if (registrationId) {
@@ -113,7 +113,7 @@ export async function POST(request) {
         razorpay_payment_id,
         paidAt: serverTimestamp(),
       });
-      console.log("✅ Registration updated with payment status");
+      console.log(" Registration updated with payment status");
     }
 
     return NextResponse.json({
@@ -122,7 +122,7 @@ export async function POST(request) {
       paymentId: paymentRef.id,
     });
   } catch (error) {
-    console.error("❌ Error verifying payment:", error);
+    console.error(" Error verifying payment:", error);
     return NextResponse.json(
       { error: error.message || "Payment verification failed" },
       { status: 500 },

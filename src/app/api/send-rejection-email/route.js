@@ -16,7 +16,7 @@ export async function POST(request) {
 
     // Check if SMTP credentials are configured
     if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
-      console.log("📧 SMTP not configured. Email would be sent to:", email);
+      console.log(" SMTP not configured. Email would be sent to:", email);
       console.log("Event:", eventTitle);
       console.log("Reason:", rejectionReason);
 
@@ -132,7 +132,7 @@ export async function POST(request) {
                     <!-- Rejection Reason - Dark Brown Box -->
                     <div style="background: #351E27; padding: 25px; margin: 30px 0; border-radius: 15px;">
                       <h3 style="margin: 0 0 15px; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 500; line-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        ⚠️ REASON FOR DECLINE
+                         REASON FOR DECLINE
                       </h3>
                       <p style="margin: 0; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 24px;">
                         ${rejectionReason}

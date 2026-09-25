@@ -17,7 +17,7 @@ export async function POST(request) {
     // Check if SMTP credentials are configured
     if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
       console.log(
-        "📧 SMTP not configured. Approval email would be sent to:",
+        " SMTP not configured. Approval email would be sent to:",
         email,
       );
       console.log("Event:", eventTitle);
@@ -136,7 +136,7 @@ export async function POST(request) {
                     <!-- Security Notice - Dark Brown/Black -->
                     <div style="background: #351E27; padding: 25px; border-radius: 15px; margin-bottom: 30px;">
                       <p style="margin: 0 0 15px 0; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 500; line-height: 24px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        ⚠️ SECURITY NOTICE
+                         SECURITY NOTICE
                       </p>
                       <ul style="margin: 0; padding-left: 20px; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 24px;">
                         ${
@@ -194,7 +194,7 @@ export async function POST(request) {
     await transporter.sendMail({
       from: `"Ticketलेलो" <${process.env.SMTP_EMAIL || "noreply@ticketlelo.com"}>`,
       to: email,
-      subject: `🎉 Your Event Hosting Request is Approved! - ${eventTitle}`,
+      subject: ` Your Event Hosting Request is Approved! - ${eventTitle}`,
       html: htmlContent,
       attachments: [
         {

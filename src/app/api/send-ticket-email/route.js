@@ -20,8 +20,8 @@ export async function POST(request) {
     console.log(
       "   Password:",
       password
-        ? "✅ Provided (will show credentials)"
-        : "❌ Not provided (no credentials)",
+        ? " Provided (will show credentials)"
+        : " Not provided (no credentials)",
     );
 
     if (!ticketId || !email) {
@@ -111,12 +111,12 @@ export async function POST(request) {
                       <h2 style="color: #000000; margin-top: 0; font-size: 24px; font-weight: 800;">Hi ${fullName || registration.fullName}!</h2>
                       
                       <p style="color: #333333; line-height: 1.8; font-size: 15px; margin-bottom: 20px;">
-                        🎉 Your registration for <strong style="color: #FF6A00; font-size: 16px;">${eventName || event.name}</strong> is confirmed! 
+                         Your registration for <strong style="color: #FF6A00; font-size: 16px;">${eventName || event.name}</strong> is confirmed! 
                         Your event entry pass with QR code is attached to this email.
                       </p>
                       
                       <div style="background: linear-gradient(135deg, #FFF5E6 0%, #FFF9F0 100%); border-left: 5px solid #FF6A00; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 4px 12px rgba(254, 118, 11, 0.1);">
-                        <h3 style="color: #FF6A00; margin-top: 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ IMPORTANT - Entry Instructions</h3>
+                        <h3 style="color: #FF6A00; margin-top: 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;"> IMPORTANT - Entry Instructions</h3>
                         <ol style="color: #333333; line-height: 2; margin: 10px 0; padding-left: 20px; font-size: 14px;">
                           <li style="margin-bottom: 8px;"><strong style="color: #000000;">Download the PDF ticket</strong> attached to this email</li>
                           <li style="margin-bottom: 8px;"><strong style="color: #000000;">Show the QR code</strong> at the entry gate</li>
@@ -164,7 +164,7 @@ export async function POST(request) {
             <!-- Security Notice - Black with Yellow Accents -->
             <div style="background: #000000; padding: 28px; border-radius: 15px; margin-bottom: 25px; border: 2px solid #FFD60A; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
               <p style="margin: 0 0 18px 0; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; line-height: 24px; text-transform: uppercase; letter-spacing: 1px;">
-                ⚠️ SECURITY NOTICE
+                 SECURITY NOTICE
               </p>
               <ul style="margin: 0; padding-left: 20px; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 26px;">
                 <li style="margin-bottom: 10px;">Save these credentials securely - you'll need them to access your dashboard</li>
@@ -225,7 +225,7 @@ export async function POST(request) {
     await transporter.sendMail(mailOptions);
 
     console.log(
-      `[Email] ✅ Ticket PDF sent to ${email} for ticket ${ticketId}`,
+      `[Email]  Ticket PDF sent to ${email} for ticket ${ticketId}`,
     );
     console.log(`[Email] Credentials included: ${password ? "YES" : "NO"}`);
 

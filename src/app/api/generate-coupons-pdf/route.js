@@ -40,7 +40,7 @@ export async function POST(request) {
 
     for (const config of couponConfigs) {
       console.log(
-        `🔄 Processing batch: ${config.quantity} coupons at ${config.discountPercent}% off`,
+        ` Processing batch: ${config.quantity} coupons at ${config.discountPercent}% off`,
       );
 
       for (let i = 0; i < config.quantity; i++) {
@@ -67,7 +67,7 @@ export async function POST(request) {
       }
     }
 
-    console.log(`✅ Generated ${allCoupons.length} coupons total`);
+    console.log(` Generated ${allCoupons.length} coupons total`);
 
     // Create PDF
     const pdfDoc = await PDFDocument.create();
@@ -299,7 +299,7 @@ export async function POST(request) {
       message: `Successfully generated ${allCoupons.length} coupons`,
     });
   } catch (error) {
-    console.error("❌ Error generating coupons PDF:", error);
+    console.error(" Error generating coupons PDF:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },

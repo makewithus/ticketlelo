@@ -19,7 +19,7 @@ export async function POST(request) {
     const userDoc = await adminDb.collection("users").doc(uid).get();
 
     if (!userDoc.exists) {
-      console.log("❌ User document not found");
+      console.log(" User document not found");
       return NextResponse.json(
         { success: false, error: "User not found" },
         { status: 404 },
@@ -51,7 +51,7 @@ export async function POST(request) {
       isAdmin: true,
     });
 
-    console.log("✅ Fixed organiser role successfully");
+    console.log(" Fixed organiser role successfully");
 
     return NextResponse.json({
       success: true,
@@ -62,7 +62,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error("❌ Error fixing organiser role:", error);
+    console.error(" Error fixing organiser role:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 },

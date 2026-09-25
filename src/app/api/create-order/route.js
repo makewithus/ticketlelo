@@ -43,7 +43,7 @@ export async function POST(request) {
     }
 
     const event = { id: eventDoc.id, ...eventDoc.data() };
-    console.log("✅ Event found:", event.name);
+    console.log(" Event found:", event.name);
 
     // 2. Get custom form for this event (contains payment settings)
     let customForm = null;
@@ -65,7 +65,7 @@ export async function POST(request) {
       );
     }
 
-    console.log("✅ Custom form found with payment enabled");
+    console.log(" Custom form found with payment enabled");
 
     // 3. Get Razorpay credentials from custom form
     const { paymentCredentials, amount } = customForm;
@@ -88,8 +88,8 @@ export async function POST(request) {
       );
     }
 
-    console.log("✅ Razorpay credentials found");
-    console.log("💰 Amount:", amount);
+    console.log(" Razorpay credentials found");
+    console.log(" Amount:", amount);
 
     // 4. Initialize Razorpay with organiser's credentials
     const razorpay = new Razorpay({
@@ -97,13 +97,13 @@ export async function POST(request) {
       key_secret: paymentCredentials.razorpayKeySecret,
     });
 
-    console.log("✅ Razorpay instance created");
+    console.log(" Razorpay instance created");
 
     // 5. Create order
     // Use finalAmount if coupon applied, otherwise use event amount
     const orderAmount = finalAmount || amount;
     console.log(
-      "💰 Order amount:",
+      " Order amount:",
       orderAmount,
       finalAmount ? "(with coupon)" : "(original)",
     );
@@ -120,7 +120,7 @@ export async function POST(request) {
       },
     });
 
-    console.log("✅ Razorpay order created:", order.id);
+    console.log(" Razorpay order created:", order.id);
 
     // 6. Return order details (including key_id for frontend checkout)
     return NextResponse.json({
@@ -137,7 +137,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error("❌ Error creating Razorpay order:", error);
+    console.error(" Error creating Razorpay order:", error);
     return NextResponse.json(
       {
         error: error.message || "Failed to create order",

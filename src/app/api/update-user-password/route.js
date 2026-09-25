@@ -12,7 +12,7 @@ export async function POST(request) {
     console.log("   adminAuth exists:", !!adminAuth);
 
     if (!isFirebaseAdminReady() || !adminAuth) {
-      console.error("❌ [Password Update API] Firebase Admin not configured");
+      console.error(" [Password Update API] Firebase Admin not configured");
       return NextResponse.json(
         {
           success: false,
@@ -25,7 +25,7 @@ export async function POST(request) {
     const { uid, newPassword } = await request.json();
 
     if (!uid || !newPassword) {
-      console.error("❌ [Password Update API] Missing parameters");
+      console.error(" [Password Update API] Missing parameters");
       console.log("   UID provided:", !!uid);
       console.log("   Password provided:", !!newPassword);
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function POST(request) {
     });
 
     console.log(
-      `✅ [Password Update API] Password updated successfully for ${uid}`,
+      ` [Password Update API] Password updated successfully for ${uid}`,
     );
 
     return NextResponse.json({
@@ -51,7 +51,7 @@ export async function POST(request) {
       message: "Password updated successfully",
     });
   } catch (error) {
-    console.error("❌ [Password Update API] Error updating password:");
+    console.error(" [Password Update API] Error updating password:");
     console.error("   Error code:", error.code);
     console.error("   Error message:", error.message);
     console.error("   Full error:", error);

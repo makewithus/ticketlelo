@@ -35,6 +35,9 @@ import {
   LogIn,
   Key,
   RefreshCw,
+  Mail,
+  Info,
+  Save,
 } from "lucide-react";
 
 export function DynamicRegistrationForm({ eventId, event, initialForm }) {
@@ -81,7 +84,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         setFormData(initialData);
       } else {
         // initialForm is null - no custom form exists, use default
-        console.log("ℹ️ No custom form found (prefetched), using default form");
+        console.log("No custom form found (prefetched), using default form");
         const defaultForm = {
           eventId: eventId,
           fields: [
@@ -154,7 +157,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         }
 
         if (data.success && data.form) {
-          console.log("✅ Custom form loaded successfully");
+          console.log("Custom form loaded successfully");
           setCustomForm(data.form);
 
           // Initialize form data with empty values
@@ -221,7 +224,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           throw new Error(data.message || "Failed to load registration form");
         }
       } catch (error) {
-        console.error("❌ Error loading custom form:", error);
+        console.error("Error loading custom form:", error);
 
         if (error.name === "AbortError") {
           setFormLoadError("Form loading timed out. Click retry to try again.");
@@ -348,11 +351,11 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     setIsLoggingIn(true);
 
     try {
-      console.log("🔐 LOGGING IN EXISTING USER");
+      console.log("LOGGING IN EXISTING USER");
 
       // Login with email and password
       const user = await login(tempFormData.email, loginPassword);
-      console.log("✅ LOGIN SUCCESSFUL:", user.id);
+      console.log("LOGIN SUCCESSFUL:", user.id);
 
       setShowLoginModal(false);
 
@@ -366,12 +369,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         await registerExistingUser(user);
       }
     } catch (error) {
-      console.error("❌ Login error:", error);
+      console.error("Login error:", error);
       if (
         error.message?.includes("wrong-password") ||
         error.message?.includes("invalid-credential")
       ) {
-        toast.error("🔒 Incorrect password. Please try again.");
+        toast.error("Incorrect password. Please try again.");
       } else {
         toast.error("Login failed: " + error.message);
       }
@@ -429,7 +432,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              toast.success("Payment successful! ✅");
+              toast.success("Payment successful!");
 
               if (couponData && couponData.couponId) {
                 try {
@@ -511,12 +514,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       };
 
       await createRegistration(registrationData);
-      console.log("✅ Registration created for existing user");
+      console.log("Registration created for existing user");
 
       // Send ticket email
       try {
         console.log(
-          "📧 [registerExistingUser] Sending ticket email WITHOUT password",
+          "[registerExistingUser] Sending ticket email WITHOUT password",
         );
         await sendRegistrationConfirmation(
           user.email,
@@ -524,20 +527,20 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           event?.name || "Event",
           ticketId,
         );
-        toast.success(`✅ Ticket sent to ${user.email}!`);
+        toast.success(`Ticket sent to ${user.email}!`);
       } catch (error) {
         console.error("Failed to send ticket email:", error);
         toast.error("Registration successful but failed to send email");
       }
 
       // Redirect to dashboard
-      toast.success("🎉 Registration successful!");
+      toast.success("Registration successful!");
       setTimeout(() => router.push("/dashboard"), 2000);
 
       setIsLoading(false);
       setPaymentProcessing(false);
     } catch (error) {
-      console.error("❌ Registration error:", error);
+      console.error("Registration error:", error);
       toast.error("Failed to complete registration: " + error.message);
       setIsLoading(false);
       setPaymentProcessing(false);
@@ -575,17 +578,17 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       };
 
       await createRegistration(registrationData);
-      console.log("✅ Registration created");
+      console.log("Registration created");
 
       // Send confirmation email with PDF ticket AND CREDENTIALS
       try {
         console.log(
-          "📧 [proceedWithRegistration - NEW USER] Sending ticket WITH password",
+          "[proceedWithRegistration - NEW USER] Sending ticket WITH password",
         );
-        console.log("📧 Sending ticket with credentials to email:", email);
+        console.log("Sending ticket with credentials to email:", email);
         console.log(
           "   Password being sent:",
-          password ? "✅ Available" : "❌ Missing",
+          password ? "Available" : "Missing",
         );
         await sendRegistrationConfirmation(
           email,
@@ -594,7 +597,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           ticketId,
           password, // Pass password for new users
         );
-        toast.success(`✅ Your ticket and login credentials sent to ${email}!`);
+        toast.success(`Your ticket and login credentials sent to ${email}!`);
       } catch (error) {
         console.error("Email error:", error);
         toast.error(
@@ -612,7 +615,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       setShowSuccessModal(true);
       setIsLoading(false);
     } catch (error) {
-      console.error("❌ Registration error:", error);
+      console.error("Registration error:", error);
       toast.error("Registration failed: " + error.message);
       setIsLoading(false);
     }
@@ -653,9 +656,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       // Log extracted values for debugging
       console.log("=".repeat(50));
-      console.log("📧 FORM SUBMISSION - Extracted Data:");
-      console.log("📧 Email field found:", emailField?.name, emailField?.id);
-      console.log("📧 Email from form:", email);
+      console.log("FORM SUBMISSION - Extracted Data:");
+      console.log("Email field found:", emailField?.name, emailField?.id);
+      console.log("Email from form:", email);
       console.log("📞 Phone field found:", phoneField?.name, phoneField?.id);
       console.log("📞 Phone from form:", phone);
       console.log("👤 Name field found:", nameField?.name, nameField?.id);
@@ -665,7 +668,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       // Email is required - don't proceed without it
       if (!email || email === "") {
-        toast.error("❌ Email is required. Please provide your email address.");
+        toast.error("Email is required. Please provide your email address.");
         setIsLoading(false);
         return;
       }
@@ -673,76 +676,70 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       // Basic email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        toast.error("❌ Please provide a valid email address.");
+        toast.error("Please provide a valid email address.");
         setIsLoading(false);
         return;
       }
 
-      console.log("✅ Using user's email:", email);
+      console.log("Using user's email:", email);
 
       // Phone validation - only enforce if phone field exists in form
       if (phoneField && (!phone || phone === "")) {
-        console.log("❌ Phone field exists but no value provided");
+        console.log("Phone field exists but no value provided");
         toast.error(
-          "❌ Phone number is required. Please provide your phone number.",
+          "Phone number is required. Please provide your phone number.",
         );
         setIsLoading(false);
         return;
       }
 
       console.log(
-        "✅ Phone validation passed. Phone:",
+        "Phone validation passed. Phone:",
         phone || "(not required)",
       );
 
-      // Check for duplicate EMAIL BEFORE anything else
-      const isDuplicateEmail = await checkDuplicateRegistration(email, eventId);
+      // Run backend queries concurrently for optimization
+      console.log("Checking duplicates and user existence concurrently...");
+      const phonePromise = (phone && phone !== "") 
+        ? checkDuplicatePhoneForEvent(phone, eventId) 
+        : Promise.resolve(false);
+      
+      const userPromise = getUserByEmail(email).catch(err => {
+        console.log("No existing user found (error caught):", err.message);
+        return null;
+      });
+
+      const [isDuplicateEmail, isDuplicatePhone, existingUserFound] = await Promise.all([
+        checkDuplicateRegistration(email, eventId),
+        phonePromise,
+        userPromise
+      ]);
+
       if (isDuplicateEmail) {
-        toast.error("⚠️ This email is already registered for this event!");
+        toast.error("This email is already registered for this event!");
         setIsLoading(false);
         return;
       }
 
-      // Check for duplicate PHONE BEFORE anything else (only if phone is provided)
-      if (phone && phone !== "") {
-        const isDuplicatePhone = await checkDuplicatePhoneForEvent(
-          phone,
-          eventId,
-        );
-        if (isDuplicatePhone) {
-          toast.error(
-            "⚠️ This phone number is already registered for this event!",
-          );
-          setIsLoading(false);
-          return;
-        }
+      if (isDuplicatePhone) {
+        toast.error("This phone number is already registered for this event!");
+        setIsLoading(false);
+        return;
       }
 
-      // Check if user already exists
-      console.log("🔍 Checking if user exists...");
-      let existingUser = null;
-      try {
-        existingUser = await getUserByEmail(email);
-        if (existingUser) {
-          console.log("⚠️ EXISTING USER FOUND:");
-          console.log("   User ID:", existingUser.id);
-          console.log("   Email:", existingUser.email);
-          console.log("   Name:", existingUser.fullName);
-          console.log(
-            "   → Will NOT send password (user already has credentials)",
-          );
-          toast.info(`Welcome back! We found your account for ${email}`, {
-            duration: 4000,
-          });
-        } else {
-          console.log("✅ NEW USER - No existing account found");
-          console.log("   → Will generate password and send credentials");
-          toast.info(`Creating new account for ${email}`, {
-            duration: 3000,
-          });
-        }
-      } catch (err) {
-        console.log("ℹ️ No existing user found (error caught):", err.message);
+      let existingUser = existingUserFound;
+      if (existingUser) {
+        console.log("EXISTING USER FOUND:");
+        console.log("   User ID:", existingUser.id);
+        console.log("   Email:", existingUser.email);
+        console.log("   Name:", existingUser.fullName);
+        console.log("   → Will NOT send password (user already has credentials)");
+        toast.info(`Welcome back! We found your account for ${email}`, {
+          duration: 4000,
+        });
+      } else {
+        console.log("NEW USER - No existing account found");
+        console.log("   → Will generate password and send credentials");
         toast.info(`Creating new account for ${email}`, {
           duration: 3000,
         });
@@ -757,7 +754,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       console.log("   isPaidEvent (calculated):", isPaidEvent);
       console.log("   isDefault form:", customForm?.isDefault);
       if (customForm?.isDefault) {
-        console.log("   ⚠️ Using DEFAULT FORM - inherited from event:");
+        console.log("   Using DEFAULT FORM - inherited from event:");
         console.log("      event.isPaid:", event?.isPaid);
         console.log("      event.ticketPrice:", event?.ticketPrice);
       }
@@ -789,8 +786,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           console.log("🔄 EXISTING USER - FREE EVENT");
           console.log("   Generating NEW password and sending credentials");
           const autoPassword = generateRandomPassword();
-          console.log("🔑 Generated password:", autoPassword);
-          console.log("📧 Password WILL be sent in email");
+          console.log("Generated password:", autoPassword);
+          console.log("Password WILL be sent in email");
           console.log("=".repeat(50));
           await createAccountAndRegister(
             email,
@@ -803,8 +800,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           console.log("=".repeat(50));
           console.log("🆕 NEW USER - FREE EVENT");
           const autoPassword = generateRandomPassword();
-          console.log("🔑 Generated password:", autoPassword);
-          console.log("📧 Password WILL be sent in email");
+          console.log("Generated password:", autoPassword);
+          console.log("Password WILL be sent in email");
           console.log("=".repeat(50));
           await createAccountAndRegister(
             email,
@@ -880,7 +877,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              toast.success("Payment successful! ✅");
+              toast.success("Payment successful!");
 
               // Mark coupon as used
               if (couponData && couponData.couponId) {
@@ -896,8 +893,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               console.log("=".repeat(50));
               console.log("💳 PAID EVENT - GENERATING NEW CREDENTIALS");
               const autoPassword = generateRandomPassword();
-              console.log("🔑 Generated 6-char password:", autoPassword);
-              console.log("📧 Password WILL be sent in email");
+              console.log("Generated 6-char password:", autoPassword);
+              console.log("Password WILL be sent in email");
               console.log("=".repeat(50));
 
               if (existingUser) {
@@ -981,7 +978,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     paymentId,
   ) => {
     try {
-      console.log("🔐 Creating/Updating user account with new credentials...");
+      console.log("Creating/Updating user account with new credentials...");
       console.log("   Email:", email);
       console.log("   Password:", password);
       console.log(
@@ -1025,24 +1022,24 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             passwordErrorMessage =
               updatePasswordResult.error || "Unknown error";
             console.error(
-              "⚠️  Firebase Auth password update failed:",
+              " Firebase Auth password update failed:",
               passwordErrorMessage,
             );
             console.log(
-              "📧 Continuing with registration, will send ticket anyway",
+              "Continuing with registration, will send ticket anyway",
             );
           } else {
-            console.log("✅ Firebase Auth password updated");
+            console.log("Firebase Auth password updated");
           }
         } catch (updateError) {
           passwordUpdateFailed = true;
           passwordErrorMessage = updateError.message;
           console.error(
-            "⚠️  Failed to update Firebase Auth password:",
+            " Failed to update Firebase Auth password:",
             updateError,
           );
           console.log(
-            "📧 Continuing with registration, will send ticket anyway",
+            "Continuing with registration, will send ticket anyway",
           );
         }
 
@@ -1073,22 +1070,22 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             whatsappPhone: phone || existingUserCheck.whatsappPhone,
           };
 
-          console.log("✅ User updated in Firestore");
+          console.log("User updated in Firestore");
 
           if (passwordUpdateFailed) {
             console.warn(
-              "⚠️  Note: Firebase Auth password NOT updated, but Firestore has new password",
+              " Note: Firebase Auth password NOT updated, but Firestore has new password",
             );
             console.warn("   User should use forgot password flow later");
           } else {
             console.log(
-              "✅ Existing user updated successfully in both Auth and Firestore",
+              "Existing user updated successfully in both Auth and Firestore",
             );
           }
 
           isNewUser = false;
         } catch (firestoreError) {
-          console.error("❌ Failed to update Firestore:", firestoreError);
+          console.error("Failed to update Firestore:", firestoreError);
           throw new Error("Failed to update user data. Please try again.");
         }
       } else {
@@ -1097,7 +1094,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
         user = await signup(email, password, fullName || email, phone || "");
 
-        console.log("✅ New user account created:", user.id);
+        console.log("New user account created:", user.id);
         isNewUser = true;
       }
 
@@ -1122,15 +1119,15 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       };
 
       await createRegistration(registrationData);
-      console.log("✅ Registration created");
+      console.log("Registration created");
 
       // Send ticket email WITH CREDENTIALS (for both new and existing users)
       try {
         console.log("=".repeat(60));
         console.log(
-          `📧 [${isNewUser ? "NEW" : "EXISTING"} USER] Sending ticket WITH password`,
+          `[${isNewUser ? "NEW" : "EXISTING"} USER] Sending ticket WITH password`,
         );
-        console.log("=== 📧 CALLING sendRegistrationConfirmation ===");
+        console.log("=== CALLING sendRegistrationConfirmation ===");
         console.log("   Email:", email);
         console.log("   FullName:", user.fullName || fullName || email);
         console.log("   EventName:", tempFormData?.event?.name || "Event");
@@ -1147,15 +1144,15 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           ticketId,
           password,
         );
-        console.log("✅ Ticket email with credentials sent successfully!");
-        toast.success("📧 Ticket and login credentials sent to your email!");
+        console.log("Ticket email with credentials sent successfully!");
+        toast.success("Ticket and login credentials sent to your email!");
       } catch (error) {
         console.error("Failed to send ticket email:", error);
         toast.error("Failed to send ticket email");
       }
 
       // Show success modal with credentials
-      console.log("✅ Setting credentials for success modal:");
+      console.log("Setting credentials for success modal:");
       console.log("   Email:", email);
       console.log("   Password:", password);
       setUserCredentials({ email, password });
@@ -1163,7 +1160,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       setIsLoading(false);
       setPaymentProcessing(false);
     } catch (error) {
-      console.error("❌ Account creation/update error:", error);
+      console.error("Account creation/update error:", error);
       toast.error("Failed to process account: " + error.message);
       setIsLoading(false);
       setPaymentProcessing(false);
@@ -1204,12 +1201,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       };
 
       await createRegistration(registrationData);
-      console.log("✅ Registration created for existing user");
+      console.log("Registration created for existing user");
 
       // Send ticket email (NOT credentials - they already have them)
       try {
         console.log(
-          "📧 [registerExistingUserDirectly] Sending ticket email WITHOUT password",
+          "[registerExistingUserDirectly] Sending ticket email WITHOUT password",
         );
         await sendRegistrationConfirmation(
           email,
@@ -1217,8 +1214,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           event?.name || "Event",
           ticketId,
         );
-        console.log("✅ Ticket email sent");
-        toast.success(`✅ Ticket sent to ${email}!`);
+        console.log("Ticket email sent");
+        toast.success(`Ticket sent to ${email}!`);
       } catch (error) {
         console.error("Failed to send ticket email:", error);
         toast.error("Registration successful but failed to send ticket email.");
@@ -1234,7 +1231,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       setIsLoading(false);
       setPaymentProcessing(false);
     } catch (error) {
-      console.error("❌ Registration error:", error);
+      console.error("Registration error:", error);
       toast.error("Registration failed: " + error.message);
       setIsLoading(false);
       setPaymentProcessing(false);
@@ -1258,8 +1255,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       case "email":
       case "tel":
         return (
-          <div key={field.id} className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">
+          <div key={field.id}>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
@@ -1272,7 +1269,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isLoading}
-              className="h-12 bg-slate-900/60 border-[#FF6A00]/30 text-white placeholder:text-slate-500 focus:border-[#FF6A00] rounded-xl"
+              className="w-full h-12 bg-slate-900/60 border border-[#FF6A00]/30 text-white placeholder-slate-500 focus:outline-none focus:border-[#FF6A00] focus:ring-1 focus:ring-[#FF6A00]/50 transition-all rounded-xl"
             />
             {error && (
               <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
@@ -1282,8 +1279,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       case "textarea":
         return (
-          <div key={field.id} className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">
+          <div key={field.id}>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
@@ -1295,7 +1292,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isLoading}
-              className="min-h-[80px] bg-slate-900/60 border-[#FF6A00]/30 text-white placeholder:text-slate-500 focus:border-[#FF6A00] rounded-xl resize-none"
+              className="w-full min-h-[80px] bg-slate-900/60 border border-[#FF6A00]/30 text-white placeholder-slate-500 focus:outline-none focus:border-[#FF6A00] focus:ring-1 focus:ring-[#FF6A00]/50 transition-all rounded-xl resize-none"
             />
             {error && (
               <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
@@ -1305,8 +1302,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       case "radio":
         return (
-          <div key={field.id} className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">
+          <div key={field.id}>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
@@ -1337,8 +1334,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       case "dropdown":
         return (
-          <div key={field.id} className="space-y-2">
-            <label className="text-sm font-medium text-slate-300">
+          <div key={field.id}>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
@@ -1347,7 +1344,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               onValueChange={updateValue}
               disabled={isLoading}
             >
-              <SelectTrigger className="h-12 bg-slate-900/60 border-[#FF6A00]/30 text-white focus:border-[#FF6A00] rounded-xl">
+              <SelectTrigger className="w-full h-12 bg-slate-900/60 border border-[#FF6A00]/30 text-white focus:outline-none focus:border-[#FF6A00] focus:ring-1 focus:ring-[#FF6A00]/50 transition-all rounded-xl">
                 <SelectValue
                   placeholder={`Select ${(field.label || field.name)?.toLowerCase() || "option"}`}
                 />
@@ -1440,13 +1437,13 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           {customForm.isPaid &&
             customForm.amount > 0 &&
             customForm.enableCoupons && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-300">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Coupon Code (Optional)
                 </label>
                 {!couponData ? (
                   <div className="flex gap-2">
-                    <div className="relative flex-1 input-glow rounded-xl">
+                    <div className="relative flex-1">
                       <Input
                         placeholder="Enter coupon code"
                         value={couponCode}
@@ -1454,7 +1451,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                           setCouponCode(e.target.value.toUpperCase())
                         }
                         disabled={isLoading || couponValidating}
-                        className="h-12 bg-slate-900/60 border-[#FF6A00]/30 text-white placeholder:text-slate-500 focus:border-[#FF6A00] rounded-xl uppercase"
+                        className="w-full h-12 bg-slate-900/60 border border-[#FF6A00]/30 text-white placeholder-slate-500 focus:outline-none focus:border-[#FF6A00] focus:ring-1 focus:ring-[#FF6A00]/50 transition-all rounded-xl uppercase"
                       />
                     </div>
                     <Button
@@ -1515,7 +1512,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           <Button
             type="submit"
             disabled={isLoading || paymentProcessing}
-            className="w-full h-12 text-base font-semibold bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 transition-all rounded-xl gap-2"
+            className="w-full h-12 text-base font-semibold bg-[#FF6A00] hover:bg-[#E65C00] disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-lg shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 transition-all rounded-xl flex items-center justify-center gap-2"
           >
             {isLoading || paymentProcessing ? (
               <>
@@ -1556,7 +1553,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  🔐 Welcome Back!
+                  Welcome Back!
                 </h3>
                 <p className="text-xs text-blue-400">Login to continue</p>
               </div>
@@ -1564,8 +1561,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
             <div className="space-y-5 mb-6">
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <p className="text-sm text-blue-400 mb-2">
-                  ✨ <strong>Your Email:</strong>
+                <p className="text-sm text-blue-400 mb-2 flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  <strong>Your Email:</strong>
                 </p>
                 <p className="font-mono text-lg text-white break-all">
                   {tempFormData?.email || "Email not found"}
@@ -1574,7 +1572,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
               <div className="space-y-2">
                 <label className="text-sm text-blue-400 font-semibold">
-                  🔒 Enter Your Password
+                  Enter Your Password
                 </label>
                 <Input
                   type="password"
@@ -1589,7 +1587,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                 />
                 {loginPassword && loginPassword.length < 6 && (
                   <p className="text-xs text-red-400">
-                    ⚠️ Password must be at least 6 characters
+                    Password must be at least 6 characters
                   </p>
                 )}
               </div>
@@ -1602,15 +1600,17 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                     setShowLoginModal(false);
                     router.push("/");
                   }}
-                  className="text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                  className="text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors flex items-center justify-center gap-2 mx-auto"
                 >
-                  🔑 Forgot password? Reset it here
+                  <Key className="w-4 h-4" />
+                  Forgot password? Reset it here
                 </button>
               </div>
 
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3">
+                <Info className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-400">
-                  💡 <strong>Note:</strong> Use the password you set when you
+                  <strong>Note:</strong> Use the password you set when you
                   first registered.
                 </p>
               </div>
@@ -1757,9 +1757,10 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                     </div>
                   </div>
 
-                  <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5">
+                  <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5 flex items-center justify-center gap-2">
+                    <Save className="w-4 h-4 text-amber-800 dark:text-amber-300" />
                     <p className="text-amber-800 dark:text-amber-300 text-xs text-center font-medium">
-                      💾 Save these credentials - you'll need them to sign in
+                      Save these credentials - you'll need them to sign in
                       and access your dashboard
                     </p>
                   </div>
