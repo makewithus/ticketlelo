@@ -45,25 +45,25 @@ export function QRScanner() {
       );
 
       if (result.status === "valid") {
-        toast.success(`✅ ENTRY ALLOWED - Welcome ${result.user}!`);
+        toast.success(`ENTRY ALLOWED - Welcome ${result.user}!`);
       } else if (result.status === "already_used") {
         const usedDate = result.usedAt
           ? new Date(result.usedAt.seconds * 1000).toLocaleString()
           : "Unknown time";
         toast.error(
-          `❌ ENTRY DENIED - Already used by ${result.user} at ${usedDate}`,
+          `ENTRY DENIED - Already used by ${result.user} at ${usedDate}`,
         );
       } else if (result.status === "not_found") {
-        toast.error("❌ INVALID TICKET - Not found in system");
+        toast.error("INVALID TICKET - Not found in system");
       } else if (result.status === "invalid") {
-        toast.error("❌ INVALID QR CODE - Invalid format");
+        toast.error("INVALID QR CODE - Invalid format");
       } else {
-        toast.error("❌ SYSTEM ERROR - Please try again");
+        toast.error("SYSTEM ERROR - Please try again");
       }
       return result;
     } catch (error) {
       console.error("Verify ticket error:", error);
-      toast.error("❌ NETWORK ERROR - Check connection");
+      toast.error("NETWORK ERROR - Check connection");
       return { status: "error" };
     } finally {
       setIsProcessing(false);
@@ -79,7 +79,7 @@ export function QRScanner() {
       await verifyTicket(ticketId);
     } catch (error) {
       console.error("QR scan error:", error);
-      toast.error("❌ Invalid QR code format");
+      toast.error("Invalid QR code format");
     }
   };
 
@@ -101,7 +101,7 @@ export function QRScanner() {
           icon: (
             <CheckCircle2 className="w-6 h-6 text-[#FF6A00]" />
           ),
-          title: "✅ ENTRY ALLOWED",
+          title: "ENTRY ALLOWED",
           accent: "text-[#FF6A00]",
         };
       case "already_used":
@@ -109,7 +109,7 @@ export function QRScanner() {
           border: "border-red-300 dark:border-red-500/30",
           bg: "bg-red-50 dark:bg-red-500/10",
           icon: <X className="w-6 h-6 text-red-600 dark:text-red-400" />,
-          title: "❌ ENTRY DENIED - Already Used",
+          title: "ENTRY DENIED - Already Used",
           accent: "text-red-700 dark:text-red-400",
         };
       case "not_found":
@@ -119,7 +119,7 @@ export function QRScanner() {
           icon: (
             <AlertCircle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
           ),
-          title: "❌ INVALID TICKET",
+          title: "INVALID TICKET",
           accent: "text-orange-700 dark:text-orange-400",
         };
       default:
@@ -129,7 +129,7 @@ export function QRScanner() {
           icon: (
             <AlertCircle className="w-6 h-6 text-gray-500 dark:text-slate-400" />
           ),
-          title: "❌ ERROR",
+          title: "ERROR",
           accent: "text-gray-700 dark:text-slate-400",
         };
     }

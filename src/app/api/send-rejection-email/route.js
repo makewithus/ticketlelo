@@ -91,7 +91,7 @@ export async function POST(request) {
                       <tr>
                         <td>
                           <h3 style="margin: 0 0 20px; color: #FF6A00; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
-                            📋 YOUR REQUEST DETAILS
+                             YOUR REQUEST DETAILS
                           </h3>
                           <table style="width: 100%; border-collapse: collapse;">
                             <tr>
@@ -144,7 +144,7 @@ export async function POST(request) {
                       <tr>
                         <td>
                           <h3 style="margin: 0 0 15px; color: #351E27; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
-                            💡 WHAT'S NEXT?
+                             WHAT'S NEXT?
                           </h3>
                           <ul style="margin: 0; padding-left: 20px; color: #333333; font-size: 15px; line-height: 2;">
                             <li><strong>Review the feedback</strong> above and address any concerns</li>

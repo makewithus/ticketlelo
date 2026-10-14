@@ -73,7 +73,7 @@ export async function POST(request) {
       );
     }
 
-    console.log("📤 Uploading logo to Cloudinary...");
+    console.log(" Uploading logo to Cloudinary...");
     console.log("File name:", file.name);
     console.log("File size:", (file.size / 1024).toFixed(2), "KB");
 

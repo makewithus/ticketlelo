@@ -156,7 +156,7 @@ export default function PricingPage() {
             const verifyData = await verifyRes.json();
 
             if (verifyData.success) {
-              toast({ title: "🎉 Plan Upgraded!", description: verifyData.message });
+              toast({ title: " Plan Upgraded!", description: verifyData.message });
               router.refresh();
               router.push("/admin/dashboard");
             } else {

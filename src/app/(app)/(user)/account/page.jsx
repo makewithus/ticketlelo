@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { PLANS, getPlan } from "@/lib/plans";
 import { getEventsByOrganiser } from "@/lib/firestore";
+import { OrganiserShell } from "@/components/layout/organiser-shell";
 import Link from "next/link";
 
 const PLAN_META = {
@@ -137,28 +138,29 @@ export default function AccountPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="animate-spin text-[#FF6A00]" size={32} />
+      <div className="tl-system-theme flex min-h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-[#3157ff]" size={32} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
+    <OrganiserShell>
+    <div className="py-4">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-gray-900">
+            <h1 className="text-3xl font-extrabold text-[#061a3f]">
               Account & Plan
             </h1>
-            <p className="text-gray-400 mt-1 text-sm">
+            <p className="text-[rgba(6,26,63,0.64)] mt-1 text-sm">
               Manage your subscription and usage
             </p>
           </div>
           <button
             onClick={loadEvents}
-            className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 transition-colors"
+            className="p-2 rounded-lg hover:bg-[#3157ff]/10 text-[rgba(6,26,63,0.56)] transition-colors"
             title="Refresh"
           >
             <RefreshCw size={18} />
@@ -167,7 +169,7 @@ export default function AccountPage() {
 
         {/* Profile + Plan banner */}
         <div
-          className={`${bg} border ${border} rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center gap-5`}
+          className="tl-auth-card p-6 flex flex-col sm:flex-row sm:items-center gap-5"
         >
           <div className="w-14 h-14 rounded-2xl bg-white shadow flex items-center justify-center flex-shrink-0">
             <Icon size={26} className={iconColor} />
@@ -188,7 +190,7 @@ export default function AccountPage() {
           {currentPlanId !== "pro" && (
             <Link
               href="/pricing"
-              className="flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity shadow-md shadow-[#FF6A00]/20"
+              className="tl-primary-action flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 font-bold text-sm transition-opacity"
             >
               <Zap size={14} />
               Upgrade Plan
@@ -199,7 +201,7 @@ export default function AccountPage() {
         {/* Usage Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* Events Usage */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div className="tl-auth-card p-6 space-y-4">
             <div className="flex items-center gap-2 text-gray-600">
               <Calendar size={18} />
               <h3 className="font-semibold text-sm">Events</h3>
@@ -223,7 +225,7 @@ export default function AccountPage() {
           </div>
 
           {/* Participants per event */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+          <div className="tl-auth-card p-6 space-y-4">
             <div className="flex items-center gap-2 text-gray-600">
               <Users size={18} />
               <h3 className="font-semibold text-sm">Participants per Event</h3>
@@ -240,7 +242,7 @@ export default function AccountPage() {
         </div>
 
         {/* Recent Events */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="tl-auth-card">
           <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
               <BarChart2 size={16} className="text-[#FF6A00]" />
@@ -304,7 +306,7 @@ export default function AccountPage() {
         </div>
 
         {/* Plan comparison table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="tl-auth-card p-6">
           <h3 className="font-bold text-gray-800 mb-5">Plan Comparison</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -385,7 +387,7 @@ export default function AccountPage() {
           </div>
 
           {currentPlanId !== "pro" && (
-            <div className="mt-6 flex items-center justify-between p-4 bg-gradient-to-r from-[#FF6A00]/10 to-[#FFD60A]/10 rounded-xl border border-[#FF6A00]/20">
+            <div className="mt-6 flex items-center justify-between p-4 bg-[#3157ff]/10 rounded-lg border border-[#3157ff]/20">
               <div>
                 <p className="font-bold text-gray-800 text-sm">
                   Ready to unlock more features?
@@ -396,7 +398,7 @@ export default function AccountPage() {
               </div>
               <Link
                 href="/pricing"
-                className="flex items-center gap-1.5 px-5 py-2 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+                className="tl-primary-action flex items-center gap-1.5 px-5 py-2 font-bold text-sm"
               >
                 View Plans <ArrowRight size={13} />
               </Link>
@@ -405,7 +407,7 @@ export default function AccountPage() {
         </div>
 
         {/* Danger zone */}
-        <div className="bg-white rounded-2xl border border-red-100 shadow-sm p-6">
+        <div className="tl-auth-card p-6 border-red-100">
           <h3 className="font-bold text-red-600 mb-1 text-sm">Danger Zone</h3>
           <p className="text-xs text-gray-400 mb-4">
             Actions here are permanent or require re-authentication.
@@ -415,12 +417,13 @@ export default function AccountPage() {
               await logout();
               router.push("/user-login");
             }}
-            className="text-sm text-red-500 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors font-medium"
+            className="text-sm text-red-500 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium"
           >
             Sign Out
           </button>
         </div>
       </div>
     </div>
+    </OrganiserShell>
   );
 }

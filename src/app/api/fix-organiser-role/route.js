@@ -13,7 +13,7 @@ export async function POST(request) {
 
     const { uid, email } = await request.json();
 
-    console.log("🔧 Fixing organiser role for:", email || uid);
+    console.log(" Fixing organiser role for:", email || uid);
 
     // Get the user document
     const userDoc = await adminDb.collection("users").doc(uid).get();
@@ -27,7 +27,7 @@ export async function POST(request) {
     }
 
     const userData = userDoc.data();
-    console.log("📄 Current data:", {
+    console.log(" Current data:", {
       email: userData.email,
       role: userData.role,
       isAdmin: userData.isAdmin,

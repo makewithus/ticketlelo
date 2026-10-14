@@ -72,8 +72,8 @@ export async function POST(request) {
       from: `"Ticketलेलो" <${process.env.SMTP_EMAIL}>`,
       to: email,
       subject: password
-        ? `🎫 Your Entry Pass + Login Credentials - ${eventName || event.name}`
-        : `🎫 Your Entry Pass for ${eventName || event.name} - Ticketलेलो`,
+        ? ` Your Entry Pass + Login Credentials - ${eventName || event.name}`
+        : ` Your Entry Pass for ${eventName || event.name} - Ticketलेलो`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -133,7 +133,7 @@ export async function POST(request) {
               <tr>
                 <td>
                   <p style="margin: 0 0 20px 0; color: #000000; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    🔐 LOGIN CREDENTIALS
+                     LOGIN CREDENTIALS
                   </p>
                   
                   <div style="margin-bottom: 18px;">

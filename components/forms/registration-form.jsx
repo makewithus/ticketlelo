@@ -285,7 +285,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
 
       // If it's a paid event, initiate Razorpay payment
       if (customForm?.isPaid && customForm?.amount > 0) {
-        console.log("💳 Initiating payment for paid event");
+        console.log(" Initiating payment for paid event");
         setPaymentProcessing(true);
 
         try {
@@ -303,7 +303,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             orderPayload.finalAmount = couponData.finalAmount;
             orderPayload.couponId = couponData.couponId;
             console.log(
-              "🎫 Applying coupon discount:",
+              " Applying coupon discount:",
               couponData.discountPercent + "%",
             );
           }
@@ -350,14 +350,14 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                 const verifyData = await verifyResponse.json();
 
                 if (verifyData.success) {
-                  toast.success("Payment successful! ✅");
+                  toast.success("Payment successful! ");
 
                   // Mark coupon as used if it was applied
                   if (couponData && couponData.couponId) {
                     try {
                       await useCoupon(couponData.couponId, user.id);
                       console.log(
-                        "✅ Coupon marked as used:",
+                        " Coupon marked as used:",
                         couponData.couponId,
                       );
                     } catch (error) {
@@ -732,7 +732,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
 
             <div className="space-y-4 mb-6">
               <p className="text-slate-300">
-                🎉 You can now access the{" "}
+                 You can now access the{" "}
                 <strong className="text-[#FF6A00]">User Portal</strong> with
                 your credentials:
               </p>
@@ -754,7 +754,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
 
               <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-lg p-3">
                 <p className="text-xs text-[#FF6A00]">
-                  💡 <strong>Note:</strong> Use these credentials to sign in to
+                   <strong>Note:</strong> Use these credentials to sign in to
                   the User Portal and view all your tickets.
                 </p>
               </div>

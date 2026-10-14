@@ -71,7 +71,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     if (initialForm !== undefined) {
       if (initialForm) {
         // Custom form exists - use it
-        console.log("⚡ Using prefetched form - instant load!");
+        console.log(" Using prefetched form - instant load!");
         setCustomForm(initialForm);
 
         // Initialize form data with empty values
@@ -551,7 +551,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   // Proceed with event registration after authentication
   const proceedWithRegistration = async (user, password) => {
     try {
-      console.log("📝 PROCEEDING WITH REGISTRATION:");
+      console.log(" PROCEEDING WITH REGISTRATION:");
       console.log("   User:", user?.email);
       console.log("   Event:", tempEventData?.name);
 
@@ -659,11 +659,11 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       console.log("FORM SUBMISSION - Extracted Data:");
       console.log("Email field found:", emailField?.name, emailField?.id);
       console.log("Email from form:", email);
-      console.log("📞 Phone field found:", phoneField?.name, phoneField?.id);
-      console.log("📞 Phone from form:", phone);
-      console.log("👤 Name field found:", nameField?.name, nameField?.id);
-      console.log("👤 Name from form:", fullName);
-      console.log("📝 Full form data:", formData);
+      console.log(" Phone field found:", phoneField?.name, phoneField?.id);
+      console.log(" Phone from form:", phone);
+      console.log(" Name field found:", nameField?.name, nameField?.id);
+      console.log(" Name from form:", fullName);
+      console.log(" Full form data:", formData);
       console.log("=".repeat(50));
 
       // Email is required - don't proceed without it
@@ -748,7 +748,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       const isPaidEvent = customForm?.isPaid && customForm?.amount > 0;
 
       console.log("=".repeat(60));
-      console.log("💰 PAYMENT CHECK:");
+      console.log(" PAYMENT CHECK:");
       console.log("   customForm.isPaid:", customForm?.isPaid);
       console.log("   customForm.amount:", customForm?.amount);
       console.log("   isPaidEvent (calculated):", isPaidEvent);
@@ -775,7 +775,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       // NO LOGIN MODAL - Payment/Registration happens immediately
       if (isPaidEvent) {
         // PAID EVENT - Initiate payment first (for both new and existing users)
-        console.log("💳 PAID EVENT DETECTED - Initiating payment flow");
+        console.log(" PAID EVENT DETECTED - Initiating payment flow");
         console.log("   Amount to charge: ₹", customForm?.amount);
         await handlePaymentFlow(email, phone, fullName, existingUser);
       } else {
@@ -783,7 +783,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         // FREE EVENT - Register immediately with credentials for ALL users
         if (existingUser) {
           console.log("=".repeat(50));
-          console.log("🔄 EXISTING USER - FREE EVENT");
+          console.log(" EXISTING USER - FREE EVENT");
           console.log("   Generating NEW password and sending credentials");
           const autoPassword = generateRandomPassword();
           console.log("Generated password:", autoPassword);
@@ -860,7 +860,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         order_id: orderData.order.id,
         handler: async function (response) {
           try {
-            console.log("💳 Payment successful");
+            console.log(" Payment successful");
 
             // Verify payment
             const verifyResponse = await fetch("/api/verify-payment", {
@@ -891,7 +891,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
               // ALWAYS CREATE NEW CREDENTIALS FOR PAID EVENTS
               console.log("=".repeat(50));
-              console.log("💳 PAID EVENT - GENERATING NEW CREDENTIALS");
+              console.log(" PAID EVENT - GENERATING NEW CREDENTIALS");
               const autoPassword = generateRandomPassword();
               console.log("Generated 6-char password:", autoPassword);
               console.log("Password WILL be sent in email");
@@ -899,7 +899,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
               if (existingUser) {
                 // EXISTING USER - Update their password and send new credentials
-                console.log("🔄 EXISTING USER - Updating with NEW password");
+                console.log(" EXISTING USER - Updating with NEW password");
                 await createAccountAndRegister(
                   email,
                   phone,
@@ -995,7 +995,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       if (existingUserCheck) {
         // EXISTING USER - Update their password in both Firebase Auth AND Firestore
         console.log(
-          "🔄 User exists - Updating password in Firebase Auth and Firestore",
+          " User exists - Updating password in Firebase Auth and Firestore",
         );
 
         let passwordUpdateFailed = false;
@@ -1178,7 +1178,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     isPaid = false,
   ) => {
     try {
-      console.log("🔄 Registering existing user...");
+      console.log(" Registering existing user...");
 
       // Generate ticket
       const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;

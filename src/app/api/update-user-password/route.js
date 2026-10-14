@@ -7,7 +7,7 @@ import { adminAuth, isFirebaseAdminReady } from "@/lib/firebase-admin";
  */
 export async function POST(request) {
   try {
-    console.log("🔐 [Password Update API] Request received");
+    console.log(" [Password Update API] Request received");
     console.log("   Admin ready:", isFirebaseAdminReady());
     console.log("   adminAuth exists:", !!adminAuth);
 
@@ -34,7 +34,7 @@ export async function POST(request) {
       );
     }
 
-    console.log(`🔐 [Password Update API] Updating password for user: ${uid}`);
+    console.log(` [Password Update API] Updating password for user: ${uid}`);
     console.log(`   New password length: ${newPassword.length}`);
 
     // Update user password in Firebase Auth

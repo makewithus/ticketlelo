@@ -31,8 +31,8 @@ export async function POST(request) {
       );
     }
 
-    console.log(`📋 Generating coupons for event: ${eventName || eventId}`);
-    console.log(`📊 Configurations: ${couponConfigs.length} batches`);
+    console.log(` Generating coupons for event: ${eventName || eventId}`);
+    console.log(` Configurations: ${couponConfigs.length} batches`);
 
     // Generate all coupons and store in Firestore
     const allCoupons = [];

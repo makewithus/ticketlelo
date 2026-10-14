@@ -31,9 +31,9 @@ export async function POST(request) {
     const { eventId, registrationData, finalAmount, couponId } =
       await request.json();
 
-    console.log("📝 Creating Razorpay order for event:", eventId);
+    console.log(" Creating Razorpay order for event:", eventId);
     if (finalAmount) {
-      console.log("🎫 Coupon applied! Final amount:", finalAmount);
+      console.log(" Coupon applied! Final amount:", finalAmount);
     }
 
     // 1. Fetch event details (using client SDK)

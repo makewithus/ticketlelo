@@ -105,7 +105,7 @@ export async function POST(request) {
                       <tr>
                         <td>
                           <p style="margin: 0 0 20px 0; color: #ffffff; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                            🔐 LOGIN CREDENTIALS
+                             LOGIN CREDENTIALS
                           </p>
                           
                           <div style="margin-bottom: 15px;">

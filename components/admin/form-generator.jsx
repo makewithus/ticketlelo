@@ -11,7 +11,12 @@ import {
   Trash2,
   Save,
   Send,
+  CalendarDays,
+  Check,
+  Clock,
+  FileDown,
   Image as ImageIcon,
+  Info,
   Palette,
   X,
 } from "lucide-react";
@@ -238,7 +243,7 @@ export function FormGenerator() {
     }
 
     try {
-      console.log("📤 Uploading logo to Cloudinary...");
+      console.log(" Uploading logo to Cloudinary...");
 
       // Create FormData to send file to API
       const formData = new FormData();
@@ -257,7 +262,7 @@ export function FormGenerator() {
       }
 
       const data = await response.json();
-      console.log("✅ Logo uploaded to Cloudinary:", data.url);
+      console.log(" Logo uploaded to Cloudinary:", data.url);
 
       return data.url;
     } catch (error) {
@@ -282,7 +287,7 @@ export function FormGenerator() {
       // Upload logo if it's a File object
       let themeData = customizeTheme ? { ...theme } : null;
       if (themeData && themeData.logo && typeof themeData.logo !== "string") {
-        console.log("📤 Uploading logo...");
+        console.log(" Uploading logo...");
         themeData.logo = await uploadLogo(themeData.logo);
         themeData.logoPreview = themeData.logo; // Use same URL for preview
       }
@@ -317,7 +322,7 @@ export function FormGenerator() {
 
       // Automatically generate and download coupons PDF if coupons are enabled
       if (enableCoupons && couponConfigs.length > 0) {
-        console.log("🎟️ Coupons enabled - Auto-generating PDF");
+        console.log(" Coupons enabled - Auto-generating PDF");
         toast.info("Generating coupons PDF...");
 
         // Delay slightly to ensure Firestore is updated
@@ -365,7 +370,7 @@ export function FormGenerator() {
       // Upload logo if it's a File object
       let themeData = customizeTheme ? { ...theme } : null;
       if (themeData && themeData.logo && typeof themeData.logo !== "string") {
-        console.log("📤 Uploading logo...");
+        console.log(" Uploading logo...");
         themeData.logo = await uploadLogo(themeData.logo);
         themeData.logoPreview = themeData.logo; // Use same URL for preview
       }
@@ -401,7 +406,7 @@ export function FormGenerator() {
 
       // Automatically generate and download coupons PDF if coupons are enabled
       if (enableCoupons && couponConfigs.length > 0) {
-        console.log("🎟️ Coupons enabled - Auto-generating PDF");
+        console.log(" Coupons enabled - Auto-generating PDF");
         toast.info("Generating coupons PDF...");
 
         // Delay slightly to ensure Firestore is updated
@@ -488,14 +493,14 @@ export function FormGenerator() {
         throw new Error("Invalid response from server");
       }
     } catch (error) {
-      console.error("❌ Error downloading PDF:", error);
+      console.error(" Error downloading PDF:", error);
       toast.error(error.message || "Failed to download PDF");
     }
   };
 
   const renderFieldPreview = (field) => {
     const baseClasses =
-      "w-full p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF6A00] bg-white text-slate-900";
+      "w-full p-3 border border-[var(--tl-line)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 bg-white text-[#061a3f]";
 
     switch (field.type) {
       case "text":
@@ -575,8 +580,8 @@ export function FormGenerator() {
   return (
     <div className="space-y-6">
       {/* Event Selection */}
-      <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6">
-        <h3 className="text-lg font-semibold text-slate-100 dark:text-slate-100 mb-4">
+      <div className="tl-auth-card p-6">
+        <h3 className="text-lg font-semibold text-[#061a3f] mb-4">
           {user?.role === "organiser"
             ? events.length > 1
               ? "Select Event"
@@ -586,11 +591,11 @@ export function FormGenerator() {
 
         {user?.role === "organiser" && events.length === 1 ? (
           /* Show event name for organisers with single event (not editable) */
-          <div className="w-full p-3 bg-black/50 border border-[#FF6A00]/30 rounded-lg text-white">
+          <div className="w-full p-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f]">
             {events.length > 0 ? (
               <span className="font-medium">{events[0].name}</span>
             ) : (
-              <span className="text-gray-400">
+              <span className="text-[rgba(6,26,63,0.56)]">
                 No event created yet. Please create an event first.
               </span>
             )}
@@ -600,16 +605,16 @@ export function FormGenerator() {
           <select
             value={selectedEventId}
             onChange={(e) => setSelectedEventId(e.target.value)}
-            className="w-full p-3 bg-black/50 border border-[#FF6A00]/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] transition-colors"
+            className="w-full p-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f] focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 focus:border-[#3157ff] transition-colors"
           >
-            <option value="" className="bg-slate-900 text-gray-400">
+            <option value="" className="bg-white text-[rgba(6,26,63,0.56)]">
               Choose an event
             </option>
             {events.map((event) => (
               <option
                 key={event.id}
                 value={event.id}
-                className="bg-slate-900 text-white"
+                className="bg-white text-[#061a3f]"
               >
                 {event.name}
               </option>
@@ -621,8 +626,8 @@ export function FormGenerator() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Side - Form Builder */}
           <div className="space-y-6">
-            <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6">
-              <h3 className="text-lg font-semibold text-slate-100 dark:text-slate-100 mb-4">
+            <div className="tl-auth-card p-6">
+              <h3 className="text-lg font-semibold text-[#061a3f] mb-4">
                 Form Builder
               </h3>
 
@@ -643,24 +648,24 @@ export function FormGenerator() {
                     // Reset options when changing type
                     setNewField({ ...newField, type: newType, options: [] });
                   }}
-                  className="w-full p-3 bg-black/50 border border-[#FF6A00]/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#FF6A00] focus:border-[#FF6A00] transition-colors"
+                  className="w-full p-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f] focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 focus:border-[#3157ff] transition-colors"
                 >
-                  <option value="text" className="bg-slate-900 text-white">
+                  <option value="text" className="bg-white text-[#061a3f]">
                     Text Box
                   </option>
-                  <option value="email" className="bg-slate-900 text-white">
+                  <option value="email" className="bg-white text-[#061a3f]">
                     Email
                   </option>
-                  <option value="textarea" className="bg-slate-900 text-white">
+                  <option value="textarea" className="bg-white text-[#061a3f]">
                     Text Area
                   </option>
-                  <option value="dropdown" className="bg-slate-900 text-white">
+                  <option value="dropdown" className="bg-white text-[#061a3f]">
                     Dropdown
                   </option>
-                  <option value="radio" className="bg-slate-900 text-white">
+                  <option value="radio" className="bg-white text-[#061a3f]">
                     Radio Buttons
                   </option>
-                  <option value="checkbox" className="bg-slate-900 text-white">
+                  <option value="checkbox" className="bg-white text-[#061a3f]">
                     Checkbox
                   </option>
                 </select>
@@ -1047,8 +1052,9 @@ export function FormGenerator() {
             <div className="space-y-5">
               {/* Logo Upload Section */}
               <div className="bg-black/30 rounded-xl p-4 border border-#FF6A00]/10">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  🖼️ Upload Event Logo
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+                  <ImageIcon className="h-4 w-4 text-[#FF6A00]" />
+                  Upload Event Logo
                 </label>
                 <p className="text-xs text-gray-400 mb-3">
                   PNG with transparent background recommended. Max 500KB
@@ -1075,7 +1081,7 @@ export function FormGenerator() {
                         alt="Preview"
                         className="h-12 max-w-[120px] object-contain rounded border border-[#FF6A00]/20 bg-white/5 p-1"
                       />
-                      <span className="text-xs text-[#FF6A00]">✓</span>
+                      <Check className="h-4 w-4 text-[#FF6A00]" />
                     </div>
                   )}
                 </div>
@@ -1083,8 +1089,9 @@ export function FormGenerator() {
 
               {/* Color Picker Section */}
               <div className="bg-black/30 rounded-xl p-4 border border-#FF6A00]/10">
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  🎨 Brand Color
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-3">
+                  <Palette className="h-4 w-4 text-[#FF6A00]" />
+                  Brand Color
                 </label>
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -1175,8 +1182,9 @@ export function FormGenerator() {
             <div className="space-y-6">
               {/* Add New Coupon Configuration */}
               <div className="bg-#FF6A00]/10 border border-#FF6A00]/30 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-[#FF6A00] mb-4">
-                  ➕ Add Coupon Batch
+                <h4 className="text-sm font-semibold text-[#FF6A00] mb-4 flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Coupon Batch
                 </h4>
 
                 <div className="grid md:grid-cols-3 gap-4 mb-4">
@@ -1278,8 +1286,9 @@ export function FormGenerator() {
 
               {/* Existing Coupon Configurations */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">
-                  📋 Configured Coupon Batches ({couponConfigs.length})
+                <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                  <FileDown className="h-4 w-4 text-[#FF6A00]" />
+                  Configured Coupon Batches ({couponConfigs.length})
                 </h4>
 
                 {couponConfigs.length === 0 ? (
@@ -1309,14 +1318,16 @@ export function FormGenerator() {
                               </span>
                             </div>
                             <div className="flex items-center gap-4 text-xs text-gray-400">
-                              <span>
-                                📅 Valid until:{" "}
+                              <span className="inline-flex items-center gap-1.5">
+                                <CalendarDays className="h-3.5 w-3.5" />
+                                Valid until:{" "}
                                 {new Date(
                                   config.validityDate,
                                 ).toLocaleDateString()}
                               </span>
-                              <span>
-                                🕒 Added:{" "}
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5" />
+                                Added:{" "}
                                 {new Date(config.createdAt).toLocaleString()}
                               </span>
                             </div>
@@ -1343,12 +1354,15 @@ export function FormGenerator() {
 
               {/* Info Box */}
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <p className="text-xs text-blue-400">
-                  💡 <strong>How it works:</strong> When you save or publish the
+                <p className="text-xs text-blue-400 flex gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                  <strong>How it works:</strong> When you save or publish the
                   form, coupon codes will be automatically generated and a PDF
                   containing all codes will download automatically. Organizers
                   can distribute these codes to attendees, who can apply them
                   during registration to get discounts.
+                  </span>
                 </p>
               </div>
 
@@ -1358,7 +1372,8 @@ export function FormGenerator() {
                   onClick={handleDownloadCouponsPDF}
                   className="w-full bg-purple-500 hover:bg-purple-400 text-white font-semibold py-6"
                 >
-                  📄 Re-Download Coupons PDF (
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Re-Download Coupons PDF (
                   {couponConfigs.reduce(
                     (sum, c) => sum + parseInt(c.quantity || 0),
                     0,

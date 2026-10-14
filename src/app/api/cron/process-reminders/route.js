@@ -229,7 +229,7 @@ async function processEventReminder(event, reminderType) {
         batch.map(async (recipient) => {
           return sendEmail({
             to: recipient.email,
-            subject: `🎟 Reminder: ${event.name} is ${reminderLabel}!`,
+            subject: ` Reminder: ${event.name} is ${reminderLabel}!`,
             html: buildReminderEmailHtml({
               recipientName: recipient.name,
               eventName: event.name,
@@ -397,19 +397,19 @@ function buildReminderEmailHtml({
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding: 6px 0; vertical-align: top;">
-                  <span style="color: #888; font-size: 13px;">📅 Date</span>
+                  <span style="color: #888; font-size: 13px;"> Date</span>
                   <br>
                   <strong style="color: #333; font-size: 14px;">${eventDate}</strong>
                 </td>
                 <td style="padding: 6px 0; vertical-align: top;">
-                  <span style="color: #888; font-size: 13px;">🕐 Time</span>
+                  <span style="color: #888; font-size: 13px;"> Time</span>
                   <br>
                   <strong style="color: #333; font-size: 14px;">${eventTime}</strong>
                 </td>
               </tr>
               <tr>
                 <td colspan="2" style="padding: 10px 0 0;">
-                  <span style="color: #888; font-size: 13px;">📍 Location</span>
+                  <span style="color: #888; font-size: 13px;"> Location</span>
                   <br>
                   <strong style="color: #333; font-size: 14px;">${eventLocation}</strong>
                 </td>

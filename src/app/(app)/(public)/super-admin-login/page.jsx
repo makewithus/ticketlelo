@@ -4,7 +4,7 @@ import { Shield, Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
-import { login, logout } from "@/lib/auth";
+import { getAuthErrorMessage, login, logout } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -29,25 +29,28 @@ export default function SuperAdminLoginPage() {
         try { await logout(); } catch (_) {}
         const msg = "Access denied. This portal is for Super Admins only.";
         setError(msg);
-        toast.error("🔒 " + msg);
+        toast.error(msg);
         setLoading(false);
         return;
       }
 
-      toast.success("✅ Super Admin access granted!");
+      toast.success("Super Admin access granted!");
       await new Promise((resolve) => setTimeout(resolve, 300));
       router.push("/superadmin");
     } catch (err) {
-      const errorMsg = err.message || "Login failed";
+      const errorMsg = getAuthErrorMessage(
+        err,
+        "Login failed. Please check your details and try again.",
+      );
       setError(errorMsg);
 
-      if (errorMsg.includes("auth/user-not-found")) {
+      if (err.message?.includes("auth/user-not-found")) {
         toast.error("Invalid super admin credentials");
       } else if (
-        errorMsg.includes("auth/wrong-password") ||
-        errorMsg.includes("invalid-credential")
+        err.message?.includes("auth/wrong-password") ||
+        err.message?.includes("invalid-credential")
       ) {
-        toast.error("🔒 Incorrect password. Access denied.");
+        toast.error(errorMsg);
       } else {
         toast.error(errorMsg);
       }
@@ -57,7 +60,7 @@ export default function SuperAdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="tl-system-theme tl-auth-page">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-br from-red-900/10 via-transparent to-orange-900/10 pointer-events-none" />
       <div
@@ -68,10 +71,6 @@ export default function SuperAdminLoginPage() {
           backgroundSize: "40px 40px",
         }}
       />
-
-      {/* Floating orbs - Red theme */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-red-600/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-orange-600/20 rounded-full blur-3xl" />
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
@@ -84,23 +83,23 @@ export default function SuperAdminLoginPage() {
           {/* Back to Home */}
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group"
+            className="inline-flex items-center gap-2 text-[rgba(6,26,63,0.64)] hover:text-[#061a3f] transition-colors mb-8 group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             <span>Back to Home</span>
           </Link>
 
           {/* Login Card */}
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-red-500/20 rounded-2xl p-8 shadow-2xl">
+          <div className="tl-auth-card p-8">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-orange-600 rounded-2xl mb-4 shadow-lg shadow-red-600/30">
+              <div className="tl-auth-icon inline-flex items-center justify-center w-16 h-16 mb-4">
                 <Shield className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent mb-2">
+              <h1 className="text-3xl font-extrabold text-[#061a3f] mb-2">
                 Super Admin Portal
               </h1>
-              <p className="text-gray-400 text-sm">
+              <p className="text-[rgba(6,26,63,0.64)] text-sm">
                 Restricted Access Only
               </p>
             </div>
@@ -109,11 +108,11 @@ export default function SuperAdminLoginPage() {
             <form onSubmit={handleLogin} className="space-y-5">
               {/* Email Field */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[#061a3f] mb-2">
                   Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)]" />
                   <input
                     type="email"
                     value={email}
@@ -127,11 +126,11 @@ export default function SuperAdminLoginPage() {
 
               {/* Password Field */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[#061a3f] mb-2">
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)]" />
                   <input
                     type="password"
                     value={password}
@@ -175,8 +174,8 @@ export default function SuperAdminLoginPage() {
             </form>
 
             {/* Footer Warning */}
-            <div className="mt-6 pt-6 border-t border-white/10">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="mt-6 pt-6 border-t border-[var(--tl-line)]">
+              <div className="flex items-center gap-2 text-xs text-[rgba(6,26,63,0.56)]">
                 <Shield className="w-4 h-4" />
                 <p>This portal is for authorized super administrators only</p>
               </div>
@@ -184,10 +183,10 @@ export default function SuperAdminLoginPage() {
           </div>
 
           {/* Additional Info */}
-          <div className="mt-6 text-center text-sm text-gray-500">
+          <div className="mt-6 text-center text-sm text-[rgba(6,26,63,0.64)]">
             <p>
               Not a super admin?{" "}
-              <Link href="/" className="text-orange-500 hover:underline">
+              <Link href="/" className="text-[#3157ff] hover:underline">
                 Go to homepage
               </Link>
             </p>

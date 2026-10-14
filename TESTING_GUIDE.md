@@ -223,9 +223,9 @@ Before running any tests, ensure the following are in place:
    - In the slug field, observe the auto-generated slug from the event name
    - Clear it and type: `my-awesome-event`
    - Click outside (blur)
-   - **Verify:** Green checkmark ✓ and "Available!" text appears
+   - **Verify:** Green checkmark  and "Available!" text appears
    - Type a slug already used by another event (check Firestore)
-   - **Verify:** Red ✗ and "Already taken" text appears
+   - **Verify:** Red  and "Already taken" text appears
 
 5. **Banner upload test:**
    - Click the upload area or drag a PNG/JPG file
@@ -689,7 +689,7 @@ Before running any tests, ensure the following are in place:
 6. **Plan comparison table:**
    - 4 columns: Feature / Free / Starter / Pro
    - Current plan column header is bold and colored
-   - ✓ (green) for included features, — for excluded
+   -  (green) for included features, — for excluded
    - Upgrade CTA bar at bottom (unless on Pro)
 
 7. **Upgrade CTA:** Click "View Plans →"

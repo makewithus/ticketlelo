@@ -1,44 +1,43 @@
 "use client";
 
 import { HostingRequestForm } from "@/components/forms/hosting-request-form";
-import Header from "@/components/Header";
-import { Spotlight } from "@/components/Spotlight";
+import { ArrowUpRight, Menu } from "lucide-react";
+import Link from "next/link";
 
 export default function HostEventPage() {
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-x-hidden">
-      {/* Fixed Grid Background */}
-      <div
-        className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, #4f4f4f2e 1px, transparent 1px), linear-gradient(to bottom, #4f4f4f2e 1px, transparent 1px)",
-          backgroundSize: "14px 24px",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 110%)",
-          maskImage:
-            "radial-gradient(ellipse 60% 50% at 50% 0%, #000 70%, transparent 110%)",
-        }}
-      />
+    <div className="min-h-screen bg-[#f7f5ee] text-[#061a3f] overflow-x-hidden">
+      <header className="sticky top-0 z-50 grid grid-cols-[118px_1fr_58px] md:grid-cols-[168px_1fr_220px_72px] items-center gap-1.5 px-2 py-1 bg-[#f7f5ee]/90 backdrop-blur-xl">
+        <Link href="/" className="flex items-center">
+          <img src="/logo/Ticket%E0%A4%B2%E0%A5%87%E0%A4%B2%E0%A5%8B-final.png" alt="TicketLelo" className="w-28 md:w-40 object-contain" />
+        </Link>
 
-      {/* Spotlight */}
-      <Spotlight
-        gradientFirst="radial-gradient(68.54% 68.72% at 55.02% 31.46%, hsla(142, 71%, 85%, .08) 0, hsla(142, 71%, 55%, .02) 50%, hsla(142, 71%, 45%, 0) 80%)"
-        gradientSecond="radial-gradient(50% 50% at 50% 50%, hsla(142, 71%, 85%, .06) 0, hsla(142, 71%, 55%, .02) 80%, transparent 100%)"
-        gradientThird="radial-gradient(50% 50% at 50% 50%, hsla(142, 71%, 85%, .04) 0, hsla(142, 71%, 45%, .02) 80%, transparent 100%)"
-        translateY={-350}
-        width={560}
-        height={1380}
-        smallWidth={240}
-        duration={7}
-        xOffset={100}
-      />
+        <Link
+          href="/"
+          className="min-h-[58px] md:min-h-[68px] rounded-full bg-[#ff0084] text-white px-5 md:px-8 flex items-center justify-between gap-4 font-extrabold leading-none"
+        >
+          <span className="hidden md:inline text-2xl font-normal">Host request portal</span>
+          <span className="text-sm md:text-lg">Back to TicketLelo</span>
+          <ArrowUpRight size={22} strokeWidth={2.6} />
+        </Link>
 
-      {/* Header */}
-      <Header />
+        <Link
+          href="/organiser-login"
+          className="hidden md:flex min-h-[68px] rounded-full bg-[#3157ff] text-white items-center justify-center px-8 text-xl font-extrabold"
+        >
+          Organiser Login
+        </Link>
 
-      {/* Content */}
-      <section className="relative pt-32 pb-16 px-4 sm:px-6 lg:px-8">
+        <button
+          className="min-h-[58px] md:min-h-[68px] rounded-full bg-[#3157ff] text-white flex items-center justify-center"
+          type="button"
+          aria-label="Open menu"
+        >
+          <Menu size={30} strokeWidth={3} />
+        </button>
+      </header>
+
+      <section className="relative py-8 md:py-12 px-4 sm:px-6 lg:px-8">
         <HostingRequestForm />
       </section>
     </div>

@@ -35,8 +35,8 @@ export async function POST(request) {
     console.log(" ORGANISER ACCOUNT CREATION REQUEST");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(" Generated email (eventname@ticketlelo.com):", email);
-    console.log("📱 Phone number (for duplicate detection):", phone);
-    console.log("👤 Name:", name);
+    console.log(" Phone number (for duplicate detection):", phone);
+    console.log(" Name:", name);
     console.log(" Event:", eventTitle);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
@@ -94,7 +94,7 @@ export async function POST(request) {
         originalLoginEmail,
       );
       console.log(" Generated email (will be IGNORED):", email);
-      console.log("🔐 Action: Update password + Increase limit");
+      console.log(" Action: Update password + Increase limit");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       // Generate NEW password for existing user
@@ -153,7 +153,7 @@ export async function POST(request) {
     console.log("🆕 CREATING NEW ORGANISER ACCOUNT");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log(" Email:", email);
-    console.log("🔑 Password:", password);
+    console.log(" Password:", password);
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Create new user

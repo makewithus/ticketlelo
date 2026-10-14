@@ -19,7 +19,7 @@ export async function POST(request) {
       );
     }
 
-    console.log(`🎫 Validating coupon: ${couponCode} for event: ${eventId}`);
+    console.log(` Validating coupon: ${couponCode} for event: ${eventId}`);
 
     // Query Firestore for the coupon
     const couponsSnapshot = await adminDb

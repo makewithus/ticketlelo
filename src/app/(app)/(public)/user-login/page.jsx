@@ -4,7 +4,7 @@ import { User, Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
-import { login } from "@/lib/auth";
+import { getAuthErrorMessage, login } from "@/lib/auth";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
@@ -39,21 +39,24 @@ export default function UserLoginPage() {
       const user = await login(email, password);
 
       if (user) {
-        toast.success("✅ Login successful! Welcome back!");
+        toast.success("Login successful! Welcome back!");
         router.push("/dashboard");
       }
     } catch (err) {
-      const errorMsg = err.message || "Sign in failed";
+      const errorMsg = getAuthErrorMessage(
+        err,
+        "Sign in failed. Please check your details and try again.",
+      );
       setError(errorMsg);
 
       // More user-friendly error messages
-      if (errorMsg.includes("auth/user-not-found")) {
+      if (err.message?.includes("auth/user-not-found")) {
         toast.error("No account found. Please register for an event first.");
       } else if (
-        errorMsg.includes("auth/wrong-password") ||
-        errorMsg.includes("invalid-credential")
+        err.message?.includes("auth/wrong-password") ||
+        err.message?.includes("invalid-credential")
       ) {
-        toast.error("🔒 Incorrect password. Please try again.");
+        toast.error(errorMsg);
       } else {
         toast.error(errorMsg);
       }
@@ -82,7 +85,7 @@ export default function UserLoginPage() {
         resetEmail.toLowerCase().trim(),
         actionCodeSettings,
       );
-      toast.success("✅ Password reset link sent! Check your email.");
+      toast.success("Password reset link sent! Check your email.");
       setShowForgotPassword(false);
       setResetEmail("");
     } catch (error) {
@@ -98,7 +101,7 @@ export default function UserLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="tl-system-theme tl-auth-page">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#FF6A00]/10 via-transparent to-[#FFD60A]/10 pointer-events-none" />
       <div
@@ -111,8 +114,6 @@ export default function UserLoginPage() {
       />
 
       {/* Floating orbs */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-[#FF6A00]/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-[#FFD60A]/20 rounded-full blur-3xl" />
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
@@ -125,7 +126,7 @@ export default function UserLoginPage() {
           {/* Back to Home */}
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8 group"
+            className="inline-flex items-center gap-2 text-[rgba(6,26,63,0.64)] hover:text-[#061a3f] transition-colors mb-8 group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             <span>Back to Home</span>
@@ -133,26 +134,26 @@ export default function UserLoginPage() {
 
           {showForgotPassword ? (
             /* Forgot Password Form */
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FF6A00]/20 rounded-2xl p-8 shadow-2xl">
+            <div className="tl-auth-card p-8">
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#FF6A00] to-[#FFB800] rounded-2xl mb-4 shadow-lg shadow-[#FF6A00]/30">
-                  <Mail className="w-8 h-8 text-black" />
+                <div className="tl-auth-icon inline-flex items-center justify-center w-16 h-16 mb-4">
+                  <Mail className="w-8 h-8 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold bg-[#FF6A00] hover:bg-[#E65C00] bg-clip-text text-transparent mb-2">
+                <h1 className="text-3xl font-extrabold text-[#061a3f] mb-2">
                   Reset Password
                 </h1>
-                <p className="text-gray-400 text-sm">
+                <p className="text-[rgba(6,26,63,0.64)] text-sm">
                   Enter your email to receive a reset link
                 </p>
               </div>
 
               <form onSubmit={handlePasswordReset} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[#061a3f] mb-2">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)]" />
                     <input
                       type="email"
                       value={resetEmail}
@@ -182,7 +183,7 @@ export default function UserLoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(false)}
-                  className="w-full text-gray-400 hover:text-white transition-colors text-sm"
+                  className="w-full text-[rgba(6,26,63,0.64)] hover:text-[#061a3f] transition-colors text-sm"
                 >
                   Back to Login
                 </button>
@@ -190,16 +191,16 @@ export default function UserLoginPage() {
             </div>
           ) : (
             /* Login Form */
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FF6A00]/20 rounded-2xl p-8 shadow-2xl">
+            <div className="tl-auth-card p-8">
               {/* Header */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#FF6A00] to-[#FFB800] rounded-2xl mb-4 shadow-lg shadow-[#FF6A00]/30">
-                  <User className="w-8 h-8 text-black" />
+                <div className="tl-auth-icon inline-flex items-center justify-center w-16 h-16 mb-4">
+                  <User className="w-8 h-8 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold bg-[#FF6A00] hover:bg-[#E65C00] bg-clip-text text-transparent mb-2">
+                <h1 className="text-3xl font-extrabold text-[#061a3f] mb-2">
                   Welcome Back
                 </h1>
-                <p className="text-gray-400 text-sm">
+                <p className="text-[rgba(6,26,63,0.64)] text-sm">
                   Sign in to access your tickets
                 </p>
               </div>
@@ -208,11 +209,11 @@ export default function UserLoginPage() {
               <form onSubmit={handleLogin} className="space-y-5">
                 {/* Email Field */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-[#061a3f] mb-2">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)]" />
                     <input
                       type="email"
                       value={email}
@@ -227,19 +228,19 @@ export default function UserLoginPage() {
                 {/* Password Field */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-300">
+                    <label className="block text-sm font-medium text-[#061a3f]">
                       Password
                     </label>
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
-                      className="text-xs text-[#FFD60A] hover:text-[#FF6A00] transition-colors"
+                      className="text-xs text-[#3157ff] hover:text-[#173cf4] transition-colors"
                     >
                       Forgot password?
                     </button>
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)]" />
                     <input
                       type="password"
                       value={password}
@@ -283,12 +284,12 @@ export default function UserLoginPage() {
               </form>
 
               {/* Footer Links */}
-              <div className="mt-6 pt-6 border-t border-white/10 text-center">
-                <p className="text-sm text-gray-400">
+              <div className="mt-6 pt-6 border-t border-[var(--tl-line)] text-center">
+                <p className="text-sm text-[rgba(6,26,63,0.64)]">
                   Don't have an account?{" "}
                   <Link
                     href="/"
-                    className="text-[#FFD60A] hover:text-[#FF6A00] font-medium transition-colors"
+                    className="text-[#3157ff] hover:text-[#173cf4] font-medium transition-colors"
                   >
                     Browse events
                   </Link>
@@ -298,10 +299,10 @@ export default function UserLoginPage() {
           )}
 
           {/* Additional Info */}
-          <div className="mt-6 text-center text-sm text-gray-500">
+          <div className="mt-6 text-center text-sm text-[rgba(6,26,63,0.64)]">
             <p>
               Are you an organizer?{" "}
-              <Link href="/organiser-login" className="text-[#FFD60A] hover:underline">
+              <Link href="/organiser-login" className="text-[#3157ff] hover:underline">
                 Login here
               </Link>
             </p>

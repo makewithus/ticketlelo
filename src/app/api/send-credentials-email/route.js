@@ -35,7 +35,7 @@ export async function POST(request) {
     const mailOptions = {
       from: `"Ticketलेलो" <${process.env.SMTP_EMAIL}>`,
       to: email,
-      subject: `🔐 Your Ticketलेलो Login Credentials${eventName ? ` - ${eventName}` : ""}`,
+      subject: ` Your Ticketलेलो Login Credentials${eventName ? ` - ${eventName}` : ""}`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -48,7 +48,7 @@ export async function POST(request) {
             
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="margin: 0; font-size: 28px; font-weight: bold;">🎫 Ticketलेलो</h1>
+              <h1 style="margin: 0; font-size: 28px; font-weight: bold;"> Ticketलेलो</h1>
               <p style="margin: 10px 0 0; font-size: 16px; opacity: 0.95;">Your Login Credentials</p>
             </div>
             
@@ -65,7 +65,7 @@ export async function POST(request) {
               <!-- CREDENTIALS BOX - MOST PROMINENT -->
               <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 30px; margin: 30px 0; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);">
                 <h3 style="color: white; margin: 0 0 20px 0; font-size: 20px; text-align: center; font-weight: bold;">
-                  🔐 YOUR LOGIN CREDENTIALS
+                   YOUR LOGIN CREDENTIALS
                 </h3>
                 
                 <div style="background-color: rgba(255,255,255,0.25); backdrop-filter: blur(10px); border-radius: 10px; padding: 25px; margin-bottom: 15px;">
@@ -103,13 +103,13 @@ export async function POST(request) {
               <!-- Login Button -->
               <div style="text-align: center; margin: 35px 0;">
                 <a href="${loginUrl}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);">
-                  🔓 Login to Your Dashboard
+                   Login to Your Dashboard
                 </a>
               </div>
               
               <!-- Features -->
               <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin: 25px 0;">
-                <h3 style="color: #111827; margin-top: 0; font-size: 16px; font-weight: bold;">📱 What You Can Do:</h3>
+                <h3 style="color: #111827; margin-top: 0; font-size: 16px; font-weight: bold;"> What You Can Do:</h3>
                 <ul style="color: #374151; line-height: 1.8; margin: 10px 0; padding-left: 25px;">
                   <li><strong>View all your event tickets</strong> in one place</li>
                   <li><strong>Download tickets as PDF</strong> with QR codes</li>
@@ -121,12 +121,12 @@ export async function POST(request) {
               
               <!-- Quick Links -->
               <div style="background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 10px; padding: 20px; margin: 25px 0;">
-                <h3 style="color: #1e40af; margin-top: 0; font-size: 16px; font-weight: bold;">🎫 Quick Links</h3>
+                <h3 style="color: #1e40af; margin-top: 0; font-size: 16px; font-weight: bold;"> Quick Links</h3>
                 <p style="margin: 10px 0;">
-                  <a href="${loginUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;">🔐 Sign In</a>
+                  <a href="${loginUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;"> Sign In</a>
                 </p>
                 <p style="margin: 10px 0;">
-                  <a href="${dashboardUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;">📊 My Dashboard</a>
+                  <a href="${dashboardUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;"> My Dashboard</a>
                 </p>
                 <p style="margin: 10px 0;">
                   <a href="${appUrl}" style="color: #10b981; text-decoration: none; font-weight: bold; font-size: 15px;"> Browse Events</a>

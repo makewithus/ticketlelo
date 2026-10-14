@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          console.log("🔄 AUTH CONTEXT - Auth state changed:");
+          console.log(" AUTH CONTEXT - Auth state changed:");
           console.log("   Firebase User UID:", firebaseUser.uid);
           console.log("   Firebase User Email:", firebaseUser.email);
 
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
           // Fetch user data from Firestore
           let userData = await getCurrentUser(firebaseUser.uid);
 
-          console.log("📄 Firestore user data loaded:");
+          console.log(" Firestore user data loaded:");
           console.log("   User Email:", userData?.email);
           console.log("   User Name:", userData?.fullName);
           console.log("   User Role:", userData?.role);
@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
 
           if (userData && isOrganiserEmail && userData.role !== "organiser") {
             console.warn(
-              "⚠️ Organiser email detected with wrong/missing role.",
+              " Organiser email detected with wrong/missing role.",
             );
             console.log("   Current role:", userData.role || "undefined");
             console.log("   Current isAdmin:", userData.isAdmin);
@@ -64,21 +64,21 @@ export const AuthProvider = ({ children }) => {
 
               if (fixResponse.ok) {
                 const fixResult = await fixResponse.json();
-                console.log("✅ Firestore role fixed successfully");
+                console.log(" Firestore role fixed successfully");
 
                 // Re-fetch user data to get updated values
                 userData = await getCurrentUser(firebaseUser.uid);
-                console.log("✅ Re-fetched user data:");
+                console.log(" Re-fetched user data:");
                 console.log("   New Role:", userData.role);
                 console.log("   New isAdmin:", userData.isAdmin);
               } else {
-                console.warn("⚠️ API fix failed, applying local fix");
+                console.warn(" API fix failed, applying local fix");
                 // Fallback: apply fix locally
                 userData.role = "organiser";
                 userData.isAdmin = true;
               }
             } catch (fixError) {
-              console.error("❌ Failed to fix role via API:", fixError.message);
+              console.error(" Failed to fix role via API:", fixError.message);
               // Fallback: apply fix locally
               userData.role = "organiser";
               userData.isAdmin = true;
@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }) => {
           // If no Firestore doc exists, create one from Firebase Auth data
           if (!userData) {
             console.warn(
-              "⚠️ No Firestore user doc found — creating one from Auth profile",
+              " No Firestore user doc found — creating one from Auth profile",
             );
             const { doc, setDoc, Timestamp } =
               await import("firebase/firestore");
@@ -122,13 +122,13 @@ export const AuthProvider = ({ children }) => {
             };
 
             await setDoc(doc(db, "users", firebaseUser.uid), userData);
-            console.log("✅ Created user document:");
+            console.log(" Created user document:");
             console.log("   Email:", userData.email);
             console.log("   Role:", userData.role);
             console.log("   isAdmin:", userData.isAdmin);
           }
 
-          console.log("✅ AUTH CONTEXT - Setting user state:");
+          console.log(" AUTH CONTEXT - Setting user state:");
           console.log("   Email:", userData.email);
           console.log("   Role:", userData.role);
           console.log("   isAdmin:", userData.isAdmin);
@@ -140,7 +140,7 @@ export const AuthProvider = ({ children }) => {
             firebaseUser.email !== "superadmin@ticketlelo.com"
           ) {
             if (userData.role !== "organiser" || !userData.isAdmin) {
-              console.warn("⚠️ Last-second role fix applied");
+              console.warn(" Last-second role fix applied");
               userData.role = "organiser";
               userData.isAdmin = true;
             }

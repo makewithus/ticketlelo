@@ -23,13 +23,18 @@ export default function RootLayout({ children }) {
           <AuthProvider>{children}</AuthProvider>
           <Toaster 
             position="top-right" 
-            theme="dark" 
-            richColors 
+            theme="light" 
+            closeButton
             toastOptions={{
-              style: {
-                background: '#111111',
-                border: '1px solid #333333',
-                color: '#ffffff',
+              classNames: {
+                toast: "tl-toast",
+                success: "tl-toast-success",
+                error: "tl-toast-error",
+                warning: "tl-toast-warning",
+                info: "tl-toast-info",
+                title: "tl-toast-title",
+                description: "tl-toast-description",
+                closeButton: "tl-toast-close",
               },
             }}
           />

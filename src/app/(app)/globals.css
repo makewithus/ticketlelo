@@ -1,21 +1,34 @@
 /* stylelint-disable at-rule-no-unknown */
-/* Load Inter from Google Fonts to ensure a good default font */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 /* stylelint-enable at-rule-no-unknown */
 
+@font-face {
+  font-family: "Object Sans";
+  src: url("/65c906eb0641567260440aab_ObjectSans-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Object Sans";
+  src: url("/65c906eb3489e8edaa63af5f_ObjectSans-Heavy.otf") format("opentype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* tailwind.config.js `font-sans` starts with var(--font-inter); when the variable
    is undefined the whole declaration is invalid and text falls back to serif. */
 :root {
-  --font-inter: "Inter";
+  --font-inter: "Object Sans";
 }
 
 body {
   font-family:
-    Inter,
+    "Object Sans",
     system-ui,
     -apple-system,
     "Segoe UI",
@@ -38,25 +51,25 @@ body {
 @layer base {
   :root {
     /* shadcn/ui tokens */
-    --background: 210 40% 98%;       /* #F8FAFC */
-    --foreground: 222 47% 11%;       /* #0F172A */
+    --background: 44 38% 95%;        /* TicketLelo cream */
+    --foreground: 219 82% 14%;       /* TicketLelo navy */
     --card: 0 0% 100%;               /* #FFFFFF */
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 219 82% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 20 100% 50%;          /* #FF6A00 */
+    --popover-foreground: 219 82% 14%;
+    --primary: 231 100% 59%;         /* TicketLelo blue */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 95%;        /* #F1F5F9 */
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 95%;
-    --muted-foreground: 215 16% 57%; /* #94A3B8 */
-    --accent: 210 40% 95%;
-    --accent-foreground: 222 47% 11%;
+    --secondary: 44 38% 95%;
+    --secondary-foreground: 219 82% 14%;
+    --muted: 44 38% 92%;
+    --muted-foreground: 220 24% 36%;
+    --accent: 328 100% 50%;          /* TicketLelo pink */
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;   /* #EF4444 */
     --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;           /* #E2E8F0 */
-    --input: 214 32% 91%;
-    --ring: 20 100% 50%;             /* #FF6A00 */
+    --border: 219 40% 86%;
+    --input: 219 40% 86%;
+    --ring: 231 100% 59%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -65,10 +78,23 @@ body {
     --radius: 0.5rem;
 
     /* ── Ticketlelo brand CSS variables ── */
-    --brand-primary:   #FF6A00;
-    --brand-hover:     #E65C00;
-    --brand-accent:    #FFD60A;
-    --brand-gradient:  linear-gradient(135deg, #FF6A00, #FFB800);
+    --brand-primary:   #3157ff;
+    --brand-hover:     #173cf4;
+    --brand-accent:    #ff0084;
+    --brand-gradient:  linear-gradient(135deg, #3157ff, #ff0084);
+    --tl-navy: #061a3f;
+    --tl-blue: #3157ff;
+    --tl-blue-hover: #173cf4;
+    --tl-pink: #ff0084;
+    --tl-green: #008d46;
+    --tl-yellow: #ffe000;
+    --tl-cream: #f7f5ee;
+    --tl-paper: #fffdfa;
+    --tl-line: rgba(6, 26, 63, 0.14);
+    --tl-muted: rgba(6, 26, 63, 0.64);
+    --tl-soft-blue: rgba(49, 87, 255, 0.1);
+    --tl-soft-pink: rgba(255, 0, 132, 0.1);
+    --tl-shadow: 0 18px 45px rgba(6, 26, 63, 0.1);
   }
   .dark {
     --background: 222 47% 6%;        /* #0B0F14 */
@@ -194,6 +220,342 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .tl-system-theme {
+    min-height: 100vh;
+    background:
+      linear-gradient(rgba(6, 26, 63, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6, 26, 63, 0.035) 1px, transparent 1px),
+      var(--tl-cream);
+    background-size: 38px 38px, 38px 38px, auto;
+    color: var(--tl-navy);
+  }
+
+  .tl-system-theme .bg-black,
+  .tl-system-theme .dark\:bg-\[\#0a0c1c\],
+  .tl-system-theme .dark\:bg-\[\#0d0f1f\],
+  .tl-system-theme .bg-gradient-to-b,
+  .tl-system-theme .bg-gradient-to-br {
+    background: var(--tl-cream) !important;
+  }
+
+  .tl-system-theme .text-white,
+  .tl-system-theme .dark\:text-white,
+  .tl-system-theme .dark\:text-slate-100,
+  .tl-system-theme .text-slate-100,
+  .tl-system-theme .text-slate-200,
+  .tl-system-theme .text-gray-900 {
+    color: var(--tl-navy) !important;
+  }
+
+  .tl-system-theme .text-gray-500,
+  .tl-system-theme .text-gray-400,
+  .tl-system-theme .text-slate-300,
+  .tl-system-theme .text-slate-400,
+  .tl-system-theme .dark\:text-slate-400,
+  .tl-system-theme .dark\:text-slate-500 {
+    color: var(--tl-muted) !important;
+  }
+
+  .tl-system-theme .border-\[\#FF6A00\]\/10,
+  .tl-system-theme .border-\[\#FF6A00\]\/20,
+  .tl-system-theme .border-\[\#FF6A00\]\/30,
+  .tl-system-theme .border-slate-800,
+  .tl-system-theme .border-slate-700,
+  .tl-system-theme .dark\:border-slate-800 {
+    border-color: var(--tl-line) !important;
+  }
+
+  .tl-system-theme .bg-white,
+  .tl-system-theme [class*="bg-slate-950"],
+  .tl-system-theme [class*="bg-slate-900"],
+  .tl-system-theme [class*="bg-slate-800"],
+  .tl-system-theme .bg-slate-800\/50,
+  .tl-system-theme .bg-slate-900\/60,
+  .tl-system-theme .dark\:bg-slate-900\/60 {
+    background: var(--tl-paper) !important;
+  }
+
+  .tl-app-shell {
+    min-height: 100vh;
+    display: flex;
+    background:
+      linear-gradient(rgba(6, 26, 63, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6, 26, 63, 0.035) 1px, transparent 1px),
+      var(--tl-cream);
+    background-size: 38px 38px, 38px 38px, auto;
+    color: var(--tl-navy);
+  }
+
+  .tl-sidebar {
+    width: 18rem;
+    background: var(--tl-paper);
+    border-right: 1px solid var(--tl-line);
+    color: var(--tl-navy);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 10px 0 30px rgba(6, 26, 63, 0.06);
+  }
+
+  .tl-brand-word {
+    color: var(--tl-navy);
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
+
+  .tl-brand-accent {
+    color: var(--tl-pink);
+  }
+
+  .tl-sidebar-label {
+    color: rgba(6, 26, 63, 0.48);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tl-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: rgba(6, 26, 63, 0.72);
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.7rem 0.75rem;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  }
+
+  .tl-sidebar-link:hover {
+    background: var(--tl-soft-blue);
+    border-color: rgba(49, 87, 255, 0.16);
+    color: var(--tl-navy);
+  }
+
+  .tl-sidebar-link-active {
+    background: var(--tl-blue);
+    border-color: var(--tl-blue);
+    color: #fff !important;
+    box-shadow: 0 10px 24px rgba(49, 87, 255, 0.18);
+  }
+
+  .tl-sidebar-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 8px;
+    background: rgba(6, 26, 63, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .tl-sidebar-link-active .tl-sidebar-icon {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .tl-user-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    background: var(--tl-pink);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 800;
+  }
+
+  .tl-main {
+    flex: 1;
+    overflow: auto;
+  }
+
+  .tl-content {
+    padding: clamp(1rem, 2.5vw, 2rem);
+  }
+
+  .tl-auth-page {
+    min-height: 100vh;
+    background:
+      linear-gradient(rgba(6, 26, 63, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6, 26, 63, 0.035) 1px, transparent 1px),
+      var(--tl-cream) !important;
+    background-size: 38px 38px, 38px 38px, auto;
+    color: var(--tl-navy) !important;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tl-auth-card {
+    background: var(--tl-paper) !important;
+    border: 1px solid var(--tl-line) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--tl-shadow) !important;
+  }
+
+  .tl-auth-icon {
+    background: var(--tl-blue) !important;
+    border-radius: 8px !important;
+    color: #fff !important;
+    box-shadow: 0 14px 28px rgba(49, 87, 255, 0.22) !important;
+  }
+
+  .tl-auth-page label,
+  .tl-auth-page h1,
+  .tl-auth-page h2,
+  .tl-auth-page p {
+    color: var(--tl-navy);
+  }
+
+  .tl-auth-page input,
+  .tl-system-theme input,
+  .tl-system-theme textarea,
+  .tl-system-theme select {
+    background: #fff !important;
+    border-color: var(--tl-line) !important;
+    color: var(--tl-navy) !important;
+    border-radius: 8px !important;
+  }
+
+  .tl-system-theme select {
+    min-height: 3rem;
+    appearance: none;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--tl-navy) 50%),
+      linear-gradient(135deg, var(--tl-navy) 50%, transparent 50%);
+    background-position:
+      calc(100% - 18px) calc(50% + 1px),
+      calc(100% - 12px) calc(50% + 1px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+    padding-right: 2.5rem !important;
+  }
+
+  .tl-system-theme select:focus {
+    border-color: var(--tl-blue) !important;
+    box-shadow: 0 0 0 3px rgba(49, 87, 255, 0.14) !important;
+    outline: none !important;
+  }
+
+  .tl-system-theme option {
+    background: #fff;
+    color: var(--tl-navy);
+  }
+
+  .tl-auth-page input::placeholder,
+  .tl-system-theme input::placeholder,
+  .tl-system-theme textarea::placeholder {
+    color: rgba(6, 26, 63, 0.42) !important;
+  }
+
+  .tl-auth-page button[type="submit"],
+  .tl-system-theme .tl-primary-action {
+    background: var(--tl-blue) !important;
+    color: #fff !important;
+    border-color: var(--tl-blue) !important;
+    border-radius: 999px !important;
+    box-shadow: 0 12px 28px rgba(49, 87, 255, 0.2) !important;
+  }
+
+  .tl-auth-page button[type="submit"]:hover,
+  .tl-system-theme .tl-primary-action:hover {
+    background: var(--tl-blue-hover) !important;
+  }
+
+  .tl-auth-page a,
+  .tl-system-theme a {
+    color: var(--tl-blue);
+  }
+
+  .tl-system-theme table,
+  .tl-system-theme .rounded-2xl,
+  .tl-system-theme .rounded-xl {
+    border-radius: 8px !important;
+  }
+
+  .tl-system-theme .shadow-2xl,
+  .tl-system-theme .shadow-xl,
+  .tl-system-theme .shadow-lg {
+    box-shadow: var(--tl-shadow) !important;
+  }
+
+  .tl-toast {
+    background: var(--tl-paper) !important;
+    border: 1px solid var(--tl-line) !important;
+    border-radius: 8px !important;
+    color: var(--tl-navy) !important;
+    box-shadow: var(--tl-shadow) !important;
+    font-family: "Object Sans", system-ui, sans-serif !important;
+    padding: 0.9rem 1rem 0.9rem 1.15rem !important;
+    position: relative !important;
+  }
+
+  .tl-toast::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.65rem;
+    bottom: 0.65rem;
+    width: 4px;
+    border-radius: 0 999px 999px 0;
+    background: var(--tl-blue);
+  }
+
+  .tl-toast-success::before {
+    background: var(--tl-green);
+  }
+
+  .tl-toast-error::before {
+    background: #ef4444;
+  }
+
+  .tl-toast-warning::before {
+    background: var(--tl-yellow);
+  }
+
+  .tl-toast-info::before {
+    background: var(--tl-blue);
+  }
+
+  .tl-toast-title {
+    color: var(--tl-navy) !important;
+    font-weight: 800 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .tl-toast-description {
+    color: var(--tl-muted) !important;
+    font-weight: 500 !important;
+  }
+
+  .tl-toast-close {
+    background: #fff !important;
+    border: 1px solid var(--tl-line) !important;
+    color: var(--tl-navy) !important;
+  }
+
+  [data-sonner-toast][data-styled="true"] [data-icon] {
+    color: var(--tl-blue) !important;
+  }
+
+  [data-sonner-toast][data-type="success"] [data-icon] {
+    color: var(--tl-green) !important;
+  }
+
+  [data-sonner-toast][data-type="error"] [data-icon] {
+    color: #ef4444 !important;
+  }
+
+  [data-sonner-toast][data-type="warning"] [data-icon] {
+    color: #d6a800 !important;
   }
 }
 

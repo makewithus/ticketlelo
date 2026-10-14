@@ -36,7 +36,7 @@ export async function POST(request) {
       registrationId,
     } = await request.json();
 
-    console.log("🔐 Verifying payment...");
+    console.log(" Verifying payment...");
     console.log("Order ID:", razorpay_order_id);
     console.log("Payment ID:", razorpay_payment_id);
 

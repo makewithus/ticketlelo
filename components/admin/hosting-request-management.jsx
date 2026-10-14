@@ -15,6 +15,8 @@ import {
   MapPin,
   Copy,
   CheckCircle,
+  Info,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -97,7 +99,7 @@ export function HostingRequestManagement() {
   const handleApprove = async (requestId, requestData) => {
     setProcessingId(requestId);
     try {
-      console.log("🔄 Starting approval process...", {
+      console.log(" Starting approval process...", {
         requestId,
         eventTitle: requestData.eventTitle,
       });
@@ -107,13 +109,13 @@ export function HostingRequestManagement() {
       // For existing users, API will return their ORIGINAL email from database
       const organiserEmail = generateOrganiserEmail(requestData.eventTitle);
       const organiserPassword = generateSecurePassword();
-      console.log("✅ Generated email for new user:", organiserEmail);
+      console.log(" Generated email for new user:", organiserEmail);
       console.log(
-        "ℹ️ (If user exists, API will return their original email from database)",
+        "If user exists, API will return their original email from database",
       );
 
       // Create organiser account using server-side API (won't affect current session)
-      console.log("🔐 Creating organiser account via API...");
+      console.log(" Creating organiser account via API...");
       const createResponse = await fetch("/api/create-organiser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,13 +143,13 @@ export function HostingRequestManagement() {
         organiserEmail: responseEmail,
         organiserPassword: responsePassword,
       } = createData;
-      console.log("✅ Organiser account ready:", organiserId);
+      console.log(" Organiser account ready:", organiserId);
 
       // Use email and password from API response (handles both new and existing users)
       const finalEmail = responseEmail || organiserEmail;
       const finalPassword = responsePassword || organiserPassword;
 
-      console.log("📧 Credentials to show:", {
+      console.log(" Credentials to show:", {
         email: finalEmail,
         isExisting,
         message: isExisting
@@ -157,7 +159,7 @@ export function HostingRequestManagement() {
 
       if (isExisting) {
         console.log(
-          "✅ Used existing account, updated password, and increased event limit",
+          " Used existing account, updated password, and increased event limit",
         );
         toast.info(
           "Organiser already exists. Password updated and event limit increased!",
@@ -165,7 +167,7 @@ export function HostingRequestManagement() {
       }
 
       // Update hosting request
-      console.log("📋 Updating hosting request status...");
+      console.log(" Updating hosting request status...");
       await updateDoc(doc(db, "hostingRequests", requestId), {
         status: "approved",
         organiserId,
@@ -174,7 +176,7 @@ export function HostingRequestManagement() {
         approvedAt: Timestamp.now(),
         isExisting,
       });
-      console.log("✅ Hosting request updated");
+      console.log(" Hosting request updated");
 
       const credentials = {
         organiserId,
@@ -189,7 +191,7 @@ export function HostingRequestManagement() {
       setApprovalModalOpen(true);
 
       // Send approval email
-      console.log("📧 Sending approval email...");
+      console.log(" Sending approval email...");
       try {
         const emailResponse = await fetch("/api/send-approval-email", {
           method: "POST",
@@ -206,25 +208,25 @@ export function HostingRequestManagement() {
 
         const emailResult = await emailResponse.json();
         if (emailResult.success) {
-          console.log("✅ Email sent successfully");
-          toast.success("✅ Approved! Email sent to " + requestData.email);
+          console.log(" Email sent successfully");
+          toast.success("Approved! Email sent to " + requestData.email);
         } else {
-          console.warn("⚠️ Email failed:", emailResult.error);
+          console.warn(" Email failed:", emailResult.error);
           toast.warning(
-            "⚠️ Approved but email failed: " +
+            "Approved but email failed: " +
               (emailResult.error || "Unknown error"),
           );
         }
       } catch (emailError) {
-        console.error("❌ Email sending error:", emailError);
-        toast.warning("⚠️ Approved but failed to send email notification");
+        console.error(" Email sending error:", emailError);
+        toast.warning("Approved but failed to send email notification");
       }
 
       // Reload requests
       await loadRequests();
     } catch (error) {
-      console.error("❌ Approval failed:", error);
-      toast.error("❌ " + (error.message || "Failed to approve request"));
+      console.error(" Approval failed:", error);
+      toast.error(error.message || "Failed to approve request");
     } finally {
       setProcessingId(null);
     }
@@ -306,7 +308,7 @@ export function HostingRequestManagement() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF6A00]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#3157ff]" />
       </div>
     );
   }
@@ -319,26 +321,26 @@ export function HostingRequestManagement() {
     <div className="space-y-8">
       {/* Pending Requests */}
       <section>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-4">
+        <h2 className="text-2xl font-extrabold text-[#061a3f] mb-4">
           Pending Requests ({pendingRequests.length})
         </h2>
         <div className="grid gap-4">
           {pendingRequests.length === 0 ? (
-            <p className="text-gray-400 dark:text-slate-500 text-center py-8">
+            <p className="text-[rgba(6,26,63,0.56)] text-center py-8">
               No pending requests
             </p>
           ) : (
             pendingRequests.map((request) => (
               <div
                 key={request.id}
-                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 border-l-4 border-[#FFD60A]"
+                className="tl-auth-card p-6 border-l-4 border-l-[#ffe000]"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
+                    <h3 className="text-xl font-bold text-[#061a3f]">
                       {request.eventTitle}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
+                    <p className="text-sm text-[rgba(6,26,63,0.64)] mt-1">
                       Requested by {request.name}
                     </p>
                   </div>
@@ -347,7 +349,7 @@ export function HostingRequestManagement() {
                       size="sm"
                       onClick={() => handleApprove(request.id, request)}
                       disabled={processingId === request.id}
-                      className="bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
+                      className="tl-primary-action font-bold"
                     >
                       {processingId === request.id ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -371,39 +373,39 @@ export function HostingRequestManagement() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
                     <Mail className="w-4 h-4" />
                     {request.email}
                   </div>
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
                     <Users className="w-4 h-4" />
                     {request.phone}
                   </div>
                   {request.college && (
-                    <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300">
+                    <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
                       <MapPin className="w-4 h-4" />
                       {request.college}
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
                     <Users className="w-4 h-4" />
                     {request.numberOfTickets} tickets
                   </div>
                 </div>
 
                 {request.description && (
-                  <p className="mt-4 text-gray-600 dark:text-slate-300 text-sm">
+                  <p className="mt-4 text-[rgba(6,26,63,0.72)] text-sm">
                     {request.description}
                   </p>
                 )}
 
                 <div className="mt-4 flex items-center gap-4">
                   {request.isPaid && (
-                    <span className="px-3 py-1 bg-[#FFD60A]/20 text-[#FF6A00] rounded-full text-xs font-medium">
+                    <span className="px-3 py-1 bg-[#ffe000]/30 text-[#061a3f] rounded-full text-xs font-medium">
                       Paid Event
                     </span>
                   )}
-                  <span className="text-xs text-gray-400 dark:text-slate-500">
+                  <span className="text-xs text-[rgba(6,26,63,0.56)]">
                     Submitted:{" "}
                     {request.createdAt?.toDate
                       ? new Date(
@@ -420,63 +422,63 @@ export function HostingRequestManagement() {
 
       {/* Approved Requests */}
       <section>
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-4">
+        <h2 className="text-2xl font-extrabold text-[#061a3f] mb-4">
           Approved Organisers ({approvedRequests.length})
         </h2>
         <div className="grid gap-4">
           {approvedRequests.map((request) => (
             <div
               key={request.id}
-                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 border-l-4 border-[#FF6A00]"
+                className="tl-auth-card p-6 border-l-4 border-l-[#3157ff]"
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="text-xl font-bold text-slate-100">
+                  <h3 className="text-xl font-bold text-[#061a3f]">
                     {request.eventTitle}
                   </h3>
-                  <p className="text-sm text-slate-300 mt-1">
+                  <p className="text-sm text-[rgba(6,26,63,0.64)] mt-1">
                     Organiser: {request.name}
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-[#FFD60A]/20 text-[#FF6A00] rounded-full text-xs font-medium">
+                <span className="px-3 py-1 bg-[#008d46]/10 text-[#008d46] rounded-full text-xs font-medium">
                   Approved
                 </span>
               </div>
 
-              <div className="bg-gray-50 dark:bg-black border border-[#FF6A00]/30 rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-[#FF6A00] flex items-center gap-2">
-                  <span>🔐</span> Organiser Credentials
+              <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-4 space-y-3">
+                <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" /> Organiser Credentials
                 </h4>
 
                 {editingCredentials === request.id ? (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-[#FF6A00] mb-1">
+                      <label className="block text-xs text-[rgba(6,26,63,0.56)] mb-1">
                         Email
                       </label>
                       <Input
                         value={newEmail}
                         onChange={(e) => setNewEmail(e.target.value)}
                         placeholder={request.organiserEmail}
-                        className="text-sm bg-gray-50 dark:bg-black/50 border-[#FF6A00]/30 text-[#FF6A00]"
+                        className="text-sm bg-white border-[var(--tl-line)] text-[#061a3f]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-[#FF6A00] mb-1">
+                      <label className="block text-xs text-[rgba(6,26,63,0.56)] mb-1">
                         Password
                       </label>
                       <Input
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="New password"
-                        className="text-sm bg-gray-50 dark:bg-black/50 border-[#FF6A00]/30 text-[#FF6A00]"
+                        className="text-sm bg-white border-[var(--tl-line)] text-[#061a3f]"
                       />
                     </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
                         onClick={() => handleUpdateCredentials(request)}
-                        className="bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
+                        className="tl-primary-action font-bold"
                       >
                         Save
                       </Button>
@@ -488,7 +490,7 @@ export function HostingRequestManagement() {
                           setNewEmail("");
                           setNewPassword("");
                         }}
-                        className="border-[#FF6A00]/30 text-[#FF6A00] hover:bg-[#FF6A00]/10"
+                        className="border-[var(--tl-line)] text-[#061a3f] hover:bg-[#3157ff]/10"
                       >
                         Cancel
                       </Button>
@@ -496,18 +498,18 @@ export function HostingRequestManagement() {
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between bg-gray-100 dark:bg-black/50 p-3 rounded border border-[#FF6A00]/20">
+                    <div className="flex items-center justify-between bg-white p-3 rounded border border-[var(--tl-line)]">
                       <div>
-                        <p className="text-xs text-[#FF6A00]/70">Email</p>
-                        <p className="font-mono text-sm text-[#FF6A00]">
+                        <p className="text-xs text-[rgba(6,26,63,0.56)]">Email</p>
+                        <p className="font-mono text-sm text-[#061a3f]">
                           {request.organiserEmail}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between bg-gray-100 dark:bg-black/50 p-3 rounded border border-[#FF6A00]/20">
+                    <div className="flex items-center justify-between bg-white p-3 rounded border border-[var(--tl-line)]">
                       <div className="flex-1">
-                        <p className="text-xs text-[#FF6A00]/70">Password</p>
-                        <p className="font-mono text-sm text-[#FF6A00]">
+                        <p className="text-xs text-[rgba(6,26,63,0.56)]">Password</p>
+                        <p className="font-mono text-sm text-[#061a3f]">
                           {showCredentials[request.id]
                             ? request.organiserPassword
                             : "••••••••••••"}
@@ -517,7 +519,7 @@ export function HostingRequestManagement() {
                         size="sm"
                         variant="ghost"
                         onClick={() => toggleShowPassword(request.id)}
-                        className="text-[#FF6A00] hover:text-[#FFD60A] hover:bg-[#FF6A00]/10"
+                        className="text-[#061a3f] hover:text-[#3157ff] hover:bg-[#3157ff]/10"
                       >
                         {showCredentials[request.id] ? (
                           <EyeOff className="w-4 h-4" />
@@ -534,7 +536,7 @@ export function HostingRequestManagement() {
                         setNewEmail(request.organiserEmail);
                         setNewPassword(request.organiserPassword);
                       }}
-                      className="w-full border-[#FF6A00]/30 text-[#FF6A00] hover:bg-[#FF6A00]/10"
+                      className="w-full border-[var(--tl-line)] text-[#3157ff] hover:bg-[#3157ff]/10"
                     >
                       Edit Credentials
                     </Button>
@@ -542,7 +544,7 @@ export function HostingRequestManagement() {
                 )}
               </div>
 
-              <div className="mt-4 text-xs text-gray-400 dark:text-slate-500">
+              <div className="mt-4 text-xs text-[rgba(6,26,63,0.56)]">
                 Approved:{" "}
                 {request.approvedAt?.toDate
                   ? new Date(request.approvedAt.toDate()).toLocaleDateString()
@@ -556,21 +558,21 @@ export function HostingRequestManagement() {
       {/* Rejected Requests */}
       {rejectedRequests.length > 0 && (
         <section>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-4">
+          <h2 className="text-2xl font-extrabold text-[#061a3f] mb-4">
             Rejected Requests ({rejectedRequests.length})
           </h2>
           <div className="grid gap-4">
             {rejectedRequests.map((request) => (
               <div
                 key={request.id}
-                className="bg-white dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 border-l-4 border-red-500 opacity-75"
+                className="tl-auth-card p-6 border-l-4 border-l-red-500 opacity-90"
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">
+                    <h3 className="text-xl font-bold text-[#061a3f]">
                       {request.eventTitle}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
+                    <p className="text-sm text-[rgba(6,26,63,0.64)] mt-1">
                       {request.name}
                     </p>
                   </div>
@@ -588,7 +590,7 @@ export function HostingRequestManagement() {
       {rejectModalOpen && (
         <>
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-[#061a3f]/55 backdrop-blur-sm z-50"
             onClick={() => {
               setRejectModalOpen(false);
               setRejectionReason("");
@@ -596,9 +598,9 @@ export function HostingRequestManagement() {
             }}
           />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[51] w-[90vw] max-w-lg">
-            <div className="bg-gray-900 border border-[#FF6A00]/20 rounded-2xl p-6 shadow-2xl">
+            <div className="tl-auth-card p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white">
+                <h3 className="text-xl font-bold text-[#061a3f]">
                   Reject Hosting Request
                 </h3>
                 <button
@@ -607,28 +609,28 @@ export function HostingRequestManagement() {
                     setRejectionReason("");
                     setRequestToReject(null);
                   }}
-                  className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1 hover:bg-[#3157ff]/10 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-400" />
+                  <X className="w-5 h-5 text-[rgba(6,26,63,0.56)]" />
                 </button>
               </div>
 
               {requestToReject && (
-                <div className="mb-4 p-4 bg-black/30 rounded-xl border border-[#FF6A00]/10">
-                  <h4 className="text-[#FF6A00] font-semibold mb-1">
+                <div className="mb-4 p-4 bg-[#3157ff]/10 rounded-lg border border-[#3157ff]/20">
+                  <h4 className="text-[#061a3f] font-semibold mb-1">
                     {requestToReject.eventTitle}
                   </h4>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
                     Requested by {requestToReject.name}
                   </p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
                     {requestToReject.email}
                   </p>
                 </div>
               )}
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-[#061a3f] mb-2">
                   Rejection Reason <span className="text-red-400">*</span>
                 </label>
                 <textarea
@@ -636,9 +638,9 @@ export function HostingRequestManagement() {
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="Please provide a detailed reason for rejection..."
                   rows={5}
-                  className="w-full px-4 py-3 bg-black/30 border border-[#FF6A00]/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#FF6A00]/50 transition-colors resize-none"
+                  className="w-full px-4 py-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f] placeholder:text-[rgba(6,26,63,0.45)] focus:outline-none focus:border-[#3157ff] transition-colors resize-none"
                 />
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-[rgba(6,26,63,0.56)] mt-2">
                   This reason will be sent to the user via email.
                 </p>
               </div>
@@ -650,7 +652,7 @@ export function HostingRequestManagement() {
                     !rejectionReason.trim() ||
                     processingId === requestToReject?.id
                   }
-                  className="flex-1 bg-red-500 hover:bg-red-400 disabled:bg-red-500/50 text-white font-semibold py-2.5 rounded-xl transition-all"
+                  className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white font-semibold py-2.5 rounded-lg transition-all"
                 >
                   {processingId === requestToReject?.id ? (
                     <>
@@ -667,7 +669,7 @@ export function HostingRequestManagement() {
                     setRejectionReason("");
                     setRequestToReject(null);
                   }}
-                  className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-semibold py-2.5 rounded-xl transition-all"
+                  className="flex-1 bg-white hover:bg-[#3157ff]/10 text-[#061a3f] border border-[var(--tl-line)] font-semibold py-2.5 rounded-lg transition-all"
                 >
                   Cancel
                 </Button>
@@ -681,7 +683,7 @@ export function HostingRequestManagement() {
       {approvalModalOpen && approvedCredentials && (
         <>
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-[#061a3f]/55 backdrop-blur-sm z-50"
             onClick={() => {
               setApprovalModalOpen(false);
               setApprovedCredentials(null);
@@ -690,13 +692,13 @@ export function HostingRequestManagement() {
             }}
           />
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[51] w-[90vw] max-w-lg">
-            <div className="bg-gray-900 border border-[#FF6A00]/30 rounded-2xl p-6 shadow-2xl">
+            <div className="tl-auth-card p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-full bg-[#FF6A00]/20 flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-[#FF6A00]" />
+                  <div className="w-12 h-12 rounded-lg bg-[#008d46]/10 flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-[#008d46]" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">
+                  <h3 className="text-xl font-bold text-[#061a3f]">
                     Request Approved!
                   </h3>
                 </div>
@@ -707,42 +709,42 @@ export function HostingRequestManagement() {
                     setIsExistingOrganiser(false);
                     setApprovedRequestData(null);
                   }}
-                  className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1 hover:bg-[#3157ff]/10 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-400" />
+                  <X className="w-5 h-5 text-[rgba(6,26,63,0.56)]" />
                 </button>
               </div>
 
               {approvedRequestData && (
-                <div className="mb-4 p-4 bg-black/30 rounded-xl border border-[#FF6A00]/10">
-                  <h4 className="text-[#FF6A00] font-semibold mb-1">
+                <div className="mb-4 p-4 bg-[#3157ff]/10 rounded-lg border border-[#3157ff]/20">
+                  <h4 className="text-[#061a3f] font-semibold mb-1">
                     {approvedRequestData.eventTitle}
                   </h4>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
                     Organiser: {approvedRequestData.name}
                   </p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
                     {approvedRequestData.email}
                   </p>
                 </div>
               )}
 
-              <div className="mb-4 p-4 bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-xl">
-                <p className="text-sm text-[#FF6A00] flex items-center gap-2">
+              <div className="mb-4 p-4 bg-[#008d46]/10 border border-[#008d46]/20 rounded-lg">
+                <p className="text-sm text-[#008d46] flex items-center gap-2">
                   <Mail className="w-4 h-4" />
                   Approval email sent to {approvedRequestData?.email}
                 </p>
               </div>
 
-              <div className="bg-black border border-[#FF6A00]/30 rounded-xl p-4 space-y-4 mb-6">
-                <h4 className="font-semibold text-[#FF6A00] flex items-center gap-2">
-                  <span>🔐</span> Organiser Credentials
+              <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-4 space-y-4 mb-6">
+                <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" /> Organiser Credentials
                 </h4>
 
-                <div className="bg-black/50 p-3 rounded border border-[#FF6A00]/20">
-                  <p className="text-xs text-[#FF6A00]/70 mb-1">EMAIL</p>
+                <div className="bg-white p-3 rounded border border-[var(--tl-line)]">
+                  <p className="text-xs text-[rgba(6,26,63,0.56)] mb-1">EMAIL</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-mono text-sm text-[#FF6A00]">
+                    <p className="font-mono text-sm text-[#061a3f]">
                       {approvedCredentials.organiserEmail}
                     </p>
                     <button
@@ -752,17 +754,17 @@ export function HostingRequestManagement() {
                         );
                         toast.success("Email copied!");
                       }}
-                      className="p-1.5 hover:bg-[#FF6A00]/10 rounded transition-colors"
+                      className="p-1.5 hover:bg-[#3157ff]/10 rounded transition-colors"
                     >
-                      <Copy className="w-4 h-4 text-[#FF6A00]" />
+                      <Copy className="w-4 h-4 text-[#3157ff]" />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-black/50 p-3 rounded border border-[#FF6A00]/20">
-                  <p className="text-xs text-[#FF6A00]/70 mb-1">PASSWORD</p>
+                <div className="bg-white p-3 rounded border border-[var(--tl-line)]">
+                  <p className="text-xs text-[rgba(6,26,63,0.56)] mb-1">PASSWORD</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-mono text-sm text-[#FF6A00]">
+                    <p className="font-mono text-sm text-[#061a3f]">
                       {approvedCredentials.organiserPassword}
                     </p>
                     <button
@@ -772,18 +774,20 @@ export function HostingRequestManagement() {
                         );
                         toast.success("Password copied!");
                       }}
-                      className="p-1.5 hover:bg-[#FF6A00]/10 rounded transition-colors"
+                      className="p-1.5 hover:bg-[#3157ff]/10 rounded transition-colors"
                     >
-                      <Copy className="w-4 h-4 text-[#FF6A00]" />
+                      <Copy className="w-4 h-4 text-[#3157ff]" />
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-lg p-3">
-                  <p className="text-xs text-[#FF6A00]">
+                <div className="bg-[#ffe000]/20 border border-[#ffe000]/50 rounded-lg p-3">
+                  <p className="text-xs text-[#061a3f] flex gap-2">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
                     {isExistingOrganiser ? (
                       <>
-                        💡 <strong>IMPORTANT:</strong> This organiser already
+                        <strong>IMPORTANT:</strong> This organiser already
                         had an account. Their{" "}
                         <strong>password has been updated</strong> to the one
                         shown above. The old password will no longer work. Event
@@ -791,12 +795,13 @@ export function HostingRequestManagement() {
                       </>
                     ) : (
                       <>
-                        💡 <strong>Note:</strong> The organiser will use these
+                        <strong>Note:</strong> The organiser will use these
                         credentials to login via the "Organiser" portal and
                         create their event. You can edit these credentials
                         anytime from the approved requests section.
                       </>
                     )}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -808,7 +813,7 @@ export function HostingRequestManagement() {
                   setApprovedRequestData(null);
                   setIsExistingOrganiser(false);
                 }}
-                className="w-full bg-[#FF6A00] hover:bg-[#FFD60A] text-white font-semibold py-2.5 rounded-xl transition-all"
+                className="tl-primary-action w-full font-semibold py-2.5 transition-all"
               >
                 Done
               </Button>
