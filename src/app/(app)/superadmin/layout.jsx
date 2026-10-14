@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
-import { LogOut, Users, FileText } from "lucide-react";
+import { LogOut, Users, FileText, Settings } from "lucide-react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
@@ -14,7 +14,6 @@ export default function SuperAdminLayout({ children }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-
   // Check if user is super admin
   useEffect(() => {
     if (!loading && (!user || user.role !== "superAdmin")) {
@@ -53,6 +52,7 @@ export default function SuperAdminLayout({ children }) {
       label: "Hosting Requests",
     },
     { href: "/superadmin/organisers", icon: Users, label: "Organisers" },
+    { href: "/superadmin/site-settings", icon: Settings, label: "Site Settings" },
   ];
 
   return (

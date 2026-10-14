@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import Link from "next/link";
 import {
   BarChart2,
@@ -14,9 +13,7 @@ import {
   Loader2,
   LogOut,
   MessageSquare,
-  Moon,
   QrCode,
-  Sun,
   Ticket,
   Users,
 } from "lucide-react";
@@ -29,13 +26,6 @@ export function OrganiserShell({ children }) {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   useEffect(() => {
     const hasAdminAccess = user?.isAdmin || user?.role === "organiser";
 
@@ -133,25 +123,6 @@ export function OrganiserShell({ children }) {
         </nav>
 
         <div className="space-y-3 border-t border-[var(--tl-line)] p-4">
-          {mounted && (
-            <button
-              type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="tl-sidebar-link w-full"
-            >
-              <div className="tl-sidebar-icon">
-                {theme === "dark" ? (
-                  <Sun className="h-4 w-4 text-[#061a3f]" />
-                ) : (
-                  <Moon className="h-4 w-4 text-[#061a3f]" />
-                )}
-              </div>
-              <span className="flex-1 text-left">
-                {theme === "dark" ? "Light Mode" : "Dark Mode"}
-              </span>
-            </button>
-          )}
-
           <div className="flex items-center gap-3 px-2">
             <div className="tl-user-avatar">
               {user?.fullName?.charAt(0)?.toUpperCase() || "A"}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Check, Zap, Star, Crown, Loader2 } from "lucide-react";
+import { Check, Zap, Star, Crown, Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const PLANS = [
@@ -190,14 +190,19 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50/30 py-16 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50/30 py-8 px-4 sm:py-12 lg:py-16">
+      <div className="mx-auto mb-8 max-w-5xl">
+        <button type="button" onClick={() => router.push("/admin/dashboard")} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-[#FF6A00] hover:text-[#FF6A00]">
+          <ArrowLeft size={16} /> Back to Dashboard
+        </button>
+      </div>
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto mb-14">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-100 text-[#FF6A00] rounded-full text-sm font-semibold mb-6">
           <Zap size={14} />
           Simple, Transparent Pricing
         </div>
-        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
           Choose Your Plan
         </h1>
         <p className="text-lg text-gray-500">
@@ -207,7 +212,7 @@ export default function PricingPage() {
       </div>
 
       {/* Plans Grid */}
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {PLANS.map((plan) => {
           const Icon = plan.icon;
           const isCurrent = currentPlan === plan.id;

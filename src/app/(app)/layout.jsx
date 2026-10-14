@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export const metadata = {
   title: "TicketLelo - Event Ticketing Platform",
@@ -16,11 +17,12 @@ export default function RootLayout({ children }) {
       <body className="antialiased font-sans">
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >
           <AuthProvider>{children}</AuthProvider>
+          <ThemeToggle className="fixed right-4 z-[100] shadow-lg" />
           <Toaster 
             position="top-right" 
             theme="light" 

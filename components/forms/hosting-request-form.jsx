@@ -79,7 +79,7 @@ export function HostingRequestForm() {
 
   return (
     <div className="w-full max-w-5xl mx-auto" style={{ fontFamily: '"Object Sans", Arial, sans-serif' }}>
-      <div className="bg-[#fffdfa] border-0 rounded-[28px] shadow-[0_24px_80px_rgba(6,26,63,0.14)] overflow-hidden">
+      <div className="tl-host-form-card bg-[#fffdfa] border-0 rounded-[28px] shadow-[0_24px_80px_rgba(6,26,63,0.14)] overflow-hidden">
         <div className="grid md:grid-cols-[0.9fr_1.1fr]">
           <div className="bg-[#ff0084] text-white p-8 md:p-10 flex flex-col justify-between min-h-[320px]">
             <div>
@@ -101,8 +101,8 @@ export function HostingRequestForm() {
               Fill the required fields and we will get back to you after admin approval.
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <form onSubmit={handleSubmit} className="space-y-5 [&_label]:leading-tight [&_input:not([type=checkbox])]:min-w-0 [&_textarea]:min-w-0">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                 <div>
                   <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
                     Full Name <span className="text-[#ff0084]">*</span>
@@ -189,8 +189,8 @@ export function HostingRequestForm() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <label className="flex items-center gap-3 cursor-pointer bg-[#f3f0e8] rounded-full px-5 h-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 items-end">
+                <label className="mb-0 flex items-center gap-3 cursor-pointer bg-[#f3f0e8] rounded-full px-5 h-12">
                   <input
                     type="checkbox"
                     name="isPaid"

@@ -683,9 +683,9 @@ export function HostingRequestManagement() {
               setRequestToReject(null);
             }}
           />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[51] w-[90vw] max-w-lg">
-            <div className="tl-auth-card p-6">
-              <div className="flex items-center justify-between mb-6">
+          <div className="fixed inset-0 z-[51] flex items-center justify-center overflow-y-auto p-3 sm:p-5" onClick={(event) => event.stopPropagation()}>
+            <div role="dialog" aria-modal="true" aria-labelledby="approval-modal-title" className="tl-auth-card my-auto w-full max-w-md max-h-[min(92dvh,48rem)] overflow-y-auto p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-[#061a3f]">
                   Reject Hosting Request
                 </h3>
@@ -781,10 +781,10 @@ export function HostingRequestManagement() {
             <div className="tl-auth-card p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-12 h-12 rounded-lg bg-[#008d46]/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#008d46]/10 flex items-center justify-center">
                     <CheckCircle className="w-6 h-6 text-[#008d46]" />
                   </div>
-                  <h3 className="text-xl font-bold text-[#061a3f]">
+                  <h3 id="approval-modal-title" className="text-lg font-bold text-[#061a3f]">
                     Request Approved!
                   </h3>
                 </div>
@@ -822,7 +822,7 @@ export function HostingRequestManagement() {
                 </p>
               </div>
 
-              <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-4 space-y-4 mb-6">
+              <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-3 sm:p-4 space-y-3 mb-4">
                 <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
                   <KeyRound className="h-4 w-4" /> Organiser Credentials
                 </h4>
@@ -830,7 +830,7 @@ export function HostingRequestManagement() {
                 <div className="bg-white p-3 rounded border border-[var(--tl-line)]">
                   <p className="text-xs text-[rgba(6,26,63,0.56)] mb-1">EMAIL</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-mono text-sm text-[#061a3f]">
+                    <p className="min-w-0 break-all font-mono text-sm text-[#061a3f]">
                       {approvedCredentials.organiserEmail}
                     </p>
                     <button
@@ -850,7 +850,7 @@ export function HostingRequestManagement() {
                 <div className="bg-white p-3 rounded border border-[var(--tl-line)]">
                   <p className="text-xs text-[rgba(6,26,63,0.56)] mb-1">PASSWORD</p>
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-mono text-sm text-[#061a3f]">
+                    <p className="min-w-0 break-all font-mono text-sm text-[#061a3f]">
                       {approvedCredentials.organiserPassword}
                     </p>
                     <button
