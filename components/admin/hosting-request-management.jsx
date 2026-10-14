@@ -15,6 +15,8 @@ import {
   MapPin,
   Copy,
   CheckCircle,
+  ChevronLeft,
+  ChevronRight,
   Info,
   KeyRound,
 } from "lucide-react";
@@ -26,6 +28,66 @@ import {
 } from "@/lib/hosting-requests";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+
+const REQUESTS_PAGE_SIZE = 5;
+
+function paginate(items, page) {
+  const totalPages = Math.max(1, Math.ceil(items.length / REQUESTS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * REQUESTS_PAGE_SIZE;
+  return {
+    currentPage,
+    totalPages,
+    pageItems: items.slice(start, start + REQUESTS_PAGE_SIZE),
+    start: items.length === 0 ? 0 : start + 1,
+    end: Math.min(start + REQUESTS_PAGE_SIZE, items.length),
+  };
+}
+
+function PaginationControls({ label, total, pageInfo, onPageChange }) {
+  if (total <= REQUESTS_PAGE_SIZE) return null;
+
+  return (
+    <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[var(--tl-line)] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-[rgba(6,26,63,0.64)]">
+        Showing{" "}
+        <span className="font-semibold text-[#061a3f]">
+          {pageInfo.start}-{pageInfo.end}
+        </span>{" "}
+        of <span className="font-semibold text-[#061a3f]">{total}</span>{" "}
+        {label}
+      </p>
+
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={pageInfo.currentPage === 1}
+          onClick={() => onPageChange(pageInfo.currentPage - 1)}
+          className="border-[var(--tl-line)] bg-white text-[#061a3f] hover:bg-[#3157ff]/10"
+        >
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          Previous
+        </Button>
+        <span className="min-w-20 text-center text-sm font-semibold text-[#061a3f]">
+          {pageInfo.currentPage} / {pageInfo.totalPages}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={pageInfo.currentPage === pageInfo.totalPages}
+          onClick={() => onPageChange(pageInfo.currentPage + 1)}
+          className="border-[var(--tl-line)] bg-white text-[#061a3f] hover:bg-[#3157ff]/10"
+        >
+          Next
+          <ChevronRight className="ml-1 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function HostingRequestManagement() {
   const [requests, setRequests] = useState([]);
@@ -43,6 +105,9 @@ export function HostingRequestManagement() {
   const [approvedCredentials, setApprovedCredentials] = useState(null);
   const [approvedRequestData, setApprovedRequestData] = useState(null);
   const [isExistingOrganiser, setIsExistingOrganiser] = useState(false);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [approvedPage, setApprovedPage] = useState(1);
+  const [rejectedPage, setRejectedPage] = useState(1);
 
   useEffect(() => {
     loadRequests();
@@ -316,6 +381,9 @@ export function HostingRequestManagement() {
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const approvedRequests = requests.filter((r) => r.status === "approved");
   const rejectedRequests = requests.filter((r) => r.status === "rejected");
+  const pendingPageInfo = paginate(pendingRequests, pendingPage);
+  const approvedPageInfo = paginate(approvedRequests, approvedPage);
+  const rejectedPageInfo = paginate(rejectedRequests, rejectedPage);
 
   return (
     <div className="space-y-8">
@@ -330,7 +398,7 @@ export function HostingRequestManagement() {
               No pending requests
             </p>
           ) : (
-            pendingRequests.map((request) => (
+            pendingPageInfo.pageItems.map((request) => (
               <div
                 key={request.id}
                 className="tl-auth-card p-6 border-l-4 border-l-[#ffe000]"
@@ -362,9 +430,9 @@ export function HostingRequestManagement() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="destructive"
                       onClick={() => openRejectModal(request)}
                       disabled={processingId === request.id}
+                      className="tl-danger-action"
                     >
                       <X className="w-4 h-4 mr-1" />
                       Reject
@@ -418,6 +486,12 @@ export function HostingRequestManagement() {
             ))
           )}
         </div>
+        <PaginationControls
+          label="pending requests"
+          total={pendingRequests.length}
+          pageInfo={pendingPageInfo}
+          onPageChange={setPendingPage}
+        />
       </section>
 
       {/* Approved Requests */}
@@ -426,10 +500,10 @@ export function HostingRequestManagement() {
           Approved Organisers ({approvedRequests.length})
         </h2>
         <div className="grid gap-4">
-          {approvedRequests.map((request) => (
+          {approvedPageInfo.pageItems.map((request) => (
             <div
               key={request.id}
-                className="tl-auth-card p-6 border-l-4 border-l-[#3157ff]"
+              className="tl-auth-card p-6 border-l-4 border-l-[#3157ff]"
             >
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -553,6 +627,12 @@ export function HostingRequestManagement() {
             </div>
           ))}
         </div>
+        <PaginationControls
+          label="approved organisers"
+          total={approvedRequests.length}
+          pageInfo={approvedPageInfo}
+          onPageChange={setApprovedPage}
+        />
       </section>
 
       {/* Rejected Requests */}
@@ -562,7 +642,7 @@ export function HostingRequestManagement() {
             Rejected Requests ({rejectedRequests.length})
           </h2>
           <div className="grid gap-4">
-            {rejectedRequests.map((request) => (
+            {rejectedPageInfo.pageItems.map((request) => (
               <div
                 key={request.id}
                 className="tl-auth-card p-6 border-l-4 border-l-red-500 opacity-90"
@@ -583,6 +663,12 @@ export function HostingRequestManagement() {
               </div>
             ))}
           </div>
+          <PaginationControls
+            label="rejected requests"
+            total={rejectedRequests.length}
+            pageInfo={rejectedPageInfo}
+            onPageChange={setRejectedPage}
+          />
         </section>
       )}
 
@@ -652,7 +738,7 @@ export function HostingRequestManagement() {
                     !rejectionReason.trim() ||
                     processingId === requestToReject?.id
                   }
-                  className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 text-white font-semibold py-2.5 rounded-lg transition-all"
+                  className="tl-danger-action flex-1 font-semibold py-2.5 transition-all disabled:opacity-50"
                 >
                   {processingId === requestToReject?.id ? (
                     <>

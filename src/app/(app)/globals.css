@@ -291,7 +291,12 @@ body {
   }
 
   .tl-sidebar {
+    position: sticky;
+    top: 0;
     width: 18rem;
+    height: 100vh;
+    flex-shrink: 0;
+    overflow-y: auto;
     background: var(--tl-paper);
     border-right: 1px solid var(--tl-line);
     color: var(--tl-navy);
@@ -375,6 +380,7 @@ body {
 
   .tl-main {
     flex: 1;
+    min-width: 0;
     overflow: auto;
   }
 
@@ -468,6 +474,19 @@ body {
   .tl-auth-page button[type="submit"]:hover,
   .tl-system-theme .tl-primary-action:hover {
     background: var(--tl-blue-hover) !important;
+  }
+
+  .tl-system-theme .tl-danger-action {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+    box-shadow: 0 12px 28px rgba(220, 38, 38, 0.16) !important;
+  }
+
+  .tl-system-theme .tl-danger-action:hover {
+    background: #b91c1c !important;
+    color: #fff !important;
   }
 
   .tl-auth-page a,
