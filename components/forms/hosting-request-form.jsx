@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createHostingRequest } from "@/lib/hosting-requests";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 export function HostingRequestForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -52,23 +53,7 @@ export function HostingRequestForm() {
       toast.success(
         "Hosting request submitted successfully! You'll receive an email once approved.",
       );
-
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        college: "",
-        eventTitle: "",
-        description: "",
-        isPaid: false,
-        numberOfTickets: 0,
-      });
-
-      // Redirect to homepage after 2 seconds
-      setTimeout(() => {
-        router.push("/");
-      }, 2000);
+      setSubmitted(true);
     } catch (error) {
       console.error("Error submitting request:", error);
       toast.error(error.message || "Failed to submit hosting request");
@@ -94,6 +79,27 @@ export function HostingRequestForm() {
           </div>
 
           <div className="p-6 md:p-10">
+            {submitted ? (
+              <div className="flex min-h-[420px] flex-col justify-center" role="status" aria-live="polite">
+                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-[#008d46]/10 text-[#008d46]">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                <h2 className="mb-3 text-3xl font-extrabold text-[#061a3f]">
+                  Request submitted
+                </h2>
+                <p className="max-w-md text-[#061a3f]/75">
+                  Your hosting request is with the admin team for review. We&apos;ll email you when it has been reviewed.
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="mt-8 h-12 w-full max-w-xs rounded-full bg-[#3157ff] font-extrabold text-white hover:bg-[#ff0084]"
+                >
+                  Back to TicketLelo
+                </Button>
+              </div>
+            ) : (
+              <>
             <h2 className="text-3xl md:text-4xl leading-none font-normal text-[#061a3f] mb-2">
               Event Request
             </h2>
@@ -245,6 +251,8 @@ export function HostingRequestForm() {
                 </Button>
               </div>
             </form>
+              </>
+            )}
           </div>
         </div>
       </div>

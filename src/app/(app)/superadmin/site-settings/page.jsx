@@ -13,12 +13,25 @@ function toLocalInput(value) {
   return local.toISOString().slice(0, 16);
 }
 
+function getMinimumDateTime() {
+  const nextMinute = new Date(Math.ceil(Date.now() / 60_000) * 60_000);
+  return toLocalInput(nextMinute.toISOString());
+}
+
 export default function SiteSettingsPage() {
   const [countdownAt, setCountdownAt] = useState("");
+  const [minimumDateTime, setMinimumDateTime] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const refreshMinimum = () => {
+      const minimum = getMinimumDateTime();
+      setMinimumDateTime(minimum);
+      setCountdownAt((current) => (current && current < minimum ? minimum : current));
+    };
+    refreshMinimum();
+    const minimumInterval = window.setInterval(refreshMinimum, 60_000);
     let active = true;
     fetch("/api/site-settings/countdown", { cache: "no-store" })
       .then(async (response) => {
@@ -26,22 +39,37 @@ export default function SiteSettingsPage() {
         return response.json();
       })
       .then((settings) => {
-        if (active) setCountdownAt(toLocalInput(settings.countdownAt || DEFAULT_COUNTDOWN_AT));
+        if (active) {
+          const minimum = getMinimumDateTime();
+          setMinimumDateTime(minimum);
+          const configured = toLocalInput(settings.countdownAt || DEFAULT_COUNTDOWN_AT);
+          setCountdownAt(configured < minimum ? minimum : configured);
+        }
       })
       .catch((error) => {
         if (active) {
-          setCountdownAt(toLocalInput(DEFAULT_COUNTDOWN_AT));
+          const minimum = getMinimumDateTime();
+          setMinimumDateTime(minimum);
+          const configured = toLocalInput(DEFAULT_COUNTDOWN_AT);
+          setCountdownAt(configured < minimum ? minimum : configured);
           toast.error(error.message);
         }
       })
       .finally(() => active && setLoading(false));
-    return () => { active = false; };
+    return () => {
+      active = false;
+      window.clearInterval(minimumInterval);
+    };
   }, []);
 
   const saveSettings = async (event) => {
     event.preventDefault();
-    if (!countdownAt || Number.isNaN(new Date(countdownAt).getTime())) {
-      toast.error("Choose a valid date and time.");
+    if (
+      !countdownAt ||
+      Number.isNaN(new Date(countdownAt).getTime()) ||
+      new Date(countdownAt).getTime() < Date.now()
+    ) {
+      toast.error("Choose a future date and time.");
       return;
     }
 
@@ -85,6 +113,7 @@ export default function SiteSettingsPage() {
             name="countdownAt"
             type="datetime-local"
             required
+            min={minimumDateTime}
             value={countdownAt}
             onChange={(event) => setCountdownAt(event.target.value)}
             disabled={loading || saving}
