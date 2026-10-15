@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 import path from "path";
 import { getRegistrationByTicketId, getEvent } from "@/lib/firestore";
 import { generatePDFTicket } from "@/lib/tickets";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 /**
  * API Route: Generate PDF ticket and send it via email
@@ -64,7 +65,7 @@ export async function POST(request) {
     });
 
     // Build the download link as a fallback
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = getAppBaseUrl();
     const downloadUrl = `${appUrl}/api/generate-ticket/${ticketId}`;
 
     // Send email with PDF attachment
@@ -178,7 +179,7 @@ export async function POST(request) {
             <table role="presentation" style="width: 100%; margin-bottom: 20px;">
               <tr>
                 <td align="center">
-                  <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/user-login" 
+                  <a href="${appUrl}/user-login"
                      style="display: inline-block; background: #000000; color: #FFD60A; text-decoration: none; padding: 20px 50px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); border: 3px solid #FFD60A;">
                     LOGIN TO DASHBOARD →
                   </a>

@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { NextResponse } from "next/server";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 // POST /api/events/publish  — publish event and generate shareable link
 export async function POST(req) {
@@ -45,7 +46,7 @@ export async function POST(req) {
     }
 
     const publishedAt = new Date().toISOString();
-    const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://ticketlelo.in"}/e/${slug}`;
+    const shareUrl = `${getAppBaseUrl()}/e/${slug}`;
 
     await eventRef.update({
       status: "published",

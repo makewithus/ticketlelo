@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 /**
  * API Route: Send login credentials to user after successful registration
@@ -27,7 +28,7 @@ export async function POST(request) {
       },
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = getAppBaseUrl();
     const loginUrl = `${appUrl}/login`;
     const dashboardUrl = `${appUrl}/dashboard`;
 

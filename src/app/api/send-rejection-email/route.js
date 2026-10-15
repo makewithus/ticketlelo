@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import path from "path";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 export async function POST(request) {
   try {
+    const appUrl = getAppBaseUrl();
     const {
       name,
       email,
@@ -164,7 +166,7 @@ export async function POST(request) {
                 <!-- CTA Button -->
                 <tr>
                   <td style="padding: 0 40px 50px; text-align: center;">
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/host-event" 
+                    <a href="${appUrl}/host-event"
                        style="display: inline-block; background: #FFD60A; color: #000000; text-decoration: none; padding: 18px 50px; border-radius: 12px; font-weight: 900; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 6px 20px rgba(254, 223, 5, 0.4);">
                       SUBMIT NEW REQUEST →
                     </a>

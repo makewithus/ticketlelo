@@ -76,7 +76,7 @@ export default function UserLoginPage() {
     setResetLoading(true);
     try {
       const actionCodeSettings = {
-        url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/user-login`,
+        url: `${window.location.origin}/user-login`,
         handleCodeInApp: false,
       };
 

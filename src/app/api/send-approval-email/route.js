@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import path from "path";
 import fs from "fs";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 export async function POST(request) {
   try {
+    const appUrl = getAppBaseUrl();
     const {
       name,
       email,
@@ -161,7 +163,7 @@ export async function POST(request) {
                     <table role="presentation" style="width: 100%; margin-bottom: 20px;">
                       <tr>
                         <td align="center">
-                          <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/organiser-login" 
+                          <a href="${appUrl}/organiser-login"
                              style="display: inline-block; background: #FFD60A; color: #000000; text-decoration: none; padding: 18px 40px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 4px 15px rgba(254, 223, 5, 0.4);">
                             LOGIN TO ADMIN PANEL →
                           </a>
