@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -673,20 +674,20 @@ export function HostingRequestManagement() {
       )}
 
       {/* Rejection Modal */}
-      {rejectModalOpen && (
+      {rejectModalOpen && typeof document !== "undefined" && createPortal(
         <>
           <div
-            className="fixed inset-0 bg-[#061a3f]/55 backdrop-blur-sm z-50"
+            className="fixed inset-0 z-[200] overscroll-contain bg-[#061a3f]/55 backdrop-blur-sm"
             onClick={() => {
               setRejectModalOpen(false);
               setRejectionReason("");
               setRequestToReject(null);
             }}
           />
-          <div className="fixed inset-0 z-[51] flex items-center justify-center overflow-y-auto p-3 sm:p-5" onClick={(event) => event.stopPropagation()}>
-            <div role="dialog" aria-modal="true" aria-labelledby="approval-modal-title" className="tl-auth-card my-auto w-full max-w-md max-h-[min(92dvh,48rem)] overflow-y-auto p-4 sm:p-5">
+          <div className="tl-system-theme tl-modal-frame fixed inset-0 z-[201] flex items-center justify-center overflow-y-auto overscroll-contain p-3 sm:p-5" onClick={(event) => event.stopPropagation()}>
+            <div role="dialog" aria-modal="true" aria-labelledby="rejection-modal-title" className="tl-auth-card my-auto max-h-[min(92dvh,48rem)] w-full max-w-md overflow-y-auto p-4 sm:p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-[#061a3f]">
+                <h3 id="rejection-modal-title" className="text-xl font-bold text-[#061a3f]">
                   Reject Hosting Request
                 </h3>
                 <button
@@ -762,14 +763,15 @@ export function HostingRequestManagement() {
               </div>
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
 
       {/* Approval Modal */}
-      {approvalModalOpen && approvedCredentials && (
+      {approvalModalOpen && approvedCredentials && typeof document !== "undefined" && createPortal(
         <>
           <div
-            className="fixed inset-0 bg-[#061a3f]/55 backdrop-blur-sm z-50"
+            className="fixed inset-0 z-[200] overscroll-contain bg-[#061a3f]/55 backdrop-blur-sm"
             onClick={() => {
               setApprovalModalOpen(false);
               setApprovedCredentials(null);
@@ -777,9 +779,9 @@ export function HostingRequestManagement() {
               setIsExistingOrganiser(false);
             }}
           />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[51] w-[90vw] max-w-lg">
-            <div className="tl-auth-card p-6">
-              <div className="flex items-center justify-between mb-6">
+          <div className="tl-system-theme tl-modal-frame fixed inset-0 z-[201] flex items-center justify-center overflow-y-auto overscroll-contain p-3 sm:p-4">
+            <div className="tl-auth-card max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-5">
+              <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-lg bg-[#008d46]/10 flex items-center justify-center">
                     <CheckCircle className="w-6 h-6 text-[#008d46]" />
@@ -802,7 +804,7 @@ export function HostingRequestManagement() {
               </div>
 
               {approvedRequestData && (
-                <div className="mb-4 p-4 bg-[#3157ff]/10 rounded-lg border border-[#3157ff]/20">
+                <div className="mb-3 rounded-lg border border-[#3157ff]/20 bg-[#3157ff]/10 p-3">
                   <h4 className="text-[#061a3f] font-semibold mb-1">
                     {approvedRequestData.eventTitle}
                   </h4>
@@ -815,20 +817,20 @@ export function HostingRequestManagement() {
                 </div>
               )}
 
-              <div className="mb-4 p-4 bg-[#008d46]/10 border border-[#008d46]/20 rounded-lg">
+              <div className="mb-3 rounded-lg border border-[#008d46]/20 bg-[#008d46]/10 p-3">
                 <p className="text-sm text-[#008d46] flex items-center gap-2">
                   <Mail className="w-4 h-4" />
                   Approval email sent to {approvedRequestData?.email}
                 </p>
               </div>
 
-              <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-3 sm:p-4 space-y-3 mb-4">
+              <div className="mb-3 space-y-2 rounded-lg border border-[var(--tl-line)] bg-[#f8fafc] p-3">
                 <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
                   <KeyRound className="h-4 w-4" /> Organiser Credentials
                 </h4>
 
-                <div className="bg-white p-3 rounded border border-[var(--tl-line)]">
-                  <p className="text-xs text-[rgba(6,26,63,0.56)] mb-1">EMAIL</p>
+                <div className="rounded border border-[var(--tl-line)] bg-white p-2.5">
+                  <p className="mb-1 text-xs text-[rgba(6,26,63,0.56)]">EMAIL</p>
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 break-all font-mono text-sm text-[#061a3f]">
                       {approvedCredentials.organiserEmail}
@@ -847,8 +849,8 @@ export function HostingRequestManagement() {
                   </div>
                 </div>
 
-                <div className="bg-white p-3 rounded border border-[var(--tl-line)]">
-                  <p className="text-xs text-[rgba(6,26,63,0.56)] mb-1">PASSWORD</p>
+                <div className="rounded border border-[var(--tl-line)] bg-white p-2.5">
+                  <p className="mb-1 text-xs text-[rgba(6,26,63,0.56)]">PASSWORD</p>
                   <div className="flex items-center justify-between gap-2">
                     <p className="min-w-0 break-all font-mono text-sm text-[#061a3f]">
                       {approvedCredentials.organiserPassword}
@@ -867,7 +869,7 @@ export function HostingRequestManagement() {
                   </div>
                 </div>
 
-                <div className="bg-[#ffe000]/20 border border-[#ffe000]/50 rounded-lg p-3">
+                <div className="rounded-lg border border-[#ffe000]/50 bg-[#ffe000]/20 p-2.5">
                   <p className="text-xs text-[#061a3f] flex gap-2">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
@@ -899,13 +901,14 @@ export function HostingRequestManagement() {
                   setApprovedRequestData(null);
                   setIsExistingOrganiser(false);
                 }}
-                className="tl-primary-action w-full font-semibold py-2.5 transition-all"
+                className="tl-primary-action min-h-10 w-full py-2 font-semibold transition-all"
               >
                 Done
               </Button>
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );

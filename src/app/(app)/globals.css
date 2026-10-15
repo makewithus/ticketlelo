@@ -262,6 +262,12 @@ body {
     color: var(--tl-navy);
   }
 
+  .tl-system-theme.tl-modal-frame {
+    min-height: 0;
+    background: transparent;
+    background-image: none;
+  }
+
   .dark .tl-system-theme .text-\[\#061a3f\],
   .dark .tl-system-theme .text-\[rgba\(6\,26\,63\,0\.64\)\],
   .dark .tl-system-theme .text-\[rgba\(6\,26\,63\,0\.56\)\],

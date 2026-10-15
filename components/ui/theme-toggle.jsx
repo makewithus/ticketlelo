@@ -13,7 +13,12 @@ export function ThemeToggle({ className = "", inline = false, compact = false })
   useEffect(() => setMounted(true), []);
 
   if (!mounted) return null;
-  if (pathname.replace(/\/+$/, "") === "/host-event" && !inline) return null;
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  if (normalizedPath === "/" && !inline) return null;
+  if (normalizedPath === "/host-event" && !inline) return null;
+  if (/^\/(organiser-login|user-login|super-admin-login)$/.test(normalizedPath)) {
+    return null;
+  }
   const isDark = theme === "dark";
   const belowHeader = pathname === "/dashboard" || pathname === "/host-event";
 
