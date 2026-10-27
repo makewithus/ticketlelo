@@ -130,10 +130,13 @@ export default function AccountPage() {
     } finally {
       setLoadingEvents(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
-    loadEvents();
+    const timer = setTimeout(() => {
+      loadEvents();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadEvents]);
 
   if (!user) {

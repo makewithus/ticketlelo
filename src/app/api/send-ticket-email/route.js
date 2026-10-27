@@ -1,54 +1,67 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import path from "path";
-import { getRegistrationByTicketId, getEvent } from "@/lib/firestore";
 import { generatePDFTicket } from "@/lib/tickets";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { getAuthenticatedUser } from "@/lib/auth-server";
+import { adminDb } from "@/lib/firebase-admin";
+
+const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[char]));
 
 /**
  * API Route: Generate PDF ticket and send it via email
  * POST /api/send-ticket-email
- * Body: { ticketId, email, fullName, eventName, password }
+ * Body: { ticketId }
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { ticketId, email, fullName, eventName, password } = body;
-
-    console.log("[Ticket Email API] Request received:");
-    console.log("   Email:", email);
-    console.log("   Ticket ID:", ticketId);
-    console.log(
-      "   Password:",
-      password
-        ? " Provided (will show credentials)"
-        : " Not provided (no credentials)",
-    );
-
-    if (!ticketId || !email) {
+    const { ticketId } = body;
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    if (!ticketId || !adminDb) {
       return NextResponse.json(
-        { error: "ticketId and email are required" },
+        { error: "ticketId is required" },
         { status: 400 },
       );
     }
 
-    // Fetch registration from Firestore
-    const registration = await getRegistrationByTicketId(ticketId);
-    if (!registration) {
+    const ticketSnapshot = await adminDb.collection("tickets").doc(ticketId).get();
+    const registrationSnapshot = await adminDb.collection("registrations")
+      .where("ticketId", "==", ticketId).limit(1).get();
+    if (!ticketSnapshot.exists && registrationSnapshot.empty) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
+    const persistedTicket = ticketSnapshot.exists ? ticketSnapshot.data() : null;
+    const registration = registrationSnapshot.empty
+      ? persistedTicket
+      : { id: registrationSnapshot.docs[0].id, ...registrationSnapshot.docs[0].data() };
+    const ownerUid = registration.userId || persistedTicket?.userId;
+    const ownerEmail = String(registration.email || registration.buyerEmail || persistedTicket?.buyerEmail || "").toLowerCase();
+    const callerEmail = String(caller.email || "").toLowerCase();
+    const isOwner = (ownerUid && ownerUid === caller.uid) ||
+      (caller.decodedToken?.email_verified === true && ownerEmail && ownerEmail === callerEmail);
+    if (!isOwner && caller.role !== "superAdmin") {
+      return NextResponse.json({ error: "Ticket access denied" }, { status: 403 });
+    }
+    const email = ownerEmail;
+    if (!email || !process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
+      return NextResponse.json({ error: "Ticket email delivery is not configured" }, { status: 503 });
+    }
 
-    // Fetch event details
-    const event = await getEvent(registration.eventId);
+    const eventSnapshot = await adminDb.collection("events").doc(registration.eventId).get();
+    const event = eventSnapshot.exists ? { id: eventSnapshot.id, ...eventSnapshot.data() } : null;
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
     // Generate PDF ticket
     const pdfBlob = await generatePDFTicket(
-      registration,
+      { ...registration, ticketId, qrCode: registration.qrCode || persistedTicket?.qrCodeUrl || "" },
       event,
-      registration.qrCode,
+      registration.qrCode || persistedTicket?.qrCodeUrl,
     );
 
     // Convert blob to Buffer
@@ -72,9 +85,7 @@ export async function POST(request) {
     const mailOptions = {
       from: `"Ticketलेलो" <${process.env.SMTP_EMAIL}>`,
       to: email,
-      subject: password
-        ? ` Your Entry Pass + Login Credentials - ${eventName || event.name}`
-        : ` Your Entry Pass for ${eventName || event.name} - Ticketलेलो`,
+      subject: `Your Entry Pass for ${event.name || event.title || "Event"} - Ticketलेलो`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -109,10 +120,10 @@ export async function POST(request) {
                   <!-- Body -->
                   <tr>
                     <td style="background-color: #ffffff; padding: 35px 30px;">
-                      <h2 style="color: #000000; margin-top: 0; font-size: 24px; font-weight: 800;">Hi ${fullName || registration.fullName}!</h2>
+                      <h2 style="color: #000000; margin-top: 0; font-size: 24px; font-weight: 800;">Hi ${escapeHtml(registration.fullName || registration.buyerName || "Attendee")}!</h2>
                       
                       <p style="color: #333333; line-height: 1.8; font-size: 15px; margin-bottom: 20px;">
-                         Your registration for <strong style="color: #FF6A00; font-size: 16px;">${eventName || event.name}</strong> is confirmed! 
+                         Your registration for <strong style="color: #FF6A00; font-size: 16px;">${escapeHtml(event.name || event.title || "Event")}</strong> is confirmed! 
                         Your event entry pass with QR code is attached to this email.
                       </p>
                       
@@ -126,69 +137,6 @@ export async function POST(request) {
                         </ol>
                       </div>
             
-            ${
-              password
-                ? `
-            <!-- Login Credentials Box - Orange to Yellow Gradient -->
-            <table role="presentation" style="width: 100%; background: linear-gradient(135deg, #FF6A00 0%, #FFD60A 100%); border-radius: 15px; padding: 30px; margin: 25px 0; box-shadow: 0 8px 20px rgba(254, 118, 11, 0.3);">
-              <tr>
-                <td>
-                  <p style="margin: 0 0 20px 0; color: #000000; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                     LOGIN CREDENTIALS
-                  </p>
-                  
-                  <div style="margin-bottom: 18px;">
-                    <p style="margin: 0 0 10px 0; color: #000000; font-size: 13px; font-weight: 800; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px;">
-                      Email
-                    </p>
-                    <div style="background: #000000; padding: 15px 18px; border-radius: 10px; border: 2px solid rgba(0, 0, 0, 0.2);">
-                      <p style="margin: 0; color: #FFD60A; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace; word-break: break-all;">
-                        ${email}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <p style="margin: 0 0 10px 0; color: #000000; font-size: 13px; font-weight: 800; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px;">
-                      Password
-                    </p>
-                    <div style="background: #000000; padding: 15px 18px; border-radius: 10px; border: 2px solid rgba(0, 0, 0, 0.2);">
-                      <p style="margin: 0; color: #FFD60A; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace;">
-                        ${password}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Security Notice - Black with Yellow Accents -->
-            <div style="background: #000000; padding: 28px; border-radius: 15px; margin-bottom: 25px; border: 2px solid #FFD60A; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-              <p style="margin: 0 0 18px 0; color: #FFD60A; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 800; line-height: 24px; text-transform: uppercase; letter-spacing: 1px;">
-                 SECURITY NOTICE
-              </p>
-              <ul style="margin: 0; padding-left: 20px; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 26px;">
-                <li style="margin-bottom: 10px;">Save these credentials securely - you'll need them to access your dashboard</li>
-                <li style="margin-bottom: 10px;">Your password can be changed anytime from your dashboard settings</li>
-                <li style="margin-bottom: 10px;">Do not share these credentials with anyone</li>
-                <li>Keep your password safe and secure</li>
-              </ul>
-            </div>
-            
-            <!-- CTA Button - Black with Yellow Accent -->
-            <table role="presentation" style="width: 100%; margin-bottom: 20px;">
-              <tr>
-                <td align="center">
-                  <a href="${appUrl}/user-login"
-                     style="display: inline-block; background: #000000; color: #FFD60A; text-decoration: none; padding: 20px 50px; border-radius: 12px; font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); border: 3px solid #FFD60A;">
-                    LOGIN TO DASHBOARD →
-                  </a>
-                </td>
-              </tr>
-            </table>
-            `
-                : ""
-            }
                     </td>
                   </tr>
                   
@@ -228,12 +176,9 @@ export async function POST(request) {
     console.log(
       `[Email]  Ticket PDF sent to ${email} for ticket ${ticketId}`,
     );
-    console.log(`[Email] Credentials included: ${password ? "YES" : "NO"}`);
-
     return NextResponse.json({
       success: true,
       message: "Email sent successfully",
-      includesCredentials: !!password,
     });
   } catch (error) {
     console.error("Send ticket email error:", error);

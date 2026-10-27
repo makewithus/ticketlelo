@@ -23,7 +23,7 @@ import {
 } from "@/lib/firestore";
 import { sendRegistrationConfirmation } from "@/lib/email";
 import { generateQRCode } from "@/lib/qr";
-import { useCoupon } from "@/lib/coupons";
+import { markCouponAsUsed } from "@/lib/coupons";
 import {
   User,
   Mail,
@@ -38,26 +38,26 @@ import {
 
 /* ─── Country codes ─── */
 const COUNTRY_CODES = [
-  { code: "+91", country: "India", flag: "🇮🇳", len: 10 },
-  { code: "+1", country: "United States", flag: "🇺🇸", len: 10 },
-  { code: "+44", country: "United Kingdom", flag: "🇬🇧", len: 10 },
-  { code: "+1", country: "Canada", flag: "🇨🇦", len: 10 },
-  { code: "+61", country: "Australia", flag: "🇦🇺", len: 9 },
-  { code: "+49", country: "Germany", flag: "🇩🇪", len: 11 },
-  { code: "+33", country: "France", flag: "🇫🇷", len: 9 },
-  { code: "+39", country: "Italy", flag: "🇮🇹", len: 10 },
-  { code: "+34", country: "Spain", flag: "🇪🇸", len: 9 },
-  { code: "+31", country: "Netherlands", flag: "🇳🇱", len: 9 },
-  { code: "+971", country: "UAE", flag: "🇦🇪", len: 9 },
-  { code: "+966", country: "Saudi Arabia", flag: "🇸🇦", len: 9 },
-  { code: "+92", country: "Pakistan", flag: "🇵🇰", len: 10 },
-  { code: "+880", country: "Bangladesh", flag: "🇧🇩", len: 10 },
-  { code: "+94", country: "Sri Lanka", flag: "🇱🇰", len: 9 },
-  { code: "+977", country: "Nepal", flag: "🇳🇵", len: 10 },
-  { code: "+65", country: "Singapore", flag: "🇸🇬", len: 8 },
-  { code: "+60", country: "Malaysia", flag: "🇲🇾", len: 10 },
-  { code: "+62", country: "Indonesia", flag: "🇮🇩", len: 11 },
-  { code: "+81", country: "Japan", flag: "🇯🇵", len: 10 },
+  { code: "+91", country: "India", flag: "IN", len: 10 },
+  { code: "+1", country: "United States", flag: "US", len: 10 },
+  { code: "+44", country: "United Kingdom", flag: "GB", len: 10 },
+  { code: "+1", country: "Canada", flag: "CA", len: 10 },
+  { code: "+61", country: "Australia", flag: "AU", len: 9 },
+  { code: "+49", country: "Germany", flag: "DE", len: 11 },
+  { code: "+33", country: "France", flag: "FR", len: 9 },
+  { code: "+39", country: "Italy", flag: "IT", len: 10 },
+  { code: "+34", country: "Spain", flag: "ES", len: 9 },
+  { code: "+31", country: "Netherlands", flag: "NL", len: 9 },
+  { code: "+971", country: "UAE", flag: "AE", len: 9 },
+  { code: "+966", country: "Saudi Arabia", flag: "SA", len: 9 },
+  { code: "+92", country: "Pakistan", flag: "PK", len: 10 },
+  { code: "+880", country: "Bangladesh", flag: "BD", len: 10 },
+  { code: "+94", country: "Sri Lanka", flag: "LK", len: 9 },
+  { code: "+977", country: "Nepal", flag: "NP", len: 10 },
+  { code: "+65", country: "Singapore", flag: "SG", len: 8 },
+  { code: "+60", country: "Malaysia", flag: "MY", len: 10 },
+  { code: "+62", country: "Indonesia", flag: "ID", len: 11 },
+  { code: "+81", country: "Japan", flag: "JP", len: 10 },
 ];
 
 const registrationSchema = z.object({
@@ -67,6 +67,14 @@ const registrationSchema = z.object({
   eventId: z.string().min(1, "Please select an event"),
   message: z.string().optional(),
 });
+
+function createRandomPassword() {
+  return Math.random().toString(36).slice(-8);
+}
+
+function createTicketId() {
+  return `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
+}
 
 export function RegistrationForm({ events, preSelectedEventId }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -102,36 +110,6 @@ export function RegistrationForm({ events, preSelectedEventId }) {
     defaultValues: { eventId: preSelectedEventId || "" },
   });
 
-  useEffect(() => {
-    if (preSelectedEventId) {
-      setSelectedEventId(preSelectedEventId);
-      setValue("eventId", preSelectedEventId);
-    }
-  }, [preSelectedEventId, setValue]);
-
-  // If no pre-selected event, pick the first active event automatically
-  useEffect(() => {
-    if (preSelectedEventId) return;
-    if (!selectedEventId && events && events.length > 0) {
-      const ev = events.find((e) => e.isActive) || events[0];
-      if (ev) {
-        setSelectedEventId(ev.id);
-        setValue("eventId", ev.id);
-        handleEventChange(ev.id);
-      }
-    }
-  }, [events, preSelectedEventId, selectedEventId, setValue]);
-
-  // Load payment info when event changes
-  useEffect(() => {
-    if (selectedEventId) {
-      fetch(`/api/get-custom-form?eventId=${selectedEventId}`)
-        .then((res) => res.json())
-        .then((data) => setEventPaymentInfo(data.form))
-        .catch((err) => console.error("Error fetching payment info:", err));
-    }
-  }, [selectedEventId]);
-
   const handleEventChange = async (newEventId) => {
     setSelectedEventId(newEventId);
     setValue("eventId", newEventId);
@@ -149,6 +127,42 @@ export function RegistrationForm({ events, preSelectedEventId }) {
       console.error("Error fetching event payment info:", error);
     }
   };
+
+  useEffect(() => {
+    if (preSelectedEventId) {
+      const timer = setTimeout(() => {
+        setSelectedEventId((prev) => (prev === preSelectedEventId ? prev : preSelectedEventId));
+        setValue("eventId", preSelectedEventId);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [preSelectedEventId, setValue]);
+
+  // If no pre-selected event, pick the first active event automatically
+  useEffect(() => {
+    if (preSelectedEventId) return;
+    if (!selectedEventId && events && events.length > 0) {
+      const ev = events.find((e) => e.isActive) || events[0];
+      if (ev) {
+        const timer = setTimeout(() => {
+          setSelectedEventId(ev.id);
+          setValue("eventId", ev.id);
+          handleEventChange(ev.id);
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [events, preSelectedEventId, selectedEventId, setValue]);
+
+  // Load payment info when event changes
+  useEffect(() => {
+    if (selectedEventId) {
+      fetch(`/api/get-custom-form?eventId=${selectedEventId}`)
+        .then((res) => res.json())
+        .then((data) => setEventPaymentInfo(data.form))
+        .catch((err) => console.error("Error fetching payment info:", err));
+    }
+  }, [selectedEventId]);
 
   const handlePhoneChange = useCallback(
     (e) => {
@@ -257,13 +271,13 @@ export function RegistrationForm({ events, preSelectedEventId }) {
       if (!user) {
         user = await signup(
           data.email,
-          Math.random().toString(36).slice(-8),
+          createRandomPassword(),
           data.fullName,
           data.whatsappPhone,
         );
       }
 
-      const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
+      const ticketId = createTicketId();
       const qrCode = await generateQRCode(ticketId);
 
       // Create registration (but mark as pending if payment required)
@@ -355,7 +369,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                   // Mark coupon as used if it was applied
                   if (couponData && couponData.couponId) {
                     try {
-                      await useCoupon(couponData.couponId, user.id);
+                      await markCouponAsUsed(couponData.couponId, user.id);
                       console.log(
                         " Coupon marked as used:",
                         couponData.couponId,
@@ -533,7 +547,9 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                 onClick={() => setCountryOpen(!countryOpen)}
                 className="h-12 px-3 flex items-center gap-1.5 border border-[#FF6A00]/20 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl text-sm text-gray-700 dark:text-slate-300 hover:border-[#FF6A00] dark:hover:border-[#FF6A00]/50 transition-colors min-w-[100px]"
               >
-                <span className="text-lg">{selectedCountry.flag}</span>
+                <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                  {selectedCountry.flag}
+                </span>
                 <span className="font-medium">{selectedCountry.code}</span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 text-gray-400 dark:text-slate-500 transition-transform ${countryOpen ? "rotate-180" : ""}`}
@@ -553,7 +569,9 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                       }}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[#FF6A00]/5 dark:hover:bg-[#FF6A00]/10 transition-colors ${selectedCountry === c ? "bg-[#FFD60A]/10 dark:bg-[#FF6A00]/10 text-[#FF6A00] dark:text-[#FF6A00]" : "text-gray-700 dark:text-slate-300"}`}
                     >
-                      <span className="text-lg">{c.flag}</span>
+                      <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 w-7 text-center">
+                        {c.flag}
+                      </span>
                       <span className="flex-1 text-left">{c.country}</span>
                       <span className="text-gray-400 dark:text-slate-500 font-mono text-xs">
                         {c.code}

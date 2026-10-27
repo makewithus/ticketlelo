@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 // Generate random coupon code
 function generateCouponCode(prefix = "TICKET") {
@@ -15,6 +16,8 @@ function generateCouponCode(prefix = "TICKET") {
 
 export async function POST(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     if (!isFirebaseAdminReady() || !adminDb) {
       return NextResponse.json(
         { success: false, error: "Firebase Admin SDK not configured" },
@@ -29,6 +32,9 @@ export async function POST(request) {
         { success: false, error: "Missing required fields" },
         { status: 400 },
       );
+    }
+    if (!await canManageEventId(caller, eventId)) {
+      return NextResponse.json({ success: false, error: "Event access required" }, { status: 403 });
     }
 
     console.log(` Generating coupons for event: ${eventName || eventId}`);

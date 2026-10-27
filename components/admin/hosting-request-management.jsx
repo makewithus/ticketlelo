@@ -3,13 +3,10 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Loader2,
   Check,
   X,
-  Eye,
-  EyeOff,
   Mail,
   Calendar,
   Users,
@@ -25,7 +22,6 @@ import { toast } from "sonner";
 import {
   getAllHostingRequests,
   rejectHostingRequest,
-  updateOrganiserCredentials,
 } from "@/lib/hosting-requests";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -95,10 +91,6 @@ export function HostingRequestManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showCredentials, setShowCredentials] = useState({});
-  const [editingCredentials, setEditingCredentials] = useState(null);
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [requestToReject, setRequestToReject] = useState(null);
@@ -109,10 +101,6 @@ export function HostingRequestManagement() {
   const [pendingPage, setPendingPage] = useState(1);
   const [approvedPage, setApprovedPage] = useState(1);
   const [rejectedPage, setRejectedPage] = useState(1);
-
-  useEffect(() => {
-    loadRequests();
-  }, []);
 
   const loadRequests = async () => {
     try {
@@ -126,41 +114,12 @@ export function HostingRequestManagement() {
     }
   };
 
-  // Generate secure password (alphanumeric + @ only for good UX)
-  const generateSecurePassword = () => {
-    const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const numbers = "0123456789";
-    let password = "";
-
-    // Add 6 letters
-    for (let i = 0; i < 6; i++) {
-      password += letters.charAt(Math.floor(Math.random() * letters.length));
-    }
-
-    // Add 5 numbers
-    for (let i = 0; i < 5; i++) {
-      password += numbers.charAt(Math.floor(Math.random() * numbers.length));
-    }
-
-    // Add 1 @ symbol
-    password += "@";
-
-    // Shuffle the password for better security
-    return password
-      .split("")
-      .sort(() => Math.random() - 0.5)
-      .join("");
-  };
-
-  // Generate organiser email from event name (clean format)
-  const generateOrganiserEmail = (eventTitle, suffix = "") => {
-    const sanitized = eventTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")
-      .substring(0, 20);
-    const emailPrefix = suffix ? `${sanitized}${suffix}` : sanitized;
-    return `${emailPrefix}@ticketlelo.com`;
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadRequests();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleApprove = async (requestId, requestData) => {
     setProcessingId(requestId);
@@ -170,15 +129,7 @@ export function HostingRequestManagement() {
         eventTitle: requestData.eventTitle,
       });
 
-      // Generate credentials
-      // IMPORTANT: Generate email as eventname@ticketlelo.com (NOT personal email)
-      // For existing users, API will return their ORIGINAL email from database
-      const organiserEmail = generateOrganiserEmail(requestData.eventTitle);
-      const organiserPassword = generateSecurePassword();
-      console.log(" Generated email for new user:", organiserEmail);
-      console.log(
-        "If user exists, API will return their original email from database",
-      );
+      const organiserEmail = requestData.email;
 
       // Create organiser account using server-side API (won't affect current session)
       console.log(" Creating organiser account via API...");
@@ -187,7 +138,6 @@ export function HostingRequestManagement() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: organiserEmail,
-          password: organiserPassword,
           name: requestData.name,
           phone: requestData.phone,
           college: requestData.college,
@@ -207,30 +157,14 @@ export function HostingRequestManagement() {
         organiserId,
         isExisting,
         organiserEmail: responseEmail,
-        organiserPassword: responsePassword,
       } = createData;
       console.log(" Organiser account ready:", organiserId);
 
-      // Use email and password from API response (handles both new and existing users)
+      // Organizer approval never changes or returns a password.
       const finalEmail = responseEmail || organiserEmail;
-      const finalPassword = responsePassword || organiserPassword;
-
-      console.log(" Credentials to show:", {
-        email: finalEmail,
-        isExisting,
-        message: isExisting
-          ? "Updated existing account"
-          : "Created new account",
-      });
-
-      if (isExisting) {
-        console.log(
-          " Used existing account, updated password, and increased event limit",
-        );
-        toast.info(
-          "Organiser already exists. Password updated and event limit increased!",
-        );
-      }
+      toast.info(isExisting
+        ? "Organizer access approved. Their existing password was not changed."
+        : "Organizer access approved. They can set a password with Forgot password.");
 
       // Update hosting request
       console.log(" Updating hosting request status...");
@@ -238,7 +172,6 @@ export function HostingRequestManagement() {
         status: "approved",
         organiserId,
         organiserEmail: finalEmail,
-        organiserPassword: finalPassword,
         approvedAt: Timestamp.now(),
         isExisting,
       });
@@ -247,7 +180,6 @@ export function HostingRequestManagement() {
       const credentials = {
         organiserId,
         organiserEmail: finalEmail,
-        organiserPassword: finalPassword,
       };
 
       // Store credentials and request data for modal
@@ -267,7 +199,6 @@ export function HostingRequestManagement() {
             email: requestData.email,
             eventTitle: requestData.eventTitle,
             organiserEmail: credentials.organiserEmail,
-            organiserPassword: credentials.organiserPassword,
             isExisting,
           }),
         });
@@ -344,31 +275,6 @@ export function HostingRequestManagement() {
   const openRejectModal = (request) => {
     setRequestToReject(request);
     setRejectModalOpen(true);
-  };
-
-  const handleUpdateCredentials = async (request) => {
-    try {
-      await updateOrganiserCredentials(
-        request.organiserId,
-        newEmail,
-        newPassword,
-      );
-      toast.success("Credentials updated successfully");
-      setEditingCredentials(null);
-      setNewEmail("");
-      setNewPassword("");
-      loadRequests();
-    } catch (error) {
-      console.error("Failed to update credentials:", error);
-      toast.error(error.message || "Failed to update credentials");
-    }
-  };
-
-  const toggleShowPassword = (requestId) => {
-    setShowCredentials((prev) => ({
-      ...prev,
-      [requestId]: !prev[requestId],
-    }));
   };
 
   if (isLoading) {
@@ -521,102 +427,11 @@ export function HostingRequestManagement() {
               </div>
 
               <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
-                  <KeyRound className="h-4 w-4" /> Organiser Credentials
-                </h4>
-
-                {editingCredentials === request.id ? (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-[rgba(6,26,63,0.56)] mb-1">
-                        Email
-                      </label>
-                      <Input
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        placeholder={request.organiserEmail}
-                        className="text-sm bg-white border-[var(--tl-line)] text-[#061a3f]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-[rgba(6,26,63,0.56)] mb-1">
-                        Password
-                      </label>
-                      <Input
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="New password"
-                        className="text-sm bg-white border-[var(--tl-line)] text-[#061a3f]"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleUpdateCredentials(request)}
-                        className="tl-primary-action font-bold"
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingCredentials(null);
-                          setNewEmail("");
-                          setNewPassword("");
-                        }}
-                        className="border-[var(--tl-line)] text-[#061a3f] hover:bg-[#3157ff]/10"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between bg-white p-3 rounded border border-[var(--tl-line)]">
-                      <div>
-                        <p className="text-xs text-[rgba(6,26,63,0.56)]">Email</p>
-                        <p className="font-mono text-sm text-[#061a3f]">
-                          {request.organiserEmail}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between bg-white p-3 rounded border border-[var(--tl-line)]">
-                      <div className="flex-1">
-                        <p className="text-xs text-[rgba(6,26,63,0.56)]">Password</p>
-                        <p className="font-mono text-sm text-[#061a3f]">
-                          {showCredentials[request.id]
-                            ? request.organiserPassword
-                            : "••••••••••••"}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleShowPassword(request.id)}
-                        className="text-[#061a3f] hover:text-[#3157ff] hover:bg-[#3157ff]/10"
-                      >
-                        {showCredentials[request.id] ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingCredentials(request.id);
-                        setNewEmail(request.organiserEmail);
-                        setNewPassword(request.organiserPassword);
-                      }}
-                      className="w-full border-[var(--tl-line)] text-[#3157ff] hover:bg-[#3157ff]/10"
-                    >
-                      Edit Credentials
-                    </Button>
-                  </>
-                )}
+                <h4 className="font-semibold text-[#061a3f]">Organizer sign-in</h4>
+                <p className="font-mono text-sm text-[#061a3f]">{request.organiserEmail}</p>
+                <p className="text-xs text-[rgba(6,26,63,0.64)]">
+                  Passwords are not stored or shown here. The organizer can use the Forgot password flow to set or recover access.
+                </p>
               </div>
 
               <div className="mt-4 text-xs text-[rgba(6,26,63,0.56)]">
@@ -849,45 +664,14 @@ export function HostingRequestManagement() {
                   </div>
                 </div>
 
-                <div className="rounded border border-[var(--tl-line)] bg-white p-2.5">
-                  <p className="mb-1 text-xs text-[rgba(6,26,63,0.56)]">PASSWORD</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 break-all font-mono text-sm text-[#061a3f]">
-                      {approvedCredentials.organiserPassword}
-                    </p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          approvedCredentials.organiserPassword,
-                        );
-                        toast.success("Password copied!");
-                      }}
-                      className="p-1.5 hover:bg-[#3157ff]/10 rounded transition-colors"
-                    >
-                      <Copy className="w-4 h-4 text-[#3157ff]" />
-                    </button>
-                  </div>
-                </div>
-
                 <div className="rounded-lg border border-[#ffe000]/50 bg-[#ffe000]/20 p-2.5">
                   <p className="text-xs text-[#061a3f] flex gap-2">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                     {isExistingOrganiser ? (
-                      <>
-                        <strong>IMPORTANT:</strong> This organiser already
-                        had an account. Their{" "}
-                        <strong>password has been updated</strong> to the one
-                        shown above. The old password will no longer work. Event
-                        limit increased.
-                      </>
+                      <>This existing account keeps its current password. No credential was reset.</>
                     ) : (
-                      <>
-                        <strong>Note:</strong> The organiser will use these
-                        credentials to login via the "Organiser" portal and
-                        create their event. You can edit these credentials
-                        anytime from the approved requests section.
-                      </>
+                      <>The organizer can set a password using Forgot password on the organizer sign-in page.</>
                     )}
                     </span>
                   </p>

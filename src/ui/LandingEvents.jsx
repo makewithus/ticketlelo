@@ -20,15 +20,10 @@ const LEFT_STYLE = `
 #tl-events-image img { display:block; width:100%; height:auto; transform:none !important; }
 `;
 
+import { formatShortDate } from "@/lib/date-utils";
+
 const formatDate = (date) => {
-  if (!date) return "";
-  const d = date?.toDate ? date.toDate() : new Date(date);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatShortDate(date, "");
 };
 
 function EventCard({ event }) {
@@ -127,16 +122,26 @@ export default function LandingEvents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setMount(document.getElementById("tl-events-root"));
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        setMount(document.getElementById("tl-events-root"));
+      }
+    }, 0);
     (async () => {
       try {
-        setEvents(await getActiveEvents());
+        const evs = await getActiveEvents();
+        if (isMounted) setEvents(evs);
       } catch (error) {
         console.error("Failed to load events:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     })();
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   if (!mount) return null;

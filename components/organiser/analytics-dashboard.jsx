@@ -138,9 +138,9 @@ export default function AnalyticsDashboard({ eventId, userId }) {
   const [days, setDays] = useState(30);
   const [activeChart, setActiveChart] = useState("registrations");
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchAnalytics = useCallback(async (showLoading = true) => {
     if (!eventId) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ userId: userId || "", days });
@@ -157,7 +157,10 @@ export default function AnalyticsDashboard({ eventId, userId }) {
   }, [eventId, userId, days]);
 
   useEffect(() => {
-    fetchAnalytics();
+    const timer = setTimeout(() => {
+      fetchAnalytics(false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchAnalytics]);
 
   if (loading) {

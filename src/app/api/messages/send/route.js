@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 import { sendEmail } from "@/lib/mailer";
+import { sendWhatsAppCloudMessage } from "@/lib/communications";
+
+const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[char]));
 
 export async function POST(request) {
+  let messageId;
   try {
-    const { messageId } = await request.json();
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    if (!adminDb) return NextResponse.json({ success: false, error: "Messaging service unavailable" }, { status: 503 });
+    ({ messageId } = await request.json());
 
     if (!messageId) {
       return NextResponse.json(
@@ -26,12 +36,21 @@ export async function POST(request) {
     }
 
     const message = messageDoc.data();
+    if (!message.eventId || !await canManageEventId(caller, message.eventId)) {
+      return NextResponse.json({ success: false, error: "Event access denied" }, { status: 403 });
+    }
+    if (["sending", "sent", "delivery_uncertain"].includes(message.status)) {
+      return NextResponse.json({ success: false, error: "Message has already been dispatched or is being dispatched" }, { status: 409 });
+    }
 
-    // Update status to sending
-    await adminDb.collection("messages").doc(messageId).update({
-      status: "sending",
-      updatedAt: new Date(),
+    // Claim dispatch atomically so simultaneous requests cannot send twice.
+    const claimed = await adminDb.runTransaction(async (tx) => {
+      const fresh = await tx.get(messageDoc.ref);
+      if (!fresh.exists || ["sending", "sent", "delivery_uncertain"].includes(fresh.data().status)) return false;
+      tx.update(messageDoc.ref, { status: "sending", dispatchStartedAt: new Date(), updatedAt: new Date() });
+      return true;
     });
+    if (!claimed) return NextResponse.json({ success: false, error: "Message has already been dispatched or is being dispatched" }, { status: 409 });
 
     // Get all registrations for the event
     const registrationsSnapshot = await adminDb
@@ -58,22 +77,37 @@ export async function POST(request) {
       });
     }
 
-    // Extract unique recipients
+    // Extract unique recipients filtered by target audience
     const recipients = [];
     const seenEmails = new Set();
+    const targetAudience = message.targetAudience || "all";
+    const targetSubEventId = message.subEventId || null;
 
     registrationsSnapshot.forEach((doc) => {
       const reg = doc.data();
       const email = reg.formData?.email || reg.email;
       const name = reg.formData?.fullName || reg.fullName || "Participant";
+      const phone = reg.formData?.whatsappPhone || reg.whatsappPhone || "";
 
-      if (email && !seenEmails.has(email)) {
-        seenEmails.add(email);
-        recipients.push({ email, name, registrationId: doc.id });
+      if (!email || seenEmails.has(email)) return;
+
+      // Filter by audience
+      if (targetAudience === "sub_event" && targetSubEventId) {
+        const entitled = Array.isArray(reg.entitledSubEventIds) && reg.entitledSubEventIds.includes(targetSubEventId);
+        if (!entitled) return;
+      } else if (targetAudience === "checked_in") {
+        const isCheckedIn = (reg.status || "").toLowerCase() === "used" || (reg.checkIns && Object.keys(reg.checkIns).length > 0);
+        if (!isCheckedIn) return;
+      } else if (targetAudience === "not_checked_in") {
+        const isCheckedIn = (reg.status || "").toLowerCase() === "used" || (reg.checkIns && Object.keys(reg.checkIns).length > 0);
+        if (isCheckedIn) return;
       }
+
+      seenEmails.add(email);
+      recipients.push({ email, name, phone, registrationId: doc.id });
     });
 
-    // Send emails in batches
+    // Send messages in batches
     const batchSize = 10;
     let successCount = 0;
     let failureCount = 0;
@@ -85,6 +119,25 @@ export async function POST(request) {
       const results = await Promise.allSettled(
         batch.map(async (recipient) => {
           try {
+            if (message.channel === "whatsapp") {
+              const waRes = await sendWhatsAppCloudMessage({
+                recipientPhone: recipient.phone,
+                messageText: `${message.title}\n\n${message.content}`,
+              });
+              const status = waRes.sent ? "sent" : (waRes.requiresCredentials ? "unconfigured_provider" : "failed");
+              await adminDb.collection("messageReceipts").add({
+                messageId,
+                recipientEmail: recipient.email,
+                recipientPhone: recipient.phone,
+                recipientName: recipient.name,
+                status,
+                sentAt: waRes.sent ? new Date() : null,
+                createdAt: new Date(),
+                note: waRes.message || null,
+              });
+              return { success: waRes.sent, email: recipient.email, requiresCredentials: waRes.requiresCredentials };
+            }
+
             await sendEmail({
               to: recipient.email,
               subject: message.title,
@@ -96,7 +149,7 @@ export async function POST(request) {
                   <div style="padding: 30px; background: #fff;">
                     <p style="font-size: 16px; color: #333;">Hello ${recipient.name},</p>
                     <div style="background-color: #f5f5f5; padding: 25px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #FF6A00;">
-                      <div style="font-size: 15px; line-height: 1.6; color: #333; white-space: pre-wrap;">${message.content}</div>
+                  <div style="font-size: 15px; line-height: 1.6; color: #333; white-space: pre-wrap;">${escapeHtml(message.content)}</div>
                     </div>
                     <p style="color: #666; font-size: 14px; margin-top: 30px;">
                       This is an important message from the event organizers.
@@ -175,13 +228,13 @@ export async function POST(request) {
       failedRecipients,
     });
   } catch (error) {
-    console.error("Send message API error:", error);
+    console.error("Send message API error:", error.code || "unexpected-error");
 
     // Update message status to failed
-    if (request.messageId) {
-      await adminDb.collection("messages").doc(request.messageId).update({
-        status: "failed",
-        error: error.message,
+    if (messageId && adminDb) {
+      await adminDb.collection("messages").doc(messageId).update({
+        status: "delivery_uncertain",
+        errorCode: error.code || "dispatch-error",
         updatedAt: new Date(),
       });
     }

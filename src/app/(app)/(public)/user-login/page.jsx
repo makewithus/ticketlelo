@@ -149,12 +149,12 @@ export default function UserLoginPage() {
 
               <form onSubmit={handlePasswordReset} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-[#061a3f] mb-2">
+                  <label htmlFor="reset-email" className="block text-sm font-medium text-[#061a3f] mb-2">
                     Email Address
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)] dark:text-white" />
-                    <input
+                    <input id="reset-email"
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
@@ -209,12 +209,12 @@ export default function UserLoginPage() {
               <form onSubmit={handleLogin} className="space-y-5">
                 {/* Email Field */}
                 <div>
-                  <label className="block text-sm font-medium text-[#061a3f] mb-2">
+                  <label htmlFor="user-email" className="block text-sm font-medium text-[#061a3f] mb-2">
                     Email Address
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)] dark:text-white" />
-                    <input
+                    <input id="user-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -228,7 +228,7 @@ export default function UserLoginPage() {
                 {/* Password Field */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-[#061a3f]">
+                    <label htmlFor="user-password" className="block text-sm font-medium text-[#061a3f]">
                       Password
                     </label>
                     <button
@@ -241,7 +241,7 @@ export default function UserLoginPage() {
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)] dark:text-white" />
-                    <input
+                    <input id="user-password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -286,7 +286,7 @@ export default function UserLoginPage() {
               {/* Footer Links */}
               <div className="mt-6 pt-6 border-t border-[var(--tl-line)] text-center">
                 <p className="text-sm text-[rgba(6,26,63,0.64)]">
-                  Don't have an account?{" "}
+                  Don&apos;t have an account?{" "}
                   <Link
                     href="/"
                     className="text-[#3157ff] hover:text-[#173cf4] font-medium transition-colors"

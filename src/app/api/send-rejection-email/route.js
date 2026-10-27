@@ -2,9 +2,17 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import path from "path";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { getAuthenticatedUser } from "@/lib/auth-server";
+
+const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+}[char]));
 
 export async function POST(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    if (caller.role !== "superAdmin") return NextResponse.json({ error: "Superadmin access required" }, { status: 403 });
     const appUrl = getAppBaseUrl();
     const {
       name,
@@ -18,14 +26,7 @@ export async function POST(request) {
 
     // Check if SMTP credentials are configured
     if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
-      console.log(" SMTP not configured. Email would be sent to:", email);
-      console.log("Event:", eventTitle);
-      console.log("Reason:", rejectionReason);
-
-      return NextResponse.json({
-        success: true,
-        message: "Email logged (SMTP not configured)",
-      });
+      return NextResponse.json({ error: "Email delivery is not configured" }, { status: 503 });
     }
 
     // Create nodemailer transporter
@@ -81,11 +82,11 @@ export async function POST(request) {
                     </h2>
                     
                     <h3 style="margin: 0 0 35px; color: #FF6A00; font-size: 24px; font-weight: 800; text-align: center;">
-                      ${name}
+                      ${escapeHtml(name)}
                     </h3>
                     
                     <p style="margin: 0 0 25px; color: #333333; font-size: 16px; line-height: 1.8; text-align: center;">
-                      Thank you for your interest in hosting <strong style="color: #FF6A00;">"${eventTitle}"</strong> on Ticketलेलो. After careful review, we regret to inform you that your hosting request has been <strong style="color: #ef4444;">not approved</strong> at this time.
+                      Thank you for your interest in hosting <strong style="color: #FF6A00;">"${escapeHtml(eventTitle)}"</strong> on Ticketलेলো. After careful review, we regret to inform you that your hosting request has been <strong style="color: #ef4444;">not approved</strong> at this time.
                     </p>
                     
                     <!-- Event Details Card -->
@@ -98,21 +99,21 @@ export async function POST(request) {
                           <table style="width: 100%; border-collapse: collapse;">
                             <tr>
                               <td style="padding: 10px 0; color: #666666; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Event Title:</td>
-                              <td style="padding: 10px 0; color: #1a1a1a; font-size: 15px; font-weight: 700; text-align: right;">${eventTitle}</td>
+                              <td style="padding: 10px 0; color: #1a1a1a; font-size: 15px; font-weight: 700; text-align: right;">${escapeHtml(eventTitle)}</td>
                             </tr>
                             ${
                               college
                                 ? `
                             <tr>
                               <td style="padding: 10px 0; color: #666666; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Organization:</td>
-                              <td style="padding: 10px 0; color: #1a1a1a; font-size: 15px; font-weight: 700; text-align: right;">${college}</td>
+                              <td style="padding: 10px 0; color: #1a1a1a; font-size: 15px; font-weight: 700; text-align: right;">${escapeHtml(college)}</td>
                             </tr>
                             `
                                 : ""
                             }
                             <tr>
                               <td style="padding: 10px 0; color: #666666; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Expected Tickets:</td>
-                              <td style="padding: 10px 0; color: #1a1a1a; font-size: 15px; font-weight: 700; text-align: right;">${numberOfTickets}</td>
+                              <td style="padding: 10px 0; color: #1a1a1a; font-size: 15px; font-weight: 700; text-align: right;">${escapeHtml(numberOfTickets)}</td>
                             </tr>
                             ${
                               eventDescription
@@ -121,7 +122,7 @@ export async function POST(request) {
                               <td colspan="2" style="padding: 20px 0 8px; color: #666666; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Description:</td>
                             </tr>
                             <tr>
-                              <td colspan="2" style="padding: 0; color: #333333; font-size: 14px; line-height: 1.7;">${eventDescription}</td>
+                              <td colspan="2" style="padding: 0; color: #333333; font-size: 14px; line-height: 1.7;">${escapeHtml(eventDescription)}</td>
                             </tr>
                             `
                                 : ""
@@ -137,7 +138,7 @@ export async function POST(request) {
                          REASON FOR DECLINE
                       </h3>
                       <p style="margin: 0; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 400; line-height: 24px;">
-                        ${rejectionReason}
+                        ${escapeHtml(rejectionReason)}
                       </p>
                     </div>
                     
@@ -195,7 +196,7 @@ export async function POST(request) {
     await transporter.sendMail({
       from: `"Ticketलेलो" <${process.env.SMTP_EMAIL || "noreply@ticketlelo.com"}>`,
       to: email,
-      subject: `Hosting Request Update - ${eventTitle}`,
+      subject: `Hosting Request Update - ${String(eventTitle || "Hosting request").replace(/[\r\n]/g, " ").slice(0, 150)}`,
       html: htmlContent,
       attachments: [
         {

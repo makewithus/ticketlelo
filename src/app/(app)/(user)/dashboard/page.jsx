@@ -54,24 +54,35 @@ export default function DashboardPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user || !user.id) {
-      setIsLoading(false);
-      return;
+    let isMounted = true;
+    if (!user?.id) {
+      const timer = setTimeout(() => {
+        if (isMounted) setIsLoading(false);
+      }, 0);
+      return () => {
+        isMounted = false;
+        clearTimeout(timer);
+      };
     }
-    setIsLoading(true);
     const unsubscribe = subscribeToUserRegistrations(user.id, async (regs) => {
+      if (!isMounted) return;
       setRegistrations(regs);
       const eventsMap = new Map();
       for (const reg of regs) {
         if (!eventsMap.has(reg.eventId)) {
           const event = await getEvent(reg.eventId);
-          if (event) eventsMap.set(reg.eventId, event);
+          if (event && isMounted) eventsMap.set(reg.eventId, event);
         }
       }
-      setEvents(eventsMap);
-      setIsLoading(false);
+      if (isMounted) {
+        setEvents(eventsMap);
+        setIsLoading(false);
+      }
     });
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
   }, [user]);
 
   const handleLogout = async () => {

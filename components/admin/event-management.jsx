@@ -19,6 +19,7 @@ import {
   EyeOff,
   AlertCircle,
   Zap,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,6 +33,7 @@ import {
 } from "@/lib/firestore";
 import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
+import { SubEventModal } from "@/components/admin/sub-event-modal";
 
 export function EventManagement() {
   const { user } = useAuth();
@@ -40,6 +42,7 @@ export function EventManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
+  const [subEventModalTarget, setSubEventModalTarget] = useState(null);
   const [canCreateEvent, setCanCreateEvent] = useState(true);
   const [planLimitInfo, setPlanLimitInfo] = useState(null);
   const [formData, setFormData] = useState({
@@ -50,13 +53,6 @@ export function EventManagement() {
     totalTickets: 0,
     isActive: true,
   });
-
-  useEffect(() => {
-    if (user) {
-      loadEvents();
-      checkEventCreationEligibility();
-    }
-  }, [user]);
 
   const checkEventCreationEligibility = async () => {
     if (!user) return;
@@ -103,6 +99,16 @@ export function EventManagement() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        loadEvents();
+        checkEventCreationEligibility();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -488,25 +494,36 @@ export function EventManagement() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="space-y-2">
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(event)}
-                  className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-[#FF6A00] dark:hover:text-[#FF6A00] hover:border-[#FF6A00] dark:hover:border-[#FF6A00]/30 hover:bg-[#FF6A00]/5 dark:hover:bg-[#FF6A00]/10 transition-all rounded-xl"
+                  onClick={() => setSubEventModalTarget(event)}
+                  className="w-full gap-2 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
                 >
-                  <Edit className="w-3.5 h-3.5" />
-                  Edit
+                  <Layers className="w-4 h-4" />
+                  Manage Sub-Events &amp; Tracks
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDelete(event.id)}
-                  className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete
-                </Button>
+
+                <div className="flex gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(event)}
+                    className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-[#FF6A00] dark:hover:text-[#FF6A00] hover:border-[#FF6A00] dark:hover:border-[#FF6A00]/30 hover:bg-[#FF6A00]/5 dark:hover:bg-[#FF6A00]/10 transition-all rounded-xl"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDelete(event.id)}
+                    className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -533,6 +550,13 @@ export function EventManagement() {
           </Button>
         </div>
       )}
+
+      {/* Child Sub-Events Modal */}
+      <SubEventModal
+        event={subEventModalTarget}
+        isOpen={!!subEventModalTarget}
+        onClose={() => setSubEventModalTarget(null)}
+      />
     </div>
   );
 }

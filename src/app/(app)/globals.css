@@ -223,8 +223,16 @@ body {
 }
 
 @layer base {
+  html,
+  body {
+    width: 100%;
+    min-width: 320px;
+    overflow-x: clip;
+  }
+
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
   body {
     @apply bg-background text-foreground;
@@ -382,6 +390,25 @@ body {
     .tl-main { overflow: visible; }
     .tl-content { padding: 1rem; }
     .tl-system-theme table { display: block; max-width: 100%; overflow-x: auto; }
+  }
+
+  @media (max-width: 640px) {
+    .tl-system-theme :where(.grid) {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .tl-system-theme :where(input, select, textarea, button) {
+      max-width: 100%;
+    }
+
+    .tl-system-theme :where(h1, h2, h3, p, a, label, td, th) {
+      overflow-wrap: anywhere;
+    }
+
+    .tl-system-theme :where([role="dialog"], .fixed.inset-0 > div) {
+      max-height: calc(100dvh - 2rem);
+      overflow-y: auto;
+    }
   }
 
   @media (max-width: 420px) {

@@ -84,8 +84,10 @@ export function RegistrationManagement() {
   ==========================*/
   useEffect(() => {
     if (!selectedEventId) {
-      setRegistrations([]);
-      return;
+      const timer = setTimeout(() => {
+        setRegistrations((prev) => (prev.length === 0 ? prev : []));
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     let unsubscribe;

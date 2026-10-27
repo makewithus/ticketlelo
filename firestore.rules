@@ -3,166 +3,252 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if user is super admin
+    // ===== Helper Functions =====
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
     function isSuperAdmin() {
-      return request.auth != null && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superAdmin";
+      return isAuthenticated() && 
+             ((request.auth.token.role == "superAdmin") ||
+              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superAdmin"));
     }
     
-    // Helper function to check if user has super admin email (for initial setup)
-    function isSuperAdminEmail() {
-      return request.auth != null && request.auth.token.email == "superadmin@ticketlelo.com";
-    }
-    
-    // Helper function to check if user is organiser
     function isOrganiser() {
-      return request.auth != null && 
+      return isAuthenticated() && 
+             (isSuperAdmin() ||
+              (request.auth.token.role == "organiser") ||
+              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "organiser"));
+    }
+
+    function isAmbassador() {
+      return isAuthenticated() &&
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "organiser" ||
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
-              // Fallback: Check if email ends with @ticketlelo.com (except superadmin)
-              (request.auth.token.email.matches('.*@ticketlelo.com$') && 
-               request.auth.token.email != 'superadmin@ticketlelo.com'));
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ambassador");
     }
-    
-    // Helper function to check if user is admin (backward compatibility)
-    function isAdmin() {
-      return request.auth != null && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
-    
-    // Events collection
-    match /events/{eventId} {
-      // Anyone can read events
+
+    function isOrgMember(orgId) {
+      return isAuthenticated() &&
+             (isSuperAdmin() ||
+              (exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+               request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)).data.members));
+    }
+
+    function managesEventData(data) {
+      return isSuperAdmin() || (isOrganiser() &&
+        (data.get('createdBy', '') == request.auth.uid ||
+         (data.get('organizationId', '') != '' && isOrgMember(data.organizationId))));
+    }
+
+    // ===== Users Collection =====
+    match /users/{userId} {
+      // Profiles contain private contact and payout details. Event staff use
+      // event-scoped registration records instead of enumerating user profiles.
+      allow read: if isOwner(userId) || isSuperAdmin();
+      
+      // User can create their own document on signup
+      allow create: if isOwner(userId) && 
+                       (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == "user") &&
+                       (!request.resource.data.keys().hasAny(['isAdmin']) || request.resource.data.isAdmin == false) &&
+                       !request.resource.data.keys().hasAny(['eventsAllowed', 'eventsCreated', 'organizationId']);
+      
+      // User can update their own profile, but cannot tamper with role, admin privileges, or organization
+      allow update: if (isOwner(userId) && 
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'eventsAllowed', 'eventsCreated', 'organizationId'])) ||
+                       isSuperAdmin();
+      
+      // Only SuperAdmin can delete user records
+      allow delete: if isSuperAdmin();
+    }
+
+    // ===== Organizations Collection =====
+    match /organizations/{orgId} {
+      // Public can read basic organization info (name, slug, logo)
       allow read: if true;
-      // Organisers and Super Admins can manage events
+      // Organisers and SuperAdmin can create organizations
+      allow create: if isOrganiser() || isSuperAdmin();
+      // Only organization members or SuperAdmin can update
+      allow update: if isOrgMember(orgId) || isSuperAdmin();
+      // Only SuperAdmin or organization owner can delete
+      allow delete: if isSuperAdmin();
+    }
+    
+    // ===== Major Events Collection =====
+    match /events/{eventId} {
+      // Anyone can read public/published events
+      allow read: if resource.data.isPublished == true || resource.data.visibility == "public" || isOrganiser() || isSuperAdmin();
+      // Organisers and Super Admins can create and manage events
+      allow create: if managesEventData(request.resource.data);
+      allow update: if managesEventData(resource.data) &&
+        (isSuperAdmin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdBy', 'organizationId']));
+      allow delete: if managesEventData(resource.data);
+    }
+
+    // ===== Sub-Events Collection =====
+    match /subEvents/{subEventId} {
+      // Anyone can read public sub-events for tracks, workshops, and scheduling
+      allow read: if true;
+      // Organisers and Super Admins can manage sub-events
       allow write: if isOrganiser() || isSuperAdmin();
     }
-    
-    // Hosting Requests collection
-    match /hostingRequests/{requestId} {
-      // Anyone can create a hosting request (no authentication required)
-      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']);
-      // Super Admins and admins (isAdmin: true) can read all requests
-      allow read: if isSuperAdmin() || isSuperAdminEmail() || isAdmin() || isOrganiser();
-      // Super Admins and admins can update/delete hosting requests
-      allow update, delete: if isSuperAdmin() || isSuperAdminEmail() || isAdmin();
-      // Allow the newly created organiser to update their own request status (for approval flow)
-      allow update: if request.auth != null && 
-                       request.resource.data.status == "approved" &&
-                       request.resource.data.organiserId == request.auth.uid;
-    }
-    
-    // Custom Forms collection
-    match /customForms/{formId} {
-      // Anyone can read forms (API sanitizes sensitive data before returning)
+
+    // ===== Combo Tickets & Fest Passes =====
+    match /combos/{comboId} {
+      // Anyone can read active combos for ticketing selection
       allow read: if true;
-      // Only organisers and super admins can create forms
-      allow create: if isOrganiser() || isSuperAdmin();
-      // Only the organiser who created it or super admin can update
-      allow update: if isOrganiser() || isSuperAdmin();
-      // Only super admin can delete forms
-      allow delete: if isSuperAdmin();
+      // Organisers and Super Admins can manage combos
+      allow write: if isOrganiser() || isSuperAdmin();
     }
-    
-    // Coupons collection
-    match /coupons/{couponId} {
-      // Anyone can read to validate coupons
-      allow read: if true;
-      // Only super admins can create/delete coupons
-      allow create, delete: if isSuperAdmin();
-      // Anyone can update (to mark as used)
-      allow update: if true;
-    }
-    
-    // Registrations collection
+
+    // ===== Registrations Collection =====
     match /registrations/{registrationId} {
-      // Users can read their own registrations
-      allow read: if request.auth != null && 
+      // Attendees can read their own registrations; Organisers and Super Admins can read registrations for their events
+      allow read: if isAuthenticated() && 
                      (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
-      // Allow unauthenticated reads for ticket verification (API routes)
-      allow read: if true;
-      // Anyone can create registrations (for public event registration)
-      allow create: if true;
-      // Allow updates for ticket verification (status change to "Used")
-      allow update: if true;
-      // Only organisers and super admins can delete registrations
+      
+      // Clients may submit intake only. Ticket IDs, QR payloads, free/paid state,
+      // entitlements and admission state are issued by trusted server routes.
+      allow create: if isAuthenticated() &&
+                       request.auth.uid == request.resource.data.userId &&
+                       request.resource.data.keys().hasOnly([
+                         'userId', 'eventId', 'fullName', 'email', 'whatsappPhone',
+                         'customFieldResponses', 'formData', 'status', 'paymentStatus', 'createdAt'
+                       ]) &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.paymentStatus == 'pending';
+      
+      // Updates are restricted to organisers (e.g. check-in status) or SuperAdmin; attendees cannot mark tickets used or change amounts
+      allow update: if isOrganiser() || isSuperAdmin();
       allow delete: if isOrganiser() || isSuperAdmin();
     }
+
+    // ===== Reservations Collection =====
+    match /reservations/{reservationId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // ===== Orders Collection =====
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    // ===== Tickets Collection =====
+    match /tickets/{ticketId} {
+      // Attendees can read their own tickets; Organisers and SuperAdmin can read tickets for gate operations
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid == resource.data.userId || 
+                      request.auth.token.email == resource.data.buyerEmail ||
+                      isOrganiser() || 
+                      isSuperAdmin());
+      // Tickets are issued and updated exclusively via trusted server-side Admin SDK
+      allow write: if isSuperAdmin();
+    }
     
-    // Payments collection
+    // ===== Payments Collection =====
     match /payments/{paymentId} {
-      // Anyone can read their own payments
+      // User can read their own payment records; Organisers and SuperAdmin can review payments
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
+      // Payments must be created and updated via trusted server-side API (Admin SDK)
+      allow write: if isSuperAdmin();
+    }
+
+    // ===== Campus Ambassador Programs & Applications =====
+    match /ambassadorPrograms/{programId} {
       allow read: if true;
-      // Anyone can create payment records (for payment verification)
-      allow create: if true;
-      // Only organisers and super admins can update/delete payments
+      allow write: if isOrganiser() || isSuperAdmin();
+    }
+
+    match /ambassadors/{ambassadorId} {
+      // Ambassadors can read their own record; Organisers and SuperAdmin can review all
+      allow read: if isOwner(ambassadorId) || isOrganiser() || isSuperAdmin();
+      // Public applicants can submit an ambassador application
+      allow create: if isAuthenticated() && request.auth.uid == ambassadorId;
+      // Only Organiser and SuperAdmin can approve/reject and edit ambassador status
       allow update, delete: if isOrganiser() || isSuperAdmin();
     }
-    
-    // Users collection
-    match /users/{userId} {
-      // Super admin email has full access to everything (checked first)
-      allow read, write, create, update, delete: if isSuperAdminEmail();
-      
-      // Super admins with role can do everything
-      allow read, write, update, delete: if isSuperAdmin();
-      
-      // Allow anyone to query users collection (needed for registration flow)
+
+    match /commissions/{commissionId} {
+      // Ambassador can read their own commission ledger entries
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid == resource.data.ambassadorId || isOrganiser() || isSuperAdmin());
+      // Only server-side or SuperAdmin can write ledger entries (immutable accounting)
+      allow write: if isSuperAdmin();
+    }
+
+    match /payoutBatches/{batchId} {
+      allow read, write: if isOrganiser() || isSuperAdmin();
+    }
+
+    // ===== Dual-Level Certificates Collection =====
+    match /certificates/{certId} {
+      // DEF-022: Public verification page allows reading certificate metadata,
+      // but private personal details (buyerEmail, attendeeEmail, phone) are restricted to owner attendee, organiser, or superAdmin.
+      allow read: if (isAuthenticated() && (
+                       (resource.data.keys().hasAny(['userId']) && request.auth.uid == resource.data.userId) ||
+                       (resource.data.keys().hasAny(['buyerEmail']) && request.auth.token.email == resource.data.buyerEmail) ||
+                       isOrganiser() ||
+                       isSuperAdmin()
+                     )) ||
+                     !resource.data.keys().hasAny(['buyerEmail', 'attendeeEmail', 'phone']);
+      // Creation and updates are strictly server-side / SuperAdmin
+      allow write: if isOrganiser() || isSuperAdmin();
+    }
+
+    // ===== Creator Store / Merchandise =====
+    match /merchandise/{merchId} {
       allow read: if true;
-      
-      // Any authenticated user can create their own user document
-      allow create: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow unauthenticated updates for account migration (password, phone, fullName)
-      // This allows existing users to get updated credentials when registering for new events
-      // Protected fields: role, isAdmin, email, id, createdAt
-      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'email', 'id', 'createdAt']);
-      
-      // Users can update their own data but cannot change role or isAdmin fields
-      allow update: if request.auth != null && 
-                       request.auth.uid == userId && 
-                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin']);
+      allow write: if isOrganiser() || isSuperAdmin();
+    }
+
+    // ===== Hosting Requests =====
+    match /hostingRequests/{requestId} {
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']);
+      allow read: if isSuperAdmin() || isOrganiser();
+      allow update, delete: if isSuperAdmin() || isOrganiser();
     }
     
-    // Messages collection (Broadcast Messaging)
-    match /messages/{messageId} {
-      // Organisers can read their own event messages
-      allow read: if isOrganiser() || isSuperAdmin();
-      // Organisers can create messages for their events
-      allow create: if isOrganiser() || isSuperAdmin();
-      // Only message creator or admin can update/delete
-      allow update, delete: if isOrganiser() || isSuperAdmin();
-    }
-    
-    // Message Receipts collection
-    match /messageReceipts/{receiptId} {
-      // Only organisers and admins can read receipts
-      allow read: if isOrganiser() || isSuperAdmin();
-      // Server-side only creation
-      allow create: if true;
-      // No direct updates/deletes from client
-      allow update, delete: if isSuperAdmin();
-    }
-    
-    // Plans collection
-    match /plans/{planId} {
-      // Anyone can read plans (for pricing page)
+    // ===== Custom Forms =====
+    match /customForms/{formId} {
       allow read: if true;
-      // Only super admins can modify plans
-      allow create, update, delete: if isSuperAdmin();
-    }
-    
-    // Analytics collection
-    match /analytics/{analyticsId} {
-      // Organisers can read analytics for their events
-      allow read: if isOrganiser() || isSuperAdmin();
-      // Server-side only writes
-      allow create, update: if true;
-      // Only super admin can delete
+      allow create, update: if isOrganiser() || isSuperAdmin();
       allow delete: if isSuperAdmin();
+    }
+    
+    // ===== Coupons =====
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow create, update, delete: if isOrganiser() || isSuperAdmin();
+    }
+    
+    // ===== Messages & Receipts =====
+    match /messages/{messageId} {
+      allow read, write: if isOrganiser() || isSuperAdmin();
+    }
+    
+    match /messageReceipts/{receiptId} {
+      allow read: if isOrganiser() || isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+    
+    // ===== Plans & Analytics =====
+    match /plans/{planId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+    
+    match /analytics/{analyticsId} {
+      allow read: if isOrganiser() || isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
   }
 }

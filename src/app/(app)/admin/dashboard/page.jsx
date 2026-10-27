@@ -120,8 +120,8 @@ export default function AdminDashboardPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("events");
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const [reqRes] = await Promise.all([
         fetch("/api/hosting-requests"),
@@ -146,7 +146,10 @@ export default function AdminDashboardPage() {
   }, [user]);
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      loadData(false);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadData]);
 
   const totalEvents = events.length;

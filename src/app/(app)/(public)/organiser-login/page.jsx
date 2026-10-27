@@ -103,12 +103,12 @@ export default function OrganiserLoginPage() {
             <form onSubmit={handleLogin} className="space-y-5">
               {/* Email Field */}
               <div>
-                <label className="block text-sm font-medium text-[#061a3f] mb-2">
+                <label htmlFor="organiser-email" className="block text-sm font-medium text-[#061a3f] mb-2">
                   Email Address
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)] dark:text-white" />
-                  <input
+                  <input id="organiser-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -121,12 +121,12 @@ export default function OrganiserLoginPage() {
 
               {/* Password Field */}
               <div>
-                <label className="block text-sm font-medium text-[#061a3f] mb-2">
+                <label htmlFor="organiser-password" className="block text-sm font-medium text-[#061a3f] mb-2">
                   Password
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)] dark:text-white" />
-                  <input
+                  <input id="organiser-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

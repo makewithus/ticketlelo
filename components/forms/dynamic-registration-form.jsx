@@ -13,20 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { signup, getUserByEmail, login } from "@/lib/auth";
+import { signup, login, getCurrentUser } from "@/lib/auth";
 import {
-  createRegistration,
-  checkDuplicateRegistration,
-  checkDuplicatePhoneForEvent,
   getEvent,
 } from "@/lib/firestore";
 import { sendRegistrationConfirmation } from "@/lib/email";
-import { generateQRCode } from "@/lib/qr";
-import { generateRandomPassword } from "@/lib/password-utils";
-import { useCoupon } from "@/lib/coupons";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
-import { updatePassword as firebaseUpdatePassword } from "firebase/auth";
 import {
   Loader2,
   Sparkles,
@@ -37,7 +30,6 @@ import {
   RefreshCw,
   Mail,
   Info,
-  Save,
 } from "lucide-react";
 
 export function DynamicRegistrationForm({ eventId, event, initialForm }) {
@@ -48,10 +40,6 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   const [errors, setErrors] = useState({});
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [userCredentials, setUserCredentials] = useState({
-    email: "",
-    password: "",
-  });
   const [tempFormData, setTempFormData] = useState(null);
   const [loginPassword, setLoginPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -69,69 +57,69 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   useEffect(() => {
     // If we already have initialForm (not undefined), use it and skip the fetch
     if (initialForm !== undefined) {
-      if (initialForm) {
-        // Custom form exists - use it
-        console.log(" Using prefetched form - instant load!");
-        setCustomForm(initialForm);
+      const timer = setTimeout(() => {
+        if (initialForm) {
+          // Custom form exists - use it
+          console.log(" Using prefetched form - instant load!");
+          setCustomForm(initialForm);
 
-        // Initialize form data with empty values
-        const initialData = {};
-        initialForm.fields?.forEach((field) => {
-          if (field.id) {
-            initialData[field.id] = "";
-          }
-        });
-        setFormData(initialData);
-      } else {
-        // initialForm is null - no custom form exists, use default
-        console.log("No custom form found (prefetched), using default form");
-        const defaultForm = {
-          eventId: eventId,
-          fields: [
-            {
-              id: "fullName",
-              label: "Full Name",
-              type: "text",
-              required: true,
-              placeholder: "Enter your full name",
+          // Initialize form data with empty values
+          const initialData = {};
+          initialForm.fields?.forEach((field) => {
+            if (field.id) {
+              initialData[field.id] = "";
+            }
+          });
+          setFormData(initialData);
+        } else {
+          // initialForm is null - no custom form exists, use default
+          console.log("No custom form found (prefetched), using default form");
+          const defaultForm = {
+            eventId: eventId,
+            fields: [
+              {
+                id: "fullName",
+                label: "Full Name",
+                type: "text",
+                required: true,
+                placeholder: "Enter your full name",
+              },
+              {
+                id: "email",
+                label: "Email Address",
+                type: "email",
+                required: true,
+                placeholder: "your.email@example.com",
+              },
+              {
+                id: "phone",
+                label: "Phone Number",
+                type: "tel",
+                required: true,
+                placeholder: "+91 XXXXX XXXXX",
+              },
+            ],
+            theme: {
+              logo: null,
+              color: "#10b981",
             },
-            {
-              id: "email",
-              label: "Email Address",
-              type: "email",
-              required: true,
-              placeholder: "your.email@example.com",
-            },
-            {
-              id: "phone",
-              label: "Phone Number",
-              type: "tel",
-              required: true,
-              placeholder: "+91 XXXXX XXXXX",
-            },
-          ],
-          theme: {
-            logo: null,
-            color: "#10b981",
-          },
-          // INHERIT payment info from actual event
-          isPaid: event?.isPaid || false,
-          amount: event?.ticketPrice || 0,
-          enableCoupons: true, // Always enable coupons for default forms
-          status: "published",
-          isDefault: true,
-        };
+            // INHERIT payment info from actual event
+            isPaid: event?.isPaid || false,
+            amount: event?.ticketPrice || 0,
+            enableCoupons: true, // Always enable coupons for default forms
+            status: "published",
+            isDefault: true,
+          };
 
-        setCustomForm(defaultForm);
-        setFormData({
-          fullName: "",
-          email: "",
-          phone: "",
-        });
-
-
-      }
-      return;
+          setCustomForm(defaultForm);
+          setFormData({
+            fullName: "",
+            email: "",
+            phone: "",
+          });
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     async function loadForm() {
@@ -393,9 +381,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId,
-          registrationData: { fullName: user.fullName, email: user.email },
-          finalAmount: couponData?.finalAmount,
-          couponId: couponData?.couponId,
+          registrationData: { fullName: user.fullName, email: user.email, whatsappPhone: user.whatsappPhone, formData: tempFormData?.formData || {} },
+          couponCode: couponCode || null,
         }),
       });
 
@@ -409,13 +396,19 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         throw new Error(orderData.error || "Failed to create order");
       }
 
+      const gatewayOrder = orderData.order || {
+        id: orderData.razorpayOrderId || orderData.orderId,
+        razorpayKeyId: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+      };
       const options = {
-        key: orderData.order.razorpayKeyId,
-        amount: orderData.order.amount,
-        currency: orderData.order.currency,
+        key: gatewayOrder.razorpayKeyId || orderData.keyId,
+        amount: gatewayOrder.amount,
+        currency: gatewayOrder.currency,
         name: "Ticketलेलो",
         description: `Ticket for ${event?.name || "Event"}`,
-        order_id: orderData.order.id,
+        order_id: gatewayOrder.id,
         handler: async function (response) {
           try {
             const verifyResponse = await fetch("/api/verify-payment", {
@@ -432,17 +425,14 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              toast.success("Payment successful!");
+              const emailSent = verifyData.ticketId
+                ? await sendRegistrationConfirmation(user.email, tempFormData.fullName || user.fullName || user.email, event?.name || "Event", verifyData.ticketId)
+                : false;
+              toast.success(emailSent ? "Payment complete. Ticket sent to your email." : "Payment complete. Ticket is available in your dashboard.");
 
-              if (couponData && couponData.couponId) {
-                try {
-                  await useCoupon(couponData.couponId, user.id);
-                } catch (error) {
-                  console.error("Failed to mark coupon as used:", error);
-                }
-              }
-
-              await registerExistingUser(user, response.razorpay_payment_id);
+              setShowSuccessModal(true);
+              setPaymentProcessing(false);
+              setIsLoading(false);
             } else {
               toast.error("Payment verification failed");
               setPaymentProcessing(false);
@@ -492,132 +482,25 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     }
   };
 
-  // Register existing user for event (after login and optional payment)
-  const registerExistingUser = async (user, paymentId = null) => {
+  // Server-owned free admission issuance is idempotent and capacity checked.
+  const registerExistingUser = async (user) => {
     try {
-      const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
-      const qrCode = await generateQRCode(ticketId);
-
-      const registrationData = {
-        userId: user.id,
-        eventId,
-        ticketId,
-        fullName: tempFormData.fullName || user.fullName || user.email,
-        email: user.email,
-        whatsappPhone: tempFormData.phone || user.whatsappPhone || "",
-        customFieldResponses: formData,
-        status: "Unused",
-        qrCode,
-        paymentStatus: tempFormData.isPaid ? "paid" : "free",
-        paymentId: paymentId || null,
-        createdAt: new Date().toISOString(),
-      };
-
-      await createRegistration(registrationData);
-      console.log("Registration created for existing user");
-
-      // Send ticket email
-      try {
-        console.log(
-          "[registerExistingUser] Sending ticket email WITHOUT password",
-        );
-        await sendRegistrationConfirmation(
-          user.email,
-          tempFormData.fullName || user.fullName || user.email,
-          event?.name || "Event",
-          ticketId,
-        );
-        toast.success(`Ticket sent to ${user.email}!`);
-      } catch (error) {
-        console.error("Failed to send ticket email:", error);
-        toast.error("Registration successful but failed to send email");
-      }
-
-      // Redirect to dashboard
-      toast.success("Registration successful!");
-      setTimeout(() => router.push("/dashboard"), 2000);
-
-      setIsLoading(false);
-      setPaymentProcessing(false);
-    } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Failed to complete registration: " + error.message);
-      setIsLoading(false);
-      setPaymentProcessing(false);
-      setTimeout(() => router.push("/"), 2000);
-    }
-  };
-
-  // Proceed with event registration after authentication
-  const proceedWithRegistration = async (user, password) => {
-    try {
-      console.log(" PROCEEDING WITH REGISTRATION:");
-      console.log("   User:", user?.email);
-      console.log("   Event:", tempEventData?.name);
-
-      const { email, phone, fullName, eventId, event, customForm, formData } =
-        tempFormData;
-
-      // Generate ticket
-      const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
-      const qrCode = await generateQRCode(ticketId);
-
-      // Create registration
-      const registrationData = {
-        userId: user.id,
-        eventId: eventId,
-        ticketId,
-        fullName: fullName || email,
-        email: email,
-        whatsappPhone: phone || "",
-        customFieldResponses: formData,
-        status: "Unused",
-        qrCode,
-        paymentStatus: tempFormData.isPaid ? "paid" : "free",
-        createdAt: new Date().toISOString(),
-      };
-
-      await createRegistration(registrationData);
-      console.log("Registration created");
-
-      // Send confirmation email with PDF ticket AND CREDENTIALS
-      try {
-        console.log(
-          "[proceedWithRegistration - NEW USER] Sending ticket WITH password",
-        );
-        console.log("Sending ticket with credentials to email:", email);
-        console.log(
-          "   Password being sent:",
-          password ? "Available" : "Missing",
-        );
-        await sendRegistrationConfirmation(
-          email,
-          fullName || email,
-          event?.name || "Event",
-          ticketId,
-          password, // Pass password for new users
-        );
-        toast.success(`Your ticket and login credentials sent to ${email}!`);
-      } catch (error) {
-        console.error("Email error:", error);
-        toast.error(
-          "Registration successful but failed to send email. Check your dashboard for ticket.",
-        );
-      }
-
-      // Show success modal with credentials
-      setUserCredentials({
-        email: user?.email || "",
-        phone: user?.whatsappPhone || "",
-        password: password,
+      const response = await fetch("/api/register-free", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, formData: tempFormData?.formData || {} }),
       });
-
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Registration failed");
+      const emailSent = await sendRegistrationConfirmation(user.email, tempFormData?.fullName || user.fullName || user.email, event?.name || "Event", result.ticketId);
+      toast.success(result.alreadyRegistered ? "You are already registered for this event" : "Registration successful");
+      if (!emailSent) toast.info("Sign in to your attendee dashboard to view your ticket");
       setShowSuccessModal(true);
-      setIsLoading(false);
     } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Registration failed: " + error.message);
+      console.error("Free registration failed:", error.message);
+      toast.error(error.message || "Registration failed");
+    } finally {
       setIsLoading(false);
+      setPaymentProcessing(false);
     }
   };
 
@@ -698,52 +581,15 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         phone || "(not required)",
       );
 
-      // Run backend queries concurrently for optimization
-      console.log("Checking duplicates and user existence concurrently...");
-      const phonePromise = (phone && phone !== "") 
-        ? checkDuplicatePhoneForEvent(phone, eventId) 
-        : Promise.resolve(false);
-      
-      const userPromise = getUserByEmail(email).catch(err => {
-        console.log("No existing user found (error caught):", err.message);
-        return null;
-      });
-
-      const [isDuplicateEmail, isDuplicatePhone, existingUserFound] = await Promise.all([
-        checkDuplicateRegistration(email, eventId),
-        phonePromise,
-        userPromise
-      ]);
-
-      if (isDuplicateEmail) {
-        toast.error("This email is already registered for this event!");
+      const signedInUser = auth.currentUser;
+      if (signedInUser && signedInUser.email?.toLowerCase() !== email.toLowerCase()) {
+        toast.error("Sign in with the email address entered on this form");
         setIsLoading(false);
         return;
       }
-
-      if (isDuplicatePhone) {
-        toast.error("This phone number is already registered for this event!");
-        setIsLoading(false);
-        return;
-      }
-
-      let existingUser = existingUserFound;
-      if (existingUser) {
-        console.log("EXISTING USER FOUND:");
-        console.log("   User ID:", existingUser.id);
-        console.log("   Email:", existingUser.email);
-        console.log("   Name:", existingUser.fullName);
-        console.log("   → Will NOT send password (user already has credentials)");
-        toast.info(`Welcome back! We found your account for ${email}`, {
-          duration: 4000,
-        });
-      } else {
-        console.log("NEW USER - No existing account found");
-        console.log("   → Will generate password and send credentials");
-        toast.info(`Creating new account for ${email}`, {
-          duration: 3000,
-        });
-      }
+      const existingUser = signedInUser
+        ? (await getCurrentUser(signedInUser.uid)) || { id: signedInUser.uid, email: signedInUser.email, fullName: signedInUser.displayName || fullName }
+        : null;
 
       const isPaidEvent = customForm?.isPaid && customForm?.amount > 0;
 
@@ -772,45 +618,32 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         isPaid: isPaidEvent,
       });
 
-      // NO LOGIN MODAL - Payment/Registration happens immediately
       if (isPaidEvent) {
-        // PAID EVENT - Initiate payment first (for both new and existing users)
-        console.log(" PAID EVENT DETECTED - Initiating payment flow");
-        console.log("   Amount to charge: ₹", customForm?.amount);
-        await handlePaymentFlow(email, phone, fullName, existingUser);
-      } else {
-        console.log("🆓 FREE EVENT - Registering without payment");
-        // FREE EVENT - Register immediately with credentials for ALL users
-        if (existingUser) {
-          console.log("=".repeat(50));
-          console.log(" EXISTING USER - FREE EVENT");
-          console.log("   Generating NEW password and sending credentials");
-          const autoPassword = generateRandomPassword();
-          console.log("Generated password:", autoPassword);
-          console.log("Password WILL be sent in email");
-          console.log("=".repeat(50));
-          await createAccountAndRegister(
-            email,
-            phone,
-            fullName,
-            autoPassword,
-            null,
-          );
-        } else {
-          console.log("=".repeat(50));
-          console.log("🆕 NEW USER - FREE EVENT");
-          const autoPassword = generateRandomPassword();
-          console.log("Generated password:", autoPassword);
-          console.log("Password WILL be sent in email");
-          console.log("=".repeat(50));
-          await createAccountAndRegister(
-            email,
-            phone,
-            fullName,
-            autoPassword,
-            null,
-          );
+        let checkoutUser = existingUser;
+        if (!checkoutUser) {
+          const secretBytes = new Uint8Array(32);
+          window.crypto.getRandomValues(secretBytes);
+          const oneTimeSecret = Array.from(secretBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+          try {
+            checkoutUser = await signup(email, oneTimeSecret, fullName || email, phone || "");
+            await sendPasswordResetEmail(auth, email);
+          } catch (accountError) {
+            if (accountError.code === "auth/email-already-in-use" || /already exists/i.test(accountError.message || "")) {
+              setShowLoginModal(true);
+              setIsLoading(false);
+              return;
+            }
+            throw accountError;
+          }
         }
+        await handlePaymentFlow(email, phone, fullName, checkoutUser);
+      } else if (existingUser) {
+        await registerExistingUser(existingUser);
+      } else {
+        const secretBytes = new Uint8Array(32);
+        window.crypto.getRandomValues(secretBytes);
+        const oneTimeSecret = Array.from(secretBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+        await createAccountAndRegister(email, phone, fullName, oneTimeSecret);
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -834,9 +667,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId,
-          registrationData: { fullName, email },
-          finalAmount: couponData?.finalAmount,
-          couponId: couponData?.couponId,
+          registrationData: { fullName, email, whatsappPhone: phone, formData: tempFormData?.formData || {} },
+          couponCode: couponCode || null,
         }),
       });
 
@@ -851,13 +683,19 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       }
 
       // Load Razorpay checkout
+      const gatewayOrder = orderData.order || {
+        id: orderData.razorpayOrderId || orderData.orderId,
+        razorpayKeyId: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+      };
       const options = {
-        key: orderData.order.razorpayKeyId,
-        amount: orderData.order.amount,
-        currency: orderData.order.currency,
+        key: gatewayOrder.razorpayKeyId || orderData.keyId,
+        amount: gatewayOrder.amount,
+        currency: gatewayOrder.currency,
         name: "Ticketलेलो",
         description: `Ticket for ${event?.name || "Event"}`,
-        order_id: orderData.order.id,
+        order_id: gatewayOrder.id,
         handler: async function (response) {
           try {
             console.log(" Payment successful");
@@ -877,47 +715,16 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              toast.success("Payment successful!");
+              const emailSent = verifyData.ticketId
+                ? await sendRegistrationConfirmation(email, fullName || email, event?.name || "Event", verifyData.ticketId)
+                : false;
+              toast.success(emailSent ? "Payment complete. Ticket sent to your email." : "Payment complete. Ticket is available in your dashboard.");
 
-              // Mark coupon as used
-              if (couponData && couponData.couponId) {
-                try {
-                  const userId = existingUser?.id || "temp";
-                  await useCoupon(couponData.couponId, userId);
-                } catch (error) {
-                  console.error("Failed to mark coupon as used:", error);
-                }
-              }
-
-              // ALWAYS CREATE NEW CREDENTIALS FOR PAID EVENTS
-              console.log("=".repeat(50));
-              console.log(" PAID EVENT - GENERATING NEW CREDENTIALS");
-              const autoPassword = generateRandomPassword();
-              console.log("Generated 6-char password:", autoPassword);
-              console.log("Password WILL be sent in email");
-              console.log("=".repeat(50));
-
-              if (existingUser) {
-                // EXISTING USER - Update their password and send new credentials
-                console.log(" EXISTING USER - Updating with NEW password");
-                await createAccountAndRegister(
-                  email,
-                  phone,
-                  fullName,
-                  autoPassword,
-                  response.razorpay_payment_id,
-                );
-              } else {
-                // NEW USER - Create account with password
-                console.log("🆕 NEW USER - Creating account with password");
-                await createAccountAndRegister(
-                  email,
-                  phone,
-                  fullName,
-                  autoPassword,
-                  response.razorpay_payment_id,
-                );
-              }
+              // The trusted verification route owns paid ticket issuance. Do not
+              // create a second client-side ticket/registration after payment.
+              setShowSuccessModal(true);
+              setPaymentProcessing(false);
+              setIsLoading(false);
             } else {
               toast.error("Payment verification failed");
               setPaymentProcessing(false);
@@ -969,273 +776,30 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     }
   };
 
-  // Create account and register for event
-  const createAccountAndRegister = async (
-    email,
-    phone,
-    fullName,
-    password,
-    paymentId,
-  ) => {
+  const createAccountAndRegister = async (email, phone, fullName, password) => {
     try {
-      console.log("Creating/Updating user account with new credentials...");
-      console.log("   Email:", email);
-      console.log("   Password:", password);
-      console.log(
-        "   Using tempFormData:",
-        tempFormData ? "Available" : "Missing",
-      );
-
-      let user = null;
-      let isNewUser = false;
-
-      // Check if user already exists
-      const existingUserCheck = await getUserByEmail(email);
-
-      if (existingUserCheck) {
-        // EXISTING USER - Update their password in both Firebase Auth AND Firestore
-        console.log(
-          " User exists - Updating password in Firebase Auth and Firestore",
-        );
-
-        let passwordUpdateFailed = false;
-        let passwordErrorMessage = "";
-
-        try {
-          // Update Firebase Auth password via Admin SDK
-          const updatePasswordResponse = await fetch(
-            "/api/update-user-password",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                uid: existingUserCheck.id,
-                newPassword: password,
-              }),
-            },
-          );
-
-          const updatePasswordResult = await updatePasswordResponse.json();
-
-          if (!updatePasswordResult.success) {
-            passwordUpdateFailed = true;
-            passwordErrorMessage =
-              updatePasswordResult.error || "Unknown error";
-            console.error(
-              " Firebase Auth password update failed:",
-              passwordErrorMessage,
-            );
-            console.log(
-              "Continuing with registration, will send ticket anyway",
-            );
-          } else {
-            console.log("Firebase Auth password updated");
-          }
-        } catch (updateError) {
-          passwordUpdateFailed = true;
-          passwordErrorMessage = updateError.message;
-          console.error(
-            " Failed to update Firebase Auth password:",
-            updateError,
-          );
-          console.log(
-            "Continuing with registration, will send ticket anyway",
-          );
-        }
-
-        try {
-          // Update Firestore password and name (even if Auth update failed)
-          const userRef = doc(db, "users", existingUserCheck.id);
-
-          const updateData = {
-            password: password,
-          };
-
-          // Update fullName if provided
-          if (fullName && fullName.trim()) {
-            updateData.fullName = fullName.trim();
-          }
-
-          // Only update phone if it's different and provided
-          if (phone && phone !== existingUserCheck.whatsappPhone) {
-            updateData.whatsappPhone = phone;
-          }
-
-          await updateDoc(userRef, updateData);
-
-          user = {
-            ...existingUserCheck,
-            password: password,
-            fullName: fullName?.trim() || existingUserCheck.fullName,
-            whatsappPhone: phone || existingUserCheck.whatsappPhone,
-          };
-
-          console.log("User updated in Firestore");
-
-          if (passwordUpdateFailed) {
-            console.warn(
-              " Note: Firebase Auth password NOT updated, but Firestore has new password",
-            );
-            console.warn("   User should use forgot password flow later");
-          } else {
-            console.log(
-              "Existing user updated successfully in both Auth and Firestore",
-            );
-          }
-
-          isNewUser = false;
-        } catch (firestoreError) {
-          console.error("Failed to update Firestore:", firestoreError);
-          throw new Error("Failed to update user data. Please try again.");
-        }
-      } else {
-        // NEW USER - Create Firebase Auth account and Firestore document
-        console.log("🆕 Creating new user account");
-
-        user = await signup(email, password, fullName || email, phone || "");
-
-        console.log("New user account created:", user.id);
-        isNewUser = true;
-      }
-
-      // Generate ticket
-      const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
-      const qrCode = await generateQRCode(ticketId);
-
-      // Create registration
-      const registrationData = {
-        userId: user.id,
-        eventId: tempFormData?.eventId || eventId,
-        ticketId,
-        fullName: user.fullName || fullName || email,
-        email,
-        whatsappPhone: phone || user.whatsappPhone || "",
-        customFieldResponses: tempFormData?.formData || {},
-        status: "Unused",
-        qrCode,
-        paymentStatus: tempFormData?.isPaid ? "paid" : "free",
-        paymentId: paymentId || null,
-        createdAt: new Date().toISOString(),
-      };
-
-      await createRegistration(registrationData);
-      console.log("Registration created");
-
-      // Send ticket email WITH CREDENTIALS (for both new and existing users)
-      try {
-        console.log("=".repeat(60));
-        console.log(
-          `[${isNewUser ? "NEW" : "EXISTING"} USER] Sending ticket WITH password`,
-        );
-        console.log("=== CALLING sendRegistrationConfirmation ===");
-        console.log("   Email:", email);
-        console.log("   FullName:", user.fullName || fullName || email);
-        console.log("   EventName:", tempFormData?.event?.name || "Event");
-        console.log("   TicketId:", ticketId);
-        console.log("   Password:", password);
-        console.log("   Password type:", typeof password);
-        console.log("   Password length:", password?.length);
-        console.log("=".repeat(60));
-
-        await sendRegistrationConfirmation(
-          email,
-          user.fullName || fullName || email,
-          tempFormData?.event?.name || "Event",
-          ticketId,
-          password,
-        );
-        console.log("Ticket email with credentials sent successfully!");
-        toast.success("Ticket and login credentials sent to your email!");
-      } catch (error) {
-        console.error("Failed to send ticket email:", error);
-        toast.error("Failed to send ticket email");
-      }
-
-      // Show success modal with credentials
-      console.log("Setting credentials for success modal:");
-      console.log("   Email:", email);
-      console.log("   Password:", password);
-      setUserCredentials({ email, password });
-      setShowSuccessModal(true);
-      setIsLoading(false);
-      setPaymentProcessing(false);
-    } catch (error) {
-      console.error("Account creation/update error:", error);
-      toast.error("Failed to process account: " + error.message);
-      setIsLoading(false);
-      setPaymentProcessing(false);
-      setTimeout(() => router.push("/"), 2000);
-    }
-  };
-
-  // Register existing user for event (NO login required, NO credentials sent)
-  const registerExistingUserDirectly = async (
-    user,
-    email,
-    phone,
-    fullName,
-    paymentId = null,
-    isPaid = false,
-  ) => {
-    try {
-      console.log(" Registering existing user...");
-
-      // Generate ticket
-      const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).slice(2, 11).toUpperCase()}`;
-      const qrCode = await generateQRCode(ticketId);
-
-      // Create registration
-      const registrationData = {
-        userId: user.id,
-        eventId,
-        ticketId,
-        fullName: fullName || user.fullName || email,
-        email: email,
-        whatsappPhone: phone || user.whatsappPhone || "",
-        customFieldResponses: formData,
-        status: "Unused",
-        qrCode,
-        paymentStatus: isPaid ? "paid" : "free",
-        paymentId: paymentId || null,
-        createdAt: new Date().toISOString(),
-      };
-
-      await createRegistration(registrationData);
-      console.log("Registration created for existing user");
-
-      // Send ticket email (NOT credentials - they already have them)
-      try {
-        console.log(
-          "[registerExistingUserDirectly] Sending ticket email WITHOUT password",
-        );
-        await sendRegistrationConfirmation(
-          email,
-          fullName || user.fullName || email,
-          event?.name || "Event",
-          ticketId,
-        );
-        console.log("Ticket email sent");
-        toast.success(`Ticket sent to ${email}!`);
-      } catch (error) {
-        console.error("Failed to send ticket email:", error);
-        toast.error("Registration successful but failed to send ticket email.");
-      }
-
-      // Show success modal WITHOUT credentials (they already have them)
-      setUserCredentials({
-        email: email,
-        password: "", // Empty - they already have credentials
-        isExistingUser: true, // Flag to indicate existing user
+      const user = await signup(email, password, fullName || email, phone || "");
+      await sendPasswordResetEmail(auth, email);
+      const response = await fetch("/api/register-free", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: tempFormData?.eventId || eventId, formData: tempFormData?.formData || {} }),
       });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Registration failed");
+      const emailSent = await sendRegistrationConfirmation(email, user.fullName || fullName || email, tempFormData?.event?.name || "Event", result.ticketId);
+      toast.success(emailSent ? "Registration complete and ticket sent" : "Registration complete. Sign in to view your ticket");
       setShowSuccessModal(true);
-      setIsLoading(false);
-      setPaymentProcessing(false);
     } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Registration failed: " + error.message);
+      console.error("Free account registration failed:", error.message);
+      if (error.code === "auth/email-already-in-use" || /already exists/i.test(error.message || "")) {
+        setShowLoginModal(true);
+        toast.info("An account already exists. Sign in to continue.");
+      } else {
+        toast.error(error.message || "Registration failed");
+      }
+    } finally {
       setIsLoading(false);
       setPaymentProcessing(false);
-      setTimeout(() => router.push("/"), 2000);
     }
   };
 
@@ -1412,19 +976,11 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   return (
     <>
       <div className="w-full">
-        <div className="mb-6">
-
-          <p className="text-sm text-slate-400">
-            Fill in your details below to secure your spot.
-          </p>
-        </div>
-
         {/* Show amount if paid event */}
         {customForm.isPaid && customForm.amount > 0 && (
-          <div className="mb-6 p-4 bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-xl">
-            <p className="text-sm font-medium text-[#FF6A00]">
-              Amount: ₹{customForm.amount}
-            </p>
+          <div className="mb-5 p-3.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300">Registration Fee (18% GST Incl.)</span>
+            <span className="text-base font-bold text-amber-400">₹{customForm.amount}</span>
           </div>
         )}
 
@@ -1700,79 +1256,21 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-[#FF6A00] mb-1">
-                      Ticket Sent to Email
+                      Registration status
                     </p>
                     <p className="text-sm text-[#FF6A00]/70">
-                      Check your inbox for the PDF ticket with QR code
+                      Sign in to your attendee dashboard to view available tickets.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* LOGIN CREDENTIALS - Show if password exists */}
-              {userCredentials.password && (
-                <div className="bg-slate-50 dark:bg-slate-800 border-2 border-[#FF6A00] rounded-lg p-5">
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-slate-700">
-                    <div className="w-8 h-8 rounded-lg bg-[#FF6A00] flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                        />
-                      </svg>
-                    </div>
-                    <h4 className="text-slate-900 dark:text-white font-semibold text-base">
-                      Your Login Credentials
-                    </h4>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">
-                        Email Address
-                      </label>
-                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5">
-                        <p className="font-mono text-slate-900 dark:text-white text-sm break-all">
-                          {userCredentials.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 dark:text-slate-400 text-xs font-medium mb-1.5">
-                        Password
-                      </label>
-                      <div className="bg-white dark:bg-slate-900 border-2 border-[#FF6A00] rounded-lg px-4 py-3">
-                        <p className="font-mono text-slate-900 dark:text-white text-xl font-bold tracking-wider text-center">
-                          {userCredentials.password}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2.5 flex items-center justify-center gap-2">
-                    <Save className="w-4 h-4 text-amber-800 dark:text-amber-300" />
-                    <p className="text-amber-800 dark:text-amber-300 text-xs text-center font-medium">
-                      Save these credentials - you'll need them to sign in
-                      and access your dashboard
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {/* Info Message */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <p className="text-sm text-blue-900 dark:text-blue-300">
-                  <strong>What's next?</strong> Use the credentials above to
-                  login and view your tickets, or change your password anytime
-                  from your dashboard.
+                  <strong>What&apos;s next?</strong> Sign in to the attendee dashboard
+                  with your account. Use password recovery if you need to set or
+                  reset your password.
                 </p>
               </div>
             </div>

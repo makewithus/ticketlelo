@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
+import { getAuthenticatedUser } from "@/lib/auth-server";
 
 const SETTINGS_REF = () => adminDb.collection("siteSettings").doc("homepage");
 const DEFAULT_COUNTDOWN_AT = "2026-11-04T18:30:00+05:30";
@@ -24,17 +25,13 @@ export async function GET() {
 
 export async function PUT(request) {
   try {
-    if (!adminDb || !adminAuth) {
+    if (!adminDb) {
       return NextResponse.json({ error: "Site settings are unavailable" }, { status: 503 });
     }
 
-    const token = request.cookies.get("auth-token")?.value;
-    if (!token) return NextResponse.json({ error: "Sign in as a super administrator" }, { status: 401 });
-
-    const decoded = await adminAuth.verifyIdToken(token);
-    const userSnapshot = await adminDb.collection("users").doc(decoded.uid).get();
-    const user = userSnapshot.data();
-    if (user?.role !== "superAdmin" && user?.isSuperAdmin !== true) {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ error: "Sign in as a super administrator" }, { status: 401 });
+    if (caller.role !== "superAdmin") {
       return NextResponse.json({ error: "Super administrator access required" }, { status: 403 });
     }
 
@@ -43,7 +40,7 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Choose a valid date and time" }, { status: 400 });
     }
 
-    await SETTINGS_REF().set({ countdownAt, updatedAt: new Date().toISOString(), updatedBy: decoded.uid }, { merge: true });
+    await SETTINGS_REF().set({ countdownAt, updatedAt: new Date().toISOString(), updatedBy: caller.uid }, { merge: true });
     return NextResponse.json({ success: true, countdownAt });
   } catch (error) {
     console.error("Failed to update homepage countdown setting:", error);

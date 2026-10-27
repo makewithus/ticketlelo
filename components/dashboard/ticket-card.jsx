@@ -1,5 +1,4 @@
-"use client";
-
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -7,15 +6,73 @@ import {
   Download,
   CheckCircle,
   Clock,
+  Award,
+  CalendarPlus,
+  Loader2,
+  Layers,
 } from "lucide-react";
+import { generateICS } from "@/lib/calendar";
+import { toast } from "sonner";
+import { parseFirestoreDate, formatShortDate, formatDateTime } from "@/lib/date-utils";
 
 export function TicketCard({ registration, event }) {
+  const [certLoading, setCertLoading] = useState(false);
+
   const handleDownload = () => {
     const downloadUrl = `/api/generate-ticket/${registration.ticketId}`;
     window.open(downloadUrl, "_blank");
   };
 
-  const isUsed = registration.status === "Used";
+  const handleAddToCalendar = () => {
+    try {
+      const eventDate = parseFirestoreDate(event.date) || new Date();
+      const icsData = generateICS({
+        title: event.name || "Festival Event",
+        description: `${event.description || ""}\nTicket ID: ${registration.ticketId}`,
+        location: event.location || "Venue Location",
+        startDate: eventDate,
+      });
+
+      const blob = new Blob([icsData], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${(event.name || "event").replace(/\s+/g, "_")}.ics`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success("Calendar invite downloaded (.ics)");
+    } catch (err) {
+      toast.error("Failed to generate calendar invite");
+    }
+  };
+
+  const handleGetCertificate = async () => {
+    try {
+      setCertLoading(true);
+      const res = await fetch("/api/certificates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticketId: registration.ticketId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to generate certificate");
+      }
+      toast.success("Certificate issued! Opening verified credential...");
+      window.open(`/verify-certificate/${data.certificate.certificateId}`, "_blank");
+    } catch (err) {
+      toast.error(err.message || "Certificate unavailable (attendance verification required)");
+    } finally {
+      setCertLoading(false);
+    }
+  };
+
+  const isUsed = registration.status === "Used" || registration.status === "used";
+
 
   return (
     <div
@@ -64,19 +121,7 @@ export function TicketCard({ registration, event }) {
               <Calendar className="w-4 h-4 text-[#3157ff]" />
             </div>
             <span className="text-[rgba(6,26,63,0.72)] truncate">
-              {event.date?.toDate
-                ? event.date.toDate().toLocaleDateString("en-IN", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })
-                : new Date(event.date).toLocaleDateString("en-IN", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
+              {formatShortDate(event.date, "Date TBA")}
             </span>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -108,28 +153,119 @@ export function TicketCard({ registration, event }) {
           </div>
         )}
 
-        {/* Spacer to push button to bottom */}
-        <div className="flex-1" />
+        {/* Entitlements / Track snapshot if combo or fest pass */}
+        {Array.isArray(registration.entitledTrackNames) && registration.entitledTrackNames.length > 0 && (
+          <div className="bg-blue-50/70 dark:bg-blue-950/40 rounded-lg p-2.5 mb-4 border border-blue-200/60 dark:border-blue-800/40">
+            <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1.5 mb-1.5">
+              <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              Included Track Entitlements ({registration.entitledTrackNames.length}):
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {registration.entitledTrackNames.map((track, i) => (
+                <span key={i} className="text-[10px] font-medium bg-white dark:bg-slate-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">
+                  {track}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {/* Download Button */}
-        <Button
-          onClick={handleDownload}
-          className="tl-primary-action w-full h-11 gap-2 font-bold transition-all"
-        >
-          <Download className="w-4 h-4" /> Download Ticket
-        </Button>
+        {/* Action Buttons */}
+        <div className="space-y-2 w-full">
+          <Button
+            onClick={handleDownload}
+            className="tl-primary-action w-full h-10 gap-2 font-bold transition-all text-sm"
+          >
+            <Download className="w-4 h-4" /> Download PDF Ticket
+          </Button>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={handleAddToCalendar}
+              variant="outline"
+              className="h-9 text-xs font-semibold gap-1.5 border-[var(--tl-line)] hover:bg-slate-50"
+            >
+              <CalendarPlus className="w-3.5 h-3.5 text-[#3157ff]" /> Calendar (.ics)
+            </Button>
+
+            <Button
+              onClick={() => {
+                const orderId = registration.orderId || registration.ticketId;
+                window.open(`/api/invoices/${orderId}`, "_blank");
+              }}
+              variant="outline"
+              className="h-9 text-xs font-semibold gap-1.5 border-[var(--tl-line)] hover:bg-slate-50"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-600" /> Tax Invoice
+            </Button>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/wallet/apple/${registration.ticketId}`);
+                  const data = await res.json();
+                  if (data.requiresCredentials) {
+                    toast.info("Apple Wallet requires production Apple Developer certificate configuration.");
+                  } else {
+                    toast.success("Apple Wallet pass generated!");
+                  }
+                } catch {
+                  toast.error("Failed to load Apple Wallet pass");
+                }
+              }}
+              variant="ghost"
+              className="flex-1 h-8 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg"
+            >
+              Apple Wallet
+            </Button>
+
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/wallet/google/${registration.ticketId}`);
+                  const data = await res.json();
+                  if (data.requiresCredentials) {
+                    toast.info("Google Wallet requires production Issuer Account configuration.");
+                  } else if (data.passResult?.saveUrl) {
+                    window.open(data.passResult.saveUrl, "_blank");
+                  } else {
+                    toast.success("Google Wallet pass ready!");
+                  }
+                } catch {
+                  toast.error("Failed to load Google Wallet pass");
+                }
+              }}
+              variant="ghost"
+              className="flex-1 h-8 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg"
+            >
+              Google Wallet
+            </Button>
+
+            {isUsed && (
+              <Button
+                onClick={handleGetCertificate}
+                disabled={certLoading}
+                className="flex-1 h-8 text-[11px] font-semibold gap-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg"
+              >
+                {certLoading ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Award className="w-3 h-3 text-amber-300" />
+                )}
+                Certificate
+              </Button>
+            )}
+          </div>
+        </div>
 
         {/* Used Info */}
         {isUsed && registration.usedAt && (
           <div className="mt-4 pt-4 border-t border-[var(--tl-line)]">
             <p className="text-xs text-[rgba(6,26,63,0.56)] flex items-center gap-1.5">
               <CheckCircle className="w-3 h-3 text-[#008d46]" />
-              Used on{" "}
-              {registration.usedAt?.toDate
-                ? registration.usedAt.toDate().toLocaleString()
-                : registration.usedAt
-                  ? new Date(registration.usedAt).toLocaleString()
-                  : "N/A"}
+              Used on {formatDateTime(registration.usedAt, "N/A")}
             </p>
           </div>
         )}

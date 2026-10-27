@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
+import { getAuthenticatedUser } from "@/lib/auth-server";
 
+/**
+ * Assign organiser role to a user.
+ * Strictly restricted to SuperAdmin users (SEC-04).
+ */
 export async function POST(request) {
   try {
-    // Check if Firebase Admin is properly initialized
     if (!isFirebaseAdminReady() || !adminAuth || !adminDb) {
       return NextResponse.json(
         { success: false, error: "Firebase Admin SDK not configured" },
@@ -11,60 +15,50 @@ export async function POST(request) {
       );
     }
 
-    const { uid, email } = await request.json();
-
-    console.log(" Fixing organiser role for:", email || uid);
-
-    // Get the user document
-    const userDoc = await adminDb.collection("users").doc(uid).get();
-
-    if (!userDoc.exists) {
-      console.log(" User document not found");
+    const caller = await getAuthenticatedUser(request);
+    if (!caller || caller.role !== "superAdmin") {
       return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 404 },
+        { success: false, error: "Forbidden: Only SuperAdmin can assign organiser roles." },
+        { status: 403 },
       );
     }
 
-    const userData = userDoc.data();
-    console.log(" Current data:", {
-      email: userData.email,
-      role: userData.role,
-      isAdmin: userData.isAdmin,
-    });
+    const { uid } = await request.json();
+    const role = "organiser";
 
-    // Check if this is an organiser email
-    const isOrganiserEmail =
-      userData.email?.endsWith("@ticketlelo.com") &&
-      userData.email !== "superadmin@ticketlelo.com";
-
-    if (!isOrganiserEmail) {
+    if (!uid) {
       return NextResponse.json(
-        { success: false, error: "Not an organiser email" },
+        { success: false, error: "Missing required parameter: uid." },
         { status: 400 },
       );
     }
 
-    // Update the document
-    await adminDb.collection("users").doc(uid).update({
-      role: "organiser",
-      isAdmin: true,
-    });
+    const userDocRef = adminDb.collection("users").doc(uid);
+    const userDoc = await userDocRef.get();
 
-    console.log(" Fixed organiser role successfully");
+    if (!userDoc.exists) {
+      return NextResponse.json(
+        { success: false, error: "User not found." },
+        { status: 404 },
+      );
+    }
+
+    await userDocRef.update({
+      role,
+      isAdmin: role === "organiser" || role === "superAdmin",
+      updatedAt: new Date(),
+    });
 
     return NextResponse.json({
       success: true,
-      message: "Organiser role fixed successfully",
-      updatedData: {
-        role: "organiser",
-        isAdmin: true,
-      },
+      message: `User role successfully updated to ${role}`,
+      uid,
+      role,
     });
   } catch (error) {
-    console.error(" Error fixing organiser role:", error);
+    console.error("[fix-organiser-role] Error:", error.message);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: error.message || "Failed to update role" },
       { status: 500 },
     );
   }

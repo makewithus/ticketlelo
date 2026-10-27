@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { getAuthenticatedUser } from "@/lib/auth-server";
 import {
   PLANS,
   canCreateEvent,
@@ -29,7 +30,7 @@ export async function enforcePlanLimit(userId, action, context = {}) {
   const user = userDoc.data();
 
   // Super admins are never limited
-  if (user.role === "superAdmin" || user.isAdmin) {
+  if (user.role === "superAdmin") {
     return { allowed: true };
   }
 
@@ -98,8 +99,10 @@ export async function enforcePlanLimit(userId, action, context = {}) {
  */
 export async function GET(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const userId = caller.uid;
     const action = searchParams.get("action");
     const feature = searchParams.get("feature");
     const currentCount = parseInt(searchParams.get("currentCount") || "0");
@@ -131,43 +134,8 @@ export async function GET(request) {
  * Upgrade user plan (stub — integrate real payment gateway here)
  */
 export async function POST(request) {
-  try {
-    const { userId, planId } = await request.json();
-
-    if (!userId || !planId) {
-      return NextResponse.json(
-        { success: false, error: "userId and planId are required" },
-        { status: 400 },
-      );
-    }
-
-    if (!PLANS[planId]) {
-      return NextResponse.json(
-        { success: false, error: "Invalid plan" },
-        { status: 400 },
-      );
-    }
-
-    const plan = PLANS[planId];
-
-    // Update user plan in Firestore
-    await adminDb.collection("users").doc(userId).update({
-      plan: planId,
-      eventsAllowed: plan.eventsAllowed,
-      planStartDate: new Date(),
-      updatedAt: new Date(),
-    });
-
-    return NextResponse.json({
-      success: true,
-      plan: planId,
-      message: `Upgraded to ${plan.name} plan successfully`,
-    });
-  } catch (error) {
-    console.error("Plan upgrade error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    { success: false, error: "Direct plan upgrades are disabled. Complete verified checkout instead." },
+    { status: 410 },
+  );
 }

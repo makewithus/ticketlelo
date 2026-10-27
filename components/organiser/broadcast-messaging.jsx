@@ -472,7 +472,10 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
   }, [eventId]);
 
   useEffect(() => {
-    fetchMessages();
+    const timer = setTimeout(() => {
+      fetchMessages();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchMessages]);
 
   const handleRetry = async (messageId) => {

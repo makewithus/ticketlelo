@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 // Increase timeout for logo upload (in seconds)
 export const maxDuration = 60; // 60 seconds max
@@ -28,6 +29,8 @@ cloudinary.config({
 
 export async function POST(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     // Check if Cloudinary is configured
     if (
       !process.env.CLOUDINARY_CLOUD_NAME ||
@@ -53,8 +56,11 @@ export async function POST(request) {
     const file = formData.get("file");
     const eventId = formData.get("eventId");
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    if (!file || typeof file.arrayBuffer !== "function" || typeof eventId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(eventId)) {
+      return NextResponse.json({ error: "A valid event and image file are required" }, { status: 400 });
+    }
+    if (!await canManageEventId(caller, eventId)) {
+      return NextResponse.json({ error: "Event access required" }, { status: 403 });
     }
 
     // Validate file size (max 500KB)
@@ -66,9 +72,14 @@ export async function POST(request) {
     }
 
     // Validate file type
-    if (!file.type.startsWith("image/")) {
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const isPng = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isWebp = buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP";
+    if (!isPng && !isJpeg && !isWebp) {
       return NextResponse.json(
-        { error: "File must be an image" },
+        { error: "File must be a PNG, JPEG, or WebP image" },
         { status: 400 },
       );
     }
@@ -78,9 +89,6 @@ export async function POST(request) {
     console.log("File size:", (file.size / 1024).toFixed(2), "KB");
 
     // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
     // Upload to Cloudinary
     const uploadResult = await new Promise((resolve, reject) => {
       cloudinary.uploader

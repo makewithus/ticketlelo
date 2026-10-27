@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminDb, adminStorage } from "@/lib/firebase-admin";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 /**
  * POST /api/events/customize
@@ -7,16 +8,18 @@ import { adminDb, adminStorage } from "@/lib/firebase-admin";
  */
 export async function POST(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    if (!adminDb || !adminStorage) return NextResponse.json({ success: false, error: "Event customization unavailable" }, { status: 503 });
     const formData = await request.formData();
     const eventId = formData.get("eventId");
-    const userId = formData.get("userId");
     const themeColor = formData.get("themeColor");
     const slug = formData.get("slug");
     const bannerFile = formData.get("banner");
 
-    if (!eventId || !userId) {
+    if (!eventId || typeof eventId !== "string") {
       return NextResponse.json(
-        { success: false, error: "eventId and userId are required" },
+        { success: false, error: "eventId is required" },
         { status: 400 },
       );
     }
@@ -31,14 +34,7 @@ export async function POST(request) {
     }
 
     const event = eventDoc.data();
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const user = userDoc.data();
-
-    if (
-      event.createdBy !== userId &&
-      user?.role !== "superAdmin" &&
-      !user?.isAdmin
-    ) {
+    if (!await canManageEventId(caller, eventId)) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 403 },
@@ -154,7 +150,7 @@ export async function POST(request) {
             contentType: bannerFile.type,
             metadata: {
               eventId,
-              uploadedBy: userId,
+              uploadedBy: caller.uid,
             },
           },
         });

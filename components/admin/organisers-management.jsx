@@ -9,8 +9,6 @@ import {
   ChevronRight,
   Filter,
   Loader2,
-  Eye,
-  EyeOff,
   KeyRound,
   Mail,
   Phone,
@@ -27,15 +25,10 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20];
 export function OrganisersManagement() {
   const [organisers, setOrganisers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showCredentials, setShowCredentials] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-
-  useEffect(() => {
-    loadOrganisers();
-  }, []);
 
   const loadOrganisers = async () => {
     try {
@@ -65,12 +58,12 @@ export function OrganisersManagement() {
     }
   };
 
-  const toggleShowPassword = (organiserId) => {
-    setShowCredentials((prev) => ({
-      ...prev,
-      [organiserId]: !prev[organiserId],
-    }));
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadOrganisers();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filteredOrganisers = useMemo(() => {
     const queryText = searchTerm.trim().toLowerCase();
@@ -107,7 +100,10 @@ export function OrganisersManagement() {
   );
 
   useEffect(() => {
-    setPage(1);
+    const timer = setTimeout(() => {
+      setPage((prev) => (prev === 1 ? prev : 1));
+    }, 0);
+    return () => clearTimeout(timer);
   }, [filter, pageSize, searchTerm]);
 
   if (isLoading) {
@@ -223,7 +219,7 @@ export function OrganisersManagement() {
             <div className="rounded-lg border border-[var(--tl-line)] bg-[#f8fafc] p-4 space-y-3">
               <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
                 <KeyRound className="h-4 w-4 text-[#3157ff]" />
-                Login Credentials
+                Organizer Sign In
               </h4>
 
               <div className="space-y-2">
@@ -233,27 +229,9 @@ export function OrganisersManagement() {
                     {organiser.organiserEmail}
                   </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-[rgba(6,26,63,0.56)]">Password</p>
-                    <p className="font-mono text-sm text-[#061a3f]">
-                      {showCredentials[organiser.id]
-                        ? organiser.organiserPassword
-                        : "••••••••••••"}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => toggleShowPassword(organiser.id)}
-                  >
-                    {showCredentials[organiser.id] ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
+                <p className="text-xs text-[rgba(6,26,63,0.72)]">
+                  Passwords are managed by Firebase Authentication. Organizers use password recovery to set or reset their password.
+                </p>
               </div>
             </div>
 

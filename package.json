@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint lib src components context scripts tests middleware.js next.config.mjs",
+    "test": "node --require ./tests/qa-environment.cjs --test --test-isolation=none 'tests/**/*.test.js'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -78,6 +79,8 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.1.6",
     "postcss": "^8.5.0",
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3"

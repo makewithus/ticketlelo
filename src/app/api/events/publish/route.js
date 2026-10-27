@@ -1,12 +1,15 @@
 import { adminDb } from "@/lib/firebase-admin";
 import { NextResponse } from "next/server";
 import { getAppBaseUrl } from "@/lib/app-url";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 // POST /api/events/publish  — publish event and generate shareable link
 export async function POST(req) {
   try {
-    const { eventId, userId } = await req.json();
-    if (!eventId || !userId) {
+    const caller = await getAuthenticatedUser(req);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const { eventId } = await req.json();
+    if (!eventId) {
       return NextResponse.json(
         { error: "eventId and userId required" },
         { status: 400 },
@@ -22,12 +25,7 @@ export async function POST(req) {
 
     const event = eventSnap.data();
 
-    // Only event owner or superAdmin can publish
-    const userSnap = await adminDb.collection("users").doc(userId).get();
-    const user = userSnap.data();
-    const isSuperAdmin = user?.role === "superAdmin" || user?.isSuperAdmin;
-
-    if (!isSuperAdmin && event.createdBy !== userId) {
+    if (!await canManageEventId(caller, eventId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -62,7 +60,7 @@ export async function POST(req) {
       slug,
       shareUrl,
       publishedAt,
-      publishedBy: userId,
+      publishedBy: caller.uid,
     });
 
     return NextResponse.json({ success: true, slug, shareUrl, publishedAt });
@@ -78,13 +76,14 @@ export async function POST(req) {
 // DELETE /api/events/publish  — unpublish (archive)
 export async function DELETE(req) {
   try {
+    const caller = await getAuthenticatedUser(req);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get("eventId");
-    const userId = searchParams.get("userId");
 
-    if (!eventId || !userId) {
+    if (!eventId) {
       return NextResponse.json(
-        { error: "eventId and userId required" },
+        { error: "eventId required" },
         { status: 400 },
       );
     }
@@ -95,12 +94,7 @@ export async function DELETE(req) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    const event = eventSnap.data();
-    const userSnap = await adminDb.collection("users").doc(userId).get();
-    const user = userSnap.data();
-    const isSuperAdmin = user?.role === "superAdmin" || user?.isSuperAdmin;
-
-    if (!isSuperAdmin && event.createdBy !== userId) {
+    if (!await canManageEventId(caller, eventId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

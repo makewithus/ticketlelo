@@ -81,18 +81,6 @@ export function FormGenerator() {
     applyTheme: true,
   });
 
-  useEffect(() => {
-    if (user) {
-      loadEvents();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (selectedEventId) {
-      loadExistingForm();
-    }
-  }, [selectedEventId]);
-
   const loadEvents = async () => {
     try {
       let allEvents;
@@ -159,6 +147,24 @@ export function FormGenerator() {
       console.error("Failed to load form:", error);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      const timer = setTimeout(() => {
+        loadEvents();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedEventId) {
+      const timer = setTimeout(() => {
+        loadExistingForm();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedEventId]);
 
   const addField = () => {
     if (!newField.name) {

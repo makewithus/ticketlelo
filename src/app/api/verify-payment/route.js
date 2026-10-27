@@ -1,131 +1,138 @@
+import crypto from "node:crypto";
+import Razorpay from "razorpay";
 import { NextResponse } from "next/server";
-import crypto from "crypto";
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { Timestamp } from "firebase-admin/firestore";
+import { adminDb } from "@/lib/firebase-admin";
+import { getAuthenticatedUser } from "@/lib/auth-server";
+import { configuredPaymentSecret, verifyPaymentHmac } from "@/lib/payment-security";
+import { resolveTicketEntitlements } from "@/lib/combos";
+import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
 
-/**
- * Multi-Tenant Razorpay Payment Verification
- *
- * This API verifies the Razorpay payment signature using the organiser's secret
- *
- * Flow:
- * 1. Get payment details from frontend
- * 2. Fetch event and organiser's Razorpay secret
- * 3. Verify signature using crypto
- * 4. Store payment record in Firestore
- * 5. Return success/failure
- */
+const deterministicId = (orderId) => crypto.createHash("sha256").update(orderId).digest("hex");
 
 export async function POST(request) {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      eventId,
-      registrationId,
-    } = await request.json();
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    if (!adminDb) return NextResponse.json({ success: false, error: "Payment service unavailable" }, { status: 503 });
 
-    console.log(" Verifying payment...");
-    console.log("Order ID:", razorpay_order_id);
-    console.log("Payment ID:", razorpay_payment_id);
-
-    // 1. Fetch custom form to get Razorpay secret (using client SDK)
-    const formsRef = collection(db, "customForms");
-    const q = query(formsRef, where("eventId", "==", eventId));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      return NextResponse.json(
-        { error: "Event configuration not found" },
-        { status: 404 },
-      );
+    const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature, eventId } = await request.json();
+    const secret = configuredPaymentSecret(process.env.RAZORPAY_KEY_SECRET);
+    if (!orderId || !paymentId || !secret || !verifyPaymentHmac(`${orderId}|${paymentId}`, signature, secret)) {
+      return NextResponse.json({ success: false, error: "Payment verification failed" }, { status: 400 });
     }
 
-    const formDoc = querySnapshot.docs[0];
-    const customForm = { id: formDoc.id, ...formDoc.data() };
+    const orderRef = adminDb.collection("orders").doc(orderId);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
+    const order = orderSnap.data();
+    if (order.userId !== caller.uid) return NextResponse.json({ success: false, error: "Order access denied" }, { status: 403 });
+    if (eventId && eventId !== order.eventId) return NextResponse.json({ success: false, error: "Order event mismatch" }, { status: 400 });
+    if (order.status === "paid" && order.ticketId) {
+      return NextResponse.json({ success: true, alreadyVerified: true, ticketId: order.ticketId });
+    }
+    if (!["pending", "captured_pending_fulfillment"].includes(order.status)) return NextResponse.json({ success: false, error: "Order is not payable" }, { status: 409 });
 
-    const { paymentCredentials } = customForm;
-
-    if (!paymentCredentials || !paymentCredentials.razorpayKeySecret) {
-      return NextResponse.json(
-        { error: "Payment credentials not found" },
-        { status: 400 },
-      );
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (!keyId) return NextResponse.json({ success: false, error: "Payment provider is not configured" }, { status: 503 });
+    const razorpay = new Razorpay({ key_id: keyId, key_secret: secret });
+    const [providerOrder, payment] = await Promise.all([
+      razorpay.orders.fetch(orderId),
+      razorpay.payments.fetch(paymentId),
+    ]);
+    const expectedPaise = Number(order.pricing?.finalPayablePaise);
+    if (providerOrder.id !== orderId || providerOrder.amount !== expectedPaise || providerOrder.currency !== "INR" ||
+      payment.order_id !== orderId || payment.amount !== expectedPaise || payment.currency !== "INR" || payment.status !== "captured" ||
+      (order.capturedPaymentId && order.capturedPaymentId !== paymentId)) {
+      return NextResponse.json({ success: false, error: "Captured provider payment does not match this order" }, { status: 400 });
     }
 
-    console.log(" Razorpay secret retrieved");
-
-    // 2. Verify signature
-    const generatedSignature = crypto
-      .createHmac("sha256", paymentCredentials.razorpayKeySecret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
-
-    if (generatedSignature !== razorpay_signature) {
-      console.log(" Signature verification failed");
-      return NextResponse.json(
-        { error: "Invalid payment signature" },
-        { status: 400 },
-      );
-    }
-
-    console.log(" Payment signature verified");
-
-    // 3. Fetch event details (using client SDK)
-    const eventDoc = await getDoc(doc(db, "events", eventId));
-    const event = { id: eventDoc.id, ...eventDoc.data() };
-
-    // 4. Store payment record
-    const paymentData = {
-      eventId,
-      eventName: event.name,
-      registrationId: registrationId || null,
-      organiserId: event.organiserId || null,
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      amount: customForm.amount,
-      currency: "INR",
-      status: "success",
-      createdAt: serverTimestamp(),
-      verifiedAt: serverTimestamp(),
-    };
-
-    const paymentRef = await addDoc(collection(db, "payments"), paymentData);
-    console.log(" Payment record created:", paymentRef.id);
-
-    // 5. Update registration with payment status (using client SDK)
-    if (registrationId) {
-      await updateDoc(doc(db, "registrations", registrationId), {
-        paymentStatus: "paid",
-        paymentId: paymentRef.id,
-        razorpay_payment_id,
-        paidAt: serverTimestamp(),
-      });
-      console.log(" Registration updated with payment status");
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Payment verified successfully",
-      paymentId: paymentRef.id,
+    const ticketId = `TKT-${deterministicId(orderId).slice(0, 28).toUpperCase()}`;
+    const registrationId = deterministicId(`registration:${orderId}`);
+    const ticketRef = adminDb.collection("tickets").doc(ticketId);
+    const registrationRef = adminDb.collection("registrations").doc(registrationId);
+    const reservationRef = order.reservationId ? adminDb.collection("reservations").doc(order.reservationId) : null;
+    const eventSnap = await adminDb.collection("events").doc(order.eventId).get();
+    if (!eventSnap.exists) return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
+    const event = eventSnap.data();
+    const entitlements = resolveTicketEntitlements(order.ticketConfig);
+    const qrPayload = generateSignedQRPayload({
+      eventSlug: event.slug || order.eventId,
+      ticketId,
+      entitledSubEventIds: entitlements.entitledSubEventIds,
     });
+    const qrCodeUrl = await generateQRCode(qrPayload);
+    const buyer = order.registrationData || {};
+    const now = Timestamp.now();
+
+    await adminDb.runTransaction(async (transaction) => {
+      const [freshOrder, freshTicket, freshRegistration, reservation] = await Promise.all([
+        transaction.get(orderRef),
+        transaction.get(ticketRef),
+        transaction.get(registrationRef),
+        reservationRef ? transaction.get(reservationRef) : Promise.resolve(null),
+      ]);
+      if (!freshOrder.exists) throw new Error("Order disappeared");
+      if (freshOrder.data().status === "paid") return;
+      if (!["pending", "captured_pending_fulfillment"].includes(freshOrder.data().status)) throw new Error("Order is not payable");
+      if (freshOrder.data().capturedPaymentId && freshOrder.data().capturedPaymentId !== paymentId) throw new Error("Captured payment does not match order");
+      if (freshTicket.exists || freshRegistration.exists) throw new Error("Conflicting ticket issuance record");
+      if (reservationRef) {
+        if (!reservation?.exists || reservation.data().status !== "reserved") throw new Error("Capacity reservation is no longer active");
+        const expiry = reservation.data().expiresAt?.toDate?.();
+        if (expiry && expiry.getTime() <= Date.now()) throw new Error("Capacity reservation has expired");
+      }
+
+      transaction.create(ticketRef, {
+        id: ticketId,
+        ticketId,
+        orderId,
+        paymentId,
+        userId: caller.uid,
+        eventId: order.eventId,
+        eventTitle: event.title || event.name || "Event",
+        eventSlug: event.slug || order.eventId,
+        ticketTitle: order.ticketConfig?.title || "Standard Ticket",
+        quantity: order.quantity || 1,
+        entitledSubEventIds: entitlements.entitledSubEventIds,
+        entitledTrackNames: entitlements.entitledTrackNames,
+        buyerName: buyer.fullName || "Attendee",
+        buyerEmail: String(buyer.email || caller.email).toLowerCase(),
+        buyerPhone: buyer.whatsappPhone || "",
+        amountPaid: order.pricing?.finalPayable || 0,
+        pricingBreakdown: order.pricing || null,
+        qrPayload,
+        qrCodeUrl,
+        status: "Valid",
+        checkIns: {},
+        issuedAt: now,
+        updatedAt: now,
+      });
+      transaction.create(registrationRef, {
+        id: registrationId,
+        ticketId,
+        orderId,
+        userId: caller.uid,
+        eventId: order.eventId,
+        fullName: buyer.fullName || "Attendee",
+        email: String(buyer.email || caller.email).toLowerCase(),
+        whatsappPhone: buyer.whatsappPhone || "",
+        formData: buyer.formData || {},
+        status: "Unused",
+        paymentStatus: "paid",
+        paymentId,
+        entitledSubEventIds: entitlements.entitledSubEventIds,
+        createdAt: now,
+        updatedAt: now,
+      });
+      transaction.update(orderRef, { status: "paid", paymentId, ticketId, registrationId, paidAt: now, updatedAt: now });
+      if (reservationRef) transaction.update(reservationRef, { status: "finalized", finalizedAt: now, updatedAt: now });
+    });
+
+    return NextResponse.json({ success: true, message: "Payment verified and ticket issued", ticketId });
   } catch (error) {
-    console.error(" Error verifying payment:", error);
-    return NextResponse.json(
-      { error: error.message || "Payment verification failed" },
-      { status: 500 },
-    );
+    const status = error.message === "Capacity reservation has expired" ? 409 : 500;
+    console.error("[verify-payment] Verification failed:", error.code || "unexpected-error");
+    return NextResponse.json({ success: false, error: status === 409 ? error.message : "Payment could not be verified" }, { status });
   }
 }

@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { getAuthenticatedUser } from "@/lib/auth-server";
 
 /**
  * GET /api/hosting-requests
  * Fetch all hosting requests using Admin SDK (bypasses Firestore rules).
  * Used by the admin dashboard.
  */
-export async function GET() {
+export async function GET(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    if (caller.role !== "superAdmin") return NextResponse.json({ error: "Superadmin access required" }, { status: 403 });
     if (!adminDb) {
       // Fallback when Admin SDK is not initialized (local dev without credentials)
-      return NextResponse.json({
-        requests: [],
-        warning: "Admin SDK not initialized",
-      });
+      return NextResponse.json({ error: "Hosting request service unavailable" }, { status: 503 });
     }
 
     const snapshot = await adminDb

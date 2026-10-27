@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { createMessage } from "@/lib/messages";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 export async function POST(request) {
   try {
-    const { eventId, title, content, scheduledAt, userId } =
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    const { eventId, title, content, scheduledAt } =
       await request.json();
 
     // Validation
-    if (!eventId || !title || !content || !userId) {
+    if (!eventId || !title || !content) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing required fields: eventId, title, content, userId",
+          error: "Missing required fields: eventId, title, content",
         },
         { status: 400 },
       );
@@ -27,16 +29,7 @@ export async function POST(request) {
       );
     }
 
-    // Verify user is the event creator or admin
-    const event = eventDoc.data();
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const user = userDoc.data();
-
-    if (
-      event.createdBy !== userId &&
-      user?.role !== "superAdmin" &&
-      !user?.isAdmin
-    ) {
+    if (!await canManageEventId(caller, eventId)) {
       return NextResponse.json(
         {
           success: false,
@@ -58,7 +51,7 @@ export async function POST(request) {
       successCount: 0,
       failureCount: 0,
       failedRecipients: [],
-      createdBy: userId,
+      createdBy: caller.uid,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

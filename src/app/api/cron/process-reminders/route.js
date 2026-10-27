@@ -24,12 +24,13 @@ const REMINDER_TYPES = {
 
 export async function GET(request) {
   try {
-    // Verify this is called by a cron service (security)
+    if (!adminDb) return NextResponse.json({ error: "Reminder service unavailable" }, { status: 503 });
+    // Fail closed: an unset secret must never make the public route callable.
+    if (!process.env.CRON_SECRET || process.env.CRON_SECRET.length < 32) {
+      return NextResponse.json({ error: "Cron authentication is not configured" }, { status: 503 });
+    }
     const authHeader = request.headers.get("authorization");
-    if (
-      process.env.CRON_SECRET &&
-      authHeader !== `Bearer ${process.env.CRON_SECRET}`
-    ) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -378,7 +379,7 @@ function buildReminderEmailHtml({
         <!-- Urgency Banner -->
         <div style="background-color: ${urgencyColor}; padding: 12px; text-align: center;">
           <p style="color: white; margin: 0; font-size: 16px; font-weight: bold;">
-            ⏰ Your event is ${reminderLabel}!
+            Reminder: Your event is ${reminderLabel}!
           </p>
         </div>
         

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { PLANS } from "@/lib/plans";
+import { getAuthenticatedUser } from "@/lib/auth-server";
+import { adminDb } from "@/lib/firebase-admin";
 
 /**
  * POST /api/plans/create-order
@@ -8,7 +10,10 @@ import { PLANS } from "@/lib/plans";
  */
 export async function POST(request) {
   try {
-    const { planId, userId } = await request.json();
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    const { planId } = await request.json();
+    const userId = caller.uid;
 
     if (!planId || !userId) {
       return NextResponse.json(
@@ -32,7 +37,7 @@ export async function POST(request) {
       );
     }
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET || !adminDb) {
       return NextResponse.json(
         { success: false, error: "Razorpay credentials not configured" },
         { status: 500 },
@@ -53,6 +58,16 @@ export async function POST(request) {
         planId,
         planName: plan.name,
       },
+    });
+
+    await adminDb.collection("planOrders").doc(order.id).create({
+      id: order.id,
+      userId,
+      planId,
+      amount: order.amount,
+      currency: order.currency,
+      status: "pending",
+      createdAt: new Date(),
     });
 
     return NextResponse.json({

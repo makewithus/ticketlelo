@@ -1,149 +1,186 @@
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { configuredPaymentSecret } from "@/lib/payment-security";
+import { Timestamp } from "firebase-admin/firestore";
+import { calculateOrderPricing } from "@/lib/pricing";
+import { reserveTicketCapacity, releaseCapacityReservation } from "@/lib/capacity-reservation";
+import { validateCouponCode } from "@/lib/coupons";
+import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
+import { getAuthenticatedUser } from "@/lib/auth-server";
 
 /**
- * Multi-Tenant Razorpay Order Creation
- *
- * This API creates a Razorpay order using the organiser's credentials
- * Each organiser has their own Razorpay account and credentials
- *
- * Flow:
- * 1. Get eventId from request
- * 2. Fetch event details from Firestore
- * 3. Get organiserId from event
- * 4. Fetch organiser's Razorpay credentials from customForms
- * 5. Initialize Razorpay with organiser's credentials
- * 6. Create order with event amount
- * 7. Return order details to frontend
+ * Server-Authoritative Razorpay Order Creation
+ * Computes price server-side, validates coupons, reserves capacity, and creates gateway order (P07, SEC-03, SEC-04).
  */
-
 export async function POST(request) {
   try {
-    const { eventId, registrationData, finalAmount, couponId } =
-      await request.json();
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const {
+      eventId,
+      ticketId, // comboId or subEventId or "general"
+      quantity = 1,
+      couponCode = null,
+      referralCode = null,
+      registrationData = {},
+    } = await request.json();
 
-    console.log(" Creating Razorpay order for event:", eventId);
-    if (finalAmount) {
-      console.log(" Coupon applied! Final amount:", finalAmount);
+    if (!eventId) {
+      return NextResponse.json({ error: "eventId is required." }, { status: 400 });
+    }
+    if (!adminDb || !isFirebaseAdminReady()) {
+      return NextResponse.json({ error: "Checkout service unavailable" }, { status: 503 });
+    }
+    const safeEmail = String(registrationData.email || "").trim().toLowerCase();
+    if (!caller.email || safeEmail !== caller.email.trim().toLowerCase()) {
+      return NextResponse.json({ error: "Checkout email must match the signed-in account" }, { status: 403 });
     }
 
-    // 1. Fetch event details (using client SDK)
-    const eventDoc = await getDoc(doc(db, "events", eventId));
+    const qty = Number(quantity);
+    if (!Number.isSafeInteger(qty) || qty < 1) {
+      return NextResponse.json({ error: "quantity must be a positive integer" }, { status: 400 });
+    }
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    const keySecret = configuredPaymentSecret(process.env.RAZORPAY_KEY_SECRET);
+    if (!keyId || !keySecret) {
+      return NextResponse.json({ error: "Payment checkout is not configured" }, { status: 503 });
+    }
+
+    // 1. Fetch Event details
+    const eventDoc = await adminDb.collection("events").doc(eventId).get();
     if (!eventDoc.exists()) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
-
     const event = { id: eventDoc.id, ...eventDoc.data() };
-    console.log(" Event found:", event.name);
 
-    // 2. Get custom form for this event (contains payment settings)
-    let customForm = null;
+    // 2. Resolve Ticket / Combo Configuration & Base Price Server-Side
+    let ticketConfig = null;
+    let basePrice = Number(event.ticketPrice || event.price || event.amount || 0);
 
-    // Try to find by eventId query (using client SDK)
-    const formsRef = collection(db, "customForms");
-    const q = query(formsRef, where("eventId", "==", eventId));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const formDoc = querySnapshot.docs[0];
-      customForm = { id: formDoc.id, ...formDoc.data() };
+    if (ticketId && ticketId !== "general") {
+      // Check if it's a combo / fest pass
+      const comboSnap = await adminDb.collection("combos").doc(ticketId).get();
+      if (comboSnap.exists && comboSnap.data().parentEventId === eventId && comboSnap.data().isActive !== false) {
+        ticketConfig = { id: comboSnap.id, ...comboSnap.data() };
+        basePrice = Number(ticketConfig.price || 0);
+      } else {
+        // Check if it's an individual sub-event
+        const subSnap = await adminDb.collection("subEvents").doc(ticketId).get();
+        const sub = subSnap.exists ? { id: subSnap.id, ...subSnap.data() } : null;
+        if (sub && sub.parentEventId === eventId && sub.isPublished !== false) {
+          ticketConfig = {
+            id: sub.id,
+            title: sub.title,
+            subEventId: sub.id,
+            price: sub.standalonePrice,
+            tierType: "single",
+          };
+          basePrice = Number(sub.standalonePrice || 0);
+        }
+      }
     }
 
-    if (!customForm || !customForm.isPaid) {
-      return NextResponse.json(
-        { error: "This event is not a paid event" },
-        { status: 400 },
-      );
+    if (!ticketConfig) {
+      ticketConfig = {
+        id: "general",
+        title: event.title || event.name || "General Admission",
+        price: basePrice,
+        tierType: "single",
+      };
     }
 
-    console.log(" Custom form found with payment enabled");
-
-    // 3. Get Razorpay credentials from custom form
-    const { paymentCredentials, amount } = customForm;
-
-    if (
-      !paymentCredentials ||
-      !paymentCredentials.razorpayKeyId ||
-      !paymentCredentials.razorpayKeySecret
-    ) {
-      return NextResponse.json(
-        { error: "Razorpay credentials not configured for this event" },
-        { status: 400 },
-      );
+    // 3. Coupon Validation Server-Side
+    let discountAmount = 0;
+    if (couponCode) {
+      try {
+        const couponResult = await validateCouponCode(couponCode, eventId, basePrice * qty);
+        if (couponResult && couponResult.isValid) {
+          discountAmount = Number(couponResult.discountAmount || 0);
+        }
+      } catch (cErr) {
+        console.warn("[create-order] Coupon validation error:", cErr.message);
+      }
     }
 
-    if (!amount || amount <= 0) {
-      return NextResponse.json(
-        { error: "Invalid event amount" },
-        { status: 400 },
-      );
-    }
-
-    console.log(" Razorpay credentials found");
-    console.log(" Amount:", amount);
-
-    // 4. Initialize Razorpay with organiser's credentials
-    const razorpay = new Razorpay({
-      key_id: paymentCredentials.razorpayKeyId,
-      key_secret: paymentCredentials.razorpayKeySecret,
+    // 4. Calculate Authoritative Itemized Pricing
+    const pricing = calculateOrderPricing({
+      basePrice,
+      quantity: qty,
+      discountAmount,
+      isTaxInclusive: true, // Default per PRAROHA specification
     });
 
-    console.log(" Razorpay instance created");
+    // 5. Atomically Reserve Capacity (prevents overselling during payment attempt)
+    let reservation = null;
+    try {
+      reservation = await reserveTicketCapacity({
+        parentEventId: eventId,
+        ticketConfig,
+        quantity: qty,
+        buyerEmail: registrationData.email,
+      });
+    } catch (capErr) {
+      return NextResponse.json(
+        { error: capErr.message || "Capacity reservation failed. Ticket may be sold out." },
+        { status: 409 }
+      );
+    }
 
-    // 5. Create order
-    // Use finalAmount if coupon applied, otherwise use event amount
-    const orderAmount = finalAmount || amount;
-    console.log(
-      " Order amount:",
-      orderAmount,
-      finalAmount ? "(with coupon)" : "(original)",
-    );
+    // Gateway failures must release the reservation and remain failures.
+    let razorpayOrderId;
+    try {
+      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+      const rzpOrder = await razorpay.orders.create({
+        amount: pricing.finalPayablePaise,
+        currency: "INR",
+        receipt: `rcpt_${Date.now()}`,
+        notes: { eventId, ticketTitle: ticketConfig.title, reservationId: reservation.id },
+      });
+      razorpayOrderId = rzpOrder.id;
+    } catch {
+      await releaseCapacityReservation(reservation.id);
+      return NextResponse.json({ error: "Payment provider could not create the order" }, { status: 502 });
+    }
 
-    const order = await razorpay.orders.create({
-      amount: Math.round(orderAmount * 100), // Convert to paise
-      currency: "INR",
-      receipt: `event_${eventId}_${Date.now()}`,
-      notes: {
-        eventId: eventId,
-        eventName: event.name,
-        registrantName: registrationData?.fullName || "User",
-        registrantEmail: registrationData?.email || "",
+    // 7. Persist Pending Order Record
+    const orderRecord = {
+      id: razorpayOrderId,
+      eventId,
+      ticketConfig,
+      quantity: qty,
+      pricing,
+      reservationId: reservation?.id || null,
+      referralCode: referralCode || null,
+      registrationData: {
+        userId: caller.uid,
+        fullName: String(registrationData.fullName || caller.decodedToken?.name || "Attendee").slice(0, 120),
+        email: safeEmail,
+        whatsappPhone: String(registrationData.whatsappPhone || registrationData.phone || "").slice(0, 32),
+        formData: registrationData.formData && typeof registrationData.formData === "object" ? registrationData.formData : {},
       },
-    });
+      userId: caller.uid,
+      status: "pending", // "pending" | "paid" | "failed" | "refunded"
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+    await adminDb.collection("orders").doc(razorpayOrderId).create(orderRecord);
 
-    console.log(" Razorpay order created:", order.id);
-
-    // 6. Return order details (including key_id for frontend checkout)
     return NextResponse.json({
       success: true,
-      order: {
-        id: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        razorpayKeyId: paymentCredentials.razorpayKeyId, // Frontend needs this for checkout
-      },
-      eventDetails: {
-        name: event.name,
-        amount: amount,
-      },
+      orderId: razorpayOrderId,
+      razorpayOrderId,
+      keyId,
+      amount: pricing.finalPayablePaise,
+      currency: "INR",
+      pricing,
+      reservationId: reservation?.id || null,
+      ticketTitle: ticketConfig.title,
     });
   } catch (error) {
-    console.error(" Error creating Razorpay order:", error);
+    console.error("[create-order] Error creating order:", error.message);
     return NextResponse.json(
-      {
-        error: error.message || "Failed to create order",
-        details: error.error?.description || "",
-      },
-      { status: 500 },
+      { error: error.message || "Failed to create payment order" },
+      { status: 500 }
     );
   }
 }

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/mailer";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 export async function POST(request) {
   try {
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     const { messageId } = await request.json();
 
     if (!messageId) {
@@ -26,6 +29,9 @@ export async function POST(request) {
     }
 
     const message = messageDoc.data();
+    if (!await canManageEventId(caller, message.eventId)) {
+      return NextResponse.json({ success: false, error: "Event access required" }, { status: 403 });
+    }
 
     // Get failed receipts
     const failedReceiptsSnapshot = await adminDb
