@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getActiveEvents } from "@/lib/firestore";
 
@@ -73,7 +73,7 @@ function EventCard({ event }) {
   );
 }
 
-function EventsSection({ events, loading }) {
+function EventsSection({ events, loading, loadError, onRetry }) {
   return (
     <section className="section" id="events">
       <style dangerouslySetInnerHTML={{ __html: LEFT_STYLE }} />
@@ -94,6 +94,13 @@ function EventsSection({ events, loading }) {
                   {loading ? (
                     <div className="w-dyn-empty">
                       <div>Loading events...</div>
+                    </div>
+                  ) : loadError ? (
+                    <div className="w-dyn-empty" role="alert">
+                      <div>Events could not be loaded. Check your connection and try again.</div>
+                      <button type="button" onClick={onRetry} style={{ marginTop: 12 }}>
+                        Try again
+                      </button>
                     </div>
                   ) : events.length === 0 ? (
                     <div className="w-dyn-empty">
@@ -120,30 +127,39 @@ export default function LandingEvents() {
   const [mount, setMount] = useState(null);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const evs = await getActiveEvents();
+      setEvents(evs);
+    } catch (error) {
+      console.error("Failed to load events:", error.code || "unknown-error");
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     const timer = setTimeout(() => {
       if (isMounted) {
         setMount(document.getElementById("tl-events-root"));
+        loadEvents();
       }
     }, 0);
-    (async () => {
-      try {
-        const evs = await getActiveEvents();
-        if (isMounted) setEvents(evs);
-      } catch (error) {
-        console.error("Failed to load events:", error);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, []);
+  }, [loadEvents]);
 
   if (!mount) return null;
-  return createPortal(<EventsSection events={events} loading={loading} />, mount);
+  return createPortal(
+    <EventsSection events={events} loading={loading} loadError={loadError} onRetry={loadEvents} />,
+    mount,
+  );
 }
