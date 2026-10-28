@@ -89,7 +89,7 @@
       iframe.src = iframeUrl;
       iframe.title = "TicketLelo Event Registration";
       iframe.width = "100%";
-      iframe.height = "640";
+      iframe.height = "520";
       iframe.style.border = "none";
       iframe.style.display = "block";
       iframe.style.transition = "height 0.25s ease-in-out";
@@ -105,7 +105,7 @@
         if (!event.data || typeof event.data !== "object") return;
         if (event.data.type === "ticketlelo:resize" && event.data.height) {
           var height = Number(event.data.height);
-          if (Number.isFinite(height) && height > 0) iframe.style.height = Math.min(10000, Math.max(480, height)) + "px";
+          if (Number.isFinite(height) && height > 0) iframe.style.height = Math.min(10000, Math.max(300, height)) + "px";
         }
         if (event.data.type === "ticketlelo:success" && typeof options.onSuccess === "function") {
           options.onSuccess(event.data.ticket);

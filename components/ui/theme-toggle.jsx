@@ -22,7 +22,7 @@ export function ThemeToggle({ className = "", inline = false, compact = false })
   if (/^\/(organiser-login|user-login|super-admin-login)$/.test(normalizedPath)) {
     return null;
   }
-  if (!inline && normalizedPath.startsWith("/register")) {
+  if (!inline && (normalizedPath.startsWith("/register") || normalizedPath.startsWith("/embed"))) {
     return null;
   }
   const isDark = theme === "dark";
