@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request) {
   const startTime = Date.now();
   try {

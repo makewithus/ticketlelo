@@ -10,6 +10,8 @@ import { getAuthenticatedUser } from "@/lib/auth-server";
  * POST /api/webinars/access
  * Body: { ticketId, subEventId }
  */
+export const dynamic = "force-dynamic";
+
 export async function POST(request) {
   try {
     const caller = await getAuthenticatedUser(request);

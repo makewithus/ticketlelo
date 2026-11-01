@@ -5,6 +5,8 @@ import { getCertificate, generateCertificatePDF } from "@/lib/certificates";
  * GET /api/certificates/[id]/download
  * Returns PDF download of certificate
  */
+export const dynamic = "force-dynamic";
+
 export async function GET(request, { params }) {
   try {
     const { id } = await params;

@@ -9,6 +9,8 @@ import { getAuthenticatedUser } from "@/lib/auth-server";
  * POST /api/certificates
  * Body: { ticketId, subEventId, subEventTitle }
  */
+export const dynamic = "force-dynamic";
+
 export async function POST(request) {
   try {
     const caller = await getAuthenticatedUser(request);
