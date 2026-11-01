@@ -23,6 +23,7 @@ import {
   subscribeToEventRegistrations,
 } from "@/lib/firestore";
 import * as XLSX from "xlsx";
+import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
 
 function formatRelativeTime(ts) {
   if (!ts) return "recently";
@@ -84,6 +85,7 @@ export default function RegistrationsGuestsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedGuestIndex, setSelectedGuestIndex] = useState(null);
   const pageSize = 15;
 
   // 1. Initial Load: Fetch events from Firestore
@@ -150,8 +152,8 @@ export default function RegistrationsGuestsPage() {
   // 2. Real-time Subscription to event
   useEffect(() => {
     if (!selectedEventId) {
-      setEvent(null);
-      return;
+      const timer = setTimeout(() => setEvent(null), 0);
+      return () => clearTimeout(timer);
     }
     const unsub = subscribeToEvent(selectedEventId, (ev) => {
       if (ev) setEvent(ev);
@@ -164,8 +166,8 @@ export default function RegistrationsGuestsPage() {
   // 3. Real-time Subscription to registrations for this event
   useEffect(() => {
     if (!selectedEventId) {
-      setRegistrations([]);
-      return;
+      const timer = setTimeout(() => setRegistrations([]), 0);
+      return () => clearTimeout(timer);
     }
     const unsub = subscribeToEventRegistrations(selectedEventId, (regs) => {
       const sorted = [...regs].sort((a, b) => {
@@ -433,10 +435,21 @@ export default function RegistrationsGuestsPage() {
               const timeDisplay = formatRelativeTime(guest.createdAt);
               const ticketCode = guest.ticketId || guest.id;
 
+              const globalIndex = (currentPage - 1) * pageSize + idx;
+
               return (
                 <div
                   key={`${guest.id || guest.ticketId || "guest"}-${idx}`}
-                  className="p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/40 transition-colors"
+                  onClick={() => setSelectedGuestIndex(globalIndex)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedGuestIndex(globalIndex);
+                    }
+                  }}
+                  className="p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/70 active:bg-[#212327] cursor-pointer transition-colors group"
                 >
                   {/* Left: Avatar + Name + Email */}
                   <div className="flex items-center gap-3 min-w-0">
@@ -446,7 +459,7 @@ export default function RegistrationsGuestsPage() {
                       {initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-white truncate">
+                      <p className="text-xs sm:text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors truncate">
                         {guestName}
                       </p>
                       <p className="text-[11px] text-[#9B9EA4] truncate font-mono">
@@ -517,6 +530,31 @@ export default function RegistrationsGuestsPage() {
           </div>
         )}
       </div>
+
+      {/* ── Guest Details Drawer / Modal matching Screenshot ── */}
+      {selectedGuestIndex !== null && filteredGuests[selectedGuestIndex] && (
+        <GuestDetailsModal
+          isOpen={selectedGuestIndex !== null}
+          onClose={() => setSelectedGuestIndex(null)}
+          guest={filteredGuests[selectedGuestIndex]}
+          allGuests={filteredGuests}
+          currentIndex={selectedGuestIndex}
+          onNavigate={(newIdx) => {
+            setSelectedGuestIndex(newIdx);
+            const targetPage = Math.floor(newIdx / pageSize) + 1;
+            if (targetPage !== currentPage) {
+              setCurrentPage(targetPage);
+            }
+          }}
+          event={event}
+          currentUser={user}
+          onGuestUpdated={(updatedGuest) => {
+            setRegistrations((prev) =>
+              prev.map((g) => (g.id === updatedGuest.id ? { ...g, ...updatedGuest } : g))
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

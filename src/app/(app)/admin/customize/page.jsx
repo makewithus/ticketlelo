@@ -18,6 +18,7 @@ import { EventControlHeader } from "@/components/admin/event-control-header";
 import { getEvent, updateEvent } from "@/lib/firestore";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { COLOR_SWATCHES, getThemeLook } from "@/lib/theme-utils";
+import { getPublicBaseUrl, getCleanDomain } from "@/lib/app-url";
 
 export default function MoreEventSettingsPage() {
   const searchParams = useSearchParams();
@@ -38,9 +39,9 @@ export default function MoreEventSettingsPage() {
     }
 
     if (eventId) {
-      setActiveEventId(eventId);
       getEvent(eventId)
         .then((ev) => {
+          setActiveEventId(eventId);
           if (ev) {
             setCurrentEvent(ev);
             if (ev.slug) setCustomSlug(ev.slug);
@@ -59,7 +60,9 @@ export default function MoreEventSettingsPage() {
     }
   }, [searchParams]);
 
-  const fullUrl = `ticketlelo.in/${customSlug}`;
+  const domain = getCleanDomain(getPublicBaseUrl());
+  const fullUrl = `${domain}/${customSlug}`;
+  const fullPublicUrl = `${getPublicBaseUrl()}/${customSlug}`;
 
   // Word-aware poster headline text
   const posterLines = getPosterLines(
@@ -70,7 +73,7 @@ export default function MoreEventSettingsPage() {
   );
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://${fullUrl}`);
+    navigator.clipboard.writeText(fullPublicUrl);
     setCopied(true);
     toast.success("Public link copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
@@ -92,9 +95,9 @@ export default function MoreEventSettingsPage() {
       if (activeEventId) {
         await updateEvent(activeEventId, { slug: customSlug });
       }
-      toast.success(`URL updated to ticketlelo.in/${customSlug}`);
+      toast.success(`URL updated to ${domain}/${customSlug}`);
     } catch {
-      toast.success(`URL updated to ticketlelo.in/${customSlug}`);
+      toast.success(`URL updated to ${domain}/${customSlug}`);
     }
   };
 
@@ -200,7 +203,7 @@ export default function MoreEventSettingsPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 mb-2.5">
           <div className="flex items-center flex-1 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl overflow-hidden focus-within:border-[#FE760B] transition-colors">
             <span className="px-3 py-2 text-xs text-[#9B9EA4] bg-[#212327]/60 border-r border-[#2A2D31] select-none font-mono">
-              ticketlelo.in/
+              {domain}/
             </span>
             <input
               type="text"

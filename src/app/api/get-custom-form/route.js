@@ -22,7 +22,12 @@ export async function GET(request) {
     // Fetch custom form for the event (uses client SDK with public read rules)
     const formsRef = collection(db, "customForms");
     const q = query(formsRef, where("eventId", "==", eventId));
-    const querySnapshot = await getDocs(q);
+    let querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      const q2 = query(formsRef, where("targetId", "==", eventId));
+      querySnapshot = await getDocs(q2);
+    }
 
     const queryTime = Date.now() - startTime;
     console.log(`[API] Firestore query completed in ${queryTime}ms`);
@@ -35,8 +40,23 @@ export async function GET(request) {
       });
     }
 
-    const formDoc = querySnapshot.docs[0];
-    const customForm = { id: formDoc.id, ...formDoc.data() };
+    const docs = querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => {
+      const timeA =
+        a.updatedAt?.toMillis?.() ||
+        (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0) ||
+        a.createdAt?.toMillis?.() ||
+        (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0) ||
+        0;
+      const timeB =
+        b.updatedAt?.toMillis?.() ||
+        (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0) ||
+        b.createdAt?.toMillis?.() ||
+        (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0) ||
+        0;
+      return timeB - timeA;
+    });
+    const customForm = docs[0];
 
     // Remove sensitive data before sending to frontend
     if (customForm.paymentCredentials) {

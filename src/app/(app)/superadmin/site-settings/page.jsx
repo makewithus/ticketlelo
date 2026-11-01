@@ -80,7 +80,7 @@ export default function SiteSettingsPage() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/site-settings/countdown/", { cache: "no-store" })
+    fetch("/api/site-settings/countdown", { cache: "no-store" })
       .then(async (res) => {
         if (!res.ok) throw new Error("Could not load countdown date");
         return res.json();
@@ -139,7 +139,7 @@ export default function SiteSettingsPage() {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/site-settings/countdown/", {
+      const res = await fetch("/api/site-settings/countdown", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ countdownAt: new Date(countdownAt).toISOString() }),

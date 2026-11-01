@@ -44,6 +44,7 @@ import {
   publishForm,
 } from "@/lib/form-generator";
 import { generateQRCode } from "@/lib/qr";
+import { getPublicBaseUrl } from "@/lib/app-url";
 import { useAuth } from "@/context/auth-context";
 
 export function FormGenerator() {
@@ -149,9 +150,12 @@ export function FormGenerator() {
 
       if (existingForm) {
         setExistingFormId(existingForm.id);
+        const filteredFields = Array.isArray(existingForm.fields)
+          ? existingForm.fields
+          : [];
         const loadedFields =
-          existingForm.fields && existingForm.fields.length > 0
-            ? existingForm.fields
+          filteredFields.length > 0
+            ? filteredFields
             : [
                 { id: 1, name: "College name", type: "text", required: true },
                 {
@@ -263,10 +267,7 @@ export function FormGenerator() {
   };
 
   const selectedEvent = events.find((e) => e.id === selectedEventId) || null;
-  const origin =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "https://ticketlelo.in";
+  const origin = getPublicBaseUrl();
   const directFormUrl = selectedEventId
     ? `${origin}/register/${selectedEventId}`
     : "";
@@ -280,7 +281,7 @@ export function FormGenerator() {
   useEffect(() => {
     let isSubscribed = true;
     if (selectedEventId && (isFormPublished || showShareModal)) {
-      const url = `${typeof window !== "undefined" ? window.location.origin : "https://ticketlelo.in"}/register/${selectedEventId}`;
+      const url = `${origin}/register/${selectedEventId}`;
       generateQRCode(url)
         .then((dataUrl) => {
           if (isSubscribed) setQrCodeUrl(dataUrl);
@@ -298,7 +299,40 @@ export function FormGenerator() {
     return () => {
       isSubscribed = false;
     };
-  }, [selectedEventId, isFormPublished, showShareModal]);
+  }, [selectedEventId, isFormPublished, showShareModal, origin]);
+
+  // Prevent background body scrolling when share modal is open
+  useEffect(() => {
+    if (!showShareModal) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+
+    const scrollBarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+    if (scrollBarWidth > 0) {
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    }
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowShareModal(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showShareModal]);
 
   const handleCopy = async (text, type = "direct") => {
     if (!text) return;
@@ -478,14 +512,13 @@ export function FormGenerator() {
     }
   };
 
+  const ensureEssentialFormFields = (customFields = []) => {
+    return Array.isArray(customFields) ? [...customFields] : [];
+  };
+
   const saveDraft = async () => {
     if (!selectedEventId) {
       toast.error("Please select an event");
-      return;
-    }
-
-    if (fields.length === 0) {
-      toast.error("Please add at least one field");
       return;
     }
 
@@ -506,9 +539,10 @@ export function FormGenerator() {
           : parseFloat(amount);
       const validAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
 
+      const compiledFields = ensureEssentialFormFields(fields);
       const formData = {
         eventId: selectedEventId,
-        fields,
+        fields: compiledFields,
         theme: themeData,
         isPaid,
         amount: validAmount,
@@ -560,7 +594,8 @@ export function FormGenerator() {
       return;
     }
 
-    if (fields.length === 0) {
+    const compiledFields = ensureEssentialFormFields(fields);
+    if (compiledFields.length === 0) {
       toast.error("Please add at least one field");
       return;
     }
@@ -593,7 +628,7 @@ export function FormGenerator() {
 
       const formData = {
         eventId: selectedEventId,
-        fields,
+        fields: compiledFields,
         theme: themeData,
         isPaid,
         amount: validAmount,
@@ -1167,6 +1202,23 @@ export function FormGenerator() {
                         Required
                       </div>
                     </div>
+                    <div className="flex items-center justify-between p-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4]">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium text-white">Phone / WhatsApp</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-[#9B9EA4]">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Required
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1424,6 +1476,18 @@ export function FormGenerator() {
                     <input
                       type="email"
                       placeholder="you@example.com"
+                      disabled
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                      Phone / WhatsApp *
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="+91 98765 43210"
                       disabled
                       className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
                     />
@@ -2076,11 +2140,11 @@ export function FormGenerator() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="share-modal-title"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200 touch-none overscroll-contain"
           onClick={() => setShowShareModal(false)}
         >
           <div
-            className="bg-[#1A1C1F] text-white rounded-3xl border border-[#2A2D31] shadow-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 relative overflow-hidden my-auto"
+            className="bg-[#1A1C1F] text-white rounded-3xl border border-[#2A2D31] shadow-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 relative overflow-hidden my-auto overscroll-contain touch-pan-y"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Ambient background glow */}

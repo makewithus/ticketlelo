@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { WideTicket } from "@/components/tickets/wide-ticket";
+import { TicketGuidelinesCard } from "@/components/tickets/ticket-guidelines-card";
 import { generateICS } from "@/lib/calendar";
 import { parseFirestoreDate } from "@/lib/date-utils";
 import { toast } from "sonner";
@@ -35,7 +36,7 @@ export default function TicketViewPage({ params }) {
     async function fetchTicket() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/tickets/${ticketId}/`);
+        const res = await fetch(`/api/tickets/${ticketId}`);
         const data = await res.json();
         if (!res.ok || !data.success) {
           throw new Error(data.error || "Ticket not found");
@@ -158,10 +159,12 @@ export default function TicketViewPage({ params }) {
           }
           .print-ticket-container {
             display: flex !important;
+            flex-direction: column !important;
             justify-content: center !important;
             align-items: center !important;
-            min-height: 100vh !important;
-            padding: 20px !important;
+            gap: 24px !important;
+            min-height: auto !important;
+            padding: 16px !important;
             box-shadow: none !important;
           }
           * {
@@ -251,8 +254,9 @@ export default function TicketViewPage({ params }) {
           </div>
         </div>
 
-        {/* ── TICKET CONTAINER ── */}
-        <div className="print-ticket-container flex justify-center py-4">
+        {/* ── TICKET PASS & GUIDELINES CONTAINER (Exact Match to Reference Cards 1 & 2) ── */}
+        <div className="print-ticket-container flex flex-col items-center gap-6 py-4">
+          {/* Card 1: Main Event Pass */}
           {isWide ? (
             <WideTicket
               registration={ticketData}
@@ -268,6 +272,12 @@ export default function TicketViewPage({ params }) {
               showActions={false}
             />
           )}
+
+          {/* Card 2: Official Entry & Verification Guidelines */}
+          <TicketGuidelinesCard
+            registration={ticketData}
+            event={eventData}
+          />
         </div>
 
         {/* Entry Instructions */}

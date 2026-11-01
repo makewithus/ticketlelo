@@ -85,9 +85,12 @@ export function HostingRequestManagement() {
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const isInitialSnapshotRef = useRef(true);
   const knownRequestIdsRef = useRef(new Set());
-  const mountedAtRef = useRef(Date.now());
+  const mountedAtRef = useRef(null);
 
   useEffect(() => {
+    if (mountedAtRef.current === null) {
+      mountedAtRef.current = Date.now();
+    }
     const unsubscribe = subscribeToHostingRequests(
       (allRequests) => {
         const safeRequests = Array.isArray(allRequests) ? allRequests : [];

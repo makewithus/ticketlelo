@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowUpRight,
   Ticket,
@@ -11,6 +12,9 @@ import {
   VolumeX,
   MapPin,
   Loader2,
+  Check,
+  ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { parseQRData } from "@/lib/qr";
@@ -27,8 +31,17 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import {
+  getEventsByOrganiser,
+  getAllEvents,
+  subscribeToEvent,
+  subscribeToEventRegistrations,
+} from "@/lib/firestore";
+import { getSubEventsForEvent } from "@/lib/sub-events";
+import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
+import { useAuth } from "@/context/auth-context";
 
-const GATE_STATIONS = [
+const DEFAULT_GATE_STATIONS = [
   { id: "main_gate", label: "Main Festival Gate" },
   { id: "track_workshop", label: "AI Workshop Hall" },
   { id: "track_hackathon", label: "Hackathon Dev Room" },
@@ -37,13 +50,27 @@ const GATE_STATIONS = [
   { id: "track_robowars", label: "RoboWars Arena" },
 ];
 
-export function QRScanner() {
+export function QRScanner({ event: propEvent = null, eventId: propEventId = null }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+
+  // Active event & registrations state
+  const [events, setEvents] = useState([]);
+  const [selectedEventId, setSelectedEventId] = useState(propEventId || propEvent?.id || "");
+  const [currentEvent, setCurrentEvent] = useState(propEvent || null);
+  const [eventRegistrations, setEventRegistrations] = useState([]);
+  const [showEventDropdown, setShowEventDropdown] = useState(false);
+
+  // Station dropdown state
   const [selectedStation, setSelectedStation] = useState("main_gate");
-  const [activeTab, setActiveTab] = useState("Check-in");
+  const [isStationDropdownOpen, setIsStationDropdownOpen] = useState(false);
+  const [subEvents, setSubEvents] = useState([]);
+
+  // Scanning & UI state
   const [manualTicketId, setManualTicketId] = useState("");
   const [scanHistory, setScanHistory] = useState([]);
-  const [checkedInCount, setCheckedInCount] = useState(0);
-  const [totalGuests, setTotalGuests] = useState(0);
+  const [selectedGuest, setSelectedGuest] = useState(null);
 
   const [useManualEntry, setUseManualEntry] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -56,76 +83,232 @@ export function QRScanner() {
 
   // Fast local memory cache for sub-second duplicate detection at this gate
   const localScanCache = useRef(new Set());
+  const stationDropdownRef = useRef(null);
+  const eventDropdownRef = useRef(null);
+  const lastScanTimeRef = useRef(0);
 
-  // ── Load Real Attendance & Registrations from Firestore ──
+  // ── 1. Resolve and Load Organizer Events ──
   useEffect(() => {
     let isMounted = true;
-    const loadRealRegistrations = async () => {
+    const loadEvents = async () => {
       try {
-        const snap = await getDocs(collection(db, "registrations"));
-        if (!snap.empty && isMounted) {
-          const regs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          const total = regs.length;
-          const checked = regs.filter(
-            (r) => r.status === "Used" || r.checkedIn === true,
-          ).length;
+        let eventsList = [];
+        if (user?.uid) {
+          try {
+            eventsList =
+              user.role === "superadmin"
+                ? await getAllEvents()
+                : await getEventsByOrganiser(user.uid);
+          } catch {
+            eventsList = await getAllEvents();
+          }
+        } else {
+          eventsList = await getAllEvents();
+        }
 
-          setTotalGuests(total);
-          setCheckedInCount(checked);
+        if (!isMounted) return;
 
-          // Populate recent scans from real database check-ins
-          const usedRegs = regs
-            .filter((r) => r.status === "Used" || r.checkedIn === true)
-            .slice(0, 10);
-
-          if (usedRegs.length > 0) {
-            const colors = [
-              "bg-blue-600 text-white",
-              "bg-pink-600 text-white",
-              "bg-emerald-600 text-white",
-              "bg-purple-600 text-white",
-            ];
-            const realScans = usedRegs.map((r, i) => {
-              const name = r.fullName || r.buyerName || "Admitted Guest";
-              const initials =
-                name
-                  .split(" ")
-                  .filter(Boolean)
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase() || "OK";
-              const timeObj = r.usedAt?.toDate?.() || new Date();
-              const timeStr = timeObj.toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              });
-              return {
-                id: `real-${r.id}`,
-                attendee: name,
-                ticketId: r.ticketId || `TKT-${r.id.slice(0, 8)}`,
-                status: "valid",
-                time: timeStr,
-                avatar: initials,
-                avatarBg: colors[i % colors.length],
-              };
-            });
-
-            setScanHistory(realScans);
+        // Deduplicate events
+        const unique = [];
+        const seen = new Set();
+        for (const ev of eventsList) {
+          if (ev?.id && !seen.has(ev.id)) {
+            seen.add(ev.id);
+            unique.push(ev);
           }
         }
+        setEvents(unique);
+
+        const paramId = searchParams.get("eventId");
+        let initialId = propEventId || propEvent?.id || "";
+
+        if (paramId && unique.some((e) => e.id === paramId)) {
+          initialId = paramId;
+        } else if (!initialId) {
+          let cachedId = null;
+          try {
+            cachedId = localStorage.getItem("admin_selected_event_id");
+          } catch {}
+          if (cachedId && unique.some((e) => e.id === cachedId)) {
+            initialId = cachedId;
+          } else if (unique.length > 0) {
+            // Find "Tech Fest 2026" or first available event
+            const techFest = unique.find((e) =>
+              (e.name || "").toLowerCase().includes("tech fest")
+            );
+            initialId = techFest ? techFest.id : unique[0].id;
+          }
+        }
+
+        if (initialId) {
+          setSelectedEventId(initialId);
+          try {
+            localStorage.setItem("admin_selected_event_id", initialId);
+          } catch {}
+        }
       } catch (err) {
-        console.warn("Could not load registrations from Firestore:", err);
+        console.error("Failed to load events for QR Scanner:", err);
       }
     };
 
-    loadRealRegistrations();
+    loadEvents();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user, searchParams, propEventId, propEvent]);
 
-  // Web Audio feedback
+  // ── 2. Real-Time Subscription to Active Event Details & Sub-Events ──
+  useEffect(() => {
+    if (!selectedEventId) return;
+
+    const unsub = subscribeToEvent(selectedEventId, (ev) => {
+      if (ev) setCurrentEvent(ev);
+    });
+
+    getSubEventsForEvent(selectedEventId)
+      .then((subs) => {
+        if (Array.isArray(subs) && subs.length > 0) {
+          setSubEvents(subs);
+        } else {
+          setSubEvents([]);
+        }
+      })
+      .catch(() => setSubEvents([]));
+
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, [selectedEventId]);
+
+  // Derived counts from real-time event registrations
+  const totalGuests = eventRegistrations.length;
+  const checkedInCount = useMemo(() => {
+    return eventRegistrations.filter(
+      (r) => r.status === "Used" || r.checkedIn === true
+    ).length;
+  }, [eventRegistrations]);
+
+  // ── 3. Real-Time Subscription to Registrations for THIS EVENT ONLY ──
+  useEffect(() => {
+    if (!selectedEventId) {
+      const timer = setTimeout(() => {
+        setEventRegistrations([]);
+        setScanHistory([]);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+
+    // Subscribe exclusively to registrations belonging to the current active event
+    const unsub = subscribeToEventRegistrations(selectedEventId, (regs) => {
+      setEventRegistrations(regs);
+
+      // Populate recent scans list from real check-ins for THIS event
+      const usedRegs = regs
+        .filter((r) => r.status === "Used" || r.checkedIn === true)
+        .sort((a, b) => {
+          const timeA = a.usedAt?.toDate?.() || a.checkedInAt?.toDate?.() || new Date(a.updatedAt?.toDate?.() || 0);
+          const timeB = b.usedAt?.toDate?.() || b.checkedInAt?.toDate?.() || new Date(b.updatedAt?.toDate?.() || 0);
+          return timeB - timeA;
+        })
+        .slice(0, 10);
+
+      const colors = [
+        "bg-blue-600 text-white",
+        "bg-pink-600 text-white",
+        "bg-emerald-600 text-white",
+        "bg-purple-600 text-white",
+      ];
+
+      const realScans = usedRegs.map((r, i) => {
+        const name = r.fullName || r.name || r.attendeeName || r.buyerName || "Admitted Guest";
+        const initials =
+          name
+            .split(" ")
+            .filter(Boolean)
+            .map((n) => n[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase() || "OK";
+
+        const timeObj =
+          r.usedAt?.toDate?.() ||
+          r.checkedInAt?.toDate?.() ||
+          r.updatedAt?.toDate?.() ||
+          new Date();
+
+        const timeStr = timeObj.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        });
+
+        return {
+          id: `real-${r.id}`,
+          attendee: name,
+          ticketId: r.ticketId || `TKT-${r.id.slice(0, 8)}`,
+          status: "valid",
+          time: timeStr,
+          avatar: initials,
+          avatarBg: colors[i % colors.length],
+          guest: r,
+        };
+      });
+
+      setScanHistory(realScans);
+    });
+
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
+  }, [selectedEventId]);
+
+  // ── 4. Dynamic Gate Stations calculation ──
+  const gateStations = useMemo(() => {
+    if (subEvents && subEvents.length > 0) {
+      return [
+        { id: "main_gate", label: "Main Festival Gate" },
+        ...subEvents.map((sub) => ({
+          id: sub.id,
+          label: sub.title || sub.name || "Track Gate",
+        })),
+      ];
+    }
+    return DEFAULT_GATE_STATIONS;
+  }, [subEvents]);
+
+  // ── 5. Close Dropdowns on Click Outside ──
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        stationDropdownRef.current &&
+        !stationDropdownRef.current.contains(event.target)
+      ) {
+        setIsStationDropdownOpen(false);
+      }
+      if (
+        eventDropdownRef.current &&
+        !eventDropdownRef.current.contains(event.target)
+      ) {
+        setShowEventDropdown(false);
+      }
+    }
+    if (isStationDropdownOpen || showEventDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isStationDropdownOpen, showEventDropdown]);
+
+  // Handle switching active event
+  const handleSelectEvent = (eventId) => {
+    setSelectedEventId(eventId);
+    setShowEventDropdown(false);
+    try {
+      localStorage.setItem("admin_selected_event_id", eventId);
+    } catch {}
+    router.replace(`/admin/scanner?eventId=${eventId}`);
+    toast.success("Switched active scanner event");
+  };
+
+  // Web Audio feedback chimes
   const playFeedbackSound = (type) => {
     if (!soundEnabled || typeof window === "undefined") return;
     try {
@@ -163,6 +346,7 @@ export function QRScanner() {
     setTimeout(() => setFlashColor(null), 1200);
   };
 
+  // Ticket verification logic with Event-Level Isolation
   const verifyTicketPayload = async (payload) => {
     setIsProcessing(true);
     const code = (payload.ticketId || payload.rawQRData || "").trim();
@@ -199,10 +383,8 @@ export function QRScanner() {
         const qReg = query(collection(db, "registrations"), where("ticketId", "==", code));
         const regSnap = await getDocs(qReg);
         if (!regSnap.empty) {
-          dbDocFound: {
-            dbRef = regSnap.docs[0].ref;
-            dbTicket = { id: regSnap.docs[0].id, ...regSnap.docs[0].data() };
-          }
+          dbRef = regSnap.docs[0].ref;
+          dbTicket = { id: regSnap.docs[0].id, ...regSnap.docs[0].data() };
         } else {
           const qTicket = query(collection(db, "tickets"), where("ticketId", "==", code));
           const tSnap = await getDocs(qTicket);
@@ -215,9 +397,27 @@ export function QRScanner() {
         console.warn("Client Firestore lookup warning:", dbErr);
       }
 
-
       if (dbTicket) {
-        const attendeeName = dbTicket.fullName || dbTicket.buyerName || "Verified Guest";
+        // Enforce event isolation: ticket must belong to the active event
+        if (selectedEventId && dbTicket.eventId && dbTicket.eventId !== selectedEventId) {
+          triggerVisualFlash("red");
+          playFeedbackSound("denied");
+          const wrongEventRecord = {
+            id: `scan-${Date.now()}`,
+            attendee: dbTicket.fullName || "Cross-Event Ticket",
+            ticketId: code,
+            status: "invalid",
+            time: timeStr,
+            avatar: "!",
+            avatarBg: "bg-red-600 text-white",
+          };
+          setScanHistory((prev) => [wrongEventRecord, ...prev].slice(0, 10));
+          toast.error("DENIED: This ticket is for a different event!");
+          setIsProcessing(false);
+          return;
+        }
+
+        const attendeeName = dbTicket.fullName || dbTicket.name || dbTicket.buyerName || "Verified Guest";
         const isAlreadyUsed = dbTicket.status === "Used" || dbTicket.checkedIn === true;
 
         if (isAlreadyUsed) {
@@ -245,7 +445,9 @@ export function QRScanner() {
               status: "Used",
               checkedIn: true,
               usedAt: Timestamp.now(),
+              checkedInAt: Timestamp.now(),
               checkedInStation: selectedStation,
+              checkedInBy: user?.displayName || user?.fullName || "Admin",
             });
           } catch (writeErr) {
             console.warn("Firestore status update warning:", writeErr);
@@ -255,7 +457,13 @@ export function QRScanner() {
         localScanCache.current.add(cacheKey);
         triggerVisualFlash("green");
         playFeedbackSound("admitted");
-        setCheckedInCount((prev) => Math.min(totalGuests, prev + 1));
+        setEventRegistrations((prev) =>
+          prev.map((r) =>
+            r.ticketId === code || r.id === dbTicket?.id
+              ? { ...r, status: "Used", checkedIn: true, usedAt: Timestamp.now() }
+              : r
+          )
+        );
 
         const newScan = {
           id: `scan-${Date.now()}`,
@@ -271,6 +479,7 @@ export function QRScanner() {
             .join("")
             .toUpperCase() || "OK",
           avatarBg: "bg-blue-600 text-white",
+          guest: dbTicket,
         };
 
         setScanHistory((prev) => [newScan, ...prev].slice(0, 10));
@@ -298,6 +507,7 @@ export function QRScanner() {
         body: JSON.stringify({
           rawQRData: payload.rawQRData,
           ticketId: code,
+          eventId: selectedEventId,
           gateStationSubEventId: selectedStation,
         }),
       });
@@ -334,7 +544,11 @@ export function QRScanner() {
         localScanCache.current.add(cacheKey);
         triggerVisualFlash("green");
         playFeedbackSound("admitted");
-        setCheckedInCount((prev) => Math.min(totalGuests, prev + 1));
+        setEventRegistrations((prev) =>
+          prev.map((r) =>
+            r.ticketId === code ? { ...r, status: "Used", checkedIn: true } : r
+          )
+        );
         toast.success(`ADMITTED: Welcome ${attendeeName}!`);
       } else {
         triggerVisualFlash("red");
@@ -365,7 +579,11 @@ export function QRScanner() {
       if (isValid) {
         triggerVisualFlash("green");
         playFeedbackSound("admitted");
-        setCheckedInCount((prev) => Math.min(totalGuests, prev + 1));
+        setEventRegistrations((prev) =>
+          prev.map((r) =>
+            r.ticketId === code ? { ...r, status: "Used", checkedIn: true } : r
+          )
+        );
         toast.info("OFFLINE: Provisional check-in queued for sync");
       } else {
         triggerVisualFlash("orange");
@@ -379,8 +597,8 @@ export function QRScanner() {
 
   const handleQRScan = async (decodedText) => {
     const now = Date.now();
-    if (now - lastScanTime < 1800) return;
-    setLastScanTime(now);
+    if (now - lastScanTimeRef.current < 1800) return;
+    lastScanTimeRef.current = now;
 
     try {
       if (decodedText.startsWith("TLSEC:")) {
@@ -404,27 +622,48 @@ export function QRScanner() {
     setManualTicketId("");
   };
 
-  // Simulate a scan action strictly matching Image 1
+  // Simulate a scan action - prioritizes real registered guests for the active event
   const handleSimulateScan = () => {
-    const candidates = [
-      { name: "Priya Sharma", code: "TKT-1793-PR89Q", valid: true, bg: "bg-purple-600 text-white" },
-      { name: "Rohan Verma", code: "TKT-1793-RV44X", valid: true, bg: "bg-emerald-600 text-white" },
-      { name: "Ananya Iyer", code: "TKT-1793-AI11L", valid: true, bg: "bg-amber-600 text-white" },
-      { name: "Unknown ticket", code: "TKT-1701-XX99E", valid: false, bg: "bg-[#2A2D31] text-[#9B9EA4]" },
-      { name: "Sneha Patel", code: "TKT-1793-SP77K", valid: true, bg: "bg-blue-600 text-white" },
-    ];
-    const candidate = candidates[Math.floor(Math.random() * candidates.length)];
+    // If event has real registered guests who are not yet checked in, simulate admission for them
+    const pendingGuests = eventRegistrations.filter(
+      (r) => r.status !== "Used" && r.checkedIn !== true
+    );
+
+    let candidateName = "Simulated Guest";
+    let candidateCode = `TKT-${Date.now().toString().slice(-6)}`;
+    let isValid = true;
+    let bg = "bg-purple-600 text-white";
+
+    if (pendingGuests.length > 0) {
+      const pick = pendingGuests[Math.floor(Math.random() * pendingGuests.length)];
+      candidateName = pick.fullName || pick.name || "Registered Guest";
+      candidateCode = pick.ticketId || pick.id;
+      isValid = true;
+      bg = "bg-blue-600 text-white";
+    } else {
+      const candidates = [
+        { name: "Priya Sharma", code: "TKT-1793-PR89Q", valid: true, bg: "bg-purple-600 text-white" },
+        { name: "Rohan Verma", code: "TKT-1793-RV44X", valid: true, bg: "bg-emerald-600 text-white" },
+        { name: "Unknown ticket", code: "TKT-1701-XX99E", valid: false, bg: "bg-[#2A2D31] text-[#9B9EA4]" },
+      ];
+      const fallback = candidates[Math.floor(Math.random() * candidates.length)];
+      candidateName = fallback.name;
+      candidateCode = fallback.code;
+      isValid = fallback.valid;
+      bg = fallback.bg;
+    }
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
     const newScan = {
       id: `sim-${Date.now()}`,
-      attendee: candidate.name,
-      ticketId: candidate.code,
-      status: candidate.valid ? "valid" : "invalid",
+      attendee: candidateName,
+      ticketId: candidateCode,
+      status: isValid ? "valid" : "invalid",
       time: timeStr,
-      avatar: candidate.valid
-        ? candidate.name
+      avatar: isValid
+        ? candidateName
             .split(" ")
             .filter(Boolean)
             .map((n) => n[0])
@@ -432,39 +671,96 @@ export function QRScanner() {
             .join("")
             .toUpperCase()
         : "?",
-      avatarBg: candidate.bg,
+      avatarBg: bg,
     };
 
-    if (candidate.valid) {
+    if (isValid) {
       triggerVisualFlash("green");
       playFeedbackSound("admitted");
-      setCheckedInCount((prev) => Math.min(totalGuests, prev + 1));
-      toast.success(`ADMITTED: Welcome ${candidate.name}!`);
+      setEventRegistrations((prev) =>
+        prev.map((r) =>
+          r.ticketId === candidateCode || r.id === candidateCode
+            ? { ...r, status: "Used", checkedIn: true }
+            : r
+        )
+      );
+      toast.success(`ADMITTED: Welcome ${candidateName}!`);
     } else {
       triggerVisualFlash("red");
       playFeedbackSound("denied");
-      toast.error(`DENIED: Invalid ticket ${candidate.code}`);
+      toast.error(`DENIED: Invalid ticket ${candidateCode}`);
     }
 
     setScanHistory((prev) => [newScan, ...prev].slice(0, 10));
   };
 
+  const currentStationLabel = useMemo(() => {
+    return gateStations.find((s) => s.id === selectedStation)?.label || "Main Festival Gate";
+  }, [gateStations, selectedStation]);
+
   return (
     <div className="w-full text-white selection:bg-[#FE760B] selection:text-white pb-10">
+      {/* ── Standard Navigation Header with Live Event Switcher ── */}
       <EventControlHeader
         activeTab="Check-In"
+        eventTitle={currentEvent?.name || "Tech Fest 2026"}
+        eventSlug={currentEvent?.slug || currentEvent?.id || "tech-fest-2026"}
+        eventId={selectedEventId}
+        isLive={currentEvent?.isLive !== false}
         extraActions={
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            title={soundEnabled ? "Mute chime" : "Enable chime"}
-            className="p-2 rounded-xl border border-[#2A2D31] bg-[#1A1C1F] hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors"
-          >
-            {soundEnabled ? (
-              <Volume2 size={14} className="text-[#3DD68C]" />
-            ) : (
-              <VolumeX size={14} />
+          <div className="flex items-center gap-2">
+            {events.length > 1 && (
+              <div className="relative" ref={eventDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowEventDropdown(!showEventDropdown)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-white transition-colors"
+                  title="Switch active event"
+                >
+                  <span className="truncate max-w-[120px]">
+                    {currentEvent?.name || "Switch Event"}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#9B9EA4]" />
+                </button>
+
+                {showEventDropdown && (
+                  <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] shadow-2xl z-50 overflow-hidden py-1 divide-y divide-[#2A2D31]/60">
+                    <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                      Your Events ({events.length})
+                    </div>
+                    <div className="max-h-60 overflow-y-auto no-scrollbar">
+                      {events.map((ev, idx) => (
+                        <button
+                          key={`${ev.id}-${idx}`}
+                          type="button"
+                          onClick={() => handleSelectEvent(ev.id)}
+                          className={`w-full text-left px-3.5 py-2.5 text-xs flex items-center justify-between gap-2 hover:bg-white/5 transition-colors ${
+                            ev.id === selectedEventId ? "bg-[#FE760B]/10 text-[#FE760B] font-bold" : "text-white"
+                          }`}
+                        >
+                          <span className="truncate">{ev.name}</span>
+                          {ev.id === selectedEventId && <Check className="w-3.5 h-3.5 shrink-0 text-[#FE760B]" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
-          </button>
+
+            <button
+              type="button"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? "Mute chime" : "Enable chime"}
+              className="p-2 rounded-xl border border-[#2A2D31] bg-[#1A1C1F] hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors"
+            >
+              {soundEnabled ? (
+                <Volume2 size={14} className="text-[#3DD68C]" />
+              ) : (
+                <VolumeX size={14} />
+              )}
+            </button>
+          </div>
         }
       />
 
@@ -477,9 +773,9 @@ export function QRScanner() {
             <button
               type="button"
               onClick={() => setUseManualEntry(false)}
-              className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 !useManualEntry
-                  ? "bg-[#2A2D31] text-white shadow-sm"
+                  ? "bg-[#212327] text-white shadow-sm"
                   : "text-[#9B9EA4] hover:text-white"
               }`}
             >
@@ -489,9 +785,9 @@ export function QRScanner() {
             <button
               type="button"
               onClick={() => setUseManualEntry(true)}
-              className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 useManualEntry
-                  ? "bg-[#2A2D31] text-white shadow-sm"
+                  ? "bg-[#212327] text-white shadow-sm"
                   : "text-[#9B9EA4] hover:text-white"
               }`}
             >
@@ -595,53 +891,45 @@ export function QRScanner() {
                         }}
                         className="px-3.5 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] text-xs font-semibold transition-colors cursor-pointer"
                       >
-                        Retry Camera
+                        Try Again
                       </button>
                     </div>
                   </div>
                 )}
-
-                {/* Status at bottom inside Viewfinder matching Image 1 */}
-                <div className="absolute bottom-3 sm:bottom-4 inset-x-0 flex items-center justify-center gap-2 z-20 pointer-events-none">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      cameraError
-                        ? "bg-amber-500"
-                        : scannerReady
-                        ? "bg-[#3DD68C]"
-                        : "bg-[#FE760B] animate-pulse"
-                    } shrink-0`}
-                  />
-                  <span className="text-[11px] sm:text-xs text-[#D0D0D1] font-medium tracking-wide drop-shadow-sm">
-                    {cameraError
-                      ? "Camera disabled · manual entry available"
-                      : scannerReady
-                      ? "Camera ready · hold QR code steady"
-                      : "Initializing camera..."}
-                  </span>
-                </div>
               </div>
 
-              {/* ── Simulate a scan button (Only under camera mode matching Image 1) ── */}
+              {/* Status pill under camera */}
+              <div className="mt-3 flex items-center gap-2 text-xs text-[#9B9EA4]">
+                <span className="w-2 h-2 rounded-full bg-[#3DD68C] animate-pulse" />
+                <span>Camera ready · hold QR code steady</span>
+              </div>
+
+              {/* Simulate Scan Button */}
               <button
                 type="button"
                 onClick={handleSimulateScan}
-                className="w-full mt-3.5 py-2.5 sm:py-3 rounded-xl bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] text-xs sm:text-sm font-semibold text-white transition-all active:scale-[0.99] text-center shadow-md"
+                className="w-full mt-4 py-2.5 px-4 rounded-xl bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-[#D0D0D1] hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.99]"
               >
-                Simulate a scan
+                <Sparkles size={13} className="text-[#FE760B]" />
+                <span>Simulate a scan</span>
               </button>
             </>
           ) : (
-            /* ── Manual Entry Panel strictly matching Image 1 ── */
-            <div className="w-full rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 sm:p-5 shadow-lg">
-              <label className="block text-xs font-semibold text-[#9B9EA4] mb-2.5">
-                Ticket ID
-              </label>
+            /* ── Manual Entry Mode ── */
+            <div className="w-full bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 shadow-2xl space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-white mb-1">
+                  Manual Ticket Verification
+                </h4>
+                <p className="text-xs text-[#9B9EA4]">
+                  Enter the unique attendee Ticket ID printed on their digital pass.
+                </p>
+              </div>
 
-              <div className="flex items-center gap-2.5 mb-3">
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="TKT-1704087890-ABC123"
+                  placeholder="e.g. TKT-1772264271452-PVV8HMERQ"
                   value={manualTicketId}
                   onChange={(e) => setManualTicketId(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleManualEntry()}
@@ -663,30 +951,42 @@ export function QRScanner() {
                 </button>
               </div>
 
-              <p className="text-[11px] sm:text-xs text-[#9B9EA4] leading-relaxed">
-                Try{" "}
-                <button
-                  type="button"
-                  onClick={() => setManualTicketId("TKT-1793-QW89E")}
-                  className="font-mono text-[#D0D0D1] hover:text-[#FE760B] hover:underline transition-colors"
-                >
-                  TKT-1793-QW89E
-                </button>{" "}
-                (valid),{" "}
-                <button
-                  type="button"
-                  onClick={() => setManualTicketId("TKT-1793-AB12C")}
-                  className="font-mono text-[#D0D0D1] hover:text-[#FE760B] hover:underline transition-colors"
-                >
-                  TKT-1793-AB12C
-                </button>{" "}
-                (already in) or anything else
-              </p>
+              {eventRegistrations.length > 0 && (
+                <div className="pt-2 border-t border-[#2A2D31]">
+                  <p className="text-[11px] text-[#9B9EA4] mb-2 font-medium">
+                    Registered guests for this event ({eventRegistrations.length}):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto no-scrollbar">
+                    {eventRegistrations.map((guest) => {
+                      const isUsed = guest.status === "Used" || guest.checkedIn === true;
+                      return (
+                        <button
+                          key={guest.id}
+                          type="button"
+                          onClick={() => setManualTicketId(guest.ticketId || guest.id)}
+                          className={`text-[10px] font-mono px-2 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${
+                            isUsed
+                              ? "bg-[#3DD68C]/10 border-[#3DD68C]/30 text-[#3DD68C]"
+                              : "bg-[#212327] border-[#2A2D31] text-[#D0D0D1] hover:border-[#FE760B] hover:text-[#FE760B]"
+                          }`}
+                        >
+                          <span className="truncate max-w-[120px]">
+                            {guest.fullName || guest.name || guest.ticketId}
+                          </span>
+                          <span className="opacity-60 text-[9px]">
+                            {isUsed ? "✓" : "→"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* ── Right Column: Stats & Recent Scans matching Image 1 ── */}
+        {/* ── Right Column: Stats & Recent Scans matching Image 1 & 2 ── */}
         <div className="w-full space-y-5">
           {/* ── 1. Checked in Counter & Progress Bar ── */}
           <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-lg">
@@ -712,92 +1012,182 @@ export function QRScanner() {
               <div
                 className="h-full bg-[#3DD68C] rounded-full transition-all duration-500 ease-out"
                 style={{
-                  width: `${Math.min(100, (checkedInCount / totalGuests) * 100)}%`,
+                  width: totalGuests > 0 ? `${Math.min(100, Math.round((checkedInCount / totalGuests) * 100))}%` : "0%",
                 }}
               />
             </div>
           </div>
 
-          {/* ── 2. Recent Scans Section matching Image 1 ── */}
+          {/* ── 2. Recent Scans Section with Custom Floating Gate Station Dropdown ── */}
           <div>
-            <div className="flex items-center justify-between mb-2.5 px-0.5">
+            <div className="flex items-center justify-between mb-2.5 px-0.5 relative">
               <h3 className="text-xs sm:text-sm font-semibold text-[#D0D0D1]">
                 Recent scans
               </h3>
-              {/* Gate station indicator */}
-              <div className="flex items-center gap-1.5 text-[11px] text-[#9B9EA4]">
-                <MapPin size={12} className="text-[#FE760B]" />
-                <select
-                  value={selectedStation}
-                  onChange={(e) => setSelectedStation(e.target.value)}
-                  className="bg-transparent text-[11px] font-medium text-[#9B9EA4] hover:text-white focus:outline-none cursor-pointer"
+
+              {/* Custom Floating Gate Station Dropdown (Zero native select bugs) */}
+              <div className="relative" ref={stationDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsStationDropdownOpen(!isStationDropdownOpen)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] text-[11px] font-medium text-[#9B9EA4] hover:text-white transition-all shadow-sm cursor-pointer select-none"
+                  aria-haspopup="listbox"
+                  aria-expanded={isStationDropdownOpen}
                 >
-                  {GATE_STATIONS.map((station) => (
-                    <option
-                      key={station.id}
-                      value={station.id}
-                      className="bg-[#1A1C1F] text-white"
-                    >
-                      {station.label}
-                    </option>
-                  ))}
-                </select>
+                  <MapPin size={12} className="text-[#FE760B] shrink-0" />
+                  <span className="truncate max-w-[140px] sm:max-w-[190px] text-[#D0D0D1]">
+                    {currentStationLabel}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    className={`text-[#9B9EA4] transition-transform duration-200 shrink-0 ${
+                      isStationDropdownOpen ? "rotate-180 text-[#FE760B]" : ""
+                    }`}
+                  />
+                </button>
+
+                {isStationDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-60 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] shadow-2xl z-50 py-1.5 animate-in fade-in zoom-in-95 backdrop-blur-md">
+                    <div className="px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] border-b border-[#2A2D31]/60 mb-1">
+                      Check-In Gate Station
+                    </div>
+                    <div className="max-h-56 overflow-y-auto no-scrollbar space-y-0.5 px-1">
+                      {gateStations.map((station) => {
+                        const isSelected = selectedStation === station.id;
+                        return (
+                          <button
+                            key={station.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedStation(station.id);
+                              setIsStationDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between gap-2 rounded-xl transition-colors ${
+                              isSelected
+                                ? "bg-[#FE760B]/12 text-[#FE760B] font-bold"
+                                : "text-[#D0D0D1] hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            <span className="truncate">{station.label}</span>
+                            {isSelected && <Check size={13} className="shrink-0 text-[#FE760B]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* List of Recent Scans for THIS EVENT ONLY */}
             <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl divide-y divide-[#2A2D31] overflow-hidden shadow-lg">
-              {scanHistory.map((scan) => (
-                <div
-                  key={scan.id}
-                  className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/40 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${scan.avatarBg}`}
-                    >
-                      {scan.avatar}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-semibold text-white truncate">
-                        {scan.attendee}
-                      </p>
-                      <p className="font-mono text-[11px] text-[#9B9EA4] truncate">
-                        {scan.ticketId}
-                      </p>
-                    </div>
+              {scanHistory.length === 0 ? (
+                <div className="p-8 text-center text-sm text-[#9B9EA4]">
+                  <div className="w-10 h-10 rounded-full bg-[#2A2D31]/50 border border-[#2A2D31] flex items-center justify-center mx-auto mb-2.5 text-[#5C6066]">
+                    <Ticket size={18} />
                   </div>
-
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold ${
-                        scan.status === "valid" || scan.status === "admitted"
-                          ? "bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/20"
-                          : "bg-[#FF6B6B]/12 text-[#FF9A9A] border border-[#FF6B6B]/20"
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          scan.status === "valid" || scan.status === "admitted"
-                            ? "bg-[#3DD68C]"
-                            : "bg-[#FF6B6B]"
-                        }`}
-                      />
-                      <span>
-                        {scan.status === "valid" || scan.status === "admitted"
-                          ? "Valid"
-                          : "Invalid"}
-                      </span>
-                    </span>
-                    <span className="text-xs text-[#9B9EA4] whitespace-nowrap">
-                      {scan.time}
-                    </span>
-                  </div>
+                  <p className="font-semibold text-white text-xs">No check-ins yet for this event</p>
+                  <p className="text-[11px] text-[#9B9EA4] mt-0.5">
+                    Scan attendee QR codes or use manual entry to begin gate admissions
+                  </p>
                 </div>
-              ))}
+              ) : (
+                scanHistory.map((scan) => (
+                  <div
+                    key={scan.id}
+                    onClick={() => {
+                      if (scan.guest) setSelectedGuest(scan.guest);
+                    }}
+                    role={scan.guest ? "button" : undefined}
+                    tabIndex={scan.guest ? 0 : undefined}
+                    className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/60 active:bg-[#212327] transition-colors group ${
+                      scan.guest ? "cursor-pointer" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${scan.avatarBg}`}
+                      >
+                        {scan.avatar}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-semibold text-white group-hover:text-[#FE760B] transition-colors truncate">
+                          {scan.attendee}
+                        </p>
+                        <p className="font-mono text-[11px] text-[#9B9EA4] truncate">
+                          {scan.ticketId}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold ${
+                          scan.status === "valid" || scan.status === "admitted"
+                            ? "bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/20"
+                            : "bg-[#FF6B6B]/12 text-[#FF9A9A] border border-[#FF6B6B]/20"
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            scan.status === "valid" || scan.status === "admitted"
+                              ? "bg-[#3DD68C]"
+                              : "bg-[#FF6B6B]"
+                          }`}
+                        />
+                        <span>
+                          {scan.status === "valid" || scan.status === "admitted"
+                            ? "Valid"
+                            : "Invalid"}
+                        </span>
+                      </span>
+                      <span className="text-xs text-[#9B9EA4] whitespace-nowrap">
+                        {scan.time}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Guest Details Drawer / Modal (Light Mint Theme & Live QR Preview) ── */}
+      {selectedGuest && (
+        <GuestDetailsModal
+          isOpen={Boolean(selectedGuest)}
+          onClose={() => setSelectedGuest(null)}
+          guest={selectedGuest}
+          allGuests={eventRegistrations.length > 0 ? eventRegistrations : scanHistory.map((s) => s.guest).filter(Boolean)}
+          currentIndex={Math.max(
+            0,
+            (eventRegistrations.length > 0 ? eventRegistrations : scanHistory.map((s) => s.guest).filter(Boolean)).findIndex(
+              (g) => (g.id || g.ticketId) === (selectedGuest.id || selectedGuest.ticketId)
+            )
+          )}
+          onNavigate={(newIdx) => {
+            const list = eventRegistrations.length > 0 ? eventRegistrations : scanHistory.map((s) => s.guest).filter(Boolean);
+            if (list[newIdx]) setSelectedGuest(list[newIdx]);
+          }}
+          event={currentEvent}
+          currentUser={user}
+          onGuestUpdated={(updatedGuest) => {
+            setSelectedGuest(updatedGuest);
+            setScanHistory((prev) =>
+              prev.map((s) =>
+                s.guest?.id === updatedGuest.id
+                  ? {
+                      ...s,
+                      attendee: updatedGuest.fullName || updatedGuest.name || s.attendee,
+                      guest: { ...s.guest, ...updatedGuest },
+                    }
+                  : s
+              )
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { getThemeLook } from "@/lib/theme-utils";
 import { getPosterLines } from "@/components/admin/event-create-studio";
+import { getPublicBaseUrl, getCleanDomain } from "@/lib/app-url";
 
 const PRESET_COLORS = [
   { hex: "#FE760B", name: "Ticket Orange" },
@@ -46,7 +47,8 @@ export default function EventCustomization({
   const [slugAvailable, setSlugAvailable] = useState(event?.slug ? true : null);
   const [checkingSlug, setCheckingSlug] = useState(false);
 
-  const eventUrl = slug ? `https://ticketlelo.in/${slug}` : null;
+  const domain = getCleanDomain(getPublicBaseUrl());
+  const eventUrl = slug ? `${getPublicBaseUrl()}/${slug}` : null;
 
   const generateSlug = () => {
     if (!event?.name) return;
@@ -199,7 +201,7 @@ export default function EventCustomization({
             <div className="relative">
               <div className="flex rounded-xl overflow-hidden border border-[#2A2D31] bg-[#212327] focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B] transition-all">
                 <span className="flex items-center px-3.5 bg-[#2A2D31] text-[#9B9EA4] text-xs font-mono border-r border-[#2A2D31] whitespace-nowrap">
-                  ticketlelo.in/
+                  {domain}/
                 </span>
                 <input
                   type="text"

@@ -1,50 +1,15 @@
 "use client";
 
 import React from "react";
-import { formatTicketMeta, parseTicketTitle, detectTicketTheme } from "./stub-ticket";
+import { formatTicketMeta } from "./stub-ticket";
+import { resolveTicketTheme, parseTicketTitle } from "@/lib/ticket-theme";
 
 export function normalizeTheme(t = "") {
   const s = String(t || "").toLowerCase().trim();
-  if (
-    s === "gaming" ||
-    s === "purple" ||
-    s === "game" ||
-    s === "praroha" ||
-    s === "praröha" ||
-    s.includes("game") ||
-    s.includes("praroha")
-  ) {
-    return "gaming";
-  }
-  if (
-    s === "mic" ||
-    s === "pink" ||
-    s === "red" ||
-    s === "comedy" ||
-    s === "music" ||
-    s === "concert" ||
-    s === "honey" ||
-    s.includes("mic") ||
-    s.includes("concert") ||
-    s.includes("music") ||
-    s.includes("standup") ||
-    s.includes("singh")
-  ) {
-    return "mic";
-  }
-  if (
-    s === "robotics" ||
-    s === "teal" ||
-    s === "green" ||
-    s === "robot" ||
-    s === "expo" ||
-    s.includes("robot") ||
-    s.includes("expo") ||
-    s.includes("science")
-  ) {
-    return "robotics";
-  }
-  return "tech"; // default Tech Fest orange
+  if (s === "gaming" || s === "purple") return "gaming";
+  if (s === "mic" || s === "pink" || s === "red") return "mic";
+  if (s === "robotics" || s === "teal" || s === "green") return "robotics";
+  return "tech"; // default orange
 }
 
 export function StarburstBadge({
@@ -102,70 +67,12 @@ export function TicketGraphic({
   notchBg,
   className = "",
 }) {
-  const rawTheme = ticket?.theme || detectTicketTheme(ticket?.title || ticket?.name, ticket?.category);
-  const theme = normalizeTheme(rawTheme);
+  const theme = normalizeTheme(ticket?.theme);
+  const themeConfig = resolveTicketTheme(ticket, ticket?.theme);
 
-  // Exact theme styling from Image 2 (Iconic 4 Themes)
-  const themeConfig = {
-    tech: {
-      bodyBgStyle: { backgroundColor: "#FE760B" },
-      stubBgStyle: { backgroundColor: "#201207" },
-      bottomBarStyle: { backgroundColor: "#0C0D10" },
-      scanColor: "text-[#FDE003]",
-      ticketIdColor: "text-[#FE760B]",
-      accentYellow: "#FDE003",
-      titleColor: "text-black font-black",
-      subtitleOutline: true,
-      perforationBorder: "border-black/20",
-    },
-    gaming: {
-      bodyBgStyle: { backgroundColor: "#472F92" },
-      stubBgStyle: { backgroundColor: "#150D29" },
-      bottomBarStyle: { backgroundColor: "#0D081B" },
-      scanColor: "text-[#3DD68C]",
-      ticketIdColor: "text-[#A78BFA]",
-      accentYellow: "#FDE003",
-      titleColor: "text-white font-black",
-      subtitleOutline: false,
-      perforationBorder: "border-white/20",
-    },
-    mic: {
-      bodyBgStyle: { backgroundColor: "#DE334C" },
-      stubBgStyle: { backgroundColor: "#1D060D" },
-      bottomBarStyle: { backgroundColor: "#16040A" },
-      scanColor: "text-[#FE760B]",
-      ticketIdColor: "text-[#FB7185]",
-      accentYellow: "#FDE003",
-      titleColor: "text-white font-black",
-      subtitleOutline: false,
-      perforationBorder: "border-white/20",
-    },
-    robotics: {
-      bodyBgStyle: { backgroundColor: "#0E746D" },
-      stubBgStyle: { backgroundColor: "#051917" },
-      bottomBarStyle: { backgroundColor: "#041513" },
-      scanColor: "text-[#FDE003]",
-      ticketIdColor: "text-[#5EEAD4]",
-      accentYellow: "#FDE003",
-      titleColor: "text-white font-black",
-      subtitleOutline: false,
-      perforationBorder: "border-white/20",
-    },
-  }[theme] || {
-    bodyBgStyle: { backgroundColor: "#FE760B" },
-    stubBgStyle: { backgroundColor: "#201207" },
-    bottomBarStyle: { backgroundColor: "#0C0D10" },
-    scanColor: "text-[#FDE003]",
-    ticketIdColor: "text-[#FE760B]",
-    accentYellow: "#FDE003",
-    titleColor: "text-black font-black",
-    subtitleOutline: true,
-    perforationBorder: "border-black/20",
-  };
-
-  // Parse title & year using the exact same logic as Image 2
+  // Parse title & year using organiser settings (posterLine1 / posterLine2) or event name
   const rawTitle = ticket?.title || ticket?.name || "EVENT PASS";
-  const titleInfo = parseTicketTitle(rawTitle);
+  const titleInfo = parseTicketTitle(rawTitle, ticket);
 
   // Format metadata matching Image 2
   const meta = formatTicketMeta({
@@ -510,22 +417,11 @@ export function TicketGraphic({
             {/* Subtitle / Second Line */}
             {titleInfo.line2 && (
               <div className="mt-0.5 sm:mt-1 lg:mt-1.5">
-                {titleInfo.isYear && theme === "tech" ? (
-                  /* Outline hollow font for "2026" on Tech Fest */
-                  <span
-                    className="text-xs xs:text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black tracking-tight leading-none block text-transparent"
-                    style={{
-                      WebkitTextStroke: "1.2px #000000",
-                    }}
-                  >
-                    {titleInfo.line2}
-                  </span>
-                ) : (
-                  /* Bold Sunny Yellow font for "GAMING", "CONCERT", "NIGHT", "EXPO" */
-                  <span className="text-[9.5px] xs:text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl font-black uppercase tracking-tight leading-none text-[#FDE003] block">
-                    {titleInfo.line2}
-                  </span>
-                )}
+                <span
+                  className={`text-xs xs:text-sm sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor}`}
+                >
+                  {titleInfo.line2}
+                </span>
               </div>
             )}
           </div>

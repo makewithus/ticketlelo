@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 
 export function middleware(request) {
   const { pathname, search } = request.nextUrl;
+
+  // Never redirect API routes, static files, or internal assets
+  if (
+    pathname.startsWith("/api/") ||
+    pathname === "/api" ||
+    pathname.startsWith("/_next/") ||
+    pathname === "/favicon.ico"
+  ) {
+    return NextResponse.next();
+  }
+
   const cleanPath = pathname.replace(/\/+$/, "");
 
   // Enforce single unified login: redirect all legacy login paths to /login
@@ -14,7 +25,7 @@ export function middleware(request) {
     pathname.startsWith("/super-admin-login")
   ) {
     const url = new URL(`/login${search}`, request.url);
-    return NextResponse.redirect(url, 308);
+    return NextResponse.redirect(url, 307);
   }
 
   const response = NextResponse.next();

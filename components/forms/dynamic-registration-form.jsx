@@ -20,6 +20,7 @@ import {
 import { sendRegistrationConfirmation } from "@/lib/email";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
+import { getCustomFormByEvent } from "@/lib/form-generator";
 import {
   Loader2,
   Sparkles,
@@ -37,9 +38,96 @@ import {
   Tag,
   Ticket,
   ShieldCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
-export function DynamicRegistrationForm({ eventId, event, initialForm }) {
+/**
+ * Default fallback questions used ONLY when an event has no custom form configured in Form Builder.
+ */
+const DEFAULT_FALLBACK_FIELDS = [
+  {
+    id: "fullName",
+    label: "Name",
+    name: "Name",
+    type: "text",
+    required: true,
+    placeholder: "Your full name",
+  },
+  {
+    id: "email",
+    label: "Email",
+    name: "Email",
+    type: "email",
+    required: true,
+    placeholder: "you@example.com",
+  },
+  {
+    id: "whatsappPhone",
+    label: "Phone / WhatsApp",
+    name: "Phone / WhatsApp",
+    type: "tel",
+    required: true,
+    placeholder: "+91 98765 43210",
+  },
+  {
+    id: "college",
+    label: "College name",
+    name: "College name",
+    type: "text",
+    required: false,
+    placeholder: "Your college",
+  },
+  {
+    id: "yearOfStudy",
+    label: "Year of study",
+    name: "Year of study",
+    type: "dropdown",
+    required: false,
+    placeholder: "Select",
+    options: [
+      "1st Year",
+      "2nd Year",
+      "3rd Year",
+      "4th Year",
+      "Postgraduate",
+    ],
+  },
+];
+
+/**
+ * Sanitizes organizer custom form fields to ensure consistent property access:
+ * id, label, name, type, required, placeholder, options.
+ * Does NOT inject synthetic/hardcoded fields that the organizer never configured.
+ */
+function sanitizeCustomFields(fields = []) {
+  if (!Array.isArray(fields)) return [];
+  return fields
+    .filter((f) => f && typeof f === "object")
+    .map((f, index) => {
+      const id = f.id !== undefined && f.id !== null ? f.id : `field_${index}`;
+      const name = f.name || f.label || `Field ${index + 1}`;
+      const label = f.label || f.name || `Field ${index + 1}`;
+      return {
+        ...f,
+        id,
+        name,
+        label,
+        type: f.type || "text",
+        required: Boolean(f.required),
+        placeholder:
+          f.placeholder ||
+          (f.type === "tel"
+            ? "+91 98765 43210"
+            : f.type === "email"
+            ? "you@example.com"
+            : `Your ${label.toLowerCase()}`),
+        options: Array.isArray(f.options) ? f.options : [],
+      };
+    });
+}
+
+export function DynamicRegistrationForm({ eventId, event, initialForm, ...props }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [customForm, setCustomForm] = useState(null);
@@ -49,6 +137,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [tempFormData, setTempFormData] = useState(null);
   const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const themeColor = event?.themeColor || "#FE760B";
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [formLoadError, setFormLoadError] = useState(null);
@@ -60,85 +150,156 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   const [couponData, setCouponData] = useState(null);
   const [couponError, setCouponError] = useState("");
 
+  // Helper to build initial form values with user pre-population
+  const buildInitialData = (fields) => {
+    const initialData = {};
+    if (!Array.isArray(fields)) return initialData;
+    fields.forEach((field) => {
+      if (field.id !== undefined && field.id !== null) {
+        initialData[field.id] = "";
+      }
+      if (field.name) {
+        initialData[field.name] = "";
+      }
+    });
+    const signedIn = auth.currentUser;
+    if (signedIn) {
+      const emailF = fields.find((f) => {
+        const t = String(f?.type || "").toLowerCase();
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return t === "email" || n.includes("email");
+      });
+      const nameF = fields.find((f) => {
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return (
+          n === "fullname" ||
+          n === "name" ||
+          (n.includes("name") &&
+            !n.includes("college") &&
+            !n.includes("school") &&
+            !n.includes("team") &&
+            !n.includes("company"))
+        );
+      });
+      const phoneF = fields.find((f) => {
+        const t = String(f?.type || "").toLowerCase();
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return (
+          t === "tel" ||
+          n.includes("phone") ||
+          n.includes("mobile") ||
+          n.includes("whatsapp") ||
+          n.includes("contact")
+        );
+      });
+      if (emailF && signedIn.email) {
+        initialData[emailF.id] = signedIn.email;
+        if (emailF.name) initialData[emailF.name] = signedIn.email;
+      }
+      if (nameF && signedIn.displayName) {
+        initialData[nameF.id] = signedIn.displayName;
+        if (nameF.name) initialData[nameF.name] = signedIn.displayName;
+      }
+      if (phoneF && signedIn.phoneNumber) {
+        initialData[phoneF.id] = signedIn.phoneNumber;
+        if (phoneF.name) initialData[phoneF.name] = signedIn.phoneNumber;
+      }
+    }
+    return initialData;
+  };
+
+  // Auto-fill logged-in attendee details when auth initializes
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user && customForm?.fields) {
+        setFormData((prev) => {
+          const next = { ...prev };
+          let updated = false;
+          const emailF = customForm.fields.find((f) => {
+            const t = String(f?.type || "").toLowerCase();
+            const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+            return t === "email" || n.includes("email");
+          });
+          const nameF = customForm.fields.find((f) => {
+            const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+            return (
+              n === "fullname" ||
+              n === "name" ||
+              (n.includes("name") &&
+                !n.includes("college") &&
+                !n.includes("school") &&
+                !n.includes("team") &&
+                !n.includes("company"))
+            );
+          });
+          const phoneF = customForm.fields.find((f) => {
+            const t = String(f?.type || "").toLowerCase();
+            const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+            return (
+              t === "tel" ||
+              n.includes("phone") ||
+              n.includes("mobile") ||
+              n.includes("whatsapp") ||
+              n.includes("contact")
+            );
+          });
+          if (emailF && !next[emailF.id] && user.email) {
+            next[emailF.id] = user.email;
+            if (emailF.name) next[emailF.name] = user.email;
+            updated = true;
+          }
+          if (nameF && !next[nameF.id] && user.displayName) {
+            next[nameF.id] = user.displayName;
+            if (nameF.name) next[nameF.name] = user.displayName;
+            updated = true;
+          }
+          if (phoneF && !next[phoneF.id] && user.phoneNumber) {
+            next[phoneF.id] = user.phoneNumber;
+            if (phoneF.name) next[phoneF.name] = user.phoneNumber;
+            updated = true;
+          }
+          return updated ? next : prev;
+        });
+      }
+    });
+    return () => unsubscribe();
+  }, [customForm]);
+
   // Fetch custom form structure with timeout and retry (only if not prefetched)
   useEffect(() => {
     // If we already have initialForm (not undefined), use it and skip the fetch
     if (initialForm !== undefined) {
       const timer = setTimeout(() => {
-        if (initialForm) {
-          // Custom form exists - use it
-          console.log(" Using prefetched form - instant load!");
-          setCustomForm(initialForm);
-
-          // Initialize form data with empty values
-          const initialData = {};
-          initialForm.fields?.forEach((field) => {
-            if (field.id) {
-              initialData[field.id] = "";
-            }
-          });
-          setFormData(initialData);
+        if (initialForm && Array.isArray(initialForm.fields) && initialForm.fields.length > 0) {
+          // Custom form exists with organizer fields - sanitize without synthetic injections
+          console.log(" Using prefetched custom form");
+          const sanitizedFields = sanitizeCustomFields(initialForm.fields);
+          const normalizedForm = {
+            ...initialForm,
+            fields: sanitizedFields,
+          };
+          setCustomForm(normalizedForm);
+          setFormData(buildInitialData(sanitizedFields));
         } else {
-          // initialForm is null - no custom form exists, use default
-          console.log("No custom form found (prefetched), using default form");
+          // No custom form fields exist - use default fallback form
+          console.log("No custom form fields found (prefetched), using default form");
           const defaultForm = {
+            ...(initialForm || {}),
             eventId: eventId,
-            fields: [
-              {
-                id: "fullName",
-                label: "Name",
-                type: "text",
-                required: true,
-                placeholder: "Your full name",
-              },
-              {
-                id: "email",
-                label: "Email",
-                type: "email",
-                required: true,
-                placeholder: "you@example.com",
-              },
-              {
-                id: "college",
-                label: "College name",
-                type: "text",
-                required: true,
-                placeholder: "Your college",
-              },
-              {
-                id: "yearOfStudy",
-                label: "Year of study",
-                type: "dropdown",
-                required: false,
-                placeholder: "Select",
-                options: [
-                  "1st Year",
-                  "2nd Year",
-                  "3rd Year",
-                  "4th Year",
-                  "Postgraduate",
-                ],
-              },
-            ],
+            fields: DEFAULT_FALLBACK_FIELDS,
             theme: {
               logo: null,
               color: "#10b981",
             },
-            // INHERIT payment info from actual event
             isPaid: event?.isPaid ?? ((event?.price || event?.ticketPrice) > 0),
             amount: event?.price ?? event?.ticketPrice ?? 199,
-            enableCoupons: true, // Always enable coupons for default forms
+            enableCoupons: true,
             status: "published",
             isDefault: true,
           };
 
           setCustomForm(defaultForm);
-          setFormData({
-            fullName: "",
-            email: "",
-            college: "",
-            yearOfStudy: "",
-          });
+          setFormData(buildInitialData(DEFAULT_FALLBACK_FIELDS));
         }
       }, 0);
       return () => clearTimeout(timer);
@@ -148,7 +309,26 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       try {
         setFormLoadError(null);
 
-        // Create abort controller for timeout
+        // 1. First attempt fast direct load from Firestore client
+        try {
+          const directForm = await getCustomFormByEvent(eventId);
+          if (directForm && Array.isArray(directForm.fields) && directForm.fields.length > 0) {
+            console.log("Custom form loaded directly from Firestore");
+            const sanitizedFields = sanitizeCustomFields(directForm.fields);
+            const formToUse = {
+              ...directForm,
+              fields: sanitizedFields,
+            };
+            setCustomForm(formToUse);
+            setFormData(buildInitialData(sanitizedFields));
+            setRetryCount(0);
+            return;
+          }
+        } catch (directErr) {
+          console.warn("Direct form fetch fallback to API:", directErr);
+        }
+
+        // 2. Fallback to API route
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
@@ -166,87 +346,36 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           throw new Error(data.error || "Failed to load form");
         }
 
-        if (data.success && data.form) {
-          console.log("Custom form loaded successfully");
-          setCustomForm(data.form);
-
-          // Initialize form data with empty values
-          const initialData = {};
-          data.form.fields?.forEach((field) => {
-            // Skip fields without proper structure
-            if (!field.id) {
-              console.warn("Skipping field without ID:", field);
-              return;
-            }
-            initialData[field.id] = "";
-          });
-          setFormData(initialData);
-          setRetryCount(0); // Reset retry count on success
-        } else if (data.success && !data.form) {
-          // No custom form exists - create a default one matching Image 1
+        if (data.success && data.form && Array.isArray(data.form.fields) && data.form.fields.length > 0) {
+          console.log("Custom form loaded successfully from API");
+          const sanitizedFields = sanitizeCustomFields(data.form.fields);
+          const formToUse = {
+            ...data.form,
+            fields: sanitizedFields,
+          };
+          setCustomForm(formToUse);
+          setFormData(buildInitialData(sanitizedFields));
+          setRetryCount(0);
+        } else {
+          // No custom form exists - fallback to default form
+          console.log("No custom form configured, applying default fallback form");
           const defaultForm = {
             eventId: eventId,
-            fields: [
-              {
-                id: "fullName",
-                label: "Name",
-                type: "text",
-                required: true,
-                placeholder: "Your full name",
-              },
-              {
-                id: "email",
-                label: "Email",
-                type: "email",
-                required: true,
-                placeholder: "you@example.com",
-              },
-              {
-                id: "college",
-                label: "College name",
-                type: "text",
-                required: true,
-                placeholder: "Your college",
-              },
-              {
-                id: "yearOfStudy",
-                label: "Year of study",
-                type: "dropdown",
-                required: false,
-                placeholder: "Select",
-                options: [
-                  "1st Year",
-                  "2nd Year",
-                  "3rd Year",
-                  "4th Year",
-                  "Postgraduate",
-                ],
-              },
-            ],
+            fields: DEFAULT_FALLBACK_FIELDS,
             theme: {
               logo: null,
               color: "#10b981",
             },
-            // INHERIT payment info from actual event
             isPaid: event?.isPaid ?? ((event?.price || event?.ticketPrice) > 0),
             amount: event?.price ?? event?.ticketPrice ?? 199,
-            enableCoupons: true, // Always enable coupons for default forms
+            enableCoupons: true,
             status: "published",
             isDefault: true,
           };
 
           setCustomForm(defaultForm);
-          setFormData({
-            fullName: "",
-            email: "",
-            college: "",
-            yearOfStudy: "",
-          });
+          setFormData(buildInitialData(DEFAULT_FALLBACK_FIELDS));
           setRetryCount(0);
-
-
-        } else {
-          throw new Error(data.message || "Failed to load registration form");
         }
       } catch (error) {
         console.error("Error loading custom form:", error);
@@ -281,27 +410,45 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   const validateForm = () => {
     const newErrors = {};
 
-    customForm.fields?.forEach((field) => {
-      if (field.required && !formData[field.id]?.trim()) {
+    customForm?.fields?.forEach((field) => {
+      const rawVal =
+        formData[field.id] !== undefined && formData[field.id] !== ""
+          ? formData[field.id]
+          : (field.name && formData[field.name] !== undefined ? formData[field.name] : "");
+      const trimmedVal = typeof rawVal === "string" ? rawVal.trim() : rawVal;
+
+      if (field.required && (trimmedVal === "" || trimmedVal === null || trimmedVal === undefined)) {
         newErrors[field.id] =
           `${field.label || field.name || "This field"} is required`;
+        return;
       }
 
-      // Email validation
-      if (field.type === "email" && formData[field.id]) {
+      // Email validation - only if field type is email and value is present
+      if (field.type === "email" && trimmedVal) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData[field.id])) {
+        if (!emailRegex.test(trimmedVal)) {
           newErrors[field.id] = "Invalid email address";
         }
       }
 
-      // Phone validation - be more lenient
-      if (field.type === "tel" && formData[field.id]) {
-        // Remove all non-digit characters for validation
-        const digitsOnly = formData[field.id].replace(/\D/g, "");
-        // Must have at least 8 digits
-        if (digitsOnly.length < 8) {
-          newErrors[field.id] = "Phone number must have at least 8 digits";
+      // Phone validation - 10-digit validation only if field is phone and value is present
+      const isPhoneField =
+        field.type === "tel" ||
+        String(field.id).toLowerCase().includes("phone") ||
+        String(field.id).toLowerCase().includes("whatsapp") ||
+        String(field.label || field.name).toLowerCase().includes("phone") ||
+        String(field.label || field.name).toLowerCase().includes("whatsapp") ||
+        String(field.label || field.name).toLowerCase().includes("contact");
+
+      if (isPhoneField && trimmedVal) {
+        const digitsOnly = String(trimmedVal).replace(/\D/g, "");
+        const isTenDigitValid =
+          digitsOnly.length === 10 ||
+          (digitsOnly.length === 12 && digitsOnly.startsWith("91")) ||
+          (digitsOnly.length === 11 && digitsOnly.startsWith("0"));
+
+        if (!isTenDigitValid) {
+          newErrors[field.id] = "Please enter a valid 10-digit phone number";
         }
       }
     });
@@ -520,17 +667,30 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   };
 
   // Server-owned free admission issuance is idempotent and capacity checked.
-  const registerExistingUser = async (user) => {
+  const registerExistingUser = async (user, payloadData = null) => {
     try {
+      const dataToSend = payloadData || tempFormData?.formData || {};
       const response = await fetch("/api/register-free", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, formData: tempFormData?.formData || {} }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, formData: dataToSend }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
-      const emailSent = await sendRegistrationConfirmation(user.email, tempFormData?.fullName || user.fullName || user.email, event?.name || "Event", result.ticketId);
-      toast.success(result.alreadyRegistered ? "You are already registered for this event" : "Registration successful");
-      if (!emailSent) toast.info("Sign in to your attendee dashboard to view your ticket");
+      const attendeeName = dataToSend.fullName || tempFormData?.fullName || user.fullName || user.email;
+      const emailSent = await sendRegistrationConfirmation(
+        user.email,
+        attendeeName,
+        event?.name || "Event",
+        result.ticketId
+      );
+      toast.success(
+        result.alreadyRegistered
+          ? "You are already registered for this event"
+          : "Registration successful"
+      );
+      if (!emailSent)
+        toast.info("Sign in to your attendee dashboard to view your ticket");
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Free registration failed:", error.message);
@@ -552,48 +712,82 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     setIsLoading(true);
 
     try {
-      // Find form field values - check both type and name for better matching
-      const emailField = customForm.fields?.find((f) => {
+      // Find form field values - check both type, id, and label for robust matching
+      const emailField = customForm?.fields?.find((f) => {
         const type = String(f?.type || "").toLowerCase();
         const name = String(f?.name || f?.label || "").toLowerCase();
-        return type === "email" || name.includes("email");
+        const id = String(f?.id || "").toLowerCase();
+        return type === "email" || name.includes("email") || id.includes("email");
       });
-      const phoneField = customForm.fields?.find((f) => {
+      const phoneField = customForm?.fields?.find((f) => {
         const type = String(f?.type || "").toLowerCase();
         const name = String(f?.name || f?.label || "").toLowerCase();
+        const id = String(f?.id || "").toLowerCase();
         return (
           type === "tel" ||
           name.includes("phone") ||
           name.includes("mobile") ||
           name.includes("contact") ||
           name.includes("whatsapp") ||
-          (name.includes("number") && !name.includes("ticket"))
+          id.includes("phone") ||
+          id.includes("mobile") ||
+          id.includes("whatsapp")
         );
       });
-      const nameField = customForm.fields?.find((f) => {
+      const nameField = customForm?.fields?.find((f) => {
         const name = String(f?.name || f?.label || "").toLowerCase();
-        return name.includes("name");
+        const id = String(f?.id || "").toLowerCase();
+        return (
+          id === "fullname" ||
+          id === "name" ||
+          id === "attendee_name" ||
+          (name.includes("name") &&
+            !name.includes("college") &&
+            !name.includes("school") &&
+            !name.includes("team") &&
+            !name.includes("company"))
+        );
       });
 
-      let email = emailField ? formData[emailField.id]?.trim() : "";
-      const phone = phoneField ? formData[phoneField.id]?.trim() : "";
-      const fullName = nameField ? formData[nameField.id]?.trim() : "";
+      let email =
+        (emailField ? (formData[emailField.id] || formData[emailField.name]) : "") ||
+        formData.email ||
+        auth.currentUser?.email ||
+        "";
+      email = typeof email === "string" ? email.trim() : "";
+
+      let phone =
+        (phoneField ? (formData[phoneField.id] || formData[phoneField.name]) : "") ||
+        formData.whatsappPhone ||
+        formData.phone ||
+        auth.currentUser?.phoneNumber ||
+        "";
+      phone = typeof phone === "string" ? phone.trim() : "";
+
+      let fullName =
+        (nameField ? (formData[nameField.id] || formData[nameField.name]) : "") ||
+        formData.fullName ||
+        formData.name ||
+        auth.currentUser?.displayName ||
+        "Attendee";
+      fullName = typeof fullName === "string" ? fullName.trim() : "Attendee";
 
       // Log extracted values for debugging
       console.log("=".repeat(50));
       console.log("FORM SUBMISSION - Extracted Data:");
-      console.log("Email field found:", emailField?.name, emailField?.id);
+      console.log("Email field found:", emailField?.name || emailField?.label, emailField?.id);
       console.log("Email from form:", email);
-      console.log(" Phone field found:", phoneField?.name, phoneField?.id);
+      console.log(" Phone field found:", phoneField?.name || phoneField?.label, phoneField?.id);
       console.log(" Phone from form:", phone);
-      console.log(" Name field found:", nameField?.name, nameField?.id);
+      console.log(" Name field found:", nameField?.name || nameField?.label, nameField?.id);
       console.log(" Name from form:", fullName);
       console.log(" Full form data:", formData);
       console.log("=".repeat(50));
 
-      // Email is required - don't proceed without it
+      // Email is required for ticket delivery & account identity
       if (!email || email === "") {
-        toast.error("Email is required. Please provide your email address.");
+        toast.info("Please sign in to register for this event");
+        setShowLoginModal(true);
         setIsLoading(false);
         return;
       }
@@ -606,71 +800,118 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         return;
       }
 
-      console.log("Using user's email:", email);
+      // Phone validation - enforce valid 10-digit number ONLY if phoneField is in the form schema
+      if (phoneField) {
+        if (phoneField.required && (!phone || phone === "")) {
+          toast.error("Phone number is required. Please provide your phone number.");
+          setIsLoading(false);
+          return;
+        }
+        if (phone) {
+          const phoneDigits = String(phone).replace(/\D/g, "");
+          const isTenDigitValid =
+            phoneDigits.length === 10 ||
+            (phoneDigits.length === 12 && phoneDigits.startsWith("91")) ||
+            (phoneDigits.length === 11 && phoneDigits.startsWith("0"));
 
-      // Phone validation - only enforce if phone field exists in form
-      if (phoneField && (!phone || phone === "")) {
-        console.log("Phone field exists but no value provided");
-        toast.error(
-          "Phone number is required. Please provide your phone number.",
-        );
-        setIsLoading(false);
-        return;
+          if (!isTenDigitValid) {
+            toast.error("Please provide a valid 10-digit phone number.");
+            setIsLoading(false);
+            return;
+          }
+        }
       }
 
-      console.log(
-        "Phone validation passed. Phone:",
-        phone || "(not required)",
-      );
-
       const signedInUser = auth.currentUser;
-      if (signedInUser && signedInUser.email?.toLowerCase() !== email.toLowerCase()) {
+      if (
+        signedInUser &&
+        signedInUser.email &&
+        email &&
+        signedInUser.email.toLowerCase() !== email.toLowerCase()
+      ) {
         toast.error("Sign in with the email address entered on this form");
         setIsLoading(false);
         return;
       }
+
+      // Build unified, canonical form payload containing all organizer fields
+      const payloadFormData = {
+        ...formData,
+        fullName: fullName || "Attendee",
+        name: fullName || "Attendee",
+        email: email,
+        whatsappPhone: phone || "",
+        phone: phone || "",
+      };
+      customForm?.fields?.forEach((f) => {
+        const val =
+          formData[f.id] !== undefined && formData[f.id] !== ""
+            ? formData[f.id]
+            : (f.name && formData[f.name] !== undefined ? formData[f.name] : "");
+        if (f.id !== undefined && f.id !== null) {
+          payloadFormData[f.id] = val;
+        }
+        if (f.name) {
+          payloadFormData[f.name] = val;
+        }
+        if (f.label) {
+          payloadFormData[f.label] = val;
+        }
+      });
+      if (nameField?.id) {
+        payloadFormData[nameField.id] = fullName;
+      }
+      if (emailField?.id) {
+        payloadFormData[emailField.id] = email;
+      }
+      if (phoneField?.id) {
+        payloadFormData[phoneField.id] = phone;
+      }
+
       const existingUser = signedInUser
-        ? (await getCurrentUser(signedInUser.uid)) || { id: signedInUser.uid, email: signedInUser.email, fullName: signedInUser.displayName || fullName }
+        ? (await getCurrentUser(signedInUser.uid)) || {
+            id: signedInUser.uid,
+            email: signedInUser.email,
+            fullName: signedInUser.displayName || fullName,
+          }
         : null;
 
       const isPaidEvent = customForm?.isPaid && customForm?.amount > 0;
 
-      console.log("=".repeat(60));
-      console.log(" PAYMENT CHECK:");
-      console.log("   customForm.isPaid:", customForm?.isPaid);
-      console.log("   customForm.amount:", customForm?.amount);
-      console.log("   isPaidEvent (calculated):", isPaidEvent);
-      console.log("   isDefault form:", customForm?.isDefault);
-      if (customForm?.isDefault) {
-        console.log("   Using DEFAULT FORM - inherited from event:");
-        console.log("      event.isPaid:", event?.isPaid);
-        console.log("      event.ticketPrice:", event?.ticketPrice);
-      }
-      console.log("=".repeat(60));
-
-      // Store form data for processing
-      setTempFormData({
+      // Store form data for state persistence
+      const submissionContext = {
         email,
         phone,
         fullName,
         eventId,
         event,
         customForm,
-        formData,
+        formData: payloadFormData,
         isPaid: isPaidEvent,
-      });
+      };
+      setTempFormData(submissionContext);
 
       if (isPaidEvent) {
         let checkoutUser = existingUser;
         if (!checkoutUser) {
           const secretBytes = new Uint8Array(32);
           window.crypto.getRandomValues(secretBytes);
-          const oneTimeSecret = Array.from(secretBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+          const oneTimeSecret = Array.from(secretBytes, (byte) =>
+            byte.toString(16).padStart(2, "0")
+          ).join("");
           try {
-            checkoutUser = await signup(email, oneTimeSecret, fullName || email, phone || "");
+            checkoutUser = await signup(
+              email,
+              oneTimeSecret,
+              fullName || email,
+              phone || ""
+            );
             await sendPasswordResetEmail(auth, email);
           } catch (accountError) {
-            if (accountError.code === "auth/email-already-in-use" || /already exists/i.test(accountError.message || "")) {
+            if (
+              accountError.code === "auth/email-already-in-use" ||
+              /already exists/i.test(accountError.message || "")
+            ) {
               setShowLoginModal(true);
               setIsLoading(false);
               return;
@@ -678,14 +919,28 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             throw accountError;
           }
         }
-        await handlePaymentFlow(email, phone, fullName, checkoutUser);
+        await handlePaymentFlow(
+          email,
+          phone,
+          fullName,
+          checkoutUser,
+          payloadFormData
+        );
       } else if (existingUser) {
-        await registerExistingUser(existingUser);
+        await registerExistingUser(existingUser, payloadFormData);
       } else {
         const secretBytes = new Uint8Array(32);
         window.crypto.getRandomValues(secretBytes);
-        const oneTimeSecret = Array.from(secretBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-        await createAccountAndRegister(email, phone, fullName, oneTimeSecret);
+        const oneTimeSecret = Array.from(secretBytes, (byte) =>
+          byte.toString(16).padStart(2, "0")
+        ).join("");
+        await createAccountAndRegister(
+          email,
+          phone,
+          fullName,
+          oneTimeSecret,
+          payloadFormData
+        );
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -700,16 +955,23 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     phone,
     fullName,
     existingUser = null,
+    payloadData = null
   ) => {
     try {
       setPaymentProcessing(true);
+      const dataToSend = payloadData || tempFormData?.formData || {};
 
       const response = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId,
-          registrationData: { fullName, email, whatsappPhone: phone, formData: tempFormData?.formData || {} },
+          registrationData: {
+            fullName,
+            email,
+            whatsappPhone: phone,
+            formData: dataToSend,
+          },
           couponCode: couponCode || null,
         }),
       });
@@ -758,12 +1020,19 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
             if (verifyData.success) {
               const emailSent = verifyData.ticketId
-                ? await sendRegistrationConfirmation(email, fullName || email, event?.name || "Event", verifyData.ticketId)
+                ? await sendRegistrationConfirmation(
+                    email,
+                    fullName || email,
+                    event?.name || "Event",
+                    verifyData.ticketId
+                  )
                 : false;
-              toast.success(emailSent ? "Payment complete. Ticket sent to your email." : "Payment complete. Ticket is available in your dashboard.");
+              toast.success(
+                emailSent
+                  ? "Payment complete. Ticket sent to your email."
+                  : "Payment complete. Ticket is available in your dashboard."
+              );
 
-              // The trusted verification route owns paid ticket issuance. Do not
-              // create a second client-side ticket/registration after payment.
               setShowSuccessModal(true);
               setPaymentProcessing(false);
               setIsLoading(false);
@@ -783,7 +1052,6 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
         },
         modal: {
           ondismiss: function () {
-            console.log("Payment cancelled");
             toast.error("Payment cancelled");
             setPaymentProcessing(false);
             setIsLoading(false);
@@ -818,18 +1086,43 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
     }
   };
 
-  const createAccountAndRegister = async (email, phone, fullName, password) => {
+  const createAccountAndRegister = async (
+    email,
+    phone,
+    fullName,
+    password,
+    payloadData = null
+  ) => {
     try {
-      const user = await signup(email, password, fullName || email, phone || "");
+      const user = await signup(
+        email,
+        password,
+        fullName || email,
+        phone || ""
+      );
       await sendPasswordResetEmail(auth, email);
+      const dataToSend = payloadData || tempFormData?.formData || {};
       const response = await fetch("/api/register-free", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: tempFormData?.eventId || eventId, formData: tempFormData?.formData || {} }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: eventId,
+          formData: dataToSend,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
-      const emailSent = await sendRegistrationConfirmation(email, user.fullName || fullName || email, tempFormData?.event?.name || "Event", result.ticketId);
-      toast.success(emailSent ? "Registration complete and ticket sent" : "Registration complete. Sign in to view your ticket");
+      const emailSent = await sendRegistrationConfirmation(
+        email,
+        user.fullName || fullName || email,
+        event?.name || "Event",
+        result.ticketId
+      );
+      toast.success(
+        emailSent
+          ? "Registration complete and ticket sent"
+          : "Registration complete. Sign in to view your ticket"
+      );
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Free account registration failed:", error.message);
@@ -870,20 +1163,72 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   };
 
   const renderField = (field) => {
-    const value = formData[field.id] || "";
-    const error = errors[field.id];
+    const value =
+      formData[field.id] !== undefined && formData[field.id] !== ""
+        ? formData[field.id]
+        : (field.name && formData[field.name] !== undefined ? formData[field.name] : "");
+    const error = errors[field.id] || (field.name ? errors[field.name] : null);
 
     const updateValue = (newValue) => {
-      setFormData((prev) => ({ ...prev, [field.id]: newValue }));
-      if (errors[field.id]) {
-        setErrors((prev) => ({ ...prev, [field.id]: null }));
+      setFormData((prev) => {
+        const next = { ...prev, [field.id]: newValue };
+        if (field.name) next[field.name] = newValue;
+        return next;
+      });
+      if (errors[field.id] || (field.name && errors[field.name])) {
+        setErrors((prev) => {
+          const next = { ...prev, [field.id]: null };
+          if (field.name) next[field.name] = null;
+          return next;
+        });
       }
     };
 
     switch (field.type) {
       case "text":
       case "email":
-      case "tel":
+      case "tel": {
+        const isTel = field.type === "tel";
+        const isEmail = field.type === "email";
+
+        const handleInputChange = (e) => {
+          let val = e.target.value;
+          if (isTel) {
+            // Allow only numbers, +, -, and spaces
+            val = val.replace(/[^\d+\s-]/g, "");
+            // If doesn't start with '+', cap raw digits at 10
+            if (!val.startsWith("+")) {
+              const digits = val.replace(/\D/g, "");
+              if (digits.length > 10) {
+                val = digits.slice(0, 10);
+              }
+            } else {
+              // Country code +91 with 10 digits = 12 digits total
+              const digits = val.replace(/\D/g, "");
+              if (digits.length > 12) {
+                val = "+" + digits.slice(0, 12);
+              }
+            }
+          }
+          updateValue(val);
+        };
+
+        const handleBlur = () => {
+          if (isTel && value) {
+            const digits = String(value).replace(/\D/g, "");
+            const isTenDigitValid =
+              digits.length === 10 ||
+              (digits.length === 12 && digits.startsWith("91")) ||
+              (digits.length === 11 && digits.startsWith("0"));
+            if (!isTenDigitValid) {
+              setErrors((prev) => ({
+                ...prev,
+                [field.id]: "Please enter a valid 10-digit phone number",
+              }));
+            }
+          }
+        };
+
         return (
           <div key={field.id} className="space-y-1.5 w-full">
             <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
@@ -893,21 +1238,31 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             <div className="relative">
               <input
                 type={field.type}
+                inputMode={isTel ? "tel" : isEmail ? "email" : undefined}
+                maxLength={isTel ? 15 : undefined}
                 placeholder={
                   field.placeholder ||
-                  `Your ${String(field.label || field.name || "value").toLowerCase()}`
+                  (isTel
+                    ? "10-digit mobile number"
+                    : `Your ${String(field.label || field.name || "value").toLowerCase()}`)
                 }
                 value={value}
-                onChange={(e) => updateValue(e.target.value)}
+                onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={isLoading}
-                className="w-full px-3.5 py-2.5 h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-base sm:text-sm"
+                className={`w-full px-3.5 py-2.5 h-11 bg-slate-50 dark:bg-[#212327] border ${
+                  error
+                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
+                } rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm`}
               />
             </div>
             {error && (
-              <p className="text-[11px] text-red-500 dark:text-red-400">{error}</p>
+              <p className="text-[11px] text-red-500 dark:text-red-400 mt-1 font-medium">{error}</p>
             )}
           </div>
         );
+      }
 
       case "textarea":
         return (
@@ -1147,109 +1502,153 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       {/* Login Modal for Existing Users */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto animate-scale-in">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
-                <Key className="w-6 h-6 text-blue-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-7 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto animate-scale-in text-white">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 mb-5 sm:mb-6">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border"
+                  style={{
+                    backgroundColor: `${themeColor}15`,
+                    borderColor: `${themeColor}35`,
+                    color: themeColor,
+                  }}
+                >
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    Welcome Back!
+                  </h3>
+                  <p className="text-xs text-[#9B9EA4] mt-0.5">
+                    Sign in to your account to complete registration
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">
-                  Welcome Back!
-                </h3>
-                <p className="text-xs text-blue-400">Login to continue</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLoginModal(false);
+                  setLoginPassword("");
+                  setIsLoading(false);
+                }}
+                className="p-1.5 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <div className="space-y-5 mb-6">
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <p className="text-sm text-blue-400 mb-2 flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  <strong>Your Email:</strong>
+            <div className="space-y-4 sm:space-y-5 mb-6">
+              {/* Email Display Card */}
+              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3.5 sm:p-4">
+                <p className="text-[11px] font-bold tracking-wider uppercase text-[#9B9EA4] mb-1 flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5" style={{ color: themeColor }} />
+                  <span>Your Email Address</span>
                 </p>
-                <p className="font-mono text-lg text-white break-all">
+                <p className="font-mono text-sm sm:text-base font-bold text-white break-all">
                   {tempFormData?.email || "Email not found"}
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm text-blue-400 font-semibold">
+              {/* Password Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#D0D0D1]">
                   Enter Your Password
                 </label>
-                <Input
-                  type="password"
-                  placeholder="Enter your password..."
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  onKeyPress={(e) =>
-                    e.key === "Enter" && handleExistingUserLogin()
-                  }
-                  className="h-12 bg-slate-900 border-blue-500/30 text-white font-mono"
-                  autoFocus
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your account password..."
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleExistingUserLogin()
+                    }
+                    className="h-11 sm:h-12 bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] text-white font-mono rounded-xl pl-3.5 pr-11 text-sm placeholder:text-[#9B9EA4]/50 transition-all"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9B9EA4] hover:text-white transition-colors p-1"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
                 {loginPassword && loginPassword.length < 6 && (
-                  <p className="text-xs text-red-400">
+                  <p className="text-xs text-red-400 mt-1">
                     Password must be at least 6 characters
                   </p>
                 )}
               </div>
 
               {/* Forgot Password Link */}
-              <div className="text-center">
+              <div className="text-center pt-0.5">
                 <button
                   type="button"
                   onClick={() => {
                     setShowLoginModal(false);
-                    router.push("/");
+                    router.push("/login");
                   }}
-                  className="text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors flex items-center justify-center gap-2 mx-auto"
+                  className="text-xs font-semibold text-[#FE760B] hover:text-[#FF8A2B] hover:underline transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Key className="w-4 h-4" />
+                  <Key className="w-3.5 h-3.5" />
                   Forgot password? Reset it here
                 </button>
               </div>
 
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex gap-3">
-                <Info className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-400">
-                  <strong>Note:</strong> Use the password you set when you
-                  first registered.
+              {/* Official Note */}
+              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-[#FE760B] shrink-0 mt-0.5" />
+                <p className="text-xs text-[#9B9EA4] leading-relaxed">
+                  <strong className="text-white font-semibold">Note:</strong> Use the password you set when you first registered on TicketLelo.
                 </p>
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <Button
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
                 onClick={handleExistingUserLogin}
                 disabled={
                   isLoggingIn || !loginPassword || loginPassword.length < 6
                 }
-                className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold"
+                style={{
+                  backgroundColor: themeColor,
+                }}
+                className="flex-1 h-11 sm:h-12 text-[#131517] font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-105 active:scale-[0.99]"
               >
                 {isLoggingIn ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Logging in...
+                    <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
+                    <span>Logging in...</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-4 h-4" />
-                    Login & Continue
+                    <CheckCircle className="w-4 h-4 text-[#131517]" />
+                    <span>Login &amp; Continue</span>
                   </>
                 )}
-              </Button>
-              <Button
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setShowLoginModal(false);
                   setLoginPassword("");
                   setIsLoading(false);
                 }}
-                variant="outline"
                 disabled={isLoggingIn}
-                className="border-blue-500/30 hover:bg-blue-500/10 text-blue-400"
+                className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
               >
                 Cancel
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -1257,94 +1656,91 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
       {/* Success Modal */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-[#1A1C1F] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90dvh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90dvh] overflow-y-auto animate-scale-in text-white">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#2A2D31]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#FF6A00] flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-white" />
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor: `${themeColor}15`,
+                    borderColor: `${themeColor}35`,
+                    color: themeColor,
+                  }}
+                >
+                  <CheckCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold text-white">
+                  <h3 className="text-xl font-bold text-white">
                     Registration Complete
                   </h3>
-                  <p className="text-sm text-slate-400">Your ticket is ready</p>
+                  <p className="text-xs text-[#9B9EA4]">Your ticket is ready</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowSuccessModal(false)}
-                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-[#212327] rounded-lg text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5 text-slate-500" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="space-y-5">
+            <div className="space-y-4">
               {/* Ticket Info */}
-              <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-lg p-4">
+              <div
+                className="rounded-xl p-4 border"
+                style={{
+                  backgroundColor: `${themeColor}12`,
+                  borderColor: `${themeColor}30`,
+                }}
+              >
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-[#FF6A00]"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
+                  <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: themeColor }} />
                   <div className="flex-1">
-                    <p className="font-medium text-[#FF6A00] mb-1">
-                      Registration status
+                    <p className="font-bold text-sm mb-1" style={{ color: themeColor }}>
+                      Registration Confirmed
                     </p>
-                    <p className="text-sm text-[#FF6A00]/70">
-                      Sign in to your attendee dashboard to view available tickets.
+                    <p className="text-xs text-[#D0D0D1]">
+                      Your pass has been generated. You can view or download it from your attendee dashboard.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Info Message */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <p className="text-sm text-blue-900 dark:text-blue-300">
-                  <strong>What&apos;s next?</strong> Sign in to the attendee dashboard
-                  with your account. Use password recovery if you need to set or
-                  reset your password.
+              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-4">
+                <p className="text-xs text-[#D0D0D1] leading-relaxed">
+                  <strong className="text-white">What&apos;s next?</strong> Sign in to your attendee dashboard with your registered email to view available tickets and QR passes.
                 </p>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
-              <Button
+            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#2A2D31]">
+              <button
+                type="button"
                 onClick={() => {
                   setShowSuccessModal(false);
                   toast.info(
                     "Please sign in with your credentials to access your dashboard",
-                    {
-                      duration: 4000,
-                    },
+                    { duration: 4000 }
                   );
                   router.push("/login");
                 }}
-                className="flex-1 bg-[#FF6A00] hover:bg-[#FFD60A] text-black font-medium"
+                style={{ backgroundColor: themeColor }}
+                className="flex-1 h-11 sm:h-12 text-[#131517] font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm cursor-pointer hover:brightness-105"
               >
                 Sign In to Dashboard
-              </Button>
-              <Button
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowSuccessModal(false)}
-                variant="outline"
-                className="border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-800"
+                className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
               >
                 Close
-              </Button>
+              </button>
             </div>
           </div>
         </div>

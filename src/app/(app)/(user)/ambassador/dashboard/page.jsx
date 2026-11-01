@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { getAmbassadorByUserId, submitAmbassadorApplication } from "@/lib/ambassadors";
 import { getAmbassadorCommissions } from "@/lib/commissions";
+import { getPublicBaseUrl } from "@/lib/app-url";
 
 export default function AmbassadorDashboardPage() {
   const { user } = useAuth();
@@ -122,7 +123,7 @@ export default function AmbassadorDashboardPage() {
   };
 
   const referralUrl = ambassador
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/e/praroha-2027?ref=${ambassador.referralCode}`
+    ? `${getPublicBaseUrl()}/e/praroha-2027?ref=${ambassador.referralCode}`
     : "";
 
   const handleCopy = (text, type) => {

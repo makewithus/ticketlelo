@@ -6,6 +6,7 @@ const nextConfig = {
    * consistently behind static CDNs and reverse proxies.
    */
   trailingSlash: false,
+  skipTrailingSlashRedirect: true,
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -20,6 +21,23 @@ const nextConfig = {
           },
         ],
       },
+      {
+        source: "/api/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, proxy-revalidate",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+          {
+            key: "Expires",
+            value: "0",
+          },
+        ],
+      },
     ];
   },
   async redirects() {
@@ -27,32 +45,32 @@ const nextConfig = {
       {
         source: "/organiser-login",
         destination: "/login",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/organiser-login/:path*",
         destination: "/login",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/user-login",
         destination: "/login",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/user-login/:path*",
         destination: "/login",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/super-admin-login",
         destination: "/login",
-        permanent: true,
+        permanent: false,
       },
       {
         source: "/super-admin-login/:path*",
         destination: "/login",
-        permanent: true,
+        permanent: false,
       },
     ];
   },

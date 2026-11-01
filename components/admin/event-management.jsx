@@ -19,6 +19,7 @@ import {
   getEventsByOrganiser,
   deleteEvent,
 } from "@/lib/firestore";
+import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
@@ -46,17 +47,39 @@ export function EventManagement() {
     }
 
     if (user.role === "organiser") {
-      // Use plan-based enforcement
-      const res = await fetch(
-        `/api/plans/check?userId=${user.id}&action=createEvent`,
-      );
-      const data = await res.json();
-      if (!data.allowed) {
-        setCanCreateEvent(false);
-        setPlanLimitInfo(data);
-      } else {
+      try {
+        let headers = {};
+        try {
+          if (auth?.currentUser) {
+            const token = await auth.currentUser.getIdToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (_) {}
+
+        const res = await fetch(
+          `/api/plans/check?userId=${encodeURIComponent(user.id)}&action=createEvent`,
+          {
+            headers,
+            cache: "no-store",
+          },
+        );
+
+        if (!res.ok) {
+          setCanCreateEvent(true);
+          return;
+        }
+
+        const data = await res.json();
+        if (data && data.allowed === false) {
+          setCanCreateEvent(false);
+          setPlanLimitInfo(data);
+        } else {
+          setCanCreateEvent(true);
+          setPlanLimitInfo(null);
+        }
+      } catch (err) {
+        console.warn("Could not verify event creation eligibility:", err);
         setCanCreateEvent(true);
-        setPlanLimitInfo(null);
       }
     }
   };

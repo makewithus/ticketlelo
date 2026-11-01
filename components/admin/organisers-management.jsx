@@ -75,7 +75,7 @@ export function OrganisersManagement() {
     async function loadData() {
       try {
         // 1. Try server-side aggregator API
-        const res = await fetch("/api/superadmin/organisers/", { cache: "no-store" });
+        const res = await fetch("/api/superadmin/organisers", { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.organisers)) {
@@ -220,7 +220,7 @@ export function OrganisersManagement() {
     }
     const toastId = toast.loading(`Generating password reset link for ${targetEmail}...`);
     try {
-      const res = await fetch("/api/superadmin/reset-organiser-login/", {
+      const res = await fetch("/api/superadmin/reset-organiser-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -496,11 +496,22 @@ export function OrganisersManagement() {
                               type="button"
                               onClick={() => {
                                 setOpenActionId(null);
-                                window.open(`/admin/dashboard`, "_blank");
+                                window.open(item.eventId ? `/admin/overview?eventId=${item.eventId}` : `/admin/dashboard`, "_blank");
                               }}
                               className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors cursor-pointer block"
                             >
                               Inspect portal →
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                window.open(item.eventId ? `/admin/registrations?eventId=${item.eventId}` : `/admin/registrations`, "_blank");
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                            >
+                              View guest list
                             </button>
 
                             <button

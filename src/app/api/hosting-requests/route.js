@@ -8,6 +8,8 @@ import { EmailPriority, EmailType } from "@/lib/email/types";
 import path from "path";
 import fs from "fs";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/hosting-requests
  * Fetch all hosting requests using Admin SDK (bypasses Firestore rules).

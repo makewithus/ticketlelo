@@ -596,24 +596,6 @@ export function HostingRequestForm() {
 
   return (
     <div className="w-full max-w-5xl mx-auto">
-      {/* Super Admin Notice */}
-      {(user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
-        <div className="mb-6 p-4 rounded-xl bg-[#1A1C1F] border border-[#FE760B]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5 text-[#D0D0D1]">
-            <span className="w-2 h-2 rounded-full bg-[#FE760B] shrink-0" />
-            <span>
-              Signed in as <strong className="text-white">Super Admin</strong> ({user?.email}). You can freely test this form without applicant redirects.
-            </span>
-          </div>
-          <Link
-            href="/superadmin"
-            className="px-3.5 py-1.5 rounded-lg bg-[#FE760B] hover:bg-[#FE760B]/90 text-white font-semibold transition-colors text-center shrink-0"
-          >
-            Open Super Admin Panel
-          </Link>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         {/* Left Column: Branding, Title, Steps */}
         <div className="lg:col-span-5 space-y-6 pt-2">

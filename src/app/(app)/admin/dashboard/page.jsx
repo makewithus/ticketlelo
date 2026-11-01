@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 import { EventManagement } from "@/components/admin/event-management";
 import Link from "next/link";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-context";
 import { getAllEvents, getEventsByOrganiser } from "@/lib/firestore";
 import { subscribeToHostingRequests } from "@/lib/hosting-requests";
@@ -127,7 +126,18 @@ export default function AdminDashboardPage() {
     if (showLoading) setLoading(true);
     try {
       try {
-        const reqRes = await fetch("/api/hosting-requests");
+        let headers = {};
+        try {
+          if (auth?.currentUser) {
+            const token = await auth.currentUser.getIdToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (_) {}
+
+        const reqRes = await fetch("/api/hosting-requests", {
+          headers,
+          cache: "no-store",
+        });
         if (reqRes.ok) {
           const reqJson = await reqRes.json();
           setRequests(reqJson.requests || []);

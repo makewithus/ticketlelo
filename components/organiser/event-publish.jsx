@@ -11,6 +11,7 @@ import {
   EyeOff,
   Share2,
 } from "lucide-react";
+import { getPublicEventUrl } from "@/lib/app-url";
 
 export function EventPublish({ event, userId, onPublished }) {
   const [loading, setLoading] = useState(false);
@@ -24,12 +25,13 @@ export function EventPublish({ event, userId, onPublished }) {
     Boolean(event?.shareUrl);
 
   const shareUrl =
-    event?.shareUrl ||
-    (typeof window !== "undefined" && event?.slug
-      ? `${window.location.origin}/e/${event.slug}`
-      : typeof window !== "undefined" && event?.id
-      ? `${window.location.origin}/register/${event.id}`
-      : "");
+    event?.shareUrl && !event.shareUrl.includes("localhost")
+      ? event.shareUrl
+      : event?.slug
+      ? getPublicEventUrl(event.slug, "event")
+      : event?.id
+      ? getPublicEventUrl(event.id, "register")
+      : "";
 
   const handlePublish = async () => {
     setLoading(true);

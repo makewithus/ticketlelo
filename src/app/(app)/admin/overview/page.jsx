@@ -38,6 +38,8 @@ import {
   updateEvent,
 } from "@/lib/firestore";
 import { getThemeLook, getPosterLines } from "@/lib/theme-utils";
+import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
+import { getPublicEventUrl, getPublicEventDisplayUrl } from "@/lib/app-url";
 
 const THEMES = [
   { id: "sunset", name: "Sunset", color: "#FE760B", bg: "#FE760B", sun: "#FB923C", text: "#131517" },
@@ -106,6 +108,7 @@ export default function EventOverviewPage() {
   const [copied, setCopied] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [isUpdatingLive, setIsUpdatingLive] = useState(false);
+  const [selectedGuestIndex, setSelectedGuestIndex] = useState(null);
 
   // Invite Modal & Sharing States (Images 1 & 2)
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -276,13 +279,10 @@ export default function EventOverviewPage() {
     }
   };
 
-  // Public URL
+  // Public URL — dynamically matches active Vercel or .in production domain, never localhost
   const publicSlug = event?.slug || event?.id || "event";
-  const publicUrl = `ticketlelo.in/register/${publicSlug}`;
-  const fullPublicUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/register/${publicSlug}`
-      : `https://${publicUrl}`;
+  const publicUrl = getPublicEventDisplayUrl(publicSlug, "register");
+  const fullPublicUrl = getPublicEventUrl(publicSlug, "register");
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(fullPublicUrl);
@@ -959,7 +959,7 @@ export default function EventOverviewPage() {
           </div>
         ) : (
           <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl divide-y divide-[#2A2D31] overflow-hidden shadow-sm">
-            {registrations.slice(0, 10).map((guest) => {
+            {registrations.slice(0, 10).map((guest, idx) => {
               const guestName = guest.fullName || guest.name || guest.attendeeName || "Guest Attendee";
               const guestEmail = guest.email || guest.whatsappPhone || "No email";
               const isCheckedIn =
@@ -971,11 +971,22 @@ export default function EventOverviewPage() {
               const initials = getInitials(guestName);
               const avatarBg = getAvatarColor(guestName);
               const timeDisplay = formatRelativeTime(guest.createdAt);
+              const globalIndex = registrations.findIndex((r) => r.id === guest.id);
+              const targetIndex = globalIndex !== -1 ? globalIndex : idx;
 
               return (
                 <div
                   key={guest.id}
-                  className="p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/40 transition-colors"
+                  onClick={() => setSelectedGuestIndex(targetIndex)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedGuestIndex(targetIndex);
+                    }
+                  }}
+                  className="p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/70 active:bg-[#212327] cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
@@ -984,7 +995,7 @@ export default function EventOverviewPage() {
                       {initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-white truncate">
+                      <p className="text-xs sm:text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors truncate">
                         {guestName}
                       </p>
                       <p className="text-[11px] text-[#9B9EA4] truncate font-mono">
@@ -1133,6 +1144,25 @@ export default function EventOverviewPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Guest Details Drawer / Modal matching Screenshot ── */}
+      {selectedGuestIndex !== null && registrations[selectedGuestIndex] && (
+        <GuestDetailsModal
+          isOpen={selectedGuestIndex !== null}
+          onClose={() => setSelectedGuestIndex(null)}
+          guest={registrations[selectedGuestIndex]}
+          allGuests={registrations}
+          currentIndex={selectedGuestIndex}
+          onNavigate={(newIdx) => setSelectedGuestIndex(newIdx)}
+          event={event}
+          currentUser={user}
+          onGuestUpdated={(updatedGuest) => {
+            setRegistrations((prev) =>
+              prev.map((g) => (g.id === updatedGuest.id ? { ...g, ...updatedGuest } : g))
+            );
+          }}
+        />
       )}
     </div>
   );

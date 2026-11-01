@@ -11,7 +11,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { parseTicketTitle, detectTicketTheme, formatTicketMeta } from "./stub-ticket";
+import { formatTicketMeta } from "./stub-ticket";
+import { resolveTicketTheme, parseTicketTitle } from "@/lib/ticket-theme";
 import { parseFirestoreDate } from "@/lib/date-utils";
 
 // ==================== CODE 128 BARCODE GENERATOR ====================
@@ -148,12 +149,13 @@ export function WideTicket({
     return "";
   });
 
-  const theme =
-    explicitTheme ||
-    event.theme ||
-    detectTicketTheme(event.name || event.title, event.category);
+  const themeConfig = resolveTicketTheme(event, explicitTheme);
+  const theme = themeConfig.name;
 
-  const titleInfo = parseTicketTitle(event.name || event.title || "TECH FEST 2026");
+  const titleInfo = parseTicketTitle(
+    event.name || event.title || registration.eventName || registration.eventTitle || "TECH FEST 2026",
+    event
+  );
 
   const meta = formatTicketMeta({
     date: event.date || event.startDate,
@@ -429,15 +431,16 @@ export function WideTicket({
           )}
 
           {/* Right boundary die-cut notches for Left Panel (desktop) */}
-          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-20 pointer-events-none" />
-          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-20 pointer-events-none" />
+          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
         </div>
 
         {/* ══════════════════════════════════════════════════
             PANEL 2: CENTER ART PANEL (VIBRANT THEME ART)
             ══════════════════════════════════════════════════ */}
         <div
-          className={`relative flex-1 ${themeStyles.centerBg} min-h-[160px] md:min-h-[190px] flex flex-col justify-between p-4 sm:p-5 overflow-hidden`}
+          style={themeConfig.bodyBgStyle}
+          className="relative flex-1 min-h-[160px] md:min-h-[190px] flex flex-col justify-between p-4 sm:p-5 overflow-hidden"
         >
           {/* THEME ARTWORKS */}
 
@@ -559,26 +562,14 @@ export function WideTicket({
           {/* Center Content: Headline & Subtitle */}
           <div className="relative z-10">
             <h2
-              className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none ${themeStyles.titleColor}`}
+              className={`text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight leading-none ${themeConfig.titleColor}`}
             >
               {titleInfo.line1 || "EVENT PASS"}
             </h2>
 
-            {titleInfo.isYear ? (
+            {titleInfo.line2 ? (
               <div
-                className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none mt-0.5"
-                style={{
-                  WebkitTextStroke: "1.5px black",
-                  color: "transparent",
-                }}
-              >
-                {titleInfo.line2 || "2026"}
-              </div>
-            ) : titleInfo.line2 ? (
-              <div
-                className={`text-lg sm:text-2xl font-black tracking-wider leading-none mt-1 ${
-                  theme === "tech" ? "text-black" : "text-[#FDE003]"
-                }`}
+                className={`text-lg sm:text-2xl font-black uppercase tracking-tight leading-none mt-1 ${themeConfig.titleColor}`}
               >
                 {titleInfo.line2}
               </div>
@@ -593,8 +584,8 @@ export function WideTicket({
           </div>
 
           {/* Right boundary die-cut notches for Center Panel (desktop) */}
-          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-20 pointer-events-none" />
-          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-20 pointer-events-none" />
+          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
         </div>
 
         {/* ══════════════════════════════════════════════════
