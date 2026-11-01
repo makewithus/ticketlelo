@@ -27,6 +27,7 @@ import { useAuth } from "@/context/auth-context";
 import { getThemeLook } from "@/lib/theme-utils";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { AnimatedRadialBackground } from "@/components/effects/AnimatedRadialBackground";
 
 export default function PublicEventBySlugPage() {
   const { user } = useAuth();
@@ -55,11 +56,17 @@ export default function PublicEventBySlugPage() {
         hour12: true,
       });
       const offsetMin = -now.getTimezoneOffset();
-      const sign = offsetMin >= 0 ? "+" : "-";
-      const hours = Math.floor(Math.abs(offsetMin) / 60);
-      const mins = Math.abs(offsetMin) % 60;
-      const gmt = `GMT${sign}${hours}${mins ? `:${mins.toString().padStart(2, "0")}` : ":00"}`;
-      setCurrentTime(`${timeStr} ${gmt}`);
+      const isIST = offsetMin === 330;
+      let tzSuffix = "GMT";
+      if (isIST) {
+        tzSuffix = "IST";
+      } else {
+        const sign = offsetMin >= 0 ? "+" : "-";
+        const hours = Math.floor(Math.abs(offsetMin) / 60);
+        const mins = Math.abs(offsetMin) % 60;
+        tzSuffix = `GMT${sign}${hours}${mins ? `:${mins.toString().padStart(2, "0")}` : ":00"}`;
+      }
+      setCurrentTime(`${timeStr} ${tzSuffix}`);
     };
     updateTime();
     const timer = setInterval(updateTime, 10000);
@@ -103,22 +110,25 @@ export default function PublicEventBySlugPage() {
             visibility: "public",
             organizerName: "School of Engineering",
           };
-        } else if (!eventData && slug.toLowerCase().includes("praroha")) {
+        } else if (!eventData && (slug.toLowerCase().includes("quiz") || slug.toLowerCase().includes("bis") || slug.toLowerCase().includes("code"))) {
           eventData = {
-            id: "praroha-2027",
-            title: "PRAROHA 2027",
-            slug: "praroha-2027",
-            description: "Annual Tech & Cultural Fest. A multi-day summit featuring workshops, hackathons, and esports.",
-            venue: "Main Stadium Ground & Central Innovation Complex",
+            id: "is-code-quiz-challenge",
+            title: "IS Code Quiz Challenge | BIS CED CUSAT",
+            slug: "is-code-quiz-challenge",
+            description: "BIS CED CUSAT is conducting a quiz based on IS 456:2000 (Plain and Reinforced Concrete Code).\n\nWhy participate?\n• Test your knowledge of IS 456:2000\n• Compete with students from different departments\n• Experience fun and engaging quiz rounds\n• Enjoy free refreshments\n\nEvent Details\n📅 Date: Monday, 9 March 2026",
+            venue: "School of Engineering, CUSAT",
             city: "Kochi, Kerala",
-            startDate: "2027-03-10T09:00:00Z",
-            globalCapacity: 5000,
-            allocatedSeats: 4200,
-            price: 199,
-            isPaid: true,
+            locationUrl: "https://maps.google.com/?q=School+of+Engineering+CUSAT",
+            startDate: "2026-11-09T16:00:00Z",
+            endDate: "2026-11-09T17:30:00Z",
+            globalCapacity: 100,
+            allocatedSeats: 99,
+            price: 0,
+            isPaid: false,
             isPublished: true,
             visibility: "public",
-            organizerName: "School of Engineering",
+            organizerName: "Adil M",
+            themeColor: "#FE760B",
           };
         }
 
@@ -203,35 +213,16 @@ export default function PublicEventBySlugPage() {
   const posterLines = getPosterLines(event.title || event.name || "Tech Fest '26");
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors overflow-x-hidden">
-      {/* Proper warm ambient lighting matching Image 1 */}
-      <div className="pointer-events-none fixed top-0 left-0 w-full h-[650px] overflow-hidden z-0 select-none">
-        {/* Soft top-left ambient wash across the viewport corner */}
-        <div
-          className="absolute -top-36 -left-32 w-[600px] sm:w-[780px] h-[600px] sm:h-[780px] rounded-full"
-          style={{
-            background: `radial-gradient(circle, ${themeLook.hex}2b 0%, ${themeLook.hex}14 35%, ${themeLook.hex}05 60%, transparent 75%)`,
-            filter: "blur(75px)",
-          }}
-        />
-        {/* Focused warm backlight directly behind the event artwork & logo */}
-        <div className="max-w-5xl mx-auto relative h-full">
-          <div
-            className="absolute top-2 -left-12 w-[440px] h-[440px] rounded-full"
-            style={{
-              background: `radial-gradient(circle, ${themeLook.hex}26 0%, ${themeLook.hex}0d 45%, transparent 70%)`,
-              filter: "blur(55px)",
-            }}
-          />
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors overflow-x-hidden">
+      {/* ── Animated Futuristic RGB Radial Light-Streak Background ── */}
+      <AnimatedRadialBackground />
 
-      {/* Top Navigation */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#131517]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#2A2D31]/60 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 transition-colors">
+      {/* Top Navigation matching reference screenshot */}
+      <header className="sticky top-0 z-40 bg-white/70 dark:bg-[#08090B]/60 backdrop-blur-md border-b border-slate-200/50 dark:border-white/10 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 transition-colors">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          {/* Left: Logo + Explore events */}
+          {/* Left: Brand Icon + Navigation Links */}
           <div className="flex items-center gap-3 sm:gap-6 shrink-0">
-            <Link href="/" className="inline-flex items-center">
+            <Link href="/" className="inline-flex items-center gap-2 group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo/ticketlelo-logo-nav.png"
@@ -239,33 +230,48 @@ export default function PublicEventBySlugPage() {
                 className="h-6 sm:h-7 w-auto object-contain"
               />
             </Link>
-            <Link
-              href="/"
-              className="hidden sm:inline-block text-xs sm:text-sm font-medium text-slate-600 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white transition-colors"
-            >
-              Explore events
-            </Link>
+            <nav className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-medium">
+              <Link
+                href="/"
+                className="text-slate-900 dark:text-white font-semibold transition-colors"
+              >
+                Events
+              </Link>
+              <Link
+                href="/"
+                className="hidden sm:inline-block text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Calendars
+              </Link>
+              <Link
+                href="/"
+                className="hidden sm:inline-block text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Discover
+              </Link>
+            </nav>
           </div>
 
-          {/* Right: Live time + ThemeToggle + Sign in / Account */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Right: Live time + Create Event + ThemeToggle + Account / Sign in */}
+          <div className="flex items-center gap-2 sm:gap-3.5">
             <span
-              className="hidden md:inline-block text-[12px] sm:text-[13px] font-sans font-medium text-slate-500 dark:text-[#9B9EA4] tracking-normal tabular-nums select-none"
+              className="text-[12px] sm:text-[13px] font-sans font-medium text-slate-500 dark:text-[#9B9EA4] tracking-normal tabular-nums select-none"
               suppressHydrationWarning
             >
-              {mounted ? currentTime : "1:04 PM GMT+5:30"}
+              {mounted ? currentTime : "11:42 pm IST"}
             </span>
+
+            <Link
+              href="/host-event"
+              className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:text-[#FE760B] transition-colors whitespace-nowrap"
+            >
+              Create Event
+            </Link>
 
             <ThemeToggle inline />
 
             {user ? (
               <div className="flex items-center gap-2">
-                <Link
-                  href="/admin/dashboard"
-                  className="hidden sm:inline-flex bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] dark:text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
-                >
-                  Create Event
-                </Link>
                 <Link
                   href="/dashboard"
                   aria-label="Dashboard"
@@ -385,13 +391,13 @@ export default function PublicEventBySlugPage() {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] ml-2.5 truncate">
-                  Aarav Kumar, Priya Sharma and {Math.max(1, takenSeats - 2)} others
+                  Abel Saj mathews, Ahammed Najah and {Math.max(1, takenSeats - 2)} others
                 </p>
               </div>
             </div>
 
             {/* Contact Host / Report Links (Desktop Only - on mobile these appear at the footer) */}
-            <div className="pt-1 space-y-1 hidden md:block">
+            <div className="pt-1 space-y-1.5 hidden md:block">
               <button
                 type="button"
                 onClick={() => {
@@ -410,6 +416,11 @@ export default function PublicEventBySlugPage() {
               >
                 Report event
               </button>
+              <div className="pt-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-[11px] font-medium text-slate-600 dark:text-[#9B9EA4]">
+                  # Tech
+                </span>
+              </div>
             </div>
           </div>
 
@@ -468,8 +479,8 @@ export default function PublicEventBySlugPage() {
               </div>
             </div>
 
-            {/* Registration Card strictly matching Image 1 */}
-            <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-xl transition-colors">
+            {/* Registration Card strictly matching reference screenshot */}
+            <div className="bg-white/95 dark:bg-[#1A1C1F]/90 backdrop-blur-md border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-2xl transition-colors">
               {/* Header row */}
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-[#2A2D31]">
                 <span className="text-xs font-semibold text-slate-600 dark:text-[#9B9EA4]">
@@ -481,15 +492,38 @@ export default function PublicEventBySlugPage() {
                 </div>
               </div>
 
-              {/* Subhead and price */}
-              <div className="flex items-start justify-between gap-4 py-2.5">
-                <p className="text-xs text-slate-600 dark:text-[#D0D0D1] leading-snug">
-                  Welcome! Register below to get your QR ticket by email.
-                </p>
-                <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white shrink-0">
-                  {priceDisplay}
-                </span>
+              {/* Urgency Spot Banner matching reference screenshot */}
+              <div className="bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3 flex items-start gap-3 my-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center shrink-0">
+                  <Clock size={16} className="text-[#9B9EA4]" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                    {seatsLeft === 1 ? "One Spot Remaining" : seatsLeft <= 10 ? `${seatsLeft} Spots Remaining` : "Limited Spots Available"}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                    Hurry up and register before the event fills up!
+                  </p>
+                </div>
               </div>
+
+              {/* Welcome text */}
+              <p className="text-xs text-slate-700 dark:text-[#D0D0D1] mb-2.5">
+                Welcome, {user?.fullName || "Guest"}! To join the event, please register below.
+              </p>
+
+              {/* User email badge if signed in */}
+              {user && (
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-3 py-2 mb-3">
+                  <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
+                  <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                    {user?.fullName || "Attendee"}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-[#9B9EA4] font-mono truncate">
+                    {user?.email}
+                  </span>
+                </div>
+              )}
 
               {/* Dynamic Registration Form */}
               <div className="mt-1">

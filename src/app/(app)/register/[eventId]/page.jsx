@@ -28,6 +28,7 @@ import { getCombosForEvent } from "@/lib/combos";
 import { VenueMap } from "@/components/common/venue-map";
 import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration-form";
 import { formatEventDate } from "@/lib/date-utils";
+import { AnimatedRadialBackground } from "@/components/effects/AnimatedRadialBackground";
 
 export default function RegisterPage() {
   const { eventId } = useParams();
@@ -62,11 +63,9 @@ export default function RegisterPage() {
   const priceDisplay = isPaid ? `₹${event?.price || event?.amount}` : "Free Pass";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white relative selection:bg-[#FE760B] selection:text-white overflow-x-hidden transition-colors">
-      {/* Ambient background glow accents */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-[#FE760B]/10 via-[#FE760B]/5 to-transparent" />
-      </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-white relative selection:bg-[#FE760B] selection:text-white overflow-x-hidden transition-colors">
+      {/* ── Animated Futuristic RGB Radial Light-Streak Background ── */}
+      <AnimatedRadialBackground />
 
       <Header />
 
