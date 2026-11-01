@@ -358,12 +358,12 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
       {/* ── Main Area with Unified Top Navigation ── */}
       <main className="tl-main flex-1 min-w-0 flex flex-col min-h-screen bg-slate-50 dark:bg-[#131517] transition-colors">
         <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md border-b border-slate-200 dark:border-[#2A2D31] px-3.5 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3 transition-colors">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {/* Hamburger trigger for mobile */}
             <button
               type="button"
               onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden p-2 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors shrink-0"
+              className="lg:hidden p-1.5 sm:p-2 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors shrink-0"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
@@ -376,7 +376,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                 alt="TicketLelo"
                 width={76}
                 height={24}
-                className="h-6 w-auto object-contain"
+                className="h-5 sm:h-6 w-auto object-contain"
                 priority
               />
             </Link>
@@ -391,7 +391,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 z-10">
             {/* Theme Toggle */}
             <ThemeToggle inline />
 

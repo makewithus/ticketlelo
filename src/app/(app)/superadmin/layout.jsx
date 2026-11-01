@@ -451,60 +451,61 @@ export default function SuperAdminLayout({ children }) {
 
       {/* ── Main Area with Header ── */}
       <main className="tl-main flex-1 min-w-0 flex flex-col min-h-screen bg-slate-50 dark:bg-[#131517] transition-colors">
-        <header className="h-16 border-b border-slate-200 dark:border-[#2A2D31]/60 px-3.5 sm:px-6 md:px-8 flex items-center justify-between bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md sticky top-0 z-40 transition-colors">
-          <div className="flex items-center gap-2 sm:gap-4 md:gap-6 min-w-0">
-            {/* Hamburger trigger for mobile */}
-            <button
-              type="button"
-              onClick={() => setMobileNavOpen(true)}
-              className="lg:hidden p-2 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors shrink-0"
-              aria-label="Open superadmin navigation"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+        <header className="border-b border-slate-200 dark:border-[#2A2D31]/60 bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md sticky top-0 z-40 transition-colors">
+          <div className="h-14 sm:h-16 px-3.5 sm:px-6 md:px-8 flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 md:gap-6 flex-1 min-w-0">
+              {/* Hamburger trigger for mobile */}
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="lg:hidden p-1.5 sm:p-2 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors shrink-0"
+                aria-label="Open superadmin navigation"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
 
-            {/* Mobile Logo */}
-            <Link href="/superadmin/hosting-requests" className="lg:hidden shrink-0 flex items-center">
-              <Image
-                src={LOGO_SRC}
-                alt="TicketLelo"
-                width={76}
-                height={24}
-                className="h-6 w-auto object-contain"
-                priority
-              />
-            </Link>
+              {/* Mobile Logo */}
+              <Link href="/superadmin/hosting-requests" className="lg:hidden shrink-0 flex items-center">
+                <Image
+                  src={LOGO_SRC}
+                  alt="TicketLelo"
+                  width={76}
+                  height={24}
+                  className="h-5 sm:h-6 w-auto object-contain"
+                  priority
+                />
+              </Link>
 
-            {/* Navigation Tabs matching Image */}
-            <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1">
-              {topSubtabs.map((item) => {
-                const cleanPath = (pathname || "").replace(/\/+$/, "");
-                const cleanItemHref = item.href.replace(/\/+$/, "");
-                const isActive =
-                  cleanPath === cleanItemHref ||
-                  (cleanItemHref === "/superadmin/hosting-requests" &&
-                    (cleanPath === "/superadmin" || cleanPath === ""));
+              {/* Navigation Tabs on Tablet and Desktop (sm:flex) */}
+              <nav className="hidden sm:flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1 flex-1 min-w-0">
+                {topSubtabs.map((item) => {
+                  const cleanPath = (pathname || "").replace(/\/+$/, "");
+                  const cleanItemHref = item.href.replace(/\/+$/, "");
+                  const isActive =
+                    cleanPath === cleanItemHref ||
+                    (cleanItemHref === "/superadmin/hosting-requests" &&
+                      (cleanPath === "/superadmin" || cleanPath === ""));
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={false}
-                    className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
-                      isActive
-                        ? "text-slate-900 dark:text-white font-semibold bg-slate-200/80 dark:bg-[#212327]/60"
-                        : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      prefetch={false}
+                      className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0 ${
+                        isActive
+                          ? "text-slate-900 dark:text-white font-semibold bg-slate-200/80 dark:bg-[#212327]/60"
+                          : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
 
-          {/* Right side: ThemeToggle, Organiser link, View site, User Avatar */}
-          <div className="flex items-center gap-2 sm:gap-3 md:gap-5 shrink-0">
+            {/* Right side: ThemeToggle, Organiser link, View site, User Avatar */}
+            <div className="flex items-center gap-1.5 sm:gap-3 md:gap-5 shrink-0 z-10">
             <ThemeToggle inline />
 
             <Link
@@ -606,6 +607,34 @@ export default function SuperAdminLayout({ children }) {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Subtabs for Mobile (< 640px) */}
+          <nav className="sm:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar px-3 sm:px-6 py-2 border-t border-slate-200/70 dark:border-[#2A2D31]/50 bg-slate-50/60 dark:bg-[#17191C]/60 touch-pan-x">
+            {topSubtabs.map((item) => {
+              const cleanPath = (pathname || "").replace(/\/+$/, "");
+              const cleanItemHref = item.href.replace(/\/+$/, "");
+              const isActive =
+                cleanPath === cleanItemHref ||
+                (cleanItemHref === "/superadmin/hosting-requests" &&
+                  (cleanPath === "/superadmin" || cleanPath === ""));
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={false}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                    isActive
+                      ? "text-slate-900 dark:text-white font-semibold bg-white dark:bg-[#212327] shadow-sm border border-slate-200/90 dark:border-[#2A2D31]"
+                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </header>
 
         {/* Content area */}
