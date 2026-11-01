@@ -83,27 +83,60 @@ export function HostingRequestManagement() {
   const [isExistingOrganiser, setIsExistingOrganiser] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
-  const prevCountRef = useRef(null);
+  const isInitialSnapshotRef = useRef(true);
+  const knownRequestIdsRef = useRef(new Set());
+  const mountedAtRef = useRef(Date.now());
 
   useEffect(() => {
     const unsubscribe = subscribeToHostingRequests(
       (allRequests) => {
         const safeRequests = Array.isArray(allRequests) ? allRequests : [];
-        if (
-          prevCountRef.current !== null &&
-          safeRequests.length > prevCountRef.current
-        ) {
-          const newReq = safeRequests[0];
-          const eventTitle = (newReq?.eventTitle || "").trim();
-          const hostName = (newReq?.name || "").trim();
-          if (eventTitle || hostName) {
-            toast.info(
-              `New hosting request: "${eventTitle || "Event"}" from ${hostName || "an organizer"}`,
-              { duration: 5000 },
-            );
-          }
+
+        if (isInitialSnapshotRef.current) {
+          // On initial load, record all existing IDs so we never toast for historical requests
+          safeRequests.forEach((req) => {
+            if (req?.id) knownRequestIdsRef.current.add(req.id);
+          });
+          isInitialSnapshotRef.current = false;
+        } else {
+          // On subsequent live updates, only notify for genuinely NEW requests that:
+          // 1. Have not been seen in this session
+          // 2. Are strictly 'pending' (never approved or rejected)
+          // 3. Were created recently (after page mount)
+          safeRequests.forEach((req) => {
+            if (!req?.id) return;
+            if (knownRequestIdsRef.current.has(req.id)) return;
+
+            // Immediately mark as known so it never notifies again
+            knownRequestIdsRef.current.add(req.id);
+
+            // Must be pending!
+            if (req.status !== "pending") return;
+
+            let createdTime = 0;
+            if (req.createdAt?.toMillis) {
+              createdTime = req.createdAt.toMillis();
+            } else if (req.createdAt?.seconds) {
+              createdTime = req.createdAt.seconds * 1000;
+            } else if (req.createdAt) {
+              createdTime = new Date(req.createdAt).getTime();
+            }
+
+            // Only notify if created recently (after mount or within 2 minutes)
+            const isRecent = createdTime > mountedAtRef.current - 120000;
+            if (isRecent) {
+              const eventTitle = (req?.eventTitle || "").trim();
+              const hostName = (req?.name || "").trim();
+              if (eventTitle || hostName) {
+                toast.info(
+                  `New hosting request: "${eventTitle || "Event"}" from ${hostName || "an organizer"}`,
+                  { duration: 5000 },
+                );
+              }
+            }
+          });
         }
-        prevCountRef.current = safeRequests.length;
+
         setRequests(safeRequests);
         setIsLoading(false);
         setIsLiveConnected(true);
@@ -113,7 +146,11 @@ export function HostingRequestManagement() {
         setIsLiveConnected(false);
         try {
           const allRequests = await getAllHostingRequests();
-          setRequests(Array.isArray(allRequests) ? allRequests : []);
+          const safeFallback = Array.isArray(allRequests) ? allRequests : [];
+          safeFallback.forEach((req) => {
+            if (req?.id) knownRequestIdsRef.current.add(req.id);
+          });
+          setRequests(safeFallback);
         } catch (fetchErr) {
           console.error("Failed to load hosting requests:", fetchErr);
           toast.error("Failed to load hosting requests");
@@ -130,11 +167,64 @@ export function HostingRequestManagement() {
     };
   }, []);
 
+  const isAnyModalOpen = Boolean(
+    selectedDetailRequest || rejectModalOpen || approvalModalOpen
+  );
+
+  // Prevent background scrolling when any modal is open
+  useEffect(() => {
+    if (!isAnyModalOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalPaddingRight = document.body.style.paddingRight;
+
+    // Compensate for scrollbar removal to prevent layout shift on desktop
+    const scrollBarWidth =
+      window.innerWidth - document.documentElement.clientWidth;
+    if (scrollBarWidth > 0) {
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    }
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (approvalModalOpen) {
+          setApprovalModalOpen(false);
+          setApprovedCredentials(null);
+          setApprovedRequestData(null);
+          setIsExistingOrganiser(false);
+        } else if (rejectModalOpen) {
+          setRejectModalOpen(false);
+          setRejectionReason("");
+          setRequestToReject(null);
+        } else if (selectedDetailRequest) {
+          setSelectedDetailRequest(null);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.paddingRight = originalPaddingRight;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isAnyModalOpen, approvalModalOpen, rejectModalOpen, selectedDetailRequest]);
+
   const handleManualRefresh = async (silent = false) => {
     setIsRefreshing(true);
     try {
       const allRequests = await getAllHostingRequests();
-      setRequests(allRequests);
+      const safe = Array.isArray(allRequests) ? allRequests : [];
+      safe.forEach((req) => {
+        if (req?.id) knownRequestIdsRef.current.add(req.id);
+      });
+      setRequests(safe);
       if (!silent) {
         toast.success("Requests refreshed");
       }
@@ -666,217 +756,233 @@ export function HostingRequestManagement() {
       </div>
 
       {/* Detail Slideout/Modal */}
-      {selectedDetailRequest && (
-        <div
-          className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setSelectedDetailRequest(null)}
-        >
+      {selectedDetailRequest &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 touch-none overscroll-contain"
+            onClick={() => setSelectedDetailRequest(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="hosting-request-detail-title"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <h3 className="text-lg font-bold text-white">
-                    {selectedDetailRequest.eventTitle}
-                  </h3>
-                  {selectedDetailRequest.status === "pending" && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FDE003]/10 text-[#FDE003] border border-[#FDE003]/25">
-                      Pending review
-                    </span>
-                  )}
-                  {selectedDetailRequest.status === "approved" && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                      Approved
-                    </span>
-                  )}
-                  {selectedDetailRequest.status === "rejected" && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/25">
-                      Rejected
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-[#9B9EA4]">
-                  Requested by <strong className="text-white">{selectedDetailRequest.name}</strong> · {formatFullRequestDate(selectedDetailRequest.createdAt)}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedDetailRequest(null)}
-                className="p-1.5 rounded-lg hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors shrink-0"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Applicant Identity & Verification Card */}
-            <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <ShieldCheck
-                  className={`w-5 h-5 shrink-0 ${
-                    selectedDetailRequest.userId ? "text-emerald-400" : "text-amber-400"
-                  }`}
-                />
-                <div className="min-w-0">
-                  <span className="text-white font-semibold block truncate">
-                    {selectedDetailRequest.userId
-                      ? "Verified TicketLelo User"
-                      : "Account Registration on Submit"}
-                  </span>
-                  <p className="text-[11px] text-[#9B9EA4] truncate">
-                    {selectedDetailRequest.userId
-                      ? `UID: ${selectedDetailRequest.userId}`
-                      : "User requested access; organizer privileges granted on approval"}
+            <div
+              className="w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3
+                      id="hosting-request-detail-title"
+                      className="text-lg font-bold text-white"
+                    >
+                      {selectedDetailRequest.eventTitle}
+                    </h3>
+                    {selectedDetailRequest.status === "pending" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FDE003]/10 text-[#FDE003] border border-[#FDE003]/25">
+                        Pending review
+                      </span>
+                    )}
+                    {selectedDetailRequest.status === "approved" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                        Approved
+                      </span>
+                    )}
+                    {selectedDetailRequest.status === "rejected" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/25">
+                        Rejected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#9B9EA4]">
+                    Requested by <strong className="text-white">{selectedDetailRequest.name}</strong> · {formatFullRequestDate(selectedDetailRequest.createdAt)}
                   </p>
                 </div>
-              </div>
-              <span
-                className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
-                  selectedDetailRequest.userId
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                    : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                }`}
-              >
-                {selectedDetailRequest.userId ? "Verified" : "Pending Auth"}
-              </span>
-            </div>
-
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-3 text-xs bg-[#212327] p-4 rounded-xl border border-[#2A2D31]">
-              <div>
-                <span className="text-[#9B9EA4] block mb-0.5">Contact Email</span>
-                <a
-                  href={`mailto:${selectedDetailRequest.email}`}
-                  className="text-white hover:text-[#FE760B] font-medium break-all underline decoration-[#2A2D31] hover:decoration-[#FE760B]"
+                <button
+                  onClick={() => setSelectedDetailRequest(null)}
+                  className="p-1.5 rounded-lg hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors shrink-0"
+                  aria-label="Close details"
                 >
-                  {selectedDetailRequest.email}
-                </a>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <div>
-                <span className="text-[#9B9EA4] block mb-0.5">Phone & WhatsApp</span>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-white font-medium">
-                    +91 {selectedDetailRequest.phone || "—"}
-                  </span>
-                  {selectedDetailRequest.phone && (
-                    <a
-                      href={`https://wa.me/91${String(selectedDetailRequest.phone).replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Verify requester on WhatsApp"
-                      className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold"
-                    >
-                      <MessageSquare className="w-3 h-3" />
-                      <span>WhatsApp</span>
-                    </a>
-                  )}
+
+              {/* Applicant Identity & Verification Card */}
+              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ShieldCheck
+                    className={`w-5 h-5 shrink-0 ${
+                      selectedDetailRequest.userId ? "text-emerald-400" : "text-amber-400"
+                    }`}
+                  />
+                  <div className="min-w-0">
+                    <span className="text-white font-semibold block truncate">
+                      {selectedDetailRequest.userId
+                        ? "Verified TicketLelo User"
+                        : "Account Registration on Submit"}
+                    </span>
+                    <p className="text-[11px] text-[#9B9EA4] truncate">
+                      {selectedDetailRequest.userId
+                        ? `UID: ${selectedDetailRequest.userId}`
+                        : "User requested access; organizer privileges granted on approval"}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <span className="text-[#9B9EA4] block mb-0.5">College / Organisation</span>
-                <span className="text-white font-medium">
-                  {selectedDetailRequest.college || "—"}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#9B9EA4] block mb-0.5">Expected Tickets</span>
-                <span className="text-white font-mono font-medium">
-                  {selectedDetailRequest.numberOfTickets} tickets
-                </span>
-              </div>
-              <div>
-                <span className="text-[#9B9EA4] block mb-0.5">Event Type</span>
                 <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
-                    selectedDetailRequest.isPaid
-                      ? "bg-[#FE760B]/14 text-[#FF9A4D]"
-                      : "bg-white/10 text-white"
+                  className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                    selectedDetailRequest.userId
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
                   }`}
                 >
-                  {selectedDetailRequest.isPaid ? "Paid Event" : "Free Event"}
+                  {selectedDetailRequest.userId ? "Verified" : "Pending Auth"}
                 </span>
               </div>
-              <div>
-                <span className="text-[#9B9EA4] block mb-0.5">Account Email</span>
-                <span className="text-[#D0D0D1] break-all">
-                  {selectedDetailRequest.userAccountEmail || selectedDetailRequest.email}
-                </span>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-3 text-xs bg-[#212327] p-4 rounded-xl border border-[#2A2D31]">
+                <div>
+                  <span className="text-[#9B9EA4] block mb-0.5">Contact Email</span>
+                  <a
+                    href={`mailto:${selectedDetailRequest.email}`}
+                    className="text-white hover:text-[#FE760B] font-medium break-all underline decoration-[#2A2D31] hover:decoration-[#FE760B]"
+                  >
+                    {selectedDetailRequest.email}
+                  </a>
+                </div>
+                <div>
+                  <span className="text-[#9B9EA4] block mb-0.5">Phone & WhatsApp</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white font-medium">
+                      +91 {selectedDetailRequest.phone || "—"}
+                    </span>
+                    {selectedDetailRequest.phone && (
+                      <a
+                        href={`https://wa.me/91${String(selectedDetailRequest.phone).replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Verify requester on WhatsApp"
+                        className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[#9B9EA4] block mb-0.5">College / Organisation</span>
+                  <span className="text-white font-medium">
+                    {selectedDetailRequest.college || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#9B9EA4] block mb-0.5">Expected Tickets</span>
+                  <span className="text-white font-mono font-medium">
+                    {selectedDetailRequest.numberOfTickets} tickets
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#9B9EA4] block mb-0.5">Event Type</span>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                      selectedDetailRequest.isPaid
+                        ? "bg-[#FE760B]/14 text-[#FF9A4D]"
+                        : "bg-white/10 text-white"
+                    }`}
+                  >
+                    {selectedDetailRequest.isPaid ? "Paid Event" : "Free Event"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#9B9EA4] block mb-0.5">Account Email</span>
+                  <span className="text-[#D0D0D1] break-all">
+                    {selectedDetailRequest.userAccountEmail || selectedDetailRequest.email}
+                  </span>
+                </div>
               </div>
+
+              {selectedDetailRequest.description && (
+                <div>
+                  <span className="text-xs text-[#9B9EA4] font-medium block mb-1">
+                    Event Description
+                  </span>
+                  <p className="text-xs text-[#D0D0D1] bg-[#212327] p-3 rounded-xl border border-[#2A2D31] leading-relaxed whitespace-pre-wrap">
+                    {selectedDetailRequest.description}
+                  </p>
+                </div>
+              )}
+
+              {selectedDetailRequest.status === "pending" && (
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    onClick={() => {
+                      openRejectModal(selectedDetailRequest);
+                      setSelectedDetailRequest(null);
+                    }}
+                    className="flex-1 bg-transparent hover:bg-[#FF6B6B]/15 text-[#FF9A9A] border border-[#FF6B6B]/30 h-10 rounded-xl text-xs font-semibold"
+                  >
+                    Reject Request
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleApprove(
+                        selectedDetailRequest.id,
+                        selectedDetailRequest,
+                      );
+                      setSelectedDetailRequest(null);
+                    }}
+                    className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] h-10 rounded-xl text-xs font-semibold shadow-none border-none"
+                  >
+                    Approve Request
+                  </Button>
+                </div>
+              )}
+
+              {selectedDetailRequest.status === "approved" && (
+                <div className="pt-2">
+                  <Button
+                    onClick={() => {
+                      handleResendApprovalEmail(selectedDetailRequest);
+                    }}
+                    disabled={processingId === selectedDetailRequest.id}
+                    className="w-full bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] h-10 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-2"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Resend Organiser Approval Email</span>
+                  </Button>
+                </div>
+              )}
             </div>
-
-            {selectedDetailRequest.description && (
-              <div>
-                <span className="text-xs text-[#9B9EA4] font-medium block mb-1">
-                  Event Description
-                </span>
-                <p className="text-xs text-[#D0D0D1] bg-[#212327] p-3 rounded-xl border border-[#2A2D31] leading-relaxed whitespace-pre-wrap">
-                  {selectedDetailRequest.description}
-                </p>
-              </div>
-            )}
-
-            {selectedDetailRequest.status === "pending" && (
-              <div className="flex gap-2 pt-2">
-                <Button
-                  onClick={() => {
-                    openRejectModal(selectedDetailRequest);
-                    setSelectedDetailRequest(null);
-                  }}
-                  className="flex-1 bg-transparent hover:bg-[#FF6B6B]/15 text-[#FF9A9A] border border-[#FF6B6B]/30 h-10 rounded-xl text-xs font-semibold"
-                >
-                  Reject Request
-                </Button>
-                <Button
-                  onClick={() => {
-                    handleApprove(
-                      selectedDetailRequest.id,
-                      selectedDetailRequest,
-                    );
-                    setSelectedDetailRequest(null);
-                  }}
-                  className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] h-10 rounded-xl text-xs font-semibold shadow-none border-none"
-                >
-                  Approve Request
-                </Button>
-              </div>
-            )}
-
-            {selectedDetailRequest.status === "approved" && (
-              <div className="pt-2">
-                <Button
-                  onClick={() => {
-                    handleResendApprovalEmail(selectedDetailRequest);
-                  }}
-                  disabled={processingId === selectedDetailRequest.id}
-                  className="w-full bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] h-10 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-2"
-                >
-                  <Mail className="w-3.5 h-3.5 text-[#FE760B]" />
-                  <span>Resend Organiser Approval Email</span>
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* Rejection Modal */}
-      {rejectModalOpen && typeof document !== "undefined" && createPortal(
-        <>
+      {rejectModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs"
+            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 touch-none overscroll-contain"
             onClick={() => {
               setRejectModalOpen(false);
               setRejectionReason("");
               setRequestToReject(null);
             }}
-          />
-          <div
-            className="fixed inset-0 z-[201] flex items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reject-request-modal-title"
           >
-            <div className="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4">
+            <div
+              className="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">
+                <h3
+                  id="reject-request-modal-title"
+                  className="text-lg font-bold text-white"
+                >
                   Reject Hosting Request
                 </h3>
                 <button
@@ -886,6 +992,7 @@ export function HostingRequestManagement() {
                     setRequestToReject(null);
                   }}
                   className="p-1 hover:bg-[#212327] rounded-lg text-[#9B9EA4] hover:text-white transition-colors"
+                  aria-label="Close"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -945,31 +1052,40 @@ export function HostingRequestManagement() {
                 </Button>
               </div>
             </div>
-          </div>
-        </>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* Approval Modal */}
-      {approvalModalOpen && approvedCredentials && typeof document !== "undefined" && createPortal(
-        <>
+      {approvalModalOpen &&
+        approvedCredentials &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs"
+            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 touch-none overscroll-contain"
             onClick={() => {
               setApprovalModalOpen(false);
               setApprovedCredentials(null);
               setApprovedRequestData(null);
               setIsExistingOrganiser(false);
             }}
-          />
-          <div className="fixed inset-0 z-[201] flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4">
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approve-request-modal-title"
+          >
+            <div
+              className="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain touch-pan-y"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#3DD68C]/12 flex items-center justify-center text-[#3DD68C]">
                   <CheckCircle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3
+                    id="approve-request-modal-title"
+                    className="text-base font-bold text-white"
+                  >
                     Request approved
                   </h3>
                   <p className="text-xs text-[#9B9EA4]">
@@ -995,6 +1111,7 @@ export function HostingRequestManagement() {
                       toast.success("Email copied!");
                     }}
                     className="p-1 hover:bg-[#212327] rounded text-[#9B9EA4] hover:text-white"
+                    aria-label="Copy email"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -1018,10 +1135,9 @@ export function HostingRequestManagement() {
                 Done
               </Button>
             </div>
-          </div>
-        </>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
