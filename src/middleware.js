@@ -13,7 +13,7 @@ export function middleware(request) {
     pathname.startsWith("/user-login") ||
     pathname.startsWith("/super-admin-login")
   ) {
-    const url = new URL(`/login/${search}`, request.url);
+    const url = new URL(`/login${search}`, request.url);
     return NextResponse.redirect(url, 308);
   }
 

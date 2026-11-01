@@ -157,7 +157,7 @@ export function EventManagement() {
             Events
           </h2>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
           {/* Upcoming / Past Tab Pill */}
           <div className="flex items-center rounded-xl bg-[#1A1C1F] border border-[#2A2D31] p-1">
             <button
@@ -221,7 +221,7 @@ export function EventManagement() {
                   Upgrade Plan
                 </button>
                 <button
-                  onClick={() => router.push("/admin/hosting-requests")}
+                  onClick={() => router.push("/host-event")}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 text-amber-700 font-medium rounded-xl text-sm hover:bg-amber-50 transition-colors"
                 >
                   Submit Hosting Request

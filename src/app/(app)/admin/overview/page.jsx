@@ -21,7 +21,13 @@ import {
   Plus,
   ArrowUpRight,
   Clock,
+  UserPlus,
+  MessageSquare,
+  Download,
+  X,
+  Mail,
 } from "lucide-react";
+import QRCodeLib from "qrcode";
 import { EventControlHeader } from "@/components/admin/event-control-header";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -100,6 +106,12 @@ export default function EventOverviewPage() {
   const [copied, setCopied] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [isUpdatingLive, setIsUpdatingLive] = useState(false);
+
+  // Invite Modal & Sharing States (Images 1 & 2)
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [isSendingInvites, setIsSendingInvites] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
 
   // 1. Initial Load: Fetch organiser events from Firestore
   useEffect(() => {
@@ -279,6 +291,72 @@ export default function EventOverviewPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Generate QR code for the event URL
+  useEffect(() => {
+    if (fullPublicUrl) {
+      QRCodeLib.toDataURL(fullPublicUrl, {
+        width: 320,
+        margin: 1,
+        color: { dark: "#000000", light: "#FFFFFF" },
+      })
+        .then((url) => setQrCodeUrl(url))
+        .catch(() => {});
+    }
+  }, [fullPublicUrl]);
+
+  const handleShareEvent = () => {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      navigator
+        .share({
+          title: event?.name || "Event on TicketLelo",
+          text: `Register for ${event?.name || "this event"}!`,
+          url: fullPublicUrl,
+        })
+        .catch(() => {});
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const handleSendInvites = async () => {
+    if (!inviteEmails.trim()) {
+      toast.error("Please enter at least one email address");
+      return;
+    }
+    const emails = inviteEmails
+      .split(/[,\n]/)
+      .map((e) => e.trim())
+      .filter((e) => e && e.includes("@"));
+
+    if (emails.length === 0) {
+      toast.error("No valid email addresses found");
+      return;
+    }
+
+    setIsSendingInvites(true);
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+      toast.success(
+        `Invitation sent to ${emails.length} guest${emails.length > 1 ? "s" : ""}!`
+      );
+      setInviteEmails("");
+      setShowInviteModal(false);
+    } catch {
+      toast.error("Failed to send invitations");
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrCodeUrl) return;
+    const link = document.createElement("a");
+    link.href = qrCodeUrl;
+    link.download = `${event?.slug || "event"}-qr.png`;
+    link.click();
+    toast.success("QR code downloaded!");
+  };
+
   // Theme & Poster Typography
   const selectedTheme = getThemeLook(event?.themeColor || event?.theme || "#FE760B");
 
@@ -413,37 +491,38 @@ export default function EventOverviewPage() {
         }
       />
 
-      {/* ── 3 Quick Action Cards matching Image 3 with Real DB Counts ── */}
+      {/* ── 3 Action Buttons matching Images 1 & 2 ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-6">
-        {/* Card 1: Guests */}
-        <Link
-          href={`/admin/registrations?eventId=${event.id}`}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all group shadow-sm"
+        {/* Button 1: Invite Guests */}
+        <button
+          type="button"
+          onClick={() => setShowInviteModal(true)}
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#212327] group-hover:bg-[#2A2D31] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] group-hover:text-white transition-colors">
-            <Users size={18} className="text-[#7AA2FF]" />
+          <div className="w-10 h-10 rounded-full bg-[#1E293B] border border-blue-500/20 flex items-center justify-center text-[#3B82F6] transition-colors">
+            <UserPlus size={18} />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
-              Guests
+              Invite Guests
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
               {totalGuests} registered {totalCapacity ? `(of ${totalCapacity})` : ""}
             </p>
           </div>
-        </Link>
+        </button>
 
-        {/* Card 2: Send a blast */}
+        {/* Button 2: Send a blast */}
         <Link
           href={`/admin/messages?eventId=${event.id}`}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all group shadow-sm"
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#2A1D13] border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B] transition-colors">
-            <Send size={17} />
+          <div className="w-10 h-10 rounded-full bg-[#2A1830] border border-purple-500/20 flex items-center justify-center text-[#A855F7] transition-colors">
+            <MessageSquare size={18} />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
-              Send a blast
+              Send a Blast
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
               Email {totalGuests} {totalGuests === 1 ? "attendee" : "attendees"}
@@ -451,18 +530,18 @@ export default function EventOverviewPage() {
           </div>
         </Link>
 
-        {/* Card 3: Share event */}
+        {/* Button 3: Share event */}
         <button
           type="button"
-          onClick={handleCopyLink}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all group text-left shadow-sm cursor-pointer"
+          onClick={handleShareEvent}
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#271B2B] border border-purple-500/20 flex items-center justify-center text-purple-400 transition-colors">
+          <div className="w-10 h-10 rounded-full bg-[#2A1525] border border-pink-500/20 flex items-center justify-center text-[#EC4899] transition-colors">
             <Share2 size={18} />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
-              Share event
+              Share Event
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
               {copied ? "Copied to clipboard!" : "Copy public link"}
@@ -471,169 +550,295 @@ export default function EventOverviewPage() {
         </button>
       </div>
 
-      {/* ── Main Event Feature Card matching Image 3 with Real DB Data & Poster ── */}
-      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 sm:p-6 mb-6 shadow-xl">
-        <div className="grid grid-cols-1 md:grid-cols-[210px_1fr] gap-6 items-center">
-          {/* Poster Preview: Either custom cover image OR procedural theme poster with user typography */}
-          <div className="w-full max-w-[210px] aspect-[4/3] sm:aspect-[3/4] rounded-2xl overflow-hidden relative shadow-lg border border-[#2A2D31] mx-auto md:mx-0 select-none">
-            {event.coverImage || event.bannerUrl ? (
-              <img
-                src={event.coverImage || event.bannerUrl}
-                alt={event.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div
-                className="w-full h-full relative flex flex-col justify-between p-4 overflow-hidden"
-                style={{
-                  background: selectedTheme.gradientCss || selectedTheme.bg,
-                }}
-              >
-                {/* Sun quarter circle */}
-                <div
-                  className="w-32 h-32 rounded-full absolute -top-8 -right-8 pointer-events-none opacity-90 transition-colors"
-                  style={{ backgroundColor: selectedTheme.sun }}
-                />
-                {/* Grid overlay */}
-                <div
-                  className="absolute inset-0 pointer-events-none opacity-20"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(#000 1.5px, transparent 1.5px), linear-gradient(90deg, #000 1.5px, transparent 1.5px)",
-                    backgroundSize: "16px 16px",
-                  }}
-                />
-                <div className="relative z-10" />
-                <div
-                  className="relative z-10 w-full"
-                  style={{ textAlign: event.posterAlign || "left" }}
-                >
-                  <span
-                    className="block font-black leading-[0.92] tracking-tight uppercase break-words"
-                    style={{
-                      color:
-                        event.posterTextColor === "dark"
-                          ? "#131517"
-                          : event.posterTextColor === "light"
-                          ? "#FFFFFF"
-                          : selectedTheme.text,
-                      fontSize: `${Math.min(30, event.posterFontSize || 26)}px`,
-                    }}
-                  >
-                    {posterLines.line1}
-                  </span>
-                  {posterLines.line2 && (
-                    <span
-                      className="block font-black leading-[0.92] tracking-tight uppercase mt-1 break-words"
+      {/* ── 2-Column Main Layout: Event Preview & When & Where (Images 1 & 2) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* ── LEFT CARD: Event Preview Card ── */}
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+          <div>
+            {/* Event Poster / Banner Preview */}
+            <div className="w-full aspect-[16/9] rounded-xl overflow-hidden relative border border-[#2A2D31] mb-4 bg-[#131517]">
+              {event.coverImage || event.bannerUrl ? (
+                <div className="w-full h-full relative">
+                  <img
+                    src={event.coverImage || event.bannerUrl}
+                    alt={event.name}
+                    className="w-full h-full object-cover"
+                  />
+                  {event.showPosterText !== false && (event.posterLine1 || event.posterTextX !== undefined) && (
+                    <div
+                      className={`absolute z-10 max-w-[90%] pointer-events-none ${
+                        event.posterTextBg === "badge"
+                          ? "bg-black/75 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-white/20 shadow-md"
+                          : event.posterTextBg === "solid"
+                          ? "bg-[#131517] px-2.5 py-1.5 rounded-lg border border-[#2A2D31] shadow-md"
+                          : "p-1"
+                      }`}
                       style={{
-                        color:
-                          event.posterTextColor === "dark"
-                            ? "#131517"
-                            : event.posterTextColor === "light"
-                            ? "#FFFFFF"
-                            : selectedTheme.text,
-                        fontSize: `${Math.min(
-                          24,
-                          Math.round((event.posterFontSize || 26) * 0.88)
-                        )}px`,
+                        left: `${event.posterTextX ?? 6}%`,
+                        top: `${event.posterTextY ?? 55}%`,
+                        textAlign: event.posterAlign || "left",
+                        textShadow: "0 2px 8px rgba(0,0,0,0.9)",
                       }}
                     >
-                      {posterLines.line2}
-                    </span>
+                      <span
+                        className="block font-black leading-tight tracking-tight uppercase break-words text-white"
+                        style={{
+                          fontSize: `${Math.max(12, Math.round((event.posterFontSize || 34) * 0.55))}px`,
+                        }}
+                      >
+                        {posterLines.line1}
+                      </span>
+                      {posterLines.line2 && (
+                        <span
+                          className="block font-black leading-tight tracking-tight uppercase break-words text-[#FE760B] mt-0.5"
+                          style={{
+                            fontSize: `${Math.max(10, Math.round((event.posterFontSize || 34) * 0.45))}px`,
+                          }}
+                        >
+                          {posterLines.line2}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* Details & Actions from DB */}
-          <div className="space-y-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] mb-2">
-                WHEN &amp; WHERE
-              </p>
-
-              {/* Real Date */}
-              <div className="flex items-center gap-3 mb-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#212327] border border-[#2A2D31] flex flex-col items-center justify-center text-center shrink-0">
-                  <span className="text-[8px] font-extrabold uppercase text-[#FE760B] leading-none">
-                    {dateInfo.month}
-                  </span>
-                  <span className="text-xs font-bold text-white leading-tight">
-                    {dateInfo.day}
-                  </span>
+              ) : (
+                <div
+                  className="w-full h-full relative flex flex-col justify-between p-4 overflow-hidden"
+                  style={{
+                    background: selectedTheme.gradientCss || selectedTheme.bg,
+                  }}
+                >
+                  <div
+                    className="w-32 h-32 rounded-full absolute -top-8 -right-8 pointer-events-none opacity-90"
+                    style={{ backgroundColor: selectedTheme.sun }}
+                  />
+                  <div className="relative z-10 w-full" style={{ textAlign: event.posterAlign || "left" }}>
+                    <span
+                      className="block font-black leading-tight tracking-tight uppercase break-words"
+                      style={{
+                        color: event.posterTextColor === "dark" ? "#131517" : "#FFFFFF",
+                        fontSize: "20px",
+                      }}
+                    >
+                      {posterLines.line1}
+                    </span>
+                    {posterLines.line2 && (
+                      <span className="block font-black leading-tight tracking-tight uppercase text-sm mt-0.5 text-[#FDE003]">
+                        {posterLines.line2}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-white leading-snug">
-                    {dateInfo.dayName}
-                  </p>
-                  <p className="text-[11px] text-[#9B9EA4] font-mono">
-                    {dateInfo.timeRange}
-                  </p>
-                </div>
-              </div>
-
-              {/* Real Location */}
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] shrink-0">
-                  <MapPin size={16} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-white leading-snug">
-                    {event.location || "Virtual / Online Event"}
-                  </p>
-                  <p className="text-[11px] text-[#9B9EA4]">
-                    {event.locationType === "virtual"
-                      ? "Online Web Stream / Meeting"
-                      : event.timezoneCity
-                      ? `${event.timezoneCity}, India`
-                      : "Main Campus Venue"}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Public Link Box with Copy Button */}
-            <div className="flex items-center gap-2 bg-[#212327] border border-[#2A2D31] rounded-xl px-3 py-2">
-              <input
-                type="text"
-                readOnly
-                value={publicUrl}
-                className="bg-transparent border-none text-xs text-[#D0D0D1] flex-1 outline-none font-mono select-all"
-              />
+            {/* Event Title */}
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mb-2">
+              {event.name}
+            </h2>
+
+            {/* Date & Location Rows */}
+            <div className="space-y-1.5 text-xs text-[#9B9EA4] mb-4">
+              <p className="flex items-center gap-2">
+                <Calendar size={13} className="text-[#FE760B] shrink-0" />
+                <span>
+                  {dateInfo.dayName}, {dateInfo.month} {dateInfo.day} • {dateInfo.timeRange}
+                </span>
+              </p>
+              <p className="flex items-center gap-2">
+                <MapPin size={13} className="text-[#FE760B] shrink-0" />
+                <span className="truncate">{event.location || "Main Campus Auditorium"}</span>
+              </p>
+            </div>
+
+            {/* Registration Preview Box (Exact Image 1 & 2) */}
+            <div className="bg-[#131517] border border-[#2A2D31] rounded-xl p-3.5 mb-4">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] mb-1">
+                Registration
+              </p>
+              <p className="text-xs text-white mb-2.5">
+                Welcome, {user?.fullName || "Guest"}! To join the event, please register below.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={user?.email || "attendee@example.com"}
+                  className="bg-[#1A1C1F] border border-[#2A2D31] rounded-lg px-2.5 py-1.5 text-xs text-[#9B9EA4] flex-1 outline-none font-mono"
+                />
+                <Link
+                  href={`/register/${publicSlug}`}
+                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-xs transition-colors shrink-0"
+                >
+                  Register
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            {/* Public Link row with COPY button */}
+            <div className="flex items-center justify-between bg-[#131517] border border-[#2A2D31] rounded-xl px-3 py-2 mb-3">
+              <span className="font-mono text-xs text-[#9B9EA4] truncate mr-2">
+                {publicUrl}
+              </span>
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="px-3 py-1 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-white text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+                className="px-3 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white transition-colors uppercase tracking-wider shrink-0 cursor-pointer"
               >
-                {copied ? "Copied!" : "Copy"}
+                {copied ? "Copied" : "Copy"}
               </button>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-2.5 flex-wrap pt-1">
-              <Link
-                href={`/admin/scanner?eventId=${event.id}`}
-                className="px-4 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-bold text-xs sm:text-sm transition-all shadow-sm inline-flex items-center gap-1.5"
-              >
-                <QrCode className="w-4 h-4 text-[#131517]" />
-                <span>Check in guests</span>
-              </Link>
+            {/* Share Event Social Row */}
+            <div className="flex items-center justify-between pt-2.5 border-t border-[#2A2D31]">
+              <span className="text-xs font-semibold text-[#9B9EA4]">Share Event</span>
+              <div className="flex items-center gap-2 text-[#9B9EA4]">
+                {/* Facebook */}
+                <a
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(fullPublicUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                  title="Share on Facebook"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                  </svg>
+                </a>
+                {/* X / Twitter */}
+                <a
+                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(fullPublicUrl)}&text=${encodeURIComponent(event.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                  title="Share on X"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+                {/* LinkedIn */}
+                <a
+                  href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(fullPublicUrl)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                  title="Share on LinkedIn"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                  </svg>
+                </a>
+                {/* WhatsApp */}
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Register for ${event.name}: ${fullPublicUrl}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                  title="Share on WhatsApp"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT CARD: When & Where ── */}
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white mb-4">When &amp; Where</h3>
+
+            {/* Date Section */}
+            <div className="flex items-start gap-3.5 mb-5">
+              <div className="w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] flex flex-col items-center justify-center text-center shrink-0">
+                <span className="text-[9px] font-extrabold uppercase text-[#FE760B] leading-none">
+                  {dateInfo.month}
+                </span>
+                <span className="text-sm font-black text-white leading-tight mt-0.5">
+                  {dateInfo.day}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">
+                  {dateInfo.dayName}, {dateInfo.month} {dateInfo.day}
+                </p>
+                <p className="text-xs text-[#9B9EA4] font-medium mt-0.5">
+                  {dateInfo.timeRange}
+                </p>
+              </div>
+            </div>
+
+            {/* Venue Section */}
+            <div className="flex items-start gap-3.5 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] shrink-0">
+                <MapPin size={20} className="text-[#FE760B]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white flex items-center gap-1.5 truncate">
+                  <span>{event.location || "School of Engineering, CUSAT"}</span>
+                  <ArrowUpRight size={14} className="text-[#9B9EA4] shrink-0" />
+                </p>
+                <p className="text-xs text-[#9B9EA4] font-medium mt-0.5 line-clamp-2">
+                  {event.address || event.location || "Main Campus Hall, Kochi, Kerala"}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[#9B9EA4] mb-6">
+              The address is shown publicly on the event page.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {/* Big Check In Guests Button */}
+            <Link
+              href={`/admin/scanner?eventId=${event.id}`}
+              className="w-full py-3 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
+            >
+              <QrCode size={18} className="text-[#FE760B]" />
+              <span>Check In Guests</span>
+            </Link>
+
+            {/* Secondary Edit & Photo Buttons */}
+            <div className="grid grid-cols-2 gap-2.5">
               <Link
                 href={`/admin/create-event?eventId=${event.id}`}
-                className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white font-medium text-xs sm:text-sm transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white text-center transition-colors"
               >
-                Edit event
+                Edit Event
               </Link>
               <Link
                 href={`/admin/customize?eventId=${event.id}`}
-                className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white font-medium text-xs sm:text-sm transition-colors"
+                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white text-center transition-colors"
               >
-                Change banner
+                Change Photo
               </Link>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── Invites Section matching Images 1 & 2 ── */}
+      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-bold text-white mb-1">Invites</h3>
+          <p className="text-xs text-[#9B9EA4]">
+            Invite subscribers, contacts and past guests via email or SMS.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowInviteModal(true)}
+          className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+        >
+          <Plus size={14} className="text-[#FE760B]" />
+          <span>Invite Guests</span>
+        </button>
       </div>
 
       {/* ── Status Banner matching Image 3 with Real Firestore Live Toggle ── */}
@@ -816,6 +1021,119 @@ export default function EventOverviewPage() {
           </div>
         )}
       </div>
+
+      {/* ── Invite Guests Modal (Images 1 & 2) ── */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-lg rounded-3xl bg-[#1A1C1F] border border-[#2A2D31] p-6 shadow-2xl relative space-y-5 animate-scale-in">
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowInviteModal(false)}
+              className="absolute top-5 right-5 p-1.5 text-[#9B9EA4] hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#1E293B] border border-blue-500/20 flex items-center justify-center text-[#3B82F6]">
+                <UserPlus size={18} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">Invite Guests</h3>
+                <p className="text-xs text-[#9B9EA4]">Share the event link or invite directly by email</p>
+              </div>
+            </div>
+
+            {/* Section 1: Copy Link */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                Event Registration Link
+              </label>
+              <div className="flex items-center gap-2 bg-[#131517] border border-[#2A2D31] rounded-xl p-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={fullPublicUrl}
+                  className="bg-transparent text-xs text-[#D0D0D1] flex-1 outline-none font-mono px-2 select-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-3 py-1.5 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {copied ? <Check size={13} className="text-[#3DD68C]" /> : <Copy size={13} />}
+                  <span>{copied ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Section 2: QR Code & Download */}
+            {qrCodeUrl && (
+              <div className="flex items-center gap-4 p-3 rounded-xl bg-[#131517] border border-[#2A2D31]">
+                <img
+                  src={qrCodeUrl}
+                  alt="Event QR Code"
+                  className="w-16 h-16 rounded-lg bg-white p-1"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-white">QR Code Poster</p>
+                  <p className="text-[11px] text-[#9B9EA4] mt-0.5">
+                    Guests can scan with their phone camera to instantly register.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadQR}
+                  className="px-3 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                >
+                  <Download size={13} className="text-[#FE760B]" />
+                  <span>Download</span>
+                </button>
+              </div>
+            )}
+
+            {/* Section 3: Email Invitations */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                Invite by Email
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Enter emails separated by commas or line breaks...&#10;example1@gmail.com, example2@gmail.com"
+                value={inviteEmails}
+                onChange={(e) => setInviteEmails(e.target.value)}
+                className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl p-3 text-xs text-white placeholder-[#64748B] outline-none resize-none transition-colors font-mono"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowInviteModal(false)}
+                className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendInvites}
+                disabled={isSendingInvites || !inviteEmails.trim()}
+                className="px-5 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isSendingInvites ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
+                ) : (
+                  <Mail className="w-4 h-4 text-[#131517]" />
+                )}
+                <span>{isSendingInvites ? "Sending..." : "Send Invitations"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

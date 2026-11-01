@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { enqueueEmail } from "@/lib/email/queue";
+import { buildPasswordResetEmail } from "@/lib/email/templates/password-reset";
+import { EmailPriority, EmailType } from "@/lib/email/types";
 import { adminAuth, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
 
@@ -67,29 +69,32 @@ export async function POST(request) {
 
     // 3. Attempt to send email if SMTP is configured
     let emailSent = false;
-    if (process.env.SMTP_EMAIL && process.env.SMTP_PASSWORD) {
+    const targetEmailLower = String(email || "").trim().toLowerCase();
+    const isSuperAdminEmail =
+      targetEmailLower === "superadmin@ticketlelo.com" ||
+      targetEmailLower === "superadin@ticketlelo.com";
+
+    if (!isSuperAdminEmail) {
       try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || "smtp.gmail.com",
-          port: Number(process.env.SMTP_PORT || 587),
-          secure: Number(process.env.SMTP_PORT || 587) === 465,
-          auth: { user: process.env.SMTP_EMAIL, pass: process.env.SMTP_PASSWORD },
+        const { html: htmlContent, text: textBody } = buildPasswordResetEmail({
+          name,
+          email,
+          eventTitle,
+          resetLink,
         });
 
-        const safeName = escapeHtml(name);
-        const safeEvent = escapeHtml(eventTitle);
-        const safeResetLink = escapeHtml(resetLink);
-
-        await transporter.sendMail({
-          from: `TicketLelo <${process.env.SMTP_EMAIL}>`,
+        await enqueueEmail({
           to: email,
           subject: `Reset your TicketLelo password: ${eventTitle}`,
-          text: `Hello ${name},\n\nA password reset was requested for your TicketLelo organiser account (${email}).\n\nReset your password here:\n${resetLink}\n\nIf you did not request this, please contact support.`,
-          html: `<p>Hello ${safeName},</p><p>A password reset was requested for your TicketLelo organiser account for <strong>${safeEvent}</strong>.</p><p><a href="${safeResetLink}" style="display:inline-block;padding:10px 18px;background-color:#FE760B;color:#131517;font-weight:bold;text-decoration:none;border-radius:8px;">Reset Password</a></p><p style="font-size:12px;color:#888;">Or copy this link into your browser:<br/><a href="${safeResetLink}">${safeResetLink}</a></p>`,
+          html: htmlContent,
+          text: textBody,
+          priority: EmailPriority.P0,
+          emailType: EmailType.PASSWORD_RESET,
+          idempotencyKey: `idemp_pwdreset_${targetEmailLower}_${Date.now()}`,
         });
         emailSent = true;
       } catch (emailErr) {
-        console.warn("[reset-organiser-login] SMTP dispatch skipped/failed:", emailErr.message);
+        console.warn("[reset-organiser-login] Dispatch error:", emailErr.message);
       }
     }
 

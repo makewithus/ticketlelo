@@ -1,4 +1,5 @@
 import { Toaster } from "sonner";
+import { ToastGuard } from "@/components/ui/toast-guard";
 
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
@@ -8,6 +9,9 @@ export const metadata = {
   title: "TicketLelo - Event Ticketing Platform",
   description: "Professional event ticketing and management platform",
   generator: "v0.app",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -21,6 +25,7 @@ export default function RootLayout({ children }) {
           disableTransitionOnChange
         >
           <AuthProvider>{children}</AuthProvider>
+          <ToastGuard />
           <Toaster 
             position="top-right" 
             theme="dark" 

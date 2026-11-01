@@ -46,7 +46,11 @@ export function TicketCard({ registration, event }) {
   const isUsed =
     registration.status === "Used" || registration.status === "used";
 
-  const isWide = event?.ticketDesign === "wide";
+  const isWide =
+    event?.ticketDesign === "wide" ||
+    registration?.ticketDesign === "wide" ||
+    event?.ticketLayout === "wide" ||
+    registration?.ticketLayout === "wide";
 
   return (
     <div className="w-full flex flex-col">

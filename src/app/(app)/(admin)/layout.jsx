@@ -6,25 +6,52 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Calendar, Users, QrCode, FormInput } from "lucide-react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 
 export default function OrganiserLayout({ children }) {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, refreshUser } = useAuth();
   const router = useRouter();
+  const [verifying, setVerifying] = useState(false);
 
-  // Check if user is organiser/admin
+  // Check if user is organiser/admin with fallback re-verification
   useEffect(() => {
-    const hasAdminAccess =
-      user?.isAdmin ||
-      user?.role === "organiser" ||
-      user?.role === "superAdmin" ||
-      user?.email === "adil4ticketlelo@gmail.com";
-    if (!loading && (!user || !hasAdminAccess)) {
-      router.push("/login");
-    }
-  }, [loading, user, router]);
+    let isMounted = true;
+    const checkAccess = async () => {
+      const hasAdminAccess =
+        user?.isAdmin ||
+        user?.role === "organiser" ||
+        user?.role === "superAdmin" ||
+        user?.email === "adil4ticketlelo@gmail.com";
 
-  if (loading) {
+      if (!loading && (!user || !hasAdminAccess)) {
+        if (user && refreshUser) {
+          setVerifying(true);
+          try {
+            const freshUser = await refreshUser();
+            if (
+              freshUser?.isAdmin ||
+              freshUser?.role === "organiser" ||
+              freshUser?.role === "superAdmin"
+            ) {
+              if (isMounted) setVerifying(false);
+              return;
+            }
+          } catch (e) {
+            console.warn("Could not re-verify organizer role:", e);
+          }
+          if (isMounted) setVerifying(false);
+        }
+        if (isMounted) router.push("/login");
+      }
+    };
+
+    checkAccess();
+    return () => {
+      isMounted = false;
+    };
+  }, [loading, user, router, refreshUser]);
+
+  if (loading || verifying) {
     return (
       <div className="tl-system-theme flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">

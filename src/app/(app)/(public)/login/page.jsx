@@ -11,51 +11,138 @@ import {
   Loader2,
   ArrowLeft,
   CheckCircle2,
+  Phone,
+  KeyRound,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
   getAuthErrorMessage,
   login,
+  signup,
   loginWithGoogle,
   getRedirectPathForRole,
 } from "@/lib/auth";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-export default function UnifiedLoginPage() {
+function UnifiedLoginContent() {
   const router = useRouter();
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const { user: currentUser, loading: authLoading, refreshUser } = useAuth();
 
-  const [email, setEmail] = useState("");
+  const redirectParam = searchParams.get("redirect") || "";
+  const initialEmail = searchParams.get("email") || "";
+  const initialName = searchParams.get("name") || "";
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+
+  const roleParam = searchParams.get("role") || "";
+  const isOrganiserLogin = roleParam === "organiser" || redirectParam.includes("/admin");
+
+  const [authMode, setAuthMode] = useState(initialMode); // "signin" | "signup"
+  const [fullName, setFullName] = useState(initialName);
+  const [email, setEmail] = useState(initialEmail);
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
   const [redirectingRole, setRedirectingRole] = useState(null);
 
-  // If already logged in, redirect automatically to their dashboard
+  // Forgot password OTP states
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState("email"); // "email" | "code" | "password" | "success"
+  const [forgotEmail, setForgotEmail] = useState(initialEmail);
+  const [forgotCode, setForgotCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [resetToken, setResetToken] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Timer for resend cooldown
   useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  // If already logged in, redirect automatically to the requested redirect path or role dashboard
+  useEffect(() => {
+    let isMounted = true;
     if (!authLoading && currentUser) {
-      const targetPath = getRedirectPathForRole(currentUser.role);
-      router.replace(targetPath);
+      const checkAndRedirect = async () => {
+        let activeRole = currentUser.role;
+
+        // If redirecting to admin dashboard, ensure latest role & claims are synchronized
+        if (
+          redirectParam &&
+          redirectParam.includes("/admin") &&
+          activeRole !== "organiser" &&
+          activeRole !== "superAdmin"
+        ) {
+          try {
+            const fresh = await refreshUser?.();
+            if (fresh?.role) activeRole = fresh.role;
+          } catch (e) {
+            console.warn("Could not refresh user role on login page:", e);
+          }
+        }
+
+        if (!isMounted) return;
+
+        const requiresAdmin =
+          redirectParam &&
+          (redirectParam.startsWith("/admin") || redirectParam.startsWith("/superadmin"));
+        const hasAccess = requiresAdmin
+          ? activeRole === "organiser" || activeRole === "superAdmin"
+          : true;
+
+        const targetPath =
+          hasAccess && redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login")
+            ? redirectParam
+            : getRedirectPathForRole(activeRole);
+
+        router.replace(targetPath);
+      };
+
+      checkAndRedirect();
     }
-  }, [currentUser, authLoading, router]);
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser, authLoading, router, redirectParam, refreshUser]);
 
-  const handleRoleRedirect = (role, displayName) => {
+  const handleAuthSuccess = (role, displayName) => {
     setRedirectingRole(role);
-    const targetPath = getRedirectPathForRole(role);
+    const requiresAdmin =
+      redirectParam &&
+      (redirectParam.startsWith("/admin") || redirectParam.startsWith("/superadmin"));
+    const hasAccess = requiresAdmin
+      ? role === "organiser" || role === "superAdmin"
+      : true;
 
-    if (role === "superAdmin") {
+    const targetPath =
+      hasAccess && redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login")
+        ? redirectParam
+        : getRedirectPathForRole(role);
+
+    if (redirectParam && redirectParam.startsWith("/")) {
+      toast.success(
+        `Welcome${displayName ? `, ${displayName}` : ""}! Returning to your event request...`
+      );
+    } else if (role === "superAdmin") {
       toast.success(`Welcome Super Admin${displayName ? `, ${displayName}` : ""}! Accessing portal...`);
     } else if (role === "organiser") {
       toast.success(`Welcome back Organiser${displayName ? `, ${displayName}` : ""}! Opening dashboard...`);
@@ -82,12 +169,48 @@ export default function UnifiedLoginPage() {
       }
 
       const userData = await login(email, password);
-      const role = userData?.role || "user";
-      handleRoleRedirect(role, userData?.fullName);
+      const freshUser = (await refreshUser?.()) || userData;
+      const role = freshUser?.role || userData?.role || "user";
+      handleAuthSuccess(role, freshUser?.fullName || userData?.fullName);
     } catch (err) {
       const errorMsg = getAuthErrorMessage(
         err,
-        "Sign in failed. Please check your credentials.",
+        "Sign in failed. Please check your credentials."
+      );
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      if (!fullName.trim()) {
+        throw new Error("Please enter your full name");
+      }
+      if (!email.trim()) {
+        throw new Error("Please enter your email address");
+      }
+      if (!password.trim()) {
+        throw new Error("Please enter a password");
+      }
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters");
+      }
+
+      const digitsPhone = phone.replace(/\D/g, "").slice(0, 10);
+      const userData = await signup(email, password, fullName.trim(), digitsPhone);
+      const role = userData?.role || "user";
+      handleAuthSuccess(role, userData?.fullName || fullName);
+    } catch (err) {
+      const errorMsg = getAuthErrorMessage(
+        err,
+        "Sign up failed. Please check your details."
       );
       setError(errorMsg);
       toast.error(errorMsg);
@@ -105,9 +228,8 @@ export default function UnifiedLoginPage() {
       const userData = await loginWithGoogle();
       if (!userData) return;
       const role = userData?.role || "user";
-      handleRoleRedirect(role, userData?.fullName);
+      handleAuthSuccess(role, userData?.fullName);
     } catch (err) {
-      // Do not display an error if the user intentionally closed the popup or a superseded request was cancelled
       if (
         err?.isCancelled ||
         err?.code === "auth/popup-closed-by-user" ||
@@ -118,7 +240,7 @@ export default function UnifiedLoginPage() {
       }
       const errorMsg = getAuthErrorMessage(
         err,
-        "Google sign in failed. Please try again.",
+        "Google sign in failed. Please try again."
       );
       setError(errorMsg);
       toast.error(errorMsg);
@@ -127,40 +249,152 @@ export default function UnifiedLoginPage() {
     }
   };
 
-  const handlePasswordReset = async (e) => {
-    e.preventDefault();
+  const handleOpenForgotPassword = () => {
+    setForgotEmail(email || initialEmail);
+    setForgotCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetToken("");
+    setForgotError("");
+    setForgotStep("email");
+    setShowForgotPassword(true);
+  };
 
-    if (!resetEmail || !resetEmail.includes("@")) {
-      toast.error("Please enter a valid email address");
+  const handleSendOtp = async (e) => {
+    if (e) e.preventDefault();
+    setForgotError("");
+
+    const targetEmail = forgotEmail.trim().toLowerCase();
+    if (!targetEmail || !targetEmail.includes("@")) {
+      const err = "Please enter a valid email address";
+      setForgotError(err);
+      toast.error(err);
       return;
     }
 
-    setResetLoading(true);
+    setForgotLoading(true);
     try {
-      const actionCodeSettings = {
-        url: `${window.location.origin}/login`,
-        handleCodeInApp: false,
-      };
-
-      await sendPasswordResetEmail(
-        auth,
-        resetEmail.toLowerCase().trim(),
-        actionCodeSettings,
-      );
-      toast.success("Password reset link sent! Check your inbox.");
-      setShowForgotPassword(false);
-      setResetEmail("");
-    } catch (err) {
-      console.error("Password reset error:", err);
-      if (err.code === "auth/user-not-found") {
-        toast.error("No account found with this email address");
-      } else {
-        toast.error("Failed to send reset link. Please try again.");
+      const res = await fetch("/api/auth/forgot-password/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send verification code");
       }
+
+      toast.success(data.message || "Verification code sent to your email!");
+      setForgotStep("code");
+      setResendCooldown(60);
+    } catch (err) {
+      const msg = err?.message || "Failed to send verification code";
+      setForgotError(msg);
+      toast.error(msg);
     } finally {
-      setResetLoading(false);
+      setForgotLoading(false);
     }
   };
+
+  const handleVerifyOtp = async (e) => {
+    if (e) e.preventDefault();
+    setForgotError("");
+
+    const code = forgotCode.trim();
+    if (!code || code.length !== 6) {
+      const err = "Please enter the 6-digit verification code";
+      setForgotError(err);
+      toast.error(err);
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          code,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Invalid verification code");
+      }
+
+      setResetToken(data.resetToken);
+      setForgotStep("password");
+      toast.success(data.message || "Code verified successfully!");
+    } catch (err) {
+      const msg = err?.message || "Invalid verification code";
+      setForgotError(msg);
+      toast.error(msg);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setForgotError("");
+
+    if (!newPassword || newPassword.length < 6) {
+      const err = "Password must be at least 6 characters";
+      setForgotError(err);
+      toast.error(err);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      const err = "Passwords do not match";
+      setForgotError(err);
+      toast.error(err);
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          resetToken,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update password");
+      }
+
+      setForgotStep("success");
+      toast.success(data.message || "Password updated successfully!");
+      setEmail(forgotEmail.trim().toLowerCase());
+    } catch (err) {
+      const msg = err?.message || "Failed to update password";
+      setForgotError(msg);
+      toast.error(msg);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleFinishReset = () => {
+    setShowForgotPassword(false);
+    setAuthMode("signin");
+    setEmail(forgotEmail.trim().toLowerCase());
+    setPassword("");
+    setForgotStep("email");
+    setForgotCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetToken("");
+    setForgotError("");
+  };
+
+  const isFromHostingPage = redirectParam.includes("/host-event");
 
   return (
     <div className="min-h-screen relative flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-[#131517] text-[#FFFFFF] selection:bg-[#FE760B] selection:text-white">
@@ -170,82 +404,363 @@ export default function UnifiedLoginPage() {
       {/* Top Controls: Back Link & Theme Toggle */}
       <div className="absolute top-4 inset-x-4 sm:inset-x-8 flex items-center justify-between z-20">
         <Link
-          href="/"
+          href={isFromHostingPage ? "/host-event" : "/"}
           className="inline-flex items-center gap-2 text-[#9B9EA4] hover:text-[#FFFFFF] transition-colors group text-sm font-medium"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Home</span>
+          <span>{isFromHostingPage ? "Back to Event Form" : "Back to Home"}</span>
         </Link>
         <ThemeToggle inline />
       </div>
 
       {/* Main Container */}
       <div className="relative z-10 w-full max-w-md mx-auto pt-8">
-
         {showForgotPassword ? (
-          /* Password Reset Card */
+          /* Multi-Step Password Reset Card with OTP Verification */
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-xl"
           >
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] mb-3 text-[#FE760B]">
-                <Mail className="w-6 h-6" />
-              </div>
-              <h1 className="text-xl font-bold text-[#FFFFFF] tracking-tight">
-                Reset Password
-              </h1>
-              <p className="text-[#9B9EA4] text-xs mt-1">
-                Enter your account email to receive a secure recovery link
-              </p>
+            {/* Step progress pills */}
+            <div className="flex items-center justify-center gap-1.5 xs:gap-2 mb-6">
+              {[
+                { key: "email", label: "1. Email" },
+                { key: "code", label: "2. Verify Code" },
+                { key: "password", label: "3. New Password" },
+              ].map((step, idx) => {
+                const isActive =
+                  forgotStep === step.key ||
+                  (forgotStep === "success" && idx === 2);
+                const isPassed =
+                  (forgotStep === "code" && idx === 0) ||
+                  (forgotStep === "password" && idx <= 1) ||
+                  forgotStep === "success";
+
+                return (
+                  <div
+                    key={step.key}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                      isActive
+                        ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30"
+                        : isPassed
+                        ? "bg-[#212327] text-white border border-[#2A2D31]"
+                        : "bg-[#131517] text-[#9B9EA4] border border-[#2A2D31]"
+                    }`}
+                  >
+                    <span>{step.label}</span>
+                  </div>
+                );
+              })}
             </div>
 
-            <form onSubmit={handlePasswordReset} className="space-y-4">
+            {/* Step 1: Request Verification Code */}
+            {forgotStep === "email" && (
               <div>
-                <label
-                  htmlFor="reset-email"
-                  className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
-                >
-                  Email
-                </label>
-                <input
-                  id="reset-email"
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
-                  placeholder="your.email@example.com"
-                  required
-                />
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] mb-3 text-[#FE760B]">
+                    <Mail className="w-6 h-6" />
+                  </div>
+                  <h1 className="text-xl font-bold text-[#FFFFFF] tracking-tight">
+                    Reset Password
+                  </h1>
+                  <p className="text-[#9B9EA4] text-xs mt-1">
+                    Enter your account email to receive a 6-digit verification code.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="forgot-email"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
+                    >
+                      Account email
+                    </label>
+                    <input
+                      id="forgot-email"
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                      placeholder="your.email@example.com"
+                      autoFocus
+                      required
+                    />
+                  </div>
+
+                  {forgotError && (
+                    <div className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl p-2.5 text-center">
+                      {forgotError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-[#131517] font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm mt-2 shadow-none border-none disabled:opacity-60"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
+                        <span>Sending Code...</span>
+                      </>
+                    ) : (
+                      <span>Send Verification Code</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-full text-[#9B9EA4] hover:text-[#FFFFFF] transition-colors text-xs text-center py-2"
+                  >
+                    Back to Sign In
+                  </button>
+                </form>
               </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={resetLoading}
-                className="w-full bg-white hover:bg-slate-100 text-black font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm mt-2"
-              >
-                {resetLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Sending Link...</span>
-                  </>
-                ) : (
-                  <span>Send Recovery Link</span>
-                )}
-              </button>
+            {/* Step 2: Enter 6-digit Code */}
+            {forgotStep === "code" && (
+              <div>
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] mb-3 text-[#FE760B]">
+                    <KeyRound className="w-6 h-6" />
+                  </div>
+                  <h1 className="text-xl font-bold text-[#FFFFFF] tracking-tight">
+                    Enter Verification Code
+                  </h1>
+                  <p className="text-[#9B9EA4] text-xs mt-1">
+                    We sent a 6-digit code to{" "}
+                    <span className="text-white font-medium">{forgotEmail}</span>
+                  </p>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => setShowForgotPassword(false)}
-                className="w-full text-[#9B9EA4] hover:text-[#FFFFFF] transition-colors text-xs text-center py-2"
-              >
-                Back to Sign In
-              </button>
-            </form>
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="forgot-code"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5 text-center"
+                    >
+                      6-Digit Code
+                    </label>
+                    <input
+                      id="forgot-code"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={forgotCode}
+                      onChange={(e) =>
+                        setForgotCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      className="w-full text-center font-mono text-2xl tracking-[0.4em] py-3 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                      placeholder="••••••"
+                      autoFocus
+                      required
+                    />
+                  </div>
+
+                  {forgotError && (
+                    <div className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl p-2.5 text-center">
+                      {forgotError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs text-[#9B9EA4] px-1">
+                    {resendCooldown > 0 ? (
+                      <span>Resend code in {resendCooldown}s</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSendOtp()}
+                        disabled={forgotLoading}
+                        className="text-[#FE760B] hover:underline font-medium"
+                      >
+                        Resend code
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotStep("email");
+                        setForgotError("");
+                      }}
+                      className="hover:text-white transition-colors"
+                    >
+                      Change email
+                    </button>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading || forgotCode.trim().length !== 6}
+                    className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-[#131517] font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm mt-2 shadow-none border-none disabled:opacity-60"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
+                        <span>Verifying Code...</span>
+                      </>
+                    ) : (
+                      <span>Verify Code</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-full text-[#9B9EA4] hover:text-[#FFFFFF] transition-colors text-xs text-center py-2"
+                  >
+                    Back to Sign In
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Step 3: Enter New Password */}
+            {forgotStep === "password" && (
+              <div>
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] mb-3 text-[#FE760B]">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <h1 className="text-xl font-bold text-[#FFFFFF] tracking-tight">
+                    Set New Password
+                  </h1>
+                  <p className="text-[#9B9EA4] text-xs mt-1">
+                    Verification successful. Choose a strong new password.
+                  </p>
+                </div>
+
+                <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+                  {/* New Password */}
+                  <div>
+                    <label
+                      htmlFor="new-password"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
+                    >
+                      New password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="new-password"
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full pl-4 pr-11 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                        placeholder="••••••••"
+                        autoFocus
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9B9EA4] hover:text-white transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showNewPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#9B9EA4] mt-1">
+                      Must be at least 6 characters
+                    </p>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label
+                      htmlFor="confirm-password"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
+                    >
+                      Confirm new password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full pl-4 pr-11 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                        placeholder="••••••••"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9B9EA4] hover:text-white transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {forgotError && (
+                    <div className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl p-2.5 text-center">
+                      {forgotError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-[#131517] font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm mt-2 shadow-none border-none disabled:opacity-60"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
+                        <span>Updating Password...</span>
+                      </>
+                    ) : (
+                      <span>Update Password</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(false)}
+                    className="w-full text-[#9B9EA4] hover:text-[#FFFFFF] transition-colors text-xs text-center py-2"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Step 4: Success confirmation */}
+            {forgotStep === "success" && (
+              <div className="text-center py-2">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#3DD68C]/15 border border-[#3DD68C]/30 mb-4 text-[#3DD68C]">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h1 className="text-xl font-bold text-[#FFFFFF] tracking-tight mb-2">
+                  Password Updated!
+                </h1>
+                <p className="text-[#9B9EA4] text-xs leading-relaxed mb-6">
+                  Your password has been successfully updated. You can now sign in to TicketLelo with your new password.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleFinishReset}
+                  className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-[#131517] font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm shadow-none border-none"
+                >
+                  Sign In Now
+                </button>
+              </div>
+            )}
           </motion.div>
         ) : (
-          /* Main Unified Login Card strictly matching Image 4 */
+          /* Main Unified Login / Signup Card */
           <div className="flex flex-col items-center">
             {/* Logo at top */}
             <div className="flex justify-center mb-6">
@@ -256,14 +771,43 @@ export default function UnifiedLoginPage() {
               />
             </div>
 
-            {/* Header text outside card like Image 4 */}
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
-                Welcome back
-              </h1>
-              <p className="text-[#9B9EA4] text-sm mt-1.5">
-                Sign in to see your tickets.
-              </p>
+            {/* Header text outside card */}
+            <div className="text-center mb-5">
+              {isOrganiserLogin ? (
+                <>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FE760B]/10 border border-[#FE760B]/25 text-[#FE760B] text-xs font-semibold mb-2.5">
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Organiser Portal</span>
+                  </div>
+                  <h1 className="text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
+                    {authMode === "signup"
+                      ? "Create Organiser Account"
+                      : "Organiser Sign In"}
+                  </h1>
+                  <p className="text-[#9B9EA4] text-sm mt-1.5">
+                    {authMode === "signup"
+                      ? "Sign up with your approved email to access the organiser dashboard."
+                      : "Sign in with your approved organiser account to manage and create events."}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
+                    {isFromHostingPage
+                      ? "Sign in to submit request"
+                      : authMode === "signup"
+                      ? "Create an account"
+                      : "Welcome back"}
+                  </h1>
+                  <p className="text-[#9B9EA4] text-sm mt-1.5">
+                    {isFromHostingPage
+                      ? "Sign in or sign up below. Your form details are safely saved."
+                      : authMode === "signup"
+                      ? "Sign up to host events and access tickets"
+                      : "Sign in to see your tickets and host events."}
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Form Card */}
@@ -273,6 +817,38 @@ export default function UnifiedLoginPage() {
               transition={{ duration: 0.35 }}
               className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-xl w-full"
             >
+              {/* Sign in / Sign up Mode Switcher Tabs */}
+              <div className="flex rounded-xl bg-[#212327] p-1 border border-[#2A2D31] mb-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signin");
+                    setError("");
+                  }}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    authMode === "signin"
+                      ? "bg-[#1A1C1F] text-white shadow-sm"
+                      : "text-[#9B9EA4] hover:text-white"
+                  }`}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signup");
+                    setError("");
+                  }}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    authMode === "signup"
+                      ? "bg-[#1A1C1F] text-white shadow-sm"
+                      : "text-[#9B9EA4] hover:text-white"
+                  }`}
+                >
+                  Create account
+                </button>
+              </div>
+
               {/* ONE-TAP GOOGLE SIGN-IN BUTTON */}
               <button
                 type="button"
@@ -304,7 +880,11 @@ export default function UnifiedLoginPage() {
                   </svg>
                 )}
                 <span className="tracking-tight">
-                  {googleLoading ? "Signing in with Google..." : "Continue with Google"}
+                  {googleLoading
+                    ? "Connecting to Google..."
+                    : authMode === "signup"
+                    ? "Sign up with Google"
+                    : "Continue with Google"}
                 </span>
               </button>
 
@@ -315,13 +895,38 @@ export default function UnifiedLoginPage() {
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-[#1A1C1F] px-3 text-[#9B9EA4] font-medium">
-                    or
+                    or with email
                   </span>
                 </div>
               </div>
 
-              {/* Credentials Form */}
-              <form onSubmit={handleLogin} className="space-y-4">
+              {/* FORM: Sign in or Sign up */}
+              <form
+                onSubmit={authMode === "signup" ? handleSignup : handleLogin}
+                className="space-y-4"
+              >
+                {/* Full Name for Sign Up */}
+                {authMode === "signup" && (
+                  <div>
+                    <label
+                      htmlFor="signup-name"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
+                    >
+                      Full name
+                    </label>
+                    <input
+                      id="signup-name"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                      placeholder="John Doe"
+                      autoComplete="name"
+                      required
+                    />
+                  </div>
+                )}
+
                 {/* Email */}
                 <div>
                   <label
@@ -342,6 +947,33 @@ export default function UnifiedLoginPage() {
                   />
                 </div>
 
+                {/* Optional Phone for Sign Up */}
+                {authMode === "signup" && (
+                  <div>
+                    <label
+                      htmlFor="signup-phone"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
+                    >
+                      Phone number (optional)
+                    </label>
+                    <div className="flex rounded-xl bg-[#212327] border border-[#2A2D31] overflow-hidden focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B]">
+                      <span className="inline-flex items-center px-3 text-xs font-semibold text-[#9B9EA4] bg-[#1A1C1F] border-r border-[#2A2D31] select-none">
+                        +91
+                      </span>
+                      <input
+                        id="signup-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#9B9EA4] focus:outline-none"
+                        placeholder="9876543210"
+                        maxLength={10}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Password */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
@@ -351,13 +983,15 @@ export default function UnifiedLoginPage() {
                     >
                       Password
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-xs text-[#9B9EA4] hover:text-white hover:underline transition-colors"
-                    >
-                      Forgot password?
-                    </button>
+                    {authMode === "signin" && (
+                      <button
+                        type="button"
+                        onClick={handleOpenForgotPassword}
+                        className="text-xs text-[#9B9EA4] hover:text-[#FE760B] hover:underline transition-colors"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
                   </div>
                   <div className="relative">
                     <input
@@ -367,7 +1001,7 @@ export default function UnifiedLoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full pl-4 pr-11 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
                       placeholder="••••••••"
-                      autoComplete="current-password"
+                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                       required
                     />
                     <button
@@ -383,6 +1017,11 @@ export default function UnifiedLoginPage() {
                       )}
                     </button>
                   </div>
+                  {authMode === "signup" && (
+                    <p className="text-[11px] text-[#9B9EA4] mt-1">
+                      Must be at least 6 characters
+                    </p>
+                  )}
                 </div>
 
                 {/* Error Notice */}
@@ -404,39 +1043,59 @@ export default function UnifiedLoginPage() {
                     className="flex items-center justify-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-2.5"
                   >
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Authenticated as {redirectingRole}. Redirecting...</span>
+                    <span>
+                      {redirectParam
+                        ? "Authentication successful. Returning to your form..."
+                        : `Authenticated as ${redirectingRole}. Redirecting...`}
+                    </span>
                   </motion.div>
                 )}
 
-                {/* Submit Button (White button matching Image 4) */}
+                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={loading || googleLoading || !!redirectingRole}
-                  className="w-full bg-white hover:bg-slate-100 disabled:opacity-50 text-black font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm mt-3"
+                  className="w-full bg-white hover:bg-slate-100 disabled:opacity-50 text-black font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm mt-3 shadow-sm"
                   id="credential-login-btn"
                 >
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-black" />
-                      <span>Signing in...</span>
+                      <span>{authMode === "signup" ? "Creating account..." : "Signing in..."}</span>
                     </>
                   ) : (
-                    <span>Sign in</span>
+                    <span>{authMode === "signup" ? "Create account" : "Sign in"}</span>
                   )}
                 </button>
               </form>
             </motion.div>
 
-            {/* Footer Links matching Image 4 */}
+            {/* Footer Links */}
             <div className="mt-8 text-center space-y-2">
               <p className="text-sm text-[#9B9EA4]">
-                Don&apos;t have an account?{" "}
-                <Link
-                  href="/"
-                  className="text-white hover:underline font-medium"
-                >
-                  Browse events
-                </Link>
+                {authMode === "signin" ? (
+                  <>
+                    New to TicketLelo?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("signup")}
+                      className="text-white hover:underline font-semibold"
+                    >
+                      Create an account
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("signin")}
+                      className="text-white hover:underline font-semibold"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
               </p>
               <p className="text-sm text-[#9B9EA4]">
                 Want to host an event?{" "}
@@ -452,5 +1111,19 @@ export default function UnifiedLoginPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function UnifiedLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#131517]">
+          <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
+        </div>
+      }
+    >
+      <UnifiedLoginContent />
+    </Suspense>
   );
 }

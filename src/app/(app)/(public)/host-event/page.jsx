@@ -5,7 +5,11 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
+import { useAuth } from "@/context/auth-context";
+
 export default function HostEventPage() {
+  const { user, loading } = useAuth();
+
   return (
     <div className="min-h-screen bg-[#131517] text-[#FFFFFF] selection:bg-[#FE760B] selection:text-white">
       {/* Background Ambience: faint top glow per brand guidelines */}
@@ -20,12 +24,24 @@ export default function HostEventPage() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle inline />
-          <Link
-            href="/login"
-            className="px-3.5 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-xs font-medium text-white hover:bg-[#2A2D31] transition-colors"
-          >
-            Sign in
-          </Link>
+          {!loading && user ? (
+            <Link
+              href={user.role === "organiser" || user.role === "superAdmin" ? "/admin/dashboard" : "/dashboard"}
+              prefetch={false}
+              className="px-3.5 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-xs font-medium text-white hover:bg-[#2A2D31] transition-colors flex items-center gap-2"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>{user.fullName ? user.fullName.split(" ")[0] : "Dashboard"}</span>
+            </Link>
+          ) : (
+            <Link
+              href="/login?redirect=/host-event"
+              prefetch={false}
+              className="px-3.5 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-xs font-medium text-white hover:bg-[#2A2D31] transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       </header>
 

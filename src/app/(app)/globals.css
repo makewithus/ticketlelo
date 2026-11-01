@@ -812,27 +812,25 @@ body {
   }
 
   @media (max-width: 760px) {
-    .tl-app-shell { display: block; }
-    .tl-sidebar { position: relative; width: 100%; height: auto; max-height: none; overflow: visible; }
-    .tl-sidebar > nav {
+    .tl-app-shell {
+      min-height: 100vh;
       display: flex;
-      gap: 0.4rem;
+      flex-direction: column;
+      width: 100%;
+    }
+    .tl-main {
+      width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+    .tl-content {
+      padding: 1rem;
+    }
+    .tl-system-theme table {
+      display: block;
+      max-width: 100%;
       overflow-x: auto;
-      padding: 0.75rem;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-      -webkit-overflow-scrolling: touch;
     }
-    .tl-sidebar > nav::-webkit-scrollbar {
-      display: none;
-    }
-    .tl-sidebar > nav > p { display: none; }
-    .tl-sidebar > nav > a { flex: 0 0 auto; }
-    .tl-sidebar-link { white-space: nowrap; }
-    .tl-sidebar > div:last-child { display: flex; align-items: center; flex-wrap: wrap; }
-    .tl-main { overflow: visible; }
-    .tl-content { padding: 1rem; }
-    .tl-system-theme table { display: block; max-width: 100%; overflow-x: auto; }
   }
 
   @media (max-width: 640px) {
@@ -855,9 +853,9 @@ body {
   }
 
   @media (max-width: 420px) {
-    .tl-content { padding: 0.75rem; }
-    .tl-sidebar > div:first-child { padding: 1rem; }
-    .tl-sidebar > div:first-child img { height: 2.25rem; }
+    .tl-content {
+      padding: 0.75rem;
+    }
   }
 
   .tl-brand-word {
@@ -1058,7 +1056,9 @@ body {
   }
 
   .tl-system-theme input.tl-bare-input,
-  .tl-system-theme input.tl-bare-input:focus {
+  .tl-system-theme input.tl-bare-input:focus,
+  .tl-system-theme textarea.tl-bare-input,
+  .tl-system-theme textarea.tl-bare-input:focus {
     background-color: transparent !important;
     border: none !important;
     border-color: transparent !important;
@@ -1241,8 +1241,37 @@ body {
     color: var(--tl-status-red) !important;
   }
 
+  /* Safety: Completely prevent any empty toast bubble from rendering or occupying space */
+  [data-sonner-toast]:not(:has([data-title]:not(:empty))):not(:has([data-description]:not(:empty))):not(:has([data-custom="true"])),
+  [data-sonner-toast]:has([data-title]:empty):not(:has([data-description])):not(:has([data-custom="true"])),
+  [data-sonner-toast]:has([data-title]:empty):has([data-description]:empty):not(:has([data-custom="true"])),
+  [data-sonner-toast]:not(:has([data-title])):not(:has([data-description])):not(:has([data-custom="true"])),
+  [data-sonner-toast][data-empty-toast="true"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+
   [data-sonner-toast][data-type="warning"] [data-icon] {
     color: var(--tl-yellow) !important;
+  }
+
+  /* Prevent ghost ::before bars on collapsed/empty/hidden sonner toasts */
+  [data-sonner-toast][data-empty-toast="true"]::before,
+  [data-sonner-toast][data-expanded="false"][data-front="false"]::before {
+    display: none !important;
+    opacity: 0 !important;
   }
 
   /* ── Status Badges & Tints (Style Guide Image 1) ── */

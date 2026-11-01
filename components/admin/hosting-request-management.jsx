@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +19,16 @@ import {
   KeyRound,
   Search,
   ExternalLink,
+  RefreshCw,
+  ShieldCheck,
+  Phone,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAllHostingRequests,
   rejectHostingRequest,
+  subscribeToHostingRequests,
 } from "@/lib/hosting-requests";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -37,6 +42,22 @@ function formatRequestDate(ts) {
     return d.toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
+    });
+  } catch {
+    return "Recently";
+  }
+}
+
+function formatFullRequestDate(ts) {
+  if (!ts) return "Recently";
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return "Recently";
@@ -60,25 +81,102 @@ export function HostingRequestManagement() {
   const [approvedCredentials, setApprovedCredentials] = useState(null);
   const [approvedRequestData, setApprovedRequestData] = useState(null);
   const [isExistingOrganiser, setIsExistingOrganiser] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const prevCountRef = useRef(null);
 
-  const loadRequests = async () => {
+  useEffect(() => {
+    const unsubscribe = subscribeToHostingRequests(
+      (allRequests) => {
+        const safeRequests = Array.isArray(allRequests) ? allRequests : [];
+        if (
+          prevCountRef.current !== null &&
+          safeRequests.length > prevCountRef.current
+        ) {
+          const newReq = safeRequests[0];
+          const eventTitle = (newReq?.eventTitle || "").trim();
+          const hostName = (newReq?.name || "").trim();
+          if (eventTitle || hostName) {
+            toast.info(
+              `New hosting request: "${eventTitle || "Event"}" from ${hostName || "an organizer"}`,
+              { duration: 5000 },
+            );
+          }
+        }
+        prevCountRef.current = safeRequests.length;
+        setRequests(safeRequests);
+        setIsLoading(false);
+        setIsLiveConnected(true);
+      },
+      async (error) => {
+        console.warn("Real-time listener warning, attempting API fallback:", error);
+        setIsLiveConnected(false);
+        try {
+          const allRequests = await getAllHostingRequests();
+          setRequests(Array.isArray(allRequests) ? allRequests : []);
+        } catch (fetchErr) {
+          console.error("Failed to load hosting requests:", fetchErr);
+          toast.error("Failed to load hosting requests");
+        } finally {
+          setIsLoading(false);
+        }
+      },
+    );
+
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  const handleManualRefresh = async (silent = false) => {
+    setIsRefreshing(true);
     try {
       const allRequests = await getAllHostingRequests();
       setRequests(allRequests);
-    } catch (error) {
-      console.error("Failed to load requests:", error);
-      toast.error("Failed to load hosting requests");
+      if (!silent) {
+        toast.success("Requests refreshed");
+      }
+    } catch (e) {
+      if (!silent) {
+        toast.error("Failed to refresh requests");
+      }
     } finally {
-      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadRequests();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+  const loadRequests = () => handleManualRefresh(true);
+
+  const handleResendApprovalEmail = async (req) => {
+    const reqId = req.id;
+    setProcessingId(reqId);
+    try {
+      const res = await fetch("/api/send-approval-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: req.name,
+          email: req.email,
+          eventTitle: req.eventTitle,
+          organiserEmail: req.organiserEmail || req.email,
+          isExisting: Boolean(req.isExisting),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`Approval email resent to ${req.email}!`);
+      } else {
+        toast.error(data.error || "Failed to resend approval email");
+      }
+    } catch (err) {
+      console.error("Resend approval email error:", err);
+      toast.error("Failed to resend approval email");
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const counts = useMemo(() => {
     return {
@@ -197,7 +295,7 @@ export function HostingRequestManagement() {
       await loadRequests();
     } catch (error) {
       console.error("Approval failed:", error);
-      toast.error(error.message || "Failed to approve request");
+      toast.error(error?.message || "Failed to approve request");
     } finally {
       setProcessingId(null);
     }
@@ -238,7 +336,7 @@ export function HostingRequestManagement() {
       await loadRequests();
     } catch (error) {
       console.error("Failed to reject request:", error);
-      toast.error(error.message || "Failed to reject request");
+      toast.error(error?.message || "Failed to reject request");
     } finally {
       setProcessingId(null);
     }
@@ -275,8 +373,44 @@ export function HostingRequestManagement() {
           />
         </div>
 
-        {/* Top-Right Status Summary Badges (Matching Image 5) */}
-        <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1 max-w-full overflow-x-auto scrollbar-none">
+        {/* Top-Right Status Summary Badges & Real-time Live indicator */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          {/* Live indicator & Refresh button */}
+          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs">
+            <span className="relative flex h-2 w-2">
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  isLiveConnected ? "bg-emerald-400" : "bg-amber-400"
+                }`}
+              />
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  isLiveConnected ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              />
+            </span>
+            <span
+              className={`text-[11px] font-semibold ${
+                isLiveConnected ? "text-emerald-400" : "text-[#9B9EA4]"
+              }`}
+            >
+              {isLiveConnected ? "Live sync" : "Syncing"}
+            </span>
+            <button
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              title="Refresh requests"
+              className="p-0.5 text-[#9B9EA4] hover:text-white rounded transition-colors ml-0.5"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${
+                  isRefreshing ? "animate-spin text-[#FE760B]" : ""
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1 max-w-full overflow-x-auto scrollbar-none">
           <button
             onClick={() => {
               setStatusFilter(statusFilter === "pending" ? "all" : "pending");
@@ -321,6 +455,7 @@ export function HostingRequestManagement() {
           </button>
         </div>
       </div>
+    </div>
 
       {/* Requests Table Container (Matching Image 5) */}
       <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm">
@@ -393,8 +528,26 @@ export function HostingRequestManagement() {
 
                       {/* Requested By Column */}
                       <td className="py-3.5 px-5">
-                        <div className="text-sm font-medium text-white">
-                          {request.name}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-medium text-white">
+                            {request.name}
+                          </span>
+                          {request.userId ? (
+                            <span
+                              title={`Verified TicketLelo account: ${request.userAccountEmail || request.email} (${request.userId})`}
+                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                            >
+                              <Check className="w-2.5 h-2.5" />
+                              <span>Verified</span>
+                            </span>
+                          ) : (
+                            <span
+                              title="User submitted before account registration; will be provisioned on approval"
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#2A2D31] text-[#9B9EA4]"
+                            >
+                              Guest
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-[#9B9EA4] mt-0.5 truncate max-w-[220px]">
                           {request.college || "College"} · {request.email}
@@ -447,10 +600,21 @@ export function HostingRequestManagement() {
                             </button>
                           </div>
                         ) : isApproved ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#3DD68C]/12 text-[#3DD68C]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-                            Approved
-                          </span>
+                          <div className="inline-flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#3DD68C]/12 text-[#3DD68C]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                              Approved
+                            </span>
+                            <button
+                              onClick={() => handleResendApprovalEmail(request)}
+                              disabled={processingId === request.id}
+                              title={`Resend approval email to ${request.email}`}
+                              className="px-2 py-1 rounded-lg text-xs font-medium text-[#9B9EA4] hover:text-[#FE760B] hover:bg-[#212327] transition-colors border border-transparent hover:border-[#2A2D31] inline-flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <Mail className="w-3 h-3" />
+                              <span className="hidden sm:inline">Resend</span>
+                            </button>
+                          </div>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FF6B6B]/12 text-[#FF9A9A]">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
@@ -508,49 +672,134 @@ export function HostingRequestManagement() {
           onClick={() => setSelectedDetailRequest(null)}
         >
           <div
-            className="w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4"
+            className="w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-white">
-                  {selectedDetailRequest.eventTitle}
-                </h3>
-                <p className="text-xs text-[#9B9EA4] mt-0.5">
-                  Requested by {selectedDetailRequest.name}
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <h3 className="text-lg font-bold text-white">
+                    {selectedDetailRequest.eventTitle}
+                  </h3>
+                  {selectedDetailRequest.status === "pending" && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FDE003]/10 text-[#FDE003] border border-[#FDE003]/25">
+                      Pending review
+                    </span>
+                  )}
+                  {selectedDetailRequest.status === "approved" && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                      Approved
+                    </span>
+                  )}
+                  {selectedDetailRequest.status === "rejected" && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400 border border-red-500/25">
+                      Rejected
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#9B9EA4]">
+                  Requested by <strong className="text-white">{selectedDetailRequest.name}</strong> · {formatFullRequestDate(selectedDetailRequest.createdAt)}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedDetailRequest(null)}
-                className="p-1.5 rounded-lg hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors"
+                className="p-1.5 rounded-lg hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Applicant Identity & Verification Card */}
+            <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ShieldCheck
+                  className={`w-5 h-5 shrink-0 ${
+                    selectedDetailRequest.userId ? "text-emerald-400" : "text-amber-400"
+                  }`}
+                />
+                <div className="min-w-0">
+                  <span className="text-white font-semibold block truncate">
+                    {selectedDetailRequest.userId
+                      ? "Verified TicketLelo User"
+                      : "Account Registration on Submit"}
+                  </span>
+                  <p className="text-[11px] text-[#9B9EA4] truncate">
+                    {selectedDetailRequest.userId
+                      ? `UID: ${selectedDetailRequest.userId}`
+                      : "User requested access; organizer privileges granted on approval"}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                  selectedDetailRequest.userId
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                }`}
+              >
+                {selectedDetailRequest.userId ? "Verified" : "Pending Auth"}
+              </span>
+            </div>
+
+            {/* Details Grid */}
             <div className="grid grid-cols-2 gap-3 text-xs bg-[#212327] p-4 rounded-xl border border-[#2A2D31]">
               <div>
-                <span className="text-[#9B9EA4] block">Email</span>
-                <span className="text-white font-medium break-all">
+                <span className="text-[#9B9EA4] block mb-0.5">Contact Email</span>
+                <a
+                  href={`mailto:${selectedDetailRequest.email}`}
+                  className="text-white hover:text-[#FE760B] font-medium break-all underline decoration-[#2A2D31] hover:decoration-[#FE760B]"
+                >
                   {selectedDetailRequest.email}
-                </span>
+                </a>
               </div>
               <div>
-                <span className="text-[#9B9EA4] block">Phone</span>
-                <span className="text-white font-medium">
-                  {selectedDetailRequest.phone || "—"}
-                </span>
+                <span className="text-[#9B9EA4] block mb-0.5">Phone & WhatsApp</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-white font-medium">
+                    +91 {selectedDetailRequest.phone || "—"}
+                  </span>
+                  {selectedDetailRequest.phone && (
+                    <a
+                      href={`https://wa.me/91${String(selectedDetailRequest.phone).replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Verify requester on WhatsApp"
+                      className="inline-flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      <span>WhatsApp</span>
+                    </a>
+                  )}
+                </div>
               </div>
               <div>
-                <span className="text-[#9B9EA4] block">College / Org</span>
+                <span className="text-[#9B9EA4] block mb-0.5">College / Organisation</span>
                 <span className="text-white font-medium">
                   {selectedDetailRequest.college || "—"}
                 </span>
               </div>
               <div>
-                <span className="text-[#9B9EA4] block">Expected Tickets</span>
+                <span className="text-[#9B9EA4] block mb-0.5">Expected Tickets</span>
                 <span className="text-white font-mono font-medium">
-                  {selectedDetailRequest.numberOfTickets}
+                  {selectedDetailRequest.numberOfTickets} tickets
+                </span>
+              </div>
+              <div>
+                <span className="text-[#9B9EA4] block mb-0.5">Event Type</span>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                    selectedDetailRequest.isPaid
+                      ? "bg-[#FE760B]/14 text-[#FF9A4D]"
+                      : "bg-white/10 text-white"
+                  }`}
+                >
+                  {selectedDetailRequest.isPaid ? "Paid Event" : "Free Event"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#9B9EA4] block mb-0.5">Account Email</span>
+                <span className="text-[#D0D0D1] break-all">
+                  {selectedDetailRequest.userAccountEmail || selectedDetailRequest.email}
                 </span>
               </div>
             </div>
@@ -560,7 +809,7 @@ export function HostingRequestManagement() {
                 <span className="text-xs text-[#9B9EA4] font-medium block mb-1">
                   Event Description
                 </span>
-                <p className="text-xs text-[#D0D0D1] bg-[#212327] p-3 rounded-xl border border-[#2A2D31] leading-relaxed">
+                <p className="text-xs text-[#D0D0D1] bg-[#212327] p-3 rounded-xl border border-[#2A2D31] leading-relaxed whitespace-pre-wrap">
                   {selectedDetailRequest.description}
                 </p>
               </div>
@@ -588,6 +837,21 @@ export function HostingRequestManagement() {
                   className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] h-10 rounded-xl text-xs font-semibold shadow-none border-none"
                 >
                   Approve Request
+                </Button>
+              </div>
+            )}
+
+            {selectedDetailRequest.status === "approved" && (
+              <div className="pt-2">
+                <Button
+                  onClick={() => {
+                    handleResendApprovalEmail(selectedDetailRequest);
+                  }}
+                  disabled={processingId === selectedDetailRequest.id}
+                  className="w-full bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] h-10 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-2"
+                >
+                  <Mail className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Resend Organiser Approval Email</span>
                 </Button>
               </div>
             )}

@@ -99,7 +99,7 @@ export default function SiteSettingsPage() {
           const fallback = toLocalInput(DEFAULT_COUNTDOWN_AT);
           setSavedCountdownAt(fallback);
           setCountdownAt(fallback);
-          toast.error(err.message || "Failed to load countdown settings");
+          toast.error(err?.message || "Failed to load countdown settings");
         }
       })
       .finally(() => {
@@ -150,7 +150,7 @@ export default function SiteSettingsPage() {
       setLastSavedTime(data.updatedAt || new Date().toISOString());
       toast.success("Homepage countdown updated successfully.");
     } catch (err) {
-      toast.error(err.message || "Failed to save settings");
+      toast.error(err?.message || "Failed to save settings");
     } finally {
       setSaving(false);
     }

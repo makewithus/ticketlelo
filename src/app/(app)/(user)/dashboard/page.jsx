@@ -41,10 +41,47 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
+    if (!authLoading) {
+      if (!user) {
+        router.replace("/login?redirect=/dashboard");
+        return;
+      }
+
+      let isMounted = true;
+      const verifySession = async () => {
+        try {
+          const { auth } = await import("@/lib/firebase");
+          const currentUser = auth.currentUser;
+          if (!currentUser) {
+            if (isMounted) {
+              await logout();
+              router.replace("/login?redirect=/dashboard&reason=session_expired");
+            }
+            return;
+          }
+          const tokenResult = await currentUser.getIdTokenResult();
+          const expirationTime = new Date(tokenResult.expirationTime).getTime();
+          if (expirationTime <= Date.now()) {
+            if (isMounted) {
+              await logout();
+              router.replace("/login?redirect=/dashboard&reason=session_expired");
+            }
+          }
+        } catch (err) {
+          console.warn("Session check error on dashboard:", err);
+          if (isMounted) {
+            await logout();
+            router.replace("/login?redirect=/dashboard&reason=session_expired");
+          }
+        }
+      };
+
+      verifySession();
+      return () => {
+        isMounted = false;
+      };
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, logout]);
 
   useEffect(() => {
     let isMounted = true;
@@ -90,21 +127,19 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || isLoading || !user) {
     return (
-      <main className="tl-system-theme flex min-h-screen items-center justify-center bg-[#131517]">
-        <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
+      <main className="tl-system-theme flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#131517] transition-colors">
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
           <div className="flex h-14 w-14 items-center justify-center bg-[#FE760B] rounded-2xl shadow-none">
             <Ticket className="w-7 h-7 text-white" />
           </div>
           <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-          <p className="text-sm text-[#9B9EA4]">Loading your tickets...</p>
+          <p className="text-sm text-slate-500 dark:text-[#9B9EA4]">Loading your tickets...</p>
         </div>
       </main>
     );
   }
-
-  if (!user) return null;
 
   const filteredRegistrations = registrations.filter((reg) => {
     if (filter === "All") return true;
@@ -115,9 +150,9 @@ export default function DashboardPage() {
   const usedCount = registrations.filter((r) => r.status === "Used").length;
 
   return (
-    <main className="tl-system-theme min-h-screen bg-[#131517] text-white">
+    <main className="tl-system-theme min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white transition-colors">
       {/* Header */}
-      <header className="sticky top-0 inset-x-0 z-50 border-b border-[#2A2D31] bg-[#131517]/95 backdrop-blur-md">
+      <header className="sticky top-0 inset-x-0 z-50 border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/95 dark:bg-[#131517]/95 backdrop-blur-md">
         <nav className="max-w-7xl mx-auto px-3.5 xs:px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-2 group shrink-0">
             <img src={LOGO_SRC} alt="TicketLelo" className="h-6 sm:h-[30px] w-auto object-contain" />
@@ -126,17 +161,17 @@ export default function DashboardPage() {
           <div className="flex gap-2 sm:gap-3 items-center shrink-0">
             {/* Quick Multi-Portal Access for Super Admin */}
             {(user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
-              <div className="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-[#1A1C1F] border border-[#2A2D31]">
+              <div className="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31]">
                 <Link
                   href="/superadmin"
-                  className="px-2.5 py-1 rounded-full text-xs font-medium text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] hover:bg-[#2A2D31] hover:border-[#FE760B]/40 hover:!text-white transition-all flex items-center gap-1.5 group"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium text-slate-700 dark:text-[#D0D0D1] bg-white dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] hover:bg-slate-200 dark:hover:bg-[#2A2D31] hover:border-[#FE760B]/40 hover:!text-[#FE760B] dark:hover:!text-white transition-all flex items-center gap-1.5 group"
                 >
                   <Shield className="w-3 h-3 text-[#FE760B] group-hover:scale-105 transition-transform" />
                   <span>Super Admin</span>
                 </Link>
                 <Link
                   href="/admin/dashboard"
-                  className="px-2.5 py-1 rounded-full text-xs font-medium text-[#D0D0D1] hover:bg-[#212327] hover:border-[#2A2D31] hover:!text-white transition-all flex items-center gap-1.5 group"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium text-slate-700 dark:text-[#D0D0D1] hover:bg-slate-200 dark:hover:bg-[#212327] hover:border-slate-300 dark:hover:border-[#2A2D31] hover:!text-[#FE760B] dark:hover:!text-white transition-all flex items-center gap-1.5 group"
                 >
                   <Building2 className="w-3 h-3 text-[#FE760B] group-hover:scale-105 transition-transform" />
                   <span>Organiser</span>
@@ -144,28 +179,20 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* LIGHT MODE - Placed to the LEFT of Activity per brand guidelines */}
+            {/* THEME TOGGLE */}
             <ThemeToggle inline />
 
-            {/* Activity */}
-            <Link
-              href="/activity"
-              className="flex items-center gap-1.5 px-2.5 xs:px-3 py-1.5 rounded-full bg-[#1A1C1F] border border-[#2A2D31] text-xs font-semibold text-[#061A3F] dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors"
-            >
-              Activity
-            </Link>
-
             {/* User Profile */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A1C1F] border border-[#2A2D31]">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31]">
               <div className="w-2 h-2 rounded-full bg-[#3DD68C]" />
-              <span className="text-xs font-semibold text-[#061A3F] dark:text-[#D0D0D1]">{user.email}</span>
+              <span className="text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">{user.email}</span>
             </div>
 
             {/* Sign Out */}
             <Button
               onClick={handleLogout}
               variant="outline"
-              className="h-8 sm:h-9 px-2.5 sm:px-3 gap-1.5 border-[#2A2D31] bg-[#1A1C1F] text-[#061A3F] dark:text-[#D0D0D1] hover:text-[#FF6B6B] hover:border-[#FF6B6B]/30 hover:bg-[#FF6B6B]/10 transition-all rounded-xl text-xs font-semibold cursor-pointer"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 gap-1.5 border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FF6B6B] hover:border-[#FF6B6B]/30 hover:bg-[#FF6B6B]/10 transition-all rounded-xl text-xs font-semibold cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Sign Out</span>
             </Button>
@@ -178,42 +205,42 @@ export default function DashboardPage() {
           {/* Welcome & Stats Command Center Bar */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3 sm:mb-3.5 opacity-0 animate-fade-in-up">
             <div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#061A3F] dark:text-white tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Welcome, <span className="text-[#FE760B]">{user.fullName || "Guest"}</span>
               </h1>
-              <p className="text-[#334155] dark:text-[#9B9EA4] text-xs sm:text-sm mt-0.5 font-medium">
+              <p className="text-slate-600 dark:text-[#9B9EA4] text-xs sm:text-sm mt-0.5 font-medium">
                 Your tickets control room — all event passes in one place.
               </p>
             </div>
 
             {/* Compact, Sleek Metric Pills */}
             <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full md:w-auto">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
                 <div className="min-w-0">
-                  <p className="text-[8px] xs:text-[9.5px] text-[#1E293B] dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Total</p>
-                  <p className="text-lg sm:text-xl font-bold text-[#061A3F] dark:text-white leading-none mt-0.5">{registrations.length}</p>
+                  <p className="text-[8px] xs:text-[9.5px] text-slate-500 dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Total</p>
+                  <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-none mt-0.5">{registrations.length}</p>
                 </div>
                 <div className="w-7 h-7 shrink-0 rounded-lg bg-[#FE760B]/10 text-[#FE760B] flex items-center justify-center border border-[#FE760B]/20">
                   <Ticket className="w-3.5 h-3.5" />
                 </div>
               </div>
 
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
                 <div className="min-w-0">
-                  <p className="text-[8px] xs:text-[9.5px] text-[#1E293B] dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Upcoming</p>
-                  <p className="text-lg sm:text-xl font-bold text-[#10B981] leading-none mt-0.5">{unusedCount}</p>
+                  <p className="text-[8px] xs:text-[9.5px] text-slate-500 dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Upcoming</p>
+                  <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-[#10B981] leading-none mt-0.5">{unusedCount}</p>
                 </div>
-                <div className="w-7 h-7 shrink-0 rounded-lg bg-[#10B981]/10 text-[#10B981] flex items-center justify-center border border-[#10B981]/20">
+                <div className="w-7 h-7 shrink-0 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-[#10B981] flex items-center justify-center border border-emerald-500/20">
                   <CalendarDays className="w-3.5 h-3.5" />
                 </div>
               </div>
 
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
                 <div className="min-w-0">
-                  <p className="text-[8px] xs:text-[9.5px] text-[#1E293B] dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Used</p>
-                  <p className="text-lg sm:text-xl font-bold text-[#061A3F] dark:text-[#D0D0D1] leading-none mt-0.5">{usedCount}</p>
+                  <p className="text-[8px] xs:text-[9.5px] text-slate-500 dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Used</p>
+                  <p className="text-lg sm:text-xl font-bold text-slate-700 dark:text-[#D0D0D1] leading-none mt-0.5">{usedCount}</p>
                 </div>
-                <div className="w-7 h-7 shrink-0 rounded-lg bg-[#212327] text-[#061A3F] dark:text-[#9B9EA4] flex items-center justify-center border border-[#2A2D31]">
+                <div className="w-7 h-7 shrink-0 rounded-lg bg-slate-100 dark:bg-[#212327] text-slate-600 dark:text-[#9B9EA4] flex items-center justify-center border border-slate-200 dark:border-[#2A2D31]">
                   <TicketCheck className="w-3.5 h-3.5" />
                 </div>
               </div>
@@ -223,7 +250,7 @@ export default function DashboardPage() {
           {/* Filter Tabs & View Mode Switcher */}
           <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2 sm:mb-2.5 opacity-0 animate-fade-in-up stagger-2">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <Filter className="w-3.5 h-3.5 text-[#061A3F] dark:text-[#9B9EA4] mr-0.5" />
+              <Filter className="w-3.5 h-3.5 text-slate-500 dark:text-[#9B9EA4] mr-0.5" />
               {[
                 { key: "All", label: `All (${registrations.length})` },
                 { key: "Unused", label: `Upcoming (${unusedCount})` },
@@ -234,8 +261,8 @@ export default function DashboardPage() {
                   onClick={() => setFilter(f.key)}
                   className={`px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                     filter === f.key
-                      ? "bg-[#FE760B] text-[#131517] shadow-none"
-                      : "bg-[#1A1C1F] text-[#061A3F] dark:text-[#D0D0D1] border border-[#2A2D31] hover:bg-[#212327] hover:text-[#061A3F] dark:hover:text-white"
+                      ? "bg-[#FE760B] text-white dark:text-[#131517] shadow-none"
+                      : "bg-white dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] border border-slate-200 dark:border-[#2A2D31] hover:bg-slate-100 dark:hover:bg-[#212327] hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   {f.label}
@@ -244,13 +271,13 @@ export default function DashboardPage() {
             </div>
 
             {/* View Mode Switcher */}
-            <div className="flex items-center bg-[#1A1C1F] border border-[#2A2D31] p-0.5 rounded-lg shadow-sm">
+            <div className="flex items-center bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-0.5 rounded-lg shadow-sm">
               <button
                 onClick={() => setViewMode("deck")}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === "deck"
-                    ? "bg-[#212327] text-[#061A3F] dark:text-white shadow-sm"
-                    : "text-[#061A3F]/75 dark:text-[#9B9EA4] hover:text-[#061A3F] dark:hover:text-white"
+                    ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
@@ -260,8 +287,8 @@ export default function DashboardPage() {
                 onClick={() => setViewMode("grid")}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === "grid"
-                    ? "bg-[#212327] text-[#061A3F] dark:text-white shadow-sm"
-                    : "text-[#061A3F]/75 dark:text-[#9B9EA4] hover:text-[#061A3F] dark:hover:text-white"
+                    ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -273,21 +300,21 @@ export default function DashboardPage() {
           {/* VIEW: DECK VIEW */}
           {viewMode === "deck" ? (
             filteredRegistrations.length === 0 ? (
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in shadow-sm">
                 <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
                   <Ticket className="w-7 h-7 text-[#FE760B]" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
                   {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
                 </h3>
-                <p className="text-sm text-[#9B9EA4] mb-6">
+                <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mb-6">
                   {filter === "All"
                     ? "When you register for college festivals or community events, your passes will appear here."
                     : `You have no tickets currently matching the "${filter}" filter.`}
                 </p>
                 {filter === "All" && (
                   <Link href="/">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
                       Browse events
                     </Button>
                   </Link>
@@ -332,21 +359,21 @@ export default function DashboardPage() {
           ) : (
             /* VIEW: GRID VIEW */
             filteredRegistrations.length === 0 ? (
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in shadow-sm">
                 <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
                   <Ticket className="w-7 h-7 text-[#FE760B]" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
                   {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
                 </h3>
-                <p className="text-sm text-[#9B9EA4] mb-6">
+                <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mb-6">
                   {filter === "All"
                     ? "When you register for college festivals or community events, your QR passes will appear here."
                     : `You have no tickets currently matching the "${filter}" filter.`}
                 </p>
                 {filter === "All" && (
                   <Link href="/">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
                       Browse events
                     </Button>
                   </Link>
@@ -365,6 +392,7 @@ export default function DashboardPage() {
                     price: rawEvent.price !== undefined ? rawEvent.price : registration.amount !== undefined ? registration.amount : registration.amountPaid !== undefined ? registration.amountPaid : 199,
                     category: rawEvent.category || registration.category,
                     theme: rawEvent.theme || registration.theme,
+                    ticketDesign: registration.ticketDesign || rawEvent.ticketDesign || rawEvent.ticketLayout || registration.ticketLayout || "stub",
                   };
                   return (
                     <div

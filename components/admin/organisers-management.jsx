@@ -213,13 +213,18 @@ export function OrganisersManagement() {
 
   const handleResetLogin = async (item) => {
     setOpenActionId(null);
-    const toastId = toast.loading(`Generating password reset link for ${item.loginEmail}...`);
+    const targetEmail = (item?.loginEmail || "").trim();
+    if (!targetEmail || targetEmail === "—") {
+      toast.error("No valid email address for this organiser");
+      return;
+    }
+    const toastId = toast.loading(`Generating password reset link for ${targetEmail}...`);
     try {
       const res = await fetch("/api/superadmin/reset-organiser-login/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: item.loginEmail,
+          email: targetEmail,
           name: item.name,
           eventTitle: item.eventTitle,
         }),
@@ -233,7 +238,7 @@ export function OrganisersManagement() {
 
       toast.success(
         data.emailSent
-          ? `Reset link emailed to ${data.email} and copied to clipboard!`
+          ? `Reset link emailed to ${data.email || targetEmail} and copied to clipboard!`
           : `Reset link copied to clipboard!`,
         { id: toastId },
       );

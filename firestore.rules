@@ -222,7 +222,7 @@ service cloud.firestore {
     // ===== Hosting Requests =====
     match /hostingRequests/{requestId} {
       allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']);
-      allow read: if isSuperAdmin() || isOrganiser();
+      allow read: if isSuperAdmin() || isOrganiser() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email));
       allow update, delete: if isSuperAdmin() || isOrganiser();
     }
     

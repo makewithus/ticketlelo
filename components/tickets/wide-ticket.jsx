@@ -56,14 +56,42 @@ function encodeCode128(text = "") {
   return binary;
 }
 
-export function SvgBarcode({ value = "1234567890", height = 44, className = "" }) {
+export function SvgBarcode({
+  value = "1234567890",
+  height = 44,
+  orientation = "horizontal",
+  className = "",
+}) {
   const binary = encodeCode128(value);
-  const barWidth = 1.25;
-  const totalWidth = binary.length * barWidth;
+  const barWidth = 1.15;
+  const totalLength = binary.length * barWidth;
+
+  if (orientation === "vertical") {
+    return (
+      <svg
+        viewBox={`0 0 ${height} ${totalLength}`}
+        className={`w-full h-full select-none ${className}`}
+        preserveAspectRatio="none"
+      >
+        {binary.split("").map((bit, idx) =>
+          bit === "1" ? (
+            <rect
+              key={idx}
+              x={0}
+              y={idx * barWidth}
+              width={height}
+              height={barWidth + 0.15}
+              fill="#000000"
+            />
+          ) : null
+        )}
+      </svg>
+    );
+  }
 
   return (
     <svg
-      viewBox={`0 0 ${totalWidth} ${height}`}
+      viewBox={`0 0 ${totalLength} ${height}`}
       className={`h-full w-auto select-none ${className}`}
       preserveAspectRatio="none"
     >
@@ -586,17 +614,18 @@ export function WideTicket({
           {/* Perforation line (dashed) on left */}
           <div className="hidden md:block absolute inset-y-0 left-0 w-0 border-r-2 border-dashed border-black/25 z-10" />
 
-          {/* Barcode & Rotated Ticket ID Container */}
-          <div className="flex md:flex-col items-center justify-center gap-2 h-full w-full">
-            {/* Scannable Barcode */}
-            <div className="h-10 md:h-28 w-28 md:w-10 flex items-center justify-center overflow-hidden">
-              <div className="transform md:-rotate-90 origin-center">
-                <SvgBarcode value={ticketId} height={38} />
-              </div>
+          {/* Barcode & Ticket ID Container */}
+          <div className="flex md:flex-col items-center justify-between gap-1.5 h-full w-full py-1">
+            {/* Scannable Barcode: vertical on desktop, horizontal on mobile */}
+            <div className="hidden md:flex h-[115px] w-7 items-center justify-center">
+              <SvgBarcode value={ticketId} height={26} orientation="vertical" />
+            </div>
+            <div className="flex md:hidden h-9 w-28 items-center justify-center">
+              <SvgBarcode value={ticketId} height={32} orientation="horizontal" />
             </div>
 
             {/* Rotated Ticket ID text */}
-            <span className="font-mono text-[8px] sm:text-[9px] font-bold tracking-widest text-black/80 md:-rotate-90 md:origin-center whitespace-nowrap">
+            <span className="font-mono text-[8px] sm:text-[8.5px] font-bold tracking-wider text-black/80 whitespace-nowrap select-none md:[writing-mode:vertical-rl] md:rotate-180">
               {ticketId}
             </span>
           </div>

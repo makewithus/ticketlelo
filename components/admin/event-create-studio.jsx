@@ -27,6 +27,9 @@ import {
   Sliders,
   Eye,
   Layers,
+  Move,
+  RotateCcw,
+  Edit3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createEvent, updateEvent } from "@/lib/firestore";
@@ -206,6 +209,10 @@ export function EventCreateStudio({
     posterFontSize: editingEvent?.posterFontSize || 34,
     posterAlign: editingEvent?.posterAlign || "left",
     posterTextColor: editingEvent?.posterTextColor || "auto",
+    posterTextX: typeof editingEvent?.posterTextX === "number" ? editingEvent.posterTextX : 6,
+    posterTextY: typeof editingEvent?.posterTextY === "number" ? editingEvent.posterTextY : (editingEvent?.coverImage ? 55 : 68),
+    showPosterText: editingEvent?.showPosterText !== undefined ? editingEvent.showPosterText : true,
+    posterTextBg: editingEvent?.posterTextBg || "shadow",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -213,6 +220,76 @@ export function EventCreateStudio({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locationInput, setLocationInput] = useState(formData.location);
   const [locationSuggestions, setLocationSuggestions] = useState(POPULAR_LOCATIONS);
+
+  // Draggable & inline-editable text overlay state
+  const [isDraggingText, setIsDraggingText] = useState(false);
+  const [isTextSelected, setIsTextSelected] = useState(false);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const posterContainerRef = useRef(null);
+  const descriptionTextareaRef = useRef(null);
+  const dragStartPosRef = useRef({ mouseX: 0, mouseY: 0, textX: 0, textY: 0 });
+
+  const handleTextDragStart = (e) => {
+    if (isInlineEditing) return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setIsTextSelected(true);
+    setIsDraggingText(true);
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    dragStartPosRef.current = {
+      mouseX: clientX,
+      mouseY: clientY,
+      textX: typeof formData.posterTextX === "number" ? formData.posterTextX : 6,
+      textY: typeof formData.posterTextY === "number" ? formData.posterTextY : (formData.coverImage ? 55 : 68),
+    };
+  };
+
+  useEffect(() => {
+    if (!isDraggingText) return;
+
+    const handleMouseMove = (e) => {
+      if (!posterContainerRef.current) return;
+      const rect = posterContainerRef.current.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const deltaX = ((clientX - dragStartPosRef.current.mouseX) / rect.width) * 100;
+      const deltaY = ((clientY - dragStartPosRef.current.mouseY) / rect.height) * 100;
+
+      let newX = Math.round(dragStartPosRef.current.textX + deltaX);
+      let newY = Math.round(dragStartPosRef.current.textY + deltaY);
+
+      newX = Math.max(2, Math.min(80, newX));
+      newY = Math.max(2, Math.min(84, newY));
+
+      setFormData((prev) => ({
+        ...prev,
+        posterTextX: newX,
+        posterTextY: newY,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingText(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("touchmove", handleMouseMove, { passive: false });
+    window.addEventListener("touchend", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleMouseMove);
+      window.removeEventListener("touchend", handleMouseUp);
+    };
+  }, [isDraggingText]);
 
   const selectedTheme =
     THEMES.find((t) => t.id === formData.theme) || THEMES[1]; // default Sunny
@@ -321,6 +398,10 @@ export function EventCreateStudio({
         posterFontSize: parseInt(formData.posterFontSize, 10) || 34,
         posterAlign: formData.posterAlign || "left",
         posterTextColor: formData.posterTextColor || "auto",
+        posterTextX: typeof formData.posterTextX === "number" ? formData.posterTextX : 6,
+        posterTextY: typeof formData.posterTextY === "number" ? formData.posterTextY : 68,
+        showPosterText: formData.showPosterText !== false,
+        posterTextBg: formData.posterTextBg || "shadow",
         isActive: formData.visibility !== "draft",
         published: formData.visibility === "public",
         status:
@@ -461,21 +542,29 @@ export function EventCreateStudio({
         >
           {/* ================= LEFT COLUMN: POSTER & THEME ================= */}
           <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-5">
-            {/* Poster Card (Square, 1:1, rounded-3xl) */}
-            <div className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none">
+            {/* Poster Card (Square, 1:1, rounded-3xl) with Draggable & Editable Text Overlay */}
+            <div
+              ref={posterContainerRef}
+              onClick={() => {
+                setIsTextSelected(false);
+                setIsInlineEditing(false);
+              }}
+              className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none cursor-default"
+            >
               {formData.coverImage ? (
                 // Custom Uploaded Banner Image
                 <div className="w-full h-full relative">
                   <img
                     src={formData.coverImage}
                     alt="Event Poster"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover pointer-events-none select-none"
+                    draggable={false}
                   />
                   {/* Remove image button */}
                   <button
                     type="button"
                     onClick={removeCoverImage}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition-all border border-white/20"
+                    className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition-all border border-white/20 shadow-md cursor-pointer"
                     title="Remove custom image"
                   >
                     <X className="w-4 h-4" />
@@ -502,51 +591,174 @@ export function EventCreateStudio({
                       backgroundSize: "18px 18px",
                     }}
                   />
+                </div>
+              )}
 
-                  {/* Empty top-left placeholder for spacing */}
-                  <div className="relative z-10" />
+              {/* ── DRAGGABLE & EDITABLE TEXT OVERLAY (Available on BOTH uploaded banner and procedural poster) ── */}
+              {formData.showPosterText !== false && (
+                <div
+                  onMouseDown={handleTextDragStart}
+                  onTouchStart={handleTextDragStart}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsTextSelected(true);
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setIsTextSelected(true);
+                    setIsInlineEditing(true);
+                  }}
+                  className={`absolute z-20 max-w-[92%] transition-all ${
+                    isDraggingText ? "cursor-grabbing select-none" : "cursor-grab"
+                  } ${
+                    isTextSelected
+                      ? "ring-2 ring-[#FE760B] ring-offset-2 ring-offset-black/60 shadow-2xl rounded-xl"
+                      : "hover:ring-1 hover:ring-white/40 rounded-xl"
+                  } ${
+                    formData.posterTextBg === "badge"
+                      ? "bg-black/75 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/20 shadow-xl"
+                      : formData.posterTextBg === "solid"
+                      ? "bg-[#131517] px-3.5 py-2 rounded-xl border border-[#2A2D31] shadow-xl"
+                      : "p-1.5"
+                  }`}
+                  style={{
+                    left: `${formData.posterTextX ?? 6}%`,
+                    top: `${formData.posterTextY ?? (formData.coverImage ? 55 : 68)}%`,
+                    textAlign: formData.posterAlign || "left",
+                    textShadow:
+                      formData.posterTextBg === "shadow" || (!formData.posterTextBg && formData.coverImage)
+                        ? "0 2px 10px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.85)"
+                        : "none",
+                  }}
+                  title="Click to select, drag to reposition, double-click to edit"
+                >
+                  {/* Floating Action Badge when Selected */}
+                  {isTextSelected && (
+                    <div className="absolute -top-7 left-0 flex items-center gap-1.5 bg-[#FE760B] text-[#131517] px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase shadow-lg whitespace-nowrap z-30 pointer-events-auto">
+                      <Move className="w-2.5 h-2.5 stroke-[3]" />
+                      <span>Drag to move</span>
+                      <span className="opacity-40">•</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsInlineEditing((prev) => !prev);
+                        }}
+                        className="underline hover:text-black font-black cursor-pointer"
+                      >
+                        {isInlineEditing ? "Done" : "Edit Text"}
+                      </button>
+                    </div>
+                  )}
 
-                  {/* Bottom Bold Artwork Typography matching Image 2 with Word-Aware Auto-Fit */}
-                  <div
-                    className="relative z-10 w-full transition-all"
-                    style={{
-                      textAlign: formData.posterAlign || "left",
-                    }}
-                  >
-                    <span
-                      className="block font-black leading-[0.92] tracking-tight uppercase transition-all select-none break-words"
-                      style={{
-                        color:
-                          formData.posterTextColor === "dark"
-                            ? "#131517"
-                            : formData.posterTextColor === "light"
-                            ? "#FFFFFF"
-                            : selectedTheme.text,
-                        fontSize: `${formData.posterFontSize || 34}px`,
-                      }}
-                    >
-                      {posterLines.line1}
-                    </span>
-                    {posterLines.line2 && (
+                  {/* Corner handles (Figma / Canva style) */}
+                  {isTextSelected && (
+                    <>
+                      <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
+                      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
+                      <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
+                      <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
+                    </>
+                  )}
+
+                  {/* Text Content: Inline editing or Display */}
+                  {isInlineEditing ? (
+                    <div className="space-y-1.5 min-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        autoFocus
+                        value={formData.posterLine1 || posterLines.line1}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            posterTextMode: "custom",
+                            posterLine1: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Escape") {
+                            setIsInlineEditing(false);
+                          }
+                        }}
+                        className="bg-black/90 border border-[#FE760B] rounded px-2 py-0.5 font-black uppercase text-white outline-none w-full tracking-tight shadow-lg"
+                        style={{
+                          fontSize: `${formData.posterFontSize || 34}px`,
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={formData.posterLine2 || posterLines.line2}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            posterTextMode: "custom",
+                            posterLine2: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Escape") {
+                            setIsInlineEditing(false);
+                          }
+                        }}
+                        className="bg-black/90 border border-[#FE760B] rounded px-2 py-0.5 font-black uppercase text-white outline-none w-full tracking-tight shadow-lg"
+                        style={{
+                          fontSize: `${Math.max(
+                            18,
+                            Math.round((formData.posterFontSize || 34) * 0.88),
+                          )}px`,
+                        }}
+                      />
+                      <div className="flex justify-end pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsInlineEditing(false)}
+                          className="text-[10px] bg-[#FE760B] text-[#131517] font-bold px-2 py-0.5 rounded cursor-pointer hover:bg-[#ff8624]"
+                        >
+                          Save Text
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
                       <span
-                        className="block font-black leading-[0.92] tracking-tight uppercase transition-all select-none mt-1.5 break-words"
+                        className="block font-black leading-[0.92] tracking-tight uppercase select-none break-words"
                         style={{
                           color:
                             formData.posterTextColor === "dark"
                               ? "#131517"
                               : formData.posterTextColor === "light"
                               ? "#FFFFFF"
+                              : formData.coverImage
+                              ? "#FFFFFF"
                               : selectedTheme.text,
-                          fontSize: `${Math.max(
-                            18,
-                            Math.round((formData.posterFontSize || 34) * 0.88),
-                          )}px`,
+                          fontSize: `${formData.posterFontSize || 34}px`,
                         }}
                       >
-                        {posterLines.line2}
+                        {posterLines.line1}
                       </span>
-                    )}
-                  </div>
+                      {posterLines.line2 && (
+                        <span
+                          className="block font-black leading-[0.92] tracking-tight uppercase select-none mt-1 break-words"
+                          style={{
+                            color:
+                              formData.posterTextColor === "dark"
+                                ? "#131517"
+                                : formData.posterTextColor === "light"
+                                ? "#FFFFFF"
+                                : formData.coverImage
+                                ? "#FFFFFF"
+                                : selectedTheme.text,
+                            fontSize: `${Math.max(
+                              18,
+                              Math.round((formData.posterFontSize || 34) * 0.88),
+                            )}px`,
+                          }}
+                        >
+                          {posterLines.line2}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -615,40 +827,124 @@ export function EventCreateStudio({
                     <Type className="w-3.5 h-3.5 text-[#FE760B]" />
                     Poster Typography &amp; Layout
                   </span>
-                  <div className="flex items-center rounded-lg bg-[#212327] p-0.5 border border-[#2A2D31]">
+                  <div className="flex items-center gap-1.5">
+                    {/* Toggle text visibility on banner */}
                     <button
                       type="button"
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
-                          posterTextMode: "auto",
+                          showPosterText: prev.showPosterText === false ? true : false,
                         }))
                       }
-                      className={`px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors ${
-                        formData.posterTextMode === "auto"
-                          ? "bg-[#FE760B] text-[#131517]"
-                          : "text-[#9B9EA4] hover:text-white"
+                      className={`p-1 rounded border transition-colors ${
+                        formData.showPosterText !== false
+                          ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
+                          : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
                       }`}
+                      title={formData.showPosterText !== false ? "Hide text overlay" : "Show text overlay"}
                     >
-                      Auto Title
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex items-center rounded-lg bg-[#212327] p-0.5 border border-[#2A2D31]">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            posterTextMode: "auto",
+                          }))
+                        }
+                        className={`px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors ${
+                          formData.posterTextMode === "auto"
+                            ? "bg-[#FE760B] text-[#131517]"
+                            : "text-[#9B9EA4] hover:text-white"
+                        }`}
+                      >
+                        Auto Title
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            posterTextMode: "custom",
+                            posterLine1: prev.posterLine1 || posterLines.line1,
+                            posterLine2: prev.posterLine2 || posterLines.line2,
+                          }))
+                        }
+                        className={`px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors ${
+                          formData.posterTextMode === "custom"
+                            ? "bg-[#FE760B] text-[#131517]"
+                            : "text-[#9B9EA4] hover:text-white"
+                        }`}
+                      >
+                        Custom Lines
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Drag Position Indicator & Quick Presets */}
+                <div className="flex items-center justify-between text-[11px] bg-[#212327] px-2.5 py-1.5 rounded-xl border border-[#2A2D31]">
+                  <div className="flex items-center gap-1.5 text-[#9B9EA4]">
+                    <Move className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span className="text-[10px] font-medium text-white">Drag text or snap:</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterTextX: 6,
+                          posterTextY: 8,
+                        }))
+                      }
+                      className="px-2 py-0.5 text-[10px] rounded font-semibold bg-[#1A1C1F] hover:bg-[#2A2D31] text-white border border-[#2A2D31] transition-colors"
+                    >
+                      Top
                     </button>
                     <button
                       type="button"
                       onClick={() =>
                         setFormData((prev) => ({
                           ...prev,
-                          posterTextMode: "custom",
-                          posterLine1: prev.posterLine1 || posterLines.line1,
-                          posterLine2: prev.posterLine2 || posterLines.line2,
+                          posterTextX: 6,
+                          posterTextY: 42,
                         }))
                       }
-                      className={`px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors ${
-                        formData.posterTextMode === "custom"
-                          ? "bg-[#FE760B] text-[#131517]"
-                          : "text-[#9B9EA4] hover:text-white"
-                      }`}
+                      className="px-2 py-0.5 text-[10px] rounded font-semibold bg-[#1A1C1F] hover:bg-[#2A2D31] text-white border border-[#2A2D31] transition-colors"
                     >
-                      Custom Lines
+                      Center
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterTextX: 6,
+                          posterTextY: 68,
+                        }))
+                      }
+                      className="px-2 py-0.5 text-[10px] rounded font-semibold bg-[#1A1C1F] hover:bg-[#2A2D31] text-white border border-[#2A2D31] transition-colors"
+                    >
+                      Bottom
+                    </button>
+                    <button
+                      type="button"
+                      title="Reset text position"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterTextX: 6,
+                          posterTextY: prev.coverImage ? 55 : 68,
+                        }))
+                      }
+                      className="p-1 rounded text-[#9B9EA4] hover:text-white hover:bg-[#1A1C1F] transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
@@ -746,63 +1042,96 @@ export function EventCreateStudio({
                   </div>
                 </div>
 
-                {/* Alignment & Text Color */}
-                <div className="flex items-center justify-between pt-1 text-[11px]">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[#9B9EA4] mr-1">Align:</span>
-                    {[
-                      { id: "left", icon: AlignLeft },
-                      { id: "center", icon: AlignCenter },
-                      { id: "right", icon: AlignRight },
-                    ].map((item) => {
-                      const Icon = item.icon;
-                      return (
+                {/* Alignment, Text Color & Readability Backdrop */}
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[#9B9EA4] mr-1">Align:</span>
+                      {[
+                        { id: "left", icon: AlignLeft },
+                        { id: "center", icon: AlignCenter },
+                        { id: "right", icon: AlignRight },
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                posterAlign: item.id,
+                              }))
+                            }
+                            className={`p-1 rounded border transition-colors ${
+                              formData.posterAlign === item.id
+                                ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
+                                : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5" />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className="text-[#9B9EA4] mr-1">Color:</span>
+                      {[
+                        { id: "auto", label: "Theme" },
+                        { id: "dark", label: "Dark" },
+                        { id: "light", label: "Light" },
+                      ].map((c) => (
                         <button
-                          key={item.id}
+                          key={c.id}
                           type="button"
                           onClick={() =>
                             setFormData((prev) => ({
                               ...prev,
-                              posterAlign: item.id,
+                              posterTextColor: c.id,
                             }))
                           }
-                          className={`p-1 rounded border transition-colors ${
-                            formData.posterAlign === item.id
-                              ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                            (formData.posterTextColor || "auto") === c.id
+                              ? "bg-[#FE760B] text-black font-bold border-[#FE760B]"
                               : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
                           }`}
                         >
-                          <Icon className="w-3.5 h-3.5" />
+                          {c.label}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <span className="text-[#9B9EA4] mr-1">Color:</span>
-                    {[
-                      { id: "auto", label: "Theme" },
-                      { id: "dark", label: "Dark" },
-                      { id: "light", label: "Light" },
-                    ].map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterTextColor: c.id,
-                          }))
-                        }
-                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                          (formData.posterTextColor || "auto") === c.id
-                            ? "bg-[#FE760B] text-black font-bold border-[#FE760B]"
-                            : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
+                  {/* Backdrop / Readability Badge Style */}
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[#2A2D31]/50">
+                    <span className="text-[#9B9EA4]">Backdrop:</span>
+                    <div className="flex items-center gap-1">
+                      {[
+                        { id: "shadow", label: "Shadow" },
+                        { id: "badge", label: "Glass Pill" },
+                        { id: "solid", label: "Solid" },
+                        { id: "none", label: "None" },
+                      ].map((bg) => (
+                        <button
+                          key={bg.id}
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              posterTextBg: bg.id,
+                            }))
+                          }
+                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                            (formData.posterTextBg || "shadow") === bg.id
+                              ? "bg-white/10 border-[#FE760B] text-[#FE760B] font-bold"
+                              : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
+                          }`}
+                        >
+                          {bg.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -882,7 +1211,7 @@ export function EventCreateStudio({
                 }
                 placeholder="Event Name"
                 required
-                className="w-full bg-transparent text-3xl sm:text-4xl font-extrabold text-white placeholder:text-[#9B9EA4] border-none outline-none focus:outline-none focus:ring-0 p-0 tracking-tight"
+                className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl font-extrabold text-white placeholder:text-[#9B9EA4] !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight"
               />
             </div>
 
@@ -1013,11 +1342,15 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Description Card matching Image 2 (FIXED: NO [object Object]) */}
-            <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-start gap-3.5 hover:border-[#3A3D42] transition-colors shadow-sm">
-              <AlignLeft className="w-5 h-5 text-[#9B9EA4] shrink-0 mt-1" />
+            {/* Description Card matching Image 2 (Seamless bare input with card focus ring) */}
+            <div
+              onClick={() => descriptionTextareaRef.current?.focus()}
+              className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-start gap-3.5 hover:border-[#3A3D42] focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B]/30 transition-all shadow-sm group cursor-text"
+            >
+              <AlignLeft className="w-5 h-5 text-[#9B9EA4] group-focus-within:text-[#FE760B] shrink-0 mt-1 transition-colors" />
               <div className="flex-1 min-w-0">
                 <textarea
+                  ref={descriptionTextareaRef}
                   value={safeDescription}
                   onChange={(e) =>
                     setFormData((prev) => ({
@@ -1027,7 +1360,7 @@ export function EventCreateStudio({
                   }
                   placeholder="Describe your event..."
                   rows={3}
-                  className="w-full bg-transparent text-sm text-white placeholder:text-[#9B9EA4] border-none outline-none focus:outline-none focus:ring-0 p-0 resize-none leading-relaxed"
+                  className="tl-bare-input w-full !bg-transparent text-sm text-white placeholder:text-[#9B9EA4] !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 resize-none leading-relaxed"
                 />
               </div>
             </div>
@@ -1126,13 +1459,15 @@ export function EventCreateStudio({
                 </div>
 
                 {/* Row 3: Ticket Format & Style (Stub tickets vs Wide tickets) */}
-                <div className="p-4 border-t border-[#2A2D31]/80 space-y-3">
+                <div className="p-4 sm:p-5 border-t border-[#2A2D31]/80 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Ticket className="w-4 h-4 text-[#FE760B]" />
+                      <div className="w-8 h-8 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
+                        <Ticket className="w-4 h-4" />
+                      </div>
                       <div>
-                        <span className="text-sm font-medium text-white block">
-                          Ticket Layout & Template
+                        <span className="text-sm font-bold text-white block">
+                          Ticket Layout &amp; Template
                         </span>
                         <span className="text-[11px] text-[#9B9EA4] block">
                           Choose between standard stub ticket or 3-panel wide ticket. Editable anytime.
@@ -1148,39 +1483,28 @@ export function EventCreateStudio({
                       onClick={() =>
                         setFormData((prev) => ({ ...prev, ticketDesign: "stub" }))
                       }
-                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden group ${
+                      className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                         formData.ticketDesign === "stub"
-                          ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B]"
-                          : "border-[#2A2D31] bg-[#212327] hover:border-[#3A3D42]"
+                          ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.12)]"
+                          : "border-[#2A2D31] bg-[#212327]/60 hover:bg-[#212327] hover:border-[#3A3D42]"
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <div className="flex items-center justify-between mb-1.5 w-full">
+                        <span className="text-xs font-bold text-white flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-[#FE760B]" />
                           Stub tickets (Default)
                         </span>
-                        {formData.ticketDesign === "stub" && (
-                          <Check className="w-3.5 h-3.5 text-[#FE760B]" />
+                        {formData.ticketDesign === "stub" ? (
+                          <span className="w-5 h-5 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] shrink-0">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </span>
+                        ) : (
+                          <span className="w-5 h-5 rounded-full border border-[#3A3D42] bg-[#141619]/60 shrink-0" />
                         )}
                       </div>
                       <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
                         780 × 240 art panel + dark QR check-in stub.
                       </p>
-                      {/* Realistic Mini Visual Preview with Notch */}
-                      <div className="mt-3 h-8 rounded-lg border border-[#2A2D31] flex overflow-hidden bg-black/60 text-[9px] font-mono relative">
-                        <div className="flex-1 bg-[#FE760B]/85 flex items-center justify-between px-2 text-black font-extrabold tracking-wider">
-                          <span className="truncate max-w-[100px]">{posterLines.line1 || "ART PANEL"}</span>
-                          <span className="text-[7px] bg-black/25 px-1 py-0.5 rounded text-white font-bold">ADMIT 1</span>
-                        </div>
-                        {/* Perforation line with semi notches */}
-                        <div className="w-px border-r border-dashed border-white/30 relative">
-                          <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-[#1A1C1F]" />
-                          <div className="absolute -bottom-1 -left-1 w-2 h-2 rounded-full bg-[#1A1C1F]" />
-                        </div>
-                        <div className="w-10 bg-[#170E08] flex items-center justify-center text-[#FDE003] font-bold text-[8px]">
-                          QR
-                        </div>
-                      </div>
                     </button>
 
                     {/* Option 2: Wide tickets */}
@@ -1189,43 +1513,33 @@ export function EventCreateStudio({
                       onClick={() =>
                         setFormData((prev) => ({ ...prev, ticketDesign: "wide" }))
                       }
-                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden group ${
+                      className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                         formData.ticketDesign === "wide"
-                          ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B]"
-                          : "border-[#2A2D31] bg-[#212327] hover:border-[#3A3D42]"
+                          ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.12)]"
+                          : "border-[#2A2D31] bg-[#212327]/60 hover:bg-[#212327] hover:border-[#3A3D42]"
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <div className="flex items-center justify-between mb-1.5 w-full">
+                        <span className="text-xs font-bold text-white flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
                           Wide tickets
                         </span>
-                        {formData.ticketDesign === "wide" && (
-                          <Check className="w-3.5 h-3.5 text-[#FE760B]" />
+                        {formData.ticketDesign === "wide" ? (
+                          <span className="w-5 h-5 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] shrink-0">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </span>
+                        ) : (
+                          <span className="w-5 h-5 rounded-full border border-[#3A3D42] bg-[#141619]/60 shrink-0" />
                         )}
                       </div>
                       <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
                         720 × 200 3-panel: QR + art + vertical barcode stub.
                       </p>
-                      {/* Realistic Mini Visual Preview with 3 panels */}
-                      <div className="mt-3 h-8 rounded-lg border border-[#2A2D31] flex overflow-hidden bg-black/60 text-[9px] font-mono relative">
-                        <div className="w-8 bg-white text-black font-bold flex items-center justify-center text-[7px]">
-                          QR
-                        </div>
-                        <div className="w-px border-r border-dashed border-black/30" />
-                        <div className="flex-1 bg-[#FE760B]/85 flex items-center justify-center text-black font-extrabold tracking-wider px-1">
-                          <span className="truncate max-w-[100px]">{posterLines.line1 || "EVENT ART"}</span>
-                        </div>
-                        <div className="w-px border-r border-dashed border-black/30" />
-                        <div className="w-8 bg-white text-black font-bold flex items-center justify-center text-[8px] tracking-tighter">
-                          ||||||
-                        </div>
-                      </div>
                     </button>
                   </div>
 
                   {/* ── Interactive Live Ticket Preview Area ── */}
-                  <div className="mt-4 rounded-2xl bg-[#141619] border border-[#2A2D31] p-4 sm:p-5 space-y-3.5 shadow-inner">
+                  <div className="mt-5 rounded-2xl bg-[#141619] border border-[#2A2D31] p-4 sm:p-5 space-y-4 shadow-xl relative">
                     <div className="flex items-center justify-between flex-wrap gap-2.5">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-[#3DD68C] animate-pulse" />
@@ -1244,7 +1558,7 @@ export function EventCreateStudio({
                           onClick={() =>
                             setFormData((prev) => ({ ...prev, ticketDesign: "stub" }))
                           }
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                             formData.ticketDesign === "stub"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
                               : "text-[#9B9EA4] hover:text-white"
@@ -1257,7 +1571,7 @@ export function EventCreateStudio({
                           onClick={() =>
                             setFormData((prev) => ({ ...prev, ticketDesign: "wide" }))
                           }
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                             formData.ticketDesign === "wide"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
                               : "text-[#9B9EA4] hover:text-white"
@@ -1320,19 +1634,20 @@ export function EventCreateStudio({
                     </div>
 
                     {/* Format Explanation Footer */}
-                    <div className="text-[11px] text-[#9B9EA4] pt-2 flex items-center justify-between border-t border-[#2A2D31]/60 flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white">
-                          {formData.ticketDesign === "wide" ? "3-Panel Wide Format:" : "Classic Stub Format:"}
+                    <div className="text-[11px] text-[#9B9EA4] pt-3 flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#2A2D31]/80 gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-[#212327] border border-[#2A2D31] text-[#FE760B]">
+                          {formData.ticketDesign === "wide" ? "3-Panel Wide Format" : "Classic Stub Format"}
                         </span>
-                        <span>
+                        <span className="text-white/90 font-medium">
                           {formData.ticketDesign === "wide"
                             ? "Left QR code scanner + Center full event artwork + Right Code-128 barcode stub."
                             : "Wide festival cover artwork with tear-off QR verification check-in stub."}
                         </span>
                       </div>
-                      <span className="text-[#FE760B] font-mono text-[10px]">
-                        Click ticket perforation to test tear animation
+                      <span className="text-[#FE760B] font-mono text-[10px] flex items-center gap-1 shrink-0">
+                        <Sparkles size={11} className="text-[#FE760B]" />
+                        <span>Click ticket perforation to test tear animation</span>
                       </span>
                     </div>
                   </div>

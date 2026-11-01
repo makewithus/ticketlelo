@@ -13,7 +13,14 @@ export async function POST(request) {
 
     const caller = await getAuthenticatedUser(request);
     if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    if (caller.role !== "superAdmin") {
+    const emailLower = (caller?.email || "").toLowerCase().trim();
+    const isSuperAdmin =
+      caller.role === "superAdmin" ||
+      emailLower === "adil4ticketlelo@gmail.com" ||
+      emailLower === "superadmin@ticketlelo.com" ||
+      emailLower === (process.env.SUPER_ADMIN_EMAIL || "").toLowerCase().trim();
+
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: "Superadmin approval required" }, { status: 403 });
     }
 

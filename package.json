@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint lib src components context scripts tests middleware.js next.config.mjs",
-    "test": "node --require ./tests/qa-environment.cjs --test --test-isolation=none 'tests/**/*.test.js'"
+    "test": "node --require ./tests/qa-environment.cjs --test --test-isolation=none 'tests/**/*.test.js'",
+    "email:worker": "node scripts/email-worker.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -40,6 +41,7 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "autoprefixer": "^10.4.24",
     "axios": "^1.7.0",
+    "bullmq": "^6.5.3",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
@@ -52,6 +54,7 @@
     "framer-motion": "^12.34.3",
     "html5-qrcode": "2.3.8",
     "input-otp": "1.4.1",
+    "ioredis": "^6.0.0",
     "jspdf": "^2.5.1",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.544.0",
@@ -68,7 +71,9 @@
     "react-hook-form": "^7.54.1",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
+    "resend": "^6.37.0",
     "sonner": "^1.7.1",
+    "svix": "^2.9.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
