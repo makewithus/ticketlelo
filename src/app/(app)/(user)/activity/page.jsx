@@ -1,23 +1,22 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import {
   Bell,
-  Check,
-  CheckCircle2,
-  Clock,
   Calendar,
+  ChevronDown,
+  Filter,
   Loader2,
-  Radio,
+  Plus,
   Search,
-  Users,
 } from "lucide-react";
 import { EventPoster } from "@/components/admin/event-poster";
 import { toast } from "sonner";
 import { OrganiserShell } from "@/components/layout/organiser-shell";
-import { collection, onSnapshot, query, orderBy, getDocs, where } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 const AVATAR_COLORS = [
@@ -73,15 +72,62 @@ function formatSimpleDate(ts) {
   }
 }
 
-export default function ActivityPage() {
+function isOrganiserEvent(u, eventData) {
+  if (!u || !eventData) return false;
+  const uEmail = (u.email || "").toLowerCase().trim();
+  const isSuper =
+    u.role === "superAdmin" ||
+    uEmail === "adil4ticketlelo@gmail.com" ||
+    uEmail === "superadmin@ticketlelo.com";
+  if (isSuper) return true;
+
+  const uid = u.id || u.uid;
+  if (
+    uid &&
+    (eventData.createdBy === uid ||
+      eventData.organiserId === uid ||
+      eventData.userId === uid ||
+      eventData.creatorId === uid)
+  ) {
+    return true;
+  }
+
+  if (u.organizationId && eventData.organizationId === u.organizationId) {
+    return true;
+  }
+
+  if (uEmail) {
+    const orgEmail = (eventData.organiserEmail || eventData.organizerEmail || eventData.email || "").toLowerCase().trim();
+    if (orgEmail && orgEmail === uEmail) return true;
+  }
+
+  return false;
+}
+
+function ActivityContent() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+
   const [activeTab, setActiveTab] = useState("notifications"); // "notifications" | "requests"
   const [notifFilter, setNotifFilter] = useState("All"); // "All" | "Registrations" | "Check-ins" | "Blasts"
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const param = urlParams.get("eventId");
+      if (param) return param;
+      return localStorage.getItem("admin_selected_event_id") || "";
+    } catch {
+      return "";
+    }
+  });
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   // Live real-time state loaded from backend
   const [eventsMap, setEventsMap] = useState({});
+  const [eventsList, setEventsList] = useState([]);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
   const [registrations, setRegistrations] = useState([]);
   const [messages, setMessages] = useState([]);
   const [hostingRequests, setHostingRequests] = useState([]);
@@ -96,21 +142,35 @@ export default function ActivityPage() {
     }
   });
 
+  const emailLower = (user?.email || "").toLowerCase().trim();
+  const isSuperAdmin =
+    user?.role === "superAdmin" ||
+    emailLower === "adil4ticketlelo@gmail.com" ||
+    emailLower === "superadmin@ticketlelo.com";
+
+  // Synchronize selectedEventId if URL searchParam changes
+  useEffect(() => {
+    const paramId = searchParams?.get("eventId");
+    if (paramId) {
+      const timer = setTimeout(() => setSelectedEventId(paramId), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
+
   // 0. Primary server fetch from /api/activity (backed by Firebase Admin SDK)
   useEffect(() => {
     let isMounted = true;
     const fetchBackendActivity = async () => {
       try {
-        const res = await fetch("/api/activity");
+        const url = selectedEventId
+          ? `/api/activity?eventId=${encodeURIComponent(selectedEventId)}`
+          : "/api/activity";
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           if (isMounted) {
-            if (data.activities && data.activities.length > 0) {
-              setApiActivities(data.activities);
-            }
-            if (data.hostingRequests && data.hostingRequests.length > 0) {
-              setHostingRequests((prev) => (prev.length === 0 ? data.hostingRequests : prev));
-            }
+            setApiActivities(data.activities || []);
+            setHostingRequests(data.hostingRequests || []);
             setIsLoading(false);
           }
         }
@@ -122,32 +182,46 @@ export default function ActivityPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [selectedEventId]);
 
-  // 1. Live subscribe to Events to resolve event names
+  // 1. Live subscribe to Events to resolve event names and enforce organiser ownership
   useEffect(() => {
+    if (!user) return;
     try {
       const unsub = onSnapshot(
         collection(db, "events"),
         (snap) => {
           const map = {};
+          const list = [];
           snap.docs.forEach((doc) => {
             const data = doc.data();
-            map[doc.id] = {
-              id: doc.id,
-              name: data.name || data.title || "Event",
-              createdBy: data.createdBy,
-            };
+            const belongs = isSuperAdmin || isOrganiserEvent(user, data);
+            if (belongs) {
+              const ev = {
+                id: doc.id,
+                name: data.name || data.title || "Event",
+                createdBy: data.createdBy,
+              };
+              map[doc.id] = ev;
+              list.push(ev);
+            }
           });
           setEventsMap(map);
+          setEventsList(list);
+          setEventsLoaded(true);
         },
-        (err) => console.warn("Events onSnapshot warning:", err.message)
+        (err) => {
+          console.warn("Events onSnapshot warning:", err.message);
+          setEventsLoaded(true);
+        }
       );
       return () => unsub();
     } catch (e) {
       console.warn("Failed to subscribe to events:", e);
+      const timer = setTimeout(() => setEventsLoaded(true), 0);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [user, isSuperAdmin]);
 
   // 2. Live subscribe to Registrations (Registrations & Check-ins)
   useEffect(() => {
@@ -189,38 +263,49 @@ export default function ActivityPage() {
     }
   }, []);
 
-  // 4. Live subscribe to Hosting Requests
+  // 4. Live subscribe to Hosting Requests strictly for this user (or all if superAdmin)
   useEffect(() => {
+    if (!user) return;
     try {
       const unsub = onSnapshot(
         collection(db, "hostingRequests"),
         (snap) => {
-          const list = snap.docs.map((d) => {
-            const data = d.data();
-            const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt ? new Date(data.createdAt) : null;
-            const approvedAtDate = data.approvedAt?.toDate ? data.approvedAt.toDate() : data.approvedAt ? new Date(data.approvedAt) : null;
-            
-            return {
-              id: d.id,
-              eventName: data.eventTitle || data.eventName || "Untitled Event",
-              ticketsType: data.isPaid ? "Paid" : "Free",
-              ticketsCount: `${data.capacity || data.ticketsCount || 100} tickets`,
-              sentDate: `sent ${formatSimpleDate(createdAtDate)}`,
-              statusText: data.status === "approved" 
-                ? `Approved ${formatSimpleDate(approvedAtDate || createdAtDate)}` 
-                : data.status === "rejected" 
-                ? "Rejected" 
-                : "Under review",
-              statusTone: data.status === "approved" 
-                ? "approved" 
-                : data.status === "rejected" 
-                ? "rejected" 
-                : "pending",
-              rawCreatedAt: createdAtDate,
-              email: data.email,
-              userId: data.userId || data.organiserId,
-            };
-          });
+          const list = snap.docs
+            .filter((d) => {
+              if (isSuperAdmin) return true;
+              const data = d.data();
+              const reqEmail = String(data.email || data.userAccountEmail || "").toLowerCase().trim();
+              return Boolean(
+                (user.uid && (data.userId === user.uid || data.organiserId === user.uid || data.createdBy === user.uid)) ||
+                (emailLower && reqEmail === emailLower)
+              );
+            })
+            .map((d) => {
+              const data = d.data();
+              const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt ? new Date(data.createdAt) : null;
+              const approvedAtDate = data.approvedAt?.toDate ? data.approvedAt.toDate() : data.approvedAt ? new Date(data.approvedAt) : null;
+
+              return {
+                id: d.id,
+                eventName: data.eventTitle || data.eventName || "Untitled Event",
+                ticketsType: data.isPaid ? "Paid" : "Free",
+                ticketsCount: `${data.capacity || data.ticketsCount || 100} tickets`,
+                sentDate: `sent ${formatSimpleDate(createdAtDate)}`,
+                statusText: data.status === "approved" 
+                  ? `Approved ${formatSimpleDate(approvedAtDate || createdAtDate)}` 
+                  : data.status === "rejected" 
+                  ? "Rejected" 
+                  : "Under review",
+                statusTone: data.status === "approved" 
+                  ? "approved" 
+                  : data.status === "rejected" 
+                  ? "rejected" 
+                  : "pending",
+                rawCreatedAt: createdAtDate,
+                email: data.email,
+                userId: data.userId || data.organiserId,
+              };
+            });
           setHostingRequests(list);
         },
         (err) => console.warn("Hosting requests onSnapshot warning:", err.message)
@@ -229,16 +314,36 @@ export default function ActivityPage() {
     } catch (e) {
       console.warn("Failed to subscribe to hosting requests:", e);
     }
-  }, []);
+  }, [user, isSuperAdmin, emailLower]);
 
-  // Generate real-time synthesized feed of notifications
+  const myEventIdSet = useMemo(() => new Set(Object.keys(eventsMap)), [eventsMap]);
+
+  // Generate real-time synthesized feed of notifications strictly for organiser's events
   const liveNotifications = useMemo(() => {
+    if (!eventsLoaded) {
+      return [];
+    }
+
+    // Organiser with no events should see zero registrations / blasts
+    if (!isSuperAdmin && myEventIdSet.size === 0) {
+      return [];
+    }
+
     const feed = [];
 
     // A. Registrations activity
     registrations.forEach((reg) => {
+      // If not superadmin, MUST be in organiser's events
+      if (!isSuperAdmin && (!reg.eventId || !myEventIdSet.has(reg.eventId))) {
+        return;
+      }
+      // If filtered by a specific event:
+      if (selectedEventId && reg.eventId !== selectedEventId) {
+        return;
+      }
+
       const rawDate = reg.createdAt?.toDate ? reg.createdAt.toDate() : reg.createdAt ? new Date(reg.createdAt) : new Date();
-      const eventName = reg.eventName || eventsMap[reg.eventId]?.name || "Tech Fest 2026";
+      const eventName = reg.eventName || eventsMap[reg.eventId]?.name || "Event";
       const attendeeName = reg.fullName || reg.name || reg.buyerName || reg.email?.split("@")[0] || "Attendee";
       const avatar = getAvatar(attendeeName);
       const regId = `reg_${reg.id}`;
@@ -246,6 +351,7 @@ export default function ActivityPage() {
       // Registration entry
       feed.push({
         id: regId,
+        eventId: reg.eventId,
         type: "Registrations",
         avatar: avatar.text,
         avatarBg: avatar.bg,
@@ -261,6 +367,7 @@ export default function ActivityPage() {
         const checkinId = `checkin_${reg.id}`;
         feed.push({
           id: checkinId,
+          eventId: reg.eventId,
           type: "Check-ins",
           avatar: avatar.text,
           avatarBg: "bg-pink-600",
@@ -274,14 +381,24 @@ export default function ActivityPage() {
 
     // B. Broadcast Messages (Blasts)
     messages.forEach((msg) => {
+      if (!isSuperAdmin) {
+        const belongs = (msg.eventId && myEventIdSet.has(msg.eventId)) ||
+          (user?.uid && (msg.createdBy === user.uid || msg.senderId === user.uid));
+        if (!belongs) return;
+      }
+      if (selectedEventId && msg.eventId && msg.eventId !== selectedEventId) {
+        return;
+      }
+
       const rawDate = msg.sentAt?.toDate ? msg.sentAt.toDate() : msg.createdAt?.toDate ? msg.createdAt.toDate() : msg.createdAt ? new Date(msg.createdAt) : new Date();
-      const eventName = msg.eventName || eventsMap[msg.eventId]?.name || "Tech Fest 2026";
+      const eventName = msg.eventName || eventsMap[msg.eventId]?.name || "Event";
       const isFailed = msg.status === "failed";
       const count = msg.recipientCount || msg.successCount || 0;
       const blastId = `blast_${msg.id}`;
 
       feed.push({
         id: blastId,
+        eventId: msg.eventId,
         type: "Blasts",
         avatar: isFailed ? "!" : "TL",
         avatarBg: "bg-[#2A2D31]",
@@ -294,14 +411,21 @@ export default function ActivityPage() {
       });
     });
 
-    // Fallback to server-fetched activities if client subscriptions returned no items
+    // Fallback to server-fetched activities if client live feed has no items
     if (feed.length === 0 && apiActivities.length > 0) {
-      return apiActivities.map((act) => {
+      const filteredApi = apiActivities.filter((act) => {
+        if (!isSuperAdmin && act.eventId && !myEventIdSet.has(act.eventId)) return false;
+        if (selectedEventId && act.eventId && act.eventId !== selectedEventId) return false;
+        return true;
+      });
+
+      return filteredApi.map((act) => {
         const rawDate = act.timestamp ? new Date(act.timestamp) : new Date();
         const attendeeName = act.title.replace(/ (registered|checked in).*$/, "") || "Attendee";
         const avatar = getAvatar(attendeeName);
         return {
           id: act.id,
+          eventId: act.eventId,
           type: act.type || "Registrations",
           avatar: act.type === "Blasts" ? (act.title.includes("failed") ? "!" : "TL") : avatar.text,
           avatarBg: act.type === "Check-ins" ? "bg-pink-600" : act.type === "Blasts" ? "bg-[#2A2D31]" : avatar.bg,
@@ -313,10 +437,9 @@ export default function ActivityPage() {
       });
     }
 
-    // Sort newest first
     feed.sort((a, b) => b.timestamp - a.timestamp);
     return feed;
-  }, [registrations, messages, eventsMap, readIds, apiActivities]);
+  }, [eventsLoaded, isSuperAdmin, myEventIdSet, registrations, messages, eventsMap, selectedEventId, readIds, apiActivities, user]);
 
   const markAllAsRead = () => {
     const allIds = liveNotifications.map((n) => n.id);
@@ -346,6 +469,13 @@ export default function ActivityPage() {
 
   const filteredRequests = useMemo(() => {
     return hostingRequests.filter((item) => {
+      if (!isSuperAdmin) {
+        const reqEmail = String(item.email || "").toLowerCase().trim();
+        const isOwner =
+          (user?.uid && (item.userId === user.uid || item.organiserId === user.uid)) ||
+          (emailLower && reqEmail === emailLower);
+        if (!isOwner) return false;
+      }
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
@@ -355,7 +485,9 @@ export default function ActivityPage() {
       }
       return true;
     });
-  }, [hostingRequests, search]);
+  }, [hostingRequests, isSuperAdmin, user, emailLower, search]);
+
+  const hasNoEvents = eventsLoaded && !isSuperAdmin && eventsList.length === 0;
 
   return (
     <OrganiserShell allowAnyUser={true}>
@@ -378,7 +510,7 @@ export default function ActivityPage() {
               </p>
             ) : (
               <p className="text-sm text-[#9B9EA4] mt-1">
-                Live stream of guest check-ins, ticket registrations, and event updates.
+                Live stream of guest check-ins, ticket registrations, and updates for your events.
               </p>
             )}
           </div>
@@ -412,11 +544,11 @@ export default function ActivityPage() {
           </div>
         </div>
 
-        {/* View 1: Notifications (Image 3) */}
+        {/* View 1: Notifications */}
         {activeTab === "notifications" && (
           <div className="space-y-4">
-            {/* Filter Pills + Mark all as read */}
-            <div className="flex items-center justify-between gap-4 flex-wrap pt-1">
+            {/* Filter Pills + Event Selector + Search + Mark all as read */}
+            <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
               <div className="flex items-center gap-2 flex-wrap">
                 {["All", "Registrations", "Check-ins", "Blasts"].map((tab) => {
                   const isActive = notifFilter === tab;
@@ -437,13 +569,46 @@ export default function ActivityPage() {
                 })}
               </div>
 
-              <button
-                type="button"
-                onClick={markAllAsRead}
-                className="text-xs sm:text-sm text-[#9B9EA4] hover:text-white transition-colors"
-              >
-                Mark all as read
-              </button>
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Event Selector Dropdown if organiser has multiple events */}
+                {eventsList.length > 1 && (
+                  <div className="relative">
+                    <select
+                      value={selectedEventId}
+                      onChange={(e) => setSelectedEventId(e.target.value)}
+                      className="appearance-none pl-3 pr-8 py-1.5 rounded-xl text-xs font-medium bg-[#1A1C1F] border border-[#2A2D31] text-[#D0D0D1] hover:text-white focus:outline-none focus:border-[#FE760B] cursor-pointer"
+                    >
+                      <option value="">All Events ({eventsList.length})</option>
+                      {eventsList.map((ev) => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3.5 h-3.5 text-[#9B9EA4] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                )}
+
+                {/* Search */}
+                <div className="relative w-40 sm:w-48">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#9B9EA4]" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search activity..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-[#1A1C1F] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B]"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={markAllAsRead}
+                  className="text-xs text-[#9B9EA4] hover:text-white transition-colors"
+                >
+                  Mark all as read
+                </button>
+              </div>
             </div>
 
             {/* Notifications Card List */}
@@ -453,10 +618,32 @@ export default function ActivityPage() {
                   <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
                   <p className="text-sm">Connecting to live activity stream...</p>
                 </div>
+              ) : hasNoEvents ? (
+                <div className="p-12 sm:p-16 text-center text-[#9B9EA4] text-sm space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B] mx-auto mb-2">
+                    <Calendar className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">No Events Created Yet</h3>
+                  <p className="text-xs text-[#9B9EA4] max-w-md mx-auto leading-relaxed">
+                    Your organiser activity feed is dedicated strictly to your events. Once you create an event and receive registrations, check-ins, or send broadcasts, your live activity stream will appear here.
+                  </p>
+                  <div className="pt-2">
+                    <Link
+                      href="/admin/create-event"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs transition-colors shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Create First Event</span>
+                    </Link>
+                  </div>
+                </div>
               ) : filteredNotifications.length === 0 ? (
                 <div className="p-16 text-center text-[#9B9EA4] text-sm space-y-2">
                   <Bell className="w-8 h-8 text-[#5C6066] mx-auto mb-2 opacity-60" />
-                  <p className="font-semibold text-white">No {notifFilter === "All" ? "" : notifFilter.toLowerCase()} activity recorded yet</p>
+                  <p className="font-semibold text-white">
+                    No {notifFilter === "All" ? "" : notifFilter.toLowerCase()} activity recorded yet
+                    {selectedEventId && eventsMap[selectedEventId] ? ` for ${eventsMap[selectedEventId].name}` : ""}
+                  </p>
                   <p className="text-xs text-[#9B9EA4] max-w-sm mx-auto">
                     Live stream of attendee registrations, QR check-ins, and broadcast updates will appear here in real time.
                   </p>
@@ -506,7 +693,7 @@ export default function ActivityPage() {
           <div className="space-y-4">
             {/* List of Requests */}
             <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] divide-y divide-[#2A2D31] overflow-hidden shadow-sm">
-              {hostingRequests.length === 0 ? (
+              {filteredRequests.length === 0 ? (
                 <div className="p-16 text-center text-[#9B9EA4] text-sm space-y-2">
                   <Calendar className="w-8 h-8 text-[#5C6066] mx-auto mb-2 opacity-60" />
                   <p className="font-semibold text-white">No hosting requests yet</p>
@@ -573,5 +760,22 @@ export default function ActivityPage() {
         )}
       </div>
     </OrganiserShell>
+  );
+}
+
+export default function ActivityPage() {
+  return (
+    <Suspense
+      fallback={
+        <OrganiserShell allowAnyUser={true}>
+          <div className="p-16 flex flex-col items-center justify-center gap-3 text-[#9B9EA4]">
+            <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+            <p className="text-sm">Loading activity...</p>
+          </div>
+        </OrganiserShell>
+      }
+    >
+      <ActivityContent />
+    </Suspense>
   );
 }
