@@ -67,7 +67,16 @@ export function RegistrationManagement() {
           allEvents = [];
         }
         
-        setEvents(allEvents || []);
+        const uniqueEvents = [];
+        const seenIds = new Set();
+        for (const ev of (allEvents || [])) {
+          if (ev && ev.id && !seenIds.has(ev.id)) {
+            seenIds.add(ev.id);
+            uniqueEvents.push(ev);
+          }
+        }
+        
+        setEvents(uniqueEvents);
       } catch (error) {
         console.error("Error loading events:", error);
         toast.error("Failed to load events");
@@ -208,8 +217,8 @@ export function RegistrationManagement() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">Registrations</h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
+        <h2 className="text-3xl font-extrabold text-white">Registrations</h2>
+        <p className="text-[#9B9EA4] mt-1">
           View and manage event registrations
         </p>
       </div>
@@ -217,13 +226,13 @@ export function RegistrationManagement() {
       {/* EVENT SELECT */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <label className="text-sm font-medium flex items-center gap-1 text-[#FF6A00]">
+          <label className="text-sm font-medium flex items-center gap-1 text-[#FE760B]">
             <Filter className="w-3.5 h-3.5" /> {user?.role === "organiser" ? "Your Event" : "Event"}
           </label>
 
           {user?.role === "organiser" ? (
             /* Show event name for organisers (not editable) */
-            <div className="w-full h-10 px-3 py-2 bg-white dark:bg-black/50 border border-[#FF6A00]/30 rounded-md text-gray-900 dark:text-white flex items-center">
+            <div className="w-full h-10 px-3 py-2 bg-[#1A1C1F] border border-[#2A2D31] rounded-md text-white flex items-center">
               {events.length > 0 ? (
                 <span className="font-medium">{events[0].name}</span>
               ) : (
@@ -242,9 +251,9 @@ export function RegistrationManagement() {
                 <SelectValue placeholder="Select event" />
               </SelectTrigger>
               <SelectContent>
-                {events.map((event) => (
-                  <SelectItem key={event.id} value={event.id}>
-                    {event.name}
+                {events.map((event, idx) => (
+                  <SelectItem key={`${event.id || "event"}-${idx}`} value={event.id}>
+                    {event.name || event.title || "Untitled Event"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -254,7 +263,7 @@ export function RegistrationManagement() {
 
         {/* SEARCH */}
         <div>
-          <label className="text-sm font-medium flex items-center gap-1 text-[#FF6A00]">
+          <label className="text-sm font-medium flex items-center gap-1 text-[#FE760B]">
             <Search className="w-3.5 h-3.5" /> Search
           </label>
 
@@ -262,7 +271,7 @@ export function RegistrationManagement() {
             placeholder="Name, email, ticket ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-white dark:bg-black/50 border-[#FF6A00]/30 text-gray-900 dark:text-white placeholder-gray-400"
+            className="bg-[#1A1C1F] border-[#2A2D31] text-white placeholder-gray-400"
           />
         </div>
 
@@ -272,7 +281,7 @@ export function RegistrationManagement() {
             <Button
               onClick={exportToExcel}
               disabled={isExporting || filteredRegistrations.length === 0}
-              className="w-full"
+              className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-sm transition-colors rounded-xl h-10 shadow-sm"
             >
               {isExporting ? (
                 <>
@@ -292,110 +301,122 @@ export function RegistrationManagement() {
 
       {/* STATS */}
       {selectedEventId && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 border border-[#FF6A00]/30 bg-white dark:bg-black/50 rounded-xl text-center">
-            <Users className="mx-auto mb-2 text-[#FF6A00]" />
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-            <p className="text-gray-500 dark:text-gray-400">Total</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="p-3 sm:p-4 border border-[#2A2D31] bg-[#1A1C1F] rounded-xl text-center">
+            <Users className="mx-auto mb-2 text-[#FE760B] w-4 h-4 sm:w-5 sm:h-5" />
+            <p className="text-xl sm:text-2xl font-bold text-white tabular-nums">{stats.total}</p>
+            <p className="text-[11px] sm:text-xs text-[#9B9EA4] mt-0.5">Total</p>
           </div>
 
-          <div className="p-4 border border-[#FF6A00]/30 bg-white dark:bg-black/50 rounded-xl text-center">
-            <CheckCircle2 className="mx-auto mb-2 text-[#FF6A00]" />
-            <p className="text-2xl font-bold text-[#FF6A00]">{stats.used}</p>
-            <p className="text-gray-500 dark:text-gray-400">Scanned</p>
+          <div className="p-3 sm:p-4 border border-[#2A2D31] bg-[#1A1C1F] rounded-xl text-center">
+            <CheckCircle2 className="mx-auto mb-2 text-[#3DD68C] w-4 h-4 sm:w-5 sm:h-5" />
+            <p className="text-xl sm:text-2xl font-bold text-[#3DD68C] tabular-nums">{stats.used}</p>
+            <p className="text-[11px] sm:text-xs text-[#9B9EA4] mt-0.5">Checked in</p>
           </div>
 
-          <div className="p-4 border border-[#FF6A00]/30 bg-white dark:bg-black/50 rounded-xl text-center">
-            <Clock className="mx-auto mb-2 text-yellow-500" />
-            <p className="text-2xl font-bold text-yellow-500">{stats.unused}</p>
-            <p className="text-gray-500 dark:text-gray-400">Pending</p>
+          <div className="p-3 sm:p-4 border border-[#2A2D31] bg-[#1A1C1F] rounded-xl text-center">
+            <Clock className="mx-auto mb-2 text-[#FDE003] w-4 h-4 sm:w-5 sm:h-5" />
+            <p className="text-xl sm:text-2xl font-bold text-[#FDE003] tabular-nums">{stats.unused}</p>
+            <p className="text-[11px] sm:text-xs text-[#9B9EA4] mt-0.5">Unused</p>
           </div>
         </div>
       )}
 
       {/* REGISTRATIONS TABLE */}
       {selectedEventId && (
-        <div className="rounded-2xl border border-[#FF6A00]/30 bg-white dark:bg-black/50 overflow-hidden mt-6 shadow-sm">
+        <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden mt-6 shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#FF6A00]/20">
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
+                <tr className="border-b border-[#2A2D31]">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
                     Ticket ID
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
                     Full Name
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
                     Phone
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-5 py-4 text-left text-xs font-semibold text-[#FF6A00] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
                     Registered
                   </th>
                 </tr>
               </thead>
-                <tbody className="divide-y divide-[#FF6A00]/10">
+              <tbody className="divide-y divide-[#2A2D31]">
                 {isLoading ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-12 text-center">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#FF6A00]" />
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#FE760B]" />
                     </td>
                   </tr>
                 ) : filteredRegistrations.length === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-5 py-12 text-center text-gray-400"
+                      className="px-5 py-12 text-center text-[#9B9EA4]"
                     >
-                      <div className="w-12 h-12 rounded-full bg-[#FF6A00]/10 flex items-center justify-center mx-auto mb-3">
-                        <Ticket className="w-6 h-6 text-[#FF6A00]" />
+                      <div className="w-12 h-12 rounded-full bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-3">
+                        <Ticket className="w-6 h-6 text-[#FE760B]" />
                       </div>
                       No registrations found
                     </td>
                   </tr>
                 ) : (
-                  filteredRegistrations.map((reg) => (
-                    <tr
-                      key={reg.id}
-                      className="hover:bg-[#FF6A00]/5 transition-colors"
-                    >
-                      <td className="px-5 py-4 text-sm font-mono text-[#FF6A00]">
-                        {reg.ticketId}
-                      </td>
-                      <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">
-                        {reg.fullName || "-"}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">{reg.email || "-"}</td>
-                      <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
-                        {reg.whatsappPhone || "-"}
-                      </td>
-                      <td className="px-5 py-4 text-sm">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${reg.status === "Used" ? "bg-[#FF6A00]/20 text-[#FF6A00] border border-[#FF6A00]/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}
-                        >
-                          {reg.status === "Used" ? (
-                            <CheckCircle2 className="w-3 h-3" />
+                  filteredRegistrations.map((reg) => {
+                    const isUsed = reg.status === "Used" || reg.status === "checked_in";
+                    return (
+                      <tr
+                        key={reg.id}
+                        className="hover:bg-[#212327]/60 transition-colors"
+                      >
+                        <td className="px-5 py-4 text-sm font-mono text-[#FE760B]">
+                          {reg.ticketId}
+                        </td>
+                        <td className="px-5 py-4 text-sm font-medium text-white">
+                          {reg.fullName || "-"}
+                        </td>
+                        <td className="px-5 py-4 text-sm text-[#D0D0D1]">{reg.email || "-"}</td>
+                        <td className="px-5 py-4 text-sm text-[#D0D0D1]">
+                          {reg.whatsappPhone || "-"}
+                        </td>
+                        <td className="px-5 py-4 text-sm">
+                          {isUsed ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/25">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                              Checked in
+                            </span>
                           ) : (
-                            <Clock className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FE760B]/14 text-[#FE760B] border border-[#FE760B]/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
+                              Unused
+                            </span>
                           )}
-                          {reg.status || "-"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
-                        {reg.createdAt?.toDate
-                          ? reg.createdAt.toDate().toLocaleDateString()
-                          : reg.createdAt
-                            ? new Date(reg.createdAt).toLocaleDateString()
-                            : "N/A"}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-5 py-4 text-sm text-[#9B9EA4]">
+                          {reg.createdAt?.toDate
+                            ? reg.createdAt.toDate().toLocaleDateString("en-IN", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : reg.createdAt
+                              ? new Date(reg.createdAt).toLocaleDateString("en-IN", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "N/A"}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -404,12 +425,12 @@ export function RegistrationManagement() {
       )}
 
       {!selectedEventId && (
-        <div className="text-center py-20">
-          <div className="w-20 h-20 rounded-full bg-[#FF6A00]/10 flex items-center justify-center mx-auto mb-6">
-            <Users className="w-10 h-10 text-[#FF6A00]" />
+        <div className="text-center py-20 bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl">
+          <div className="w-16 h-16 rounded-full bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4">
+            <Users className="w-8 h-8 text-[#FE760B]" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Select an Event</h3>
-          <p className="text-gray-500 dark:text-gray-400">
+          <h3 className="text-xl font-bold text-white">Select an event</h3>
+          <p className="text-sm text-[#9B9EA4] mt-1">
             Choose an event above to view registrations
           </p>
         </div>

@@ -98,6 +98,8 @@ export async function POST(request) {
         status: "Unused",
         paymentStatus: "free",
         entitledSubEventIds: [],
+        qrCode: qrCodeUrl,
+        qrPayload,
         createdAt: now,
         updatedAt: now,
       });

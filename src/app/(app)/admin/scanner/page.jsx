@@ -4,7 +4,7 @@ import { QRScanner } from '@/components/admin/qr-scanner';
 
 export default function ScannerPage() {
   return (
-    <div className="p-8">
+    <div className="py-4 sm:py-6 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full">
       <QRScanner />
     </div>
   );

@@ -2,85 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
-import { Check, Zap, Star, Crown, Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-const PLANS = [
-  {
-    id: "free",
-    name: "Free",
-    price: 0,
-    icon: Star,
-    iconColor: "text-gray-500",
-    iconBg: "bg-gray-100",
-    borderColor: "border-gray-200",
-    badgeColor: "",
-    features: [
-      "1 event",
-      "300 participants per event",
-      "Basic registration form",
-      "QR code tickets",
-      "Email delivery",
-    ],
-    limitations: [
-      "No custom branding",
-      "No payment integration",
-      "No analytics",
-      "No broadcast messaging",
-    ],
-    cta: "Current Plan",
-    highlighted: false,
-  },
-  {
-    id: "starter",
-    name: "Starter",
-    price: 999,
-    icon: Zap,
-    iconColor: "text-[#FF6A00]",
-    iconBg: "bg-orange-100",
-    borderColor: "border-[#FF6A00]/30",
-    badgeColor: "bg-orange-100 text-[#FF6A00]",
-    badge: "Popular",
-    features: [
-      "3 events",
-      "1,000 participants per event",
-      "Custom branding & theme",
-      "Custom event URL slug",
-      "Banner image upload",
-      "Payment integration (Razorpay)",
-      "Social links",
-      "Analytics dashboard",
-      "Broadcast messaging",
-      "Email support",
-    ],
-    limitations: [],
-    cta: "Upgrade to Starter",
-    highlighted: true,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 2499,
-    icon: Crown,
-    iconColor: "text-purple-600",
-    iconBg: "bg-purple-100",
-    borderColor: "border-purple-200",
-    badgeColor: "bg-purple-100 text-purple-600",
-    badge: "Best Value",
-    features: [
-      "10 events",
-      "Unlimited participants",
-      "Everything in Starter",
-      "Priority support",
-      "Advanced analytics",
-      "Early access to new features",
-    ],
-    limitations: [],
-    cta: "Upgrade to Pro",
-    highlighted: false,
-  },
-];
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function PricingPage() {
   const { user } = useAuth();
@@ -89,6 +16,18 @@ export default function PricingPage() {
   const [upgrading, setUpgrading] = useState(null);
 
   const currentPlan = user?.plan || "free";
+
+  const userInitials = user?.fullName
+    ? user.fullName
+        .trim()
+        .split(/\s+/)
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "TO";
 
   // Load Razorpay checkout script
   useEffect(() => {
@@ -103,7 +42,7 @@ export default function PricingPage() {
 
   const handleUpgrade = async (planId) => {
     if (!user) {
-      router.push("/user-login");
+      router.push("/login");
       return;
     }
 
@@ -190,142 +129,279 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50/30 py-8 px-4 sm:py-12 lg:py-16">
-      <div className="mx-auto mb-8 max-w-5xl">
-        <button type="button" onClick={() => router.push("/admin/dashboard")} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-[#FF6A00] hover:text-[#FF6A00]">
-          <ArrowLeft size={16} /> Back to Dashboard
-        </button>
-      </div>
-      {/* Header */}
-      <div className="text-center max-w-2xl mx-auto mb-14">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-100 text-[#FF6A00] rounded-full text-sm font-semibold mb-6">
-          <Zap size={14} />
-          Simple, Transparent Pricing
+    <div className="min-h-screen bg-[#131517] text-white selection:bg-[#FE760B] selection:text-white relative flex flex-col justify-between">
+      {/* Subtle top ambient glow */}
+      <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-[#FE760B]/10 via-[#FE760B]/5 to-transparent pointer-events-none" />
+
+      {/* Top Header Navigation matching Image 2 */}
+      <header className="relative z-20 w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Link href="/" className="shrink-0 flex items-center group">
+            <Image
+              src="/logo/ticketlelo-logo-nav.png"
+              alt="TicketLelo"
+              width={100}
+              height={26}
+              className="h-6 sm:h-7 w-auto object-contain transition-opacity group-hover:opacity-95"
+              priority
+            />
+          </Link>
+          <Link
+            href={user ? "/admin/dashboard" : "/"}
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[#D0D0D1] hover:text-white transition-colors"
+          >
+            <ArrowLeft size={14} className="shrink-0" />
+            <span>Back to dashboard</span>
+          </Link>
         </div>
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
-          Choose Your Plan
-        </h1>
-        <p className="text-lg text-gray-500">
-          Scale your events without limits. Start free, upgrade when you&apos;re
-          ready.
-        </p>
-      </div>
 
-      {/* Plans Grid */}
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {PLANS.map((plan) => {
-          const Icon = plan.icon;
-          const isCurrent = currentPlan === plan.id;
-          const isUpgrading = upgrading === plan.id;
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle inline />
+          {/* Profile Circle at Top Right matching Image 2 */}
+          <Link
+            href="/account"
+            title="Account profile"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-[#131517] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm hover:opacity-90 transition-opacity"
+          >
+            {userInitials}
+          </Link>
+        </div>
+      </header>
 
-          return (
-            <div
-              key={plan.id}
-              className={`relative bg-white rounded-3xl border-2 ${plan.borderColor} shadow-sm p-8 flex flex-col transition-all hover:shadow-md ${
-                plan.highlighted
-                  ? "ring-2 ring-[#FF6A00]/30 shadow-lg shadow-[#FF6A00]/10"
-                  : ""
-              }`}
-            >
-              {plan.badge && (
-                <div
-                  className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold ${plan.badgeColor}`}
-                >
-                  {plan.badge}
-                </div>
-              )}
+      {/* Main Content Area */}
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-10 flex-1 flex flex-col justify-center">
+        {/* Header Section matching Image 2 */}
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#FE760B] mb-2 sm:mb-2.5">
+            SIMPLE, TRANSPARENT PRICING
+          </p>
+          <h1 className="text-3xl sm:text-4xl lg:text-[40px] font-bold text-white tracking-tight mb-2 sm:mb-2.5">
+            Choose your plan
+          </h1>
+          <p className="text-xs sm:text-sm text-[#9B9EA4] font-normal">
+            Start free, upgrade when you&apos;re ready. Cancel or change anytime.
+          </p>
+        </div>
 
-              {isCurrent && (
-                <div className="absolute -top-3.5 right-6 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
-                  Current Plan
-                </div>
-              )}
-
-              <div
-                className={`w-12 h-12 ${plan.iconBg} rounded-2xl flex items-center justify-center mb-5`}
-              >
-                <Icon size={22} className={plan.iconColor} />
-              </div>
-
-              <h2 className="text-xl font-extrabold text-gray-900">
-                {plan.name}
-              </h2>
-
-              <div className="mt-3 mb-6">
-                {plan.price === 0 ? (
-                  <span className="text-4xl font-extrabold text-gray-900">
-                    Free
-                  </span>
-                ) : (
-                  <div className="flex items-end gap-1">
-                    <span className="text-4xl font-extrabold text-gray-900">
-                      ₹{plan.price.toLocaleString("en-IN")}
-                    </span>
-                    <span className="text-gray-400 text-sm mb-1">/month</span>
+        {/* 3 Cards Grid strictly matching Image 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 items-stretch max-w-5xl mx-auto w-full">
+          {/* Card 1: Free */}
+          <div
+            className={`bg-[#1A1C1F] rounded-2xl p-5 sm:p-6 flex flex-col justify-between transition-all ${
+              currentPlan === "free"
+                ? "border border-[#2A2D31]"
+                : "border border-[#2A2D31] hover:border-[#3A3D42]"
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3.5">
+                <h2 className="text-base sm:text-lg font-bold text-white">Free</h2>
+                {currentPlan === "free" && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#212327] border border-[#2A2D31] text-[11px] text-[#D0D0D1] font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                    <span>Current plan</span>
                   </div>
                 )}
               </div>
 
-              <ul className="space-y-3 flex-1 mb-8">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2.5">
-                    <Check
-                      size={16}
-                      className="text-green-500 flex-shrink-0 mt-0.5"
-                    />
-                    <span className="text-sm text-gray-700">{feature}</span>
-                  </li>
-                ))}
-                {plan.limitations.map((lim, i) => (
-                  <li
-                    key={`lim-${i}`}
-                    className="flex items-start gap-2.5 opacity-40"
-                  >
-                    <Check
-                      size={16}
-                      className="text-gray-300 flex-shrink-0 mt-0.5"
-                    />
-                    <span className="text-sm text-gray-400 line-through">
-                      {lim}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-5 sm:mb-6">
+                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  ₹0
+                </span>
+                <span className="text-xs text-[#9B9EA4] font-normal">/ month</span>
+              </div>
 
+              {/* Features List with refined font-medium weight */}
+              <ul className="space-y-3 text-xs text-[#D0D0D1]">
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">1 event</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">300 guests per event</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Basic registration form</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">QR tickets & email delivery</span>
+                </li>
+                <li className="flex items-center gap-2.5 text-[#9B9EA4]">
+                  <span className="text-[#9B9EA4] font-semibold shrink-0">✕</span>
+                  <span className="font-medium text-[#9B9EA4]">No payments, branding, insights or blasts</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Button */}
+            <div className="mt-6 sm:mt-8">
               <button
-                onClick={() => handleUpgrade(plan.id)}
-                disabled={isCurrent || plan.id === "free" || isUpgrading}
-                className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                  isCurrent
-                    ? "bg-gray-100 text-gray-400 cursor-default"
-                    : plan.highlighted
-                      ? "bg-[#FF6A00] text-white hover:opacity-90 shadow-md shadow-[#FF6A00]/20"
-                      : plan.id === "pro"
-                        ? "bg-purple-600 text-white hover:bg-purple-700"
-                        : "bg-gray-100 text-gray-400 cursor-default"
+                type="button"
+                disabled={currentPlan === "free" || upgrading}
+                onClick={() => handleUpgrade("free")}
+                className="w-full py-2.5 sm:py-3 rounded-xl font-medium text-xs sm:text-sm bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default text-center transition-colors"
+              >
+                {currentPlan === "free" ? "Your current plan" : "Select Free"}
+              </button>
+            </div>
+          </div>
+
+          {/* Card 2: Starter (Highlighted in Image 2) */}
+          <div
+            className="bg-[#1A1C1F] rounded-2xl p-5 sm:p-6 flex flex-col justify-between relative transition-all border-2 border-[#FE760B] shadow-xl shadow-[#FE760B]/10"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3.5">
+                <h2 className="text-base sm:text-lg font-bold text-white">Starter</h2>
+                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#2A1D13] text-[#FE760B] border border-[#FE760B]/30 text-[10px] sm:text-[11px] font-semibold">
+                  Popular
+                </div>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-5 sm:mb-6">
+                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  ₹999
+                </span>
+                <span className="text-xs text-[#9B9EA4] font-normal">/ month</span>
+              </div>
+
+              {/* Features List with refined font-medium weight */}
+              <ul className="space-y-3 text-xs text-[#D0D0D1]">
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">3 events</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">1,000 guests per event</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Razorpay payments & coupons</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Custom branding, banner & URL</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Insights & blasts</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Email support</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Button */}
+            <div className="mt-6 sm:mt-8">
+              <button
+                type="button"
+                disabled={currentPlan === "starter" || upgrading}
+                onClick={() => handleUpgrade("starter")}
+                className={`w-full py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                  currentPlan === "starter"
+                    ? "bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default"
+                    : "bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] shadow-lg shadow-[#FE760B]/20"
                 }`}
               >
-                {isUpgrading ? (
+                {upgrading === "starter" ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Processing...
+                    <Loader2 size={16} className="animate-spin text-[#131517]" />
+                    <span>Processing...</span>
                   </>
-                ) : isCurrent ? (
-                  "Current Plan"
+                ) : currentPlan === "starter" ? (
+                  "Your current plan"
                 ) : (
-                  plan.cta
+                  "Upgrade to Starter"
                 )}
               </button>
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* FAQ Note */}
-      <p className="text-center text-sm text-gray-400 mt-10">
-        All plans include QR code ticketing and email delivery. Cancel or
-        upgrade anytime.
-      </p>
+          {/* Card 3: Pro */}
+          <div
+            className="bg-[#1A1C1F] rounded-2xl p-5 sm:p-6 flex flex-col justify-between transition-all border border-[#2A2D31] hover:border-[#3A3D42]"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3.5">
+                <h2 className="text-base sm:text-lg font-bold text-white">Pro</h2>
+                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#2B2816] text-[#FDE003] border border-[#FDE003]/30 text-[10px] sm:text-[11px] font-semibold">
+                  Best value
+                </div>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-5 sm:mb-6">
+                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  ₹2,499
+                </span>
+                <span className="text-xs text-[#9B9EA4] font-normal">/ month</span>
+              </div>
+
+              {/* Features List with refined font-medium weight */}
+              <ul className="space-y-3 text-xs text-[#D0D0D1]">
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">10 events</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Unlimited guests</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Everything in Starter</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Advanced insights</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="font-medium text-[#D0D0D1]">Priority support & early access</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Button: White CTA matching Image 2 */}
+            <div className="mt-6 sm:mt-8">
+              <button
+                type="button"
+                disabled={currentPlan === "pro" || upgrading}
+                onClick={() => handleUpgrade("pro")}
+                className={`w-full py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                  currentPlan === "pro"
+                    ? "bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default"
+                    : "bg-white hover:bg-slate-100 text-[#131517] shadow-md"
+                }`}
+              >
+                {upgrading === "pro" ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin text-[#131517]" />
+                    <span>Processing...</span>
+                  </>
+                ) : currentPlan === "pro" ? (
+                  "Your current plan"
+                ) : (
+                  "Upgrade to Pro"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Note matching Image 2 */}
+        <p className="text-center text-xs text-[#9B9EA4] font-normal mt-8 sm:mt-10">
+          All plans include QR ticketing and email delivery.
+        </p>
+      </div>
     </div>
   );
 }

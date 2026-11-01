@@ -108,6 +108,12 @@ export async function POST(request) {
       updates.themeColor = themeColor;
     }
 
+    // ======= Validate & Set Ticket Design Layout =======
+    const ticketDesign = formData.get("ticketDesign");
+    if (ticketDesign && (ticketDesign === "stub" || ticketDesign === "wide")) {
+      updates.ticketDesign = ticketDesign;
+    }
+
     // ======= Handle Banner Upload =======
     if (bannerFile && bannerFile.size > 0) {
       // Validate file size (max 5MB)

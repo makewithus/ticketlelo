@@ -17,6 +17,9 @@ module.exports = {
       },
     },
     extend: {
+      screens: {
+        xs: "380px",
+      },
       fontFamily: {
         sans: [
           "var(--font-inter)",
@@ -26,6 +29,12 @@ module.exports = {
           "Segoe UI",
           "Roboto",
           "sans-serif",
+        ],
+        mono: [
+          "var(--font-mono)",
+          "JetBrains Mono",
+          "ui-monospace",
+          "monospace",
         ],
       },
       colors: {
@@ -62,37 +71,70 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // ─── Ticketlelo Design System ───────────────────────────────
+        // ─── Ticketlelo Official Brand Design System ───────────────────────────────
+        tl: {
+          orange:       "#FE760B", // --tl-orange (Live state, accent button, active switch)
+          "orange-hover": "#FF8A2B", // --tl-orange-hover (Hover on orange buttons)
+          "orange-text":  "#FF9A4D", // --tl-orange-text (Links and text on dark)
+          yellow:       "#FDE003", // --tl-yellow (Logo ticket, pending/warning, chart base)
+          green:        "#3DD68C", // --tl-green (Published, checked in, paid, approved, saved)
+          red:          "#FF6B6B", // --tl-red (Failed, rejected, invalid, over limit)
+          "red-text":   "#FF9A9A", // --tl-red-text (Error messages & destructive button text)
+          blue:         "#7AA2FF", // --tl-blue (Scheduled, coupons, informational)
+          "chart-1":    "#F9F669", // --tl-chart-1 (Lowest / oldest layer)
+          "chart-2":    "#F8AE39", // --tl-chart-2 (Second layer)
+          "chart-3":    "#FE6833", // --tl-chart-3 (Third layer)
+          "chart-4":    "#D31817", // --tl-chart-4 (Highest / newest layer)
+          bg:           "#131517", // --tl-bg (Canvas page background)
+          s1:           "#1A1C1F", // --tl-s1 (Surface 1: cards, list containers)
+          s2:           "#212327", // --tl-s2 (Surface 2: dropdowns, modals, drawers)
+          s3:           "#2A2D31", // --tl-s3 (Surface 3: selected segment, avatar fallback, borders)
+          plot:         "#000000", // --tl-plot (Chart plot area only)
+          t1:           "#FFFFFF", // --tl-t1 (Headings, body, primary button text)
+          t2:           "#D0D0D1", // --tl-t2 (Supporting copy)
+          t3:           "#9B9EA4", // --tl-t3 (Labels, meta, icons)
+          off:          "#5C6066", // --tl-off (Dots and disabled states only)
+        },
         brand: {
-          primary:      "#FF6A00", // CTA buttons, active states
-          hover:        "#E65C00", // primary hover
-          accent:       "#FFD60A", // sparingly: icons, highlights
-          gradient:     "#FFB800", // gradient end (hero only)
+          primary:      "#FE760B", // Ticket Orange
+          hover:        "#FF8A2B", // Orange Hover
+          text:         "#FF9A4D", // Orange text
+          accent:       "#FDE003", // Sunny Yellow
+          gradient:     "#FF8A2B",
         },
-        // Light mode
+        // Surfaces & Neutrals
+        canvas:         "#131517",
+        surface: {
+          1:            "#1A1C1F",
+          2:            "#212327",
+          3:            "#2A2D31",
+        },
+        // Light theme mapping
         light: {
-          bg:           "#F8FAFC",
-          surface:      "#FFFFFF",
-          secondary:    "#F1F5F9",
-          text:         "#0F172A",
-          textSecondary:"#475569",
-          muted:        "#94A3B8",
-          border:       "#E2E8F0",
+          bg:           "#F7F5EE",
+          surface:      "#FFFDFA",
+          secondary:    "#F7F5EE",
+          text:         "#061A3F",
+          textSecondary:"#4A566F",
+          muted:        "#4A566F",
+          border:       "#D9DBE0",
+          accent:       "#FE760B",
         },
-        // Dark mode
+        // Dark theme (Canvas & Surfaces)
         dark: {
-          bg:           "#0B0F14",
-          surface:      "#111827",
-          elevated:     "#1F2937",
-          text:         "#F9FAFB",
-          textSecondary:"#D1D5DB",
-          muted:        "#6B7280",
-          border:       "#374151",
+          bg:           "#131517",
+          surface:      "#1A1C1F",
+          elevated:     "#212327",
+          text:         "#FFFFFF",
+          textSecondary:"#D0D0D1",
+          muted:        "#9B9EA4",
+          border:       "#2A2D31",
         },
-        // Functional
-        success:  { DEFAULT: "#22C55E", dark: "#4ADE80" },
-        warning:  { DEFAULT: "#F59E0B", dark: "#FBBF24" },
-        error:    { DEFAULT: "#EF4444", dark: "#F87171" },
+        // Functional Status Colors
+        success:  { DEFAULT: "#3DD68C", dark: "#3DD68C" },
+        warning:  { DEFAULT: "#FDE003", dark: "#FDE003" },
+        error:    { DEFAULT: "#FF6B6B", dark: "#FF6B6B" },
+        info:     { DEFAULT: "#7AA2FF", dark: "#7AA2FF" },
       },
       borderRadius: {
         lg: "var(--radius)",

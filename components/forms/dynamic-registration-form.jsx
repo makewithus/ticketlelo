@@ -86,24 +86,38 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
             fields: [
               {
                 id: "fullName",
-                label: "Full Name",
+                label: "Name",
                 type: "text",
                 required: true,
-                placeholder: "Enter your full name",
+                placeholder: "Your full name",
               },
               {
                 id: "email",
-                label: "Email Address",
+                label: "Email",
                 type: "email",
                 required: true,
-                placeholder: "your.email@example.com",
+                placeholder: "you@example.com",
               },
               {
-                id: "phone",
-                label: "Phone Number",
-                type: "tel",
+                id: "college",
+                label: "College name",
+                type: "text",
                 required: true,
-                placeholder: "+91 XXXXX XXXXX",
+                placeholder: "Your college",
+              },
+              {
+                id: "yearOfStudy",
+                label: "Year of study",
+                type: "dropdown",
+                required: false,
+                placeholder: "Select",
+                options: [
+                  "1st Year",
+                  "2nd Year",
+                  "3rd Year",
+                  "4th Year",
+                  "Postgraduate",
+                ],
               },
             ],
             theme: {
@@ -111,8 +125,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               color: "#10b981",
             },
             // INHERIT payment info from actual event
-            isPaid: event?.isPaid || false,
-            amount: event?.ticketPrice || 0,
+            isPaid: event?.isPaid ?? ((event?.price || event?.ticketPrice) > 0),
+            amount: event?.price ?? event?.ticketPrice ?? 199,
             enableCoupons: true, // Always enable coupons for default forms
             status: "published",
             isDefault: true,
@@ -122,7 +136,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           setFormData({
             fullName: "",
             email: "",
-            phone: "",
+            college: "",
+            yearOfStudy: "",
           });
         }
       }, 0);
@@ -168,30 +183,44 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           setFormData(initialData);
           setRetryCount(0); // Reset retry count on success
         } else if (data.success && !data.form) {
-          // No custom form exists - create a default one
+          // No custom form exists - create a default one matching Image 1
           const defaultForm = {
             eventId: eventId,
             fields: [
               {
                 id: "fullName",
-                label: "Full Name",
+                label: "Name",
                 type: "text",
                 required: true,
-                placeholder: "Enter your full name",
+                placeholder: "Your full name",
               },
               {
                 id: "email",
-                label: "Email Address",
+                label: "Email",
                 type: "email",
                 required: true,
-                placeholder: "your.email@example.com",
+                placeholder: "you@example.com",
               },
               {
-                id: "phone",
-                label: "Phone Number",
-                type: "tel",
+                id: "college",
+                label: "College name",
+                type: "text",
                 required: true,
-                placeholder: "+91 XXXXX XXXXX",
+                placeholder: "Your college",
+              },
+              {
+                id: "yearOfStudy",
+                label: "Year of study",
+                type: "dropdown",
+                required: false,
+                placeholder: "Select",
+                options: [
+                  "1st Year",
+                  "2nd Year",
+                  "3rd Year",
+                  "4th Year",
+                  "Postgraduate",
+                ],
               },
             ],
             theme: {
@@ -199,8 +228,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               color: "#10b981",
             },
             // INHERIT payment info from actual event
-            isPaid: event?.isPaid || false,
-            amount: event?.ticketPrice || 0,
+            isPaid: event?.isPaid ?? ((event?.price || event?.ticketPrice) > 0),
+            amount: event?.price ?? event?.ticketPrice ?? 199,
             enableCoupons: true, // Always enable coupons for default forms
             status: "published",
             isDefault: true,
@@ -210,7 +239,8 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           setFormData({
             fullName: "",
             email: "",
-            phone: "",
+            college: "",
+            yearOfStudy: "",
           });
           setRetryCount(0);
 
@@ -523,22 +553,27 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
     try {
       // Find form field values - check both type and name for better matching
-      const emailField = customForm.fields?.find(
-        (f) => f.type === "email" || f.name?.toLowerCase().includes("email"),
-      );
-      const phoneField = customForm.fields?.find(
-        (f) =>
-          f.type === "tel" ||
-          f.name?.toLowerCase().includes("phone") ||
-          f.name?.toLowerCase().includes("mobile") ||
-          f.name?.toLowerCase().includes("contact") ||
-          f.name?.toLowerCase().includes("whatsapp") ||
-          (f.name?.toLowerCase().includes("number") &&
-            !f.name?.toLowerCase().includes("ticket")),
-      );
-      const nameField = customForm.fields?.find((f) =>
-        f.name?.toLowerCase().includes("name"),
-      );
+      const emailField = customForm.fields?.find((f) => {
+        const type = String(f?.type || "").toLowerCase();
+        const name = String(f?.name || f?.label || "").toLowerCase();
+        return type === "email" || name.includes("email");
+      });
+      const phoneField = customForm.fields?.find((f) => {
+        const type = String(f?.type || "").toLowerCase();
+        const name = String(f?.name || f?.label || "").toLowerCase();
+        return (
+          type === "tel" ||
+          name.includes("phone") ||
+          name.includes("mobile") ||
+          name.includes("contact") ||
+          name.includes("whatsapp") ||
+          (name.includes("number") && !name.includes("ticket"))
+        );
+      });
+      const nameField = customForm.fields?.find((f) => {
+        const name = String(f?.name || f?.label || "").toLowerCase();
+        return name.includes("name");
+      });
 
       let email = emailField ? formData[emailField.id]?.trim() : "";
       const phone = phoneField ? formData[phoneField.id]?.trim() : "";
@@ -812,9 +847,9 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
 
   const getFieldIcon = (field) => {
-    const id = (field.id || "").toLowerCase();
-    const type = (field.type || "").toLowerCase();
-    const label = (field.label || field.name || "").toLowerCase();
+    const id = String(field?.id ?? "").toLowerCase();
+    const type = String(field?.type ?? "").toLowerCase();
+    const label = String(field?.label || field?.name || "").toLowerCase();
 
     if (type === "email" || id.includes("email") || label.includes("email")) {
       return <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[rgba(6,26,63,0.54)] dark:text-slate-400 pointer-events-none" />;
@@ -850,95 +885,94 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       case "email":
       case "tel":
         return (
-          <div key={field.id} className="space-y-1.5">
-            <label className="block text-sm font-medium text-[#061a3f] dark:text-slate-200">
+          <div key={field.id} className="space-y-1">
+            <label className="block text-xs font-semibold text-[#D0D0D1]">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
             <div className="relative">
-              {getFieldIcon(field)}
               <input
                 type={field.type}
                 placeholder={
                   field.placeholder ||
-                  `Enter ${(field.label || field.name)?.toLowerCase() || "value"}`
+                  `Enter ${String(field.label || field.name || "value").toLowerCase()}`
                 }
                 value={value}
                 onChange={(e) => updateValue(e.target.value)}
                 disabled={isLoading}
-                className="w-full pl-11 pr-4 py-3 bg-[#eef2ff] dark:bg-slate-900 border border-[#c7d2fe] dark:border-slate-800 rounded-xl text-[#061a3f] dark:text-white placeholder:text-[rgba(6,26,63,0.42)] dark:placeholder:text-slate-500 focus:outline-none focus:border-[#3157ff] focus:ring-2 focus:ring-[#3157ff]/20 transition-all font-medium text-sm"
+                className="w-full px-3 py-1.5 h-8 sm:h-8.5 bg-[#212327] border border-[#2A2D31] rounded-lg text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-xs"
               />
             </div>
             {error && (
-              <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+              <p className="text-[10px] text-red-400">{error}</p>
             )}
           </div>
         );
 
       case "textarea":
         return (
-          <div key={field.id} className="space-y-1.5">
-            <label className="block text-sm font-medium text-[#061a3f] dark:text-slate-200">
+          <div key={field.id} className="space-y-1">
+            <label className="block text-xs font-semibold text-[#D0D0D1]">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
             <textarea
               placeholder={
                 field.placeholder ||
-                `Enter ${(field.label || field.name)?.toLowerCase() || "text"}`
+                `Enter ${String(field.label || field.name || "text").toLowerCase()}`
               }
               value={value}
               onChange={(e) => updateValue(e.target.value)}
               disabled={isLoading}
-              rows={3}
-              className="w-full p-3 bg-[#eef2ff] dark:bg-slate-900 border border-[#c7d2fe] dark:border-slate-800 rounded-xl text-[#061a3f] dark:text-white placeholder:text-[rgba(6,26,63,0.42)] dark:placeholder:text-slate-500 focus:outline-none focus:border-[#3157ff] focus:ring-2 focus:ring-[#3157ff]/20 transition-all font-medium text-sm resize-none"
+              rows={2}
+              className="w-full p-2.5 bg-[#212327] border border-[#2A2D31] rounded-lg text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-xs resize-none"
             />
             {error && (
-              <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+              <p className="text-[10px] text-red-400">{error}</p>
             )}
           </div>
         );
 
       case "radio":
         return (
-          <div key={field.id} className="space-y-2">
-            <label className="block text-sm font-medium text-[#061a3f] dark:text-slate-200">
+          <div key={field.id} className="space-y-1.5">
+            <label className="block text-xs font-semibold text-[#D0D0D1]">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {field.options?.map((option, idx) => (
                 <label
                   key={idx}
-                  className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+                  className={`flex items-center gap-2.5 p-2 rounded-lg border transition-all cursor-pointer ${
                     value === option
-                      ? "bg-[#3157ff]/10 border-[#3157ff] text-[#3157ff] dark:bg-[#3157ff]/15"
-                      : "bg-[#eef2ff]/70 dark:bg-slate-900/60 border-[#c7d2fe]/70 dark:border-slate-800 hover:border-[#3157ff]/60 text-[#061a3f] dark:text-slate-200"
+                      ? "bg-[#2A1D13] border-[#FE760B] text-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-[#D0D0D1] hover:border-[#3A3D42]"
                   }`}
                 >
                   <input
                     type="radio"
-                    name={field.id}
+                    name={String(field.id)}
                     value={option}
                     checked={value === option}
                     onChange={(e) => updateValue(e.target.value)}
                     disabled={isLoading}
-                    className="w-4 h-4 text-[#3157ff] border-[#c7d2fe] dark:border-slate-700 focus:ring-[#3157ff]"
+                    className="w-3.5 h-3.5 text-[#FE760B] border-[#2A2D31] focus:ring-[#FE760B]"
                   />
-                  <span className="text-sm font-medium">{option}</span>
+                  <span className="text-xs font-medium">{option}</span>
                 </label>
               ))}
             </div>
             {error && (
-              <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+              <p className="text-[10px] text-red-400">{error}</p>
             )}
           </div>
         );
 
       case "dropdown":
         return (
-          <div key={field.id} className="space-y-1.5">
-            <label className="block text-sm font-medium text-[#061a3f] dark:text-slate-200">
+          <div key={field.id} className="space-y-1">
+            <label className="block text-xs font-semibold text-[#D0D0D1]">
               {field.label || field.name || "Field"}{" "}
               {field.required && <span className="text-red-500">*</span>}
             </label>
@@ -947,17 +981,17 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               onValueChange={updateValue}
               disabled={isLoading}
             >
-              <SelectTrigger className="w-full h-12 bg-[#eef2ff] dark:bg-slate-900 border border-[#c7d2fe] dark:border-slate-800 rounded-xl text-[#061a3f] dark:text-white focus:outline-none focus:border-[#3157ff] focus:ring-2 focus:ring-[#3157ff]/20 transition-all font-medium text-sm">
+              <SelectTrigger className="w-full h-8 sm:h-8.5 px-3 py-1 bg-[#212327] border border-[#2A2D31] rounded-lg text-white focus:outline-none focus:border-[#FE760B] text-xs">
                 <SelectValue
-                  placeholder={`Select ${(field.label || field.name)?.toLowerCase() || "option"}`}
+                  placeholder={field.placeholder || "Select"}
                 />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-slate-900 border border-[var(--tl-line)] dark:border-slate-800 text-[#061a3f] dark:text-white shadow-xl">
+              <SelectContent className="bg-[#1A1C1F] border border-[#2A2D31] text-white shadow-xl">
                 {field.options?.map((option, idx) => (
                   <SelectItem
                     key={idx}
                     value={option}
-                    className="text-[#061a3f] dark:text-slate-100 hover:bg-[#eef2ff] dark:hover:bg-slate-800"
+                    className="text-white hover:bg-[#212327] text-xs"
                   >
                     {option}
                   </SelectItem>
@@ -965,7 +999,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               </SelectContent>
             </Select>
             {error && (
-              <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+              <p className="text-[10px] text-red-400">{error}</p>
             )}
           </div>
         );
@@ -977,20 +1011,20 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
   if (formLoadError) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 max-w-md text-center">
-          <X className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-red-900 dark:text-red-400 mb-2">
+      <div className="flex flex-col items-center justify-center py-8 px-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-5 max-w-md text-center">
+          <X className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <h3 className="text-sm font-semibold text-red-900 dark:text-red-400 mb-1">
             Failed to Load Form
           </h3>
-          <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+          <p className="text-xs text-red-700 dark:text-red-300 mb-3">
             {formLoadError}
           </p>
           <Button
             onClick={() => setRetryCount((prev) => prev + 1)}
-            className="bg-red-600 hover:bg-red-500 text-white rounded-xl"
+            className="bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs h-8 px-3"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
             Retry
           </Button>
         </div>
@@ -1000,13 +1034,10 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
 
   if (!customForm) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF6A00] mb-4" />
-        <p className="text-sm text-slate-400 animate-pulse">
+      <div className="flex flex-col items-center justify-center py-8 px-4">
+        <Loader2 className="w-6 h-6 animate-spin text-[#FF6A00] mb-2" />
+        <p className="text-xs text-slate-400 animate-pulse">
           Loading registration form...
-        </p>
-        <p className="text-xs text-slate-500 mt-2">
-          This usually takes just a few seconds
         </p>
       </div>
     );
@@ -1015,129 +1046,109 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
   return (
     <>
       <div className="w-full">
-        {/* Show amount if paid event */}
-        {customForm.isPaid && customForm.amount > 0 && (
-          <div className="mb-5 p-3.5 bg-[#eef2ff] dark:bg-slate-900 border border-[#c7d2fe] dark:border-slate-800 rounded-xl flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#061a3f] dark:text-slate-300">Registration Fee (18% GST Incl.)</span>
-            <span className="text-base font-bold text-[#3157ff] dark:text-blue-400">₹{customForm.amount}</span>
+        <form onSubmit={handleSubmit} className="space-y-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {customForm.fields
+              ?.filter((field) => field.id && field.type)
+              .map((field) => renderField(field))}
           </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {customForm.fields
-            ?.filter((field) => field.id && field.type)
-            .map((field) => renderField(field))}
 
           {/* Coupon Code (only show for paid events) */}
           {customForm.isPaid &&
             customForm.amount > 0 &&
             customForm.enableCoupons && (
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-[#061a3f] dark:text-slate-200">
-                  Coupon Code (Optional)
+              <div className="space-y-1 max-w-[240px] sm:max-w-[48%]">
+                <label className="block text-xs font-semibold text-[#D0D0D1]">
+                  Coupon code
                 </label>
                 {!couponData ? (
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgba(6,26,63,0.54)] dark:text-slate-400 pointer-events-none" />
-                      <input
-                        placeholder="ENTER COUPON CODE"
-                        value={couponCode}
-                        onChange={(e) =>
-                          setCouponCode(e.target.value.toUpperCase())
-                        }
-                        disabled={isLoading || couponValidating}
-                        className="w-full pl-10 pr-4 py-2.5 h-11 bg-[#eef2ff] dark:bg-slate-900 border border-[#c7d2fe] dark:border-slate-800 rounded-xl text-sm font-medium text-[#061a3f] dark:text-white placeholder:text-[rgba(6,26,63,0.42)] dark:placeholder:text-slate-500 focus:outline-none focus:border-[#3157ff] focus:ring-2 focus:ring-[#3157ff]/20 transition-all uppercase"
-                      />
-                    </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      placeholder="Optional"
+                      value={couponCode}
+                      onChange={(e) =>
+                        setCouponCode(e.target.value.toUpperCase())
+                      }
+                      disabled={isLoading || couponValidating}
+                      className="flex-1 px-3 py-1.5 h-8 sm:h-8.5 bg-[#212327] border border-[#2A2D31] rounded-lg text-xs font-medium text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase"
+                    />
                     <button
                       type="button"
                       onClick={handleApplyCoupon}
                       disabled={
                         isLoading || couponValidating || !couponCode.trim()
                       }
-                      className="h-11 px-5 bg-[#3157ff] hover:bg-[#173cf4] text-white font-semibold text-sm rounded-xl shadow-md transition-all flex items-center justify-center"
+                      className="px-3.5 py-1.5 h-8 sm:h-8.5 bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white font-medium text-xs rounded-lg transition-all flex items-center justify-center shrink-0"
                     >
                       {couponValidating ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3 h-3 animate-spin" />
                       ) : (
                         "Apply"
                       )}
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-[#3157ff]/10 border border-[#3157ff]/30 rounded-xl p-4">
+                  <div className="bg-[#2A1D13] border border-[#FE760B]/30 rounded-lg p-2">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <CheckCircle className="w-4 h-4 text-[#3157ff]" />
-                          <span className="text-sm font-semibold text-[#3157ff]">
-                            Coupon Applied: {couponCode}
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle className="w-3 h-3 text-[#FE760B]" />
+                          <span className="text-xs font-semibold text-[#FE760B]">
+                            {couponCode}: {couponData.discountPercent}% OFF
                           </span>
-                        </div>
-                        <div className="text-xs text-[rgba(6,26,63,0.7)] dark:text-slate-400">
-                          <div>Original: ₹{couponData.originalAmount}</div>
-                          <div className="text-[#3157ff] font-semibold">
-                            {couponData.discountPercent}% OFF - You save ₹{couponData.discountAmount}
-                          </div>
-                          <div className="text-base font-bold text-[#061a3f] dark:text-white mt-1">
-                            Final Price: ₹{couponData.finalAmount}
-                          </div>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={removeCoupon}
-                        className="text-red-500 hover:text-red-600 p-1 rounded-lg hover:bg-red-500/10 transition-colors"
+                        className="text-[11px] text-[#9B9EA4] hover:text-white underline ml-2"
                       >
-                        <X className="w-4 h-4" />
+                        Remove
                       </button>
                     </div>
                   </div>
                 )}
                 {couponError && (
-                  <p className="text-sm text-red-500 dark:text-red-400">
+                  <p className="text-[10px] text-red-400">
                     {couponError}
                   </p>
                 )}
               </div>
             )}
 
+          {/* White CTA Button matching Image 1 */}
           <button
             type="submit"
             disabled={isLoading || paymentProcessing}
-            className="w-full bg-[#3157ff] hover:bg-[#173cf4] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 h-12 rounded-xl transition-all shadow-lg shadow-[rgba(49,87,255,0.3)] hover:shadow-[rgba(49,87,255,0.4)] flex items-center justify-center gap-2 active:scale-[0.99] text-base"
+            className="w-full bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed text-[#131517] font-semibold h-9 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-xs sm:text-sm mt-3"
           >
             {isLoading || paymentProcessing ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
                 <span>{paymentProcessing ? "Processing Payment..." : "Registering..."}</span>
               </>
             ) : customForm?.isPaid && customForm?.amount > 0 ? (
-              <>
-                <Ticket className="w-5 h-5" />
-                <span>
-                  {couponData ? (
-                    `Pay ₹${couponData.finalAmount} & Register`
-                  ) : (
-                    `Pay ₹${customForm.amount} & Register`
-                  )}
-                </span>
-              </>
+              <span>
+                {couponData ? (
+                  `Pay ₹${couponData.finalAmount} & register`
+                ) : (
+                  `Pay ₹${customForm.amount} & register`
+                )}
+              </span>
             ) : (
-              <>
-                <Ticket className="w-5 h-5" />
-                <span>Register Now</span>
-              </>
+              <span>Register</span>
             )}
           </button>
+          <p className="text-center text-[10px] text-[#9B9EA4] mt-1.5">
+            Secure payment via Razorpay
+          </p>
         </form>
       </div>
 
       {/* Login Modal for Existing Users */}
       {showLoginModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 border-2 border-blue-500/40 rounded-2xl p-6 shadow-2xl max-w-md w-full animate-scale-in">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto animate-scale-in">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <Key className="w-6 h-6 text-blue-400" />
@@ -1247,7 +1258,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl p-8 shadow-2xl max-w-lg w-full border border-[#FF6A00]/30">
+          <div className="bg-[#1A1C1F] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90dvh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-700">
               <div className="flex items-center gap-3">
@@ -1321,7 +1332,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                       duration: 4000,
                     },
                   );
-                  router.push("/user-login");
+                  router.push("/login");
                 }}
                 className="flex-1 bg-[#FF6A00] hover:bg-[#FFD60A] text-black font-medium"
               >

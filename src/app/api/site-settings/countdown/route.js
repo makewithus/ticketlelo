@@ -8,14 +8,17 @@ const DEFAULT_COUNTDOWN_AT = "2026-11-04T18:30:00+05:30";
 export async function GET() {
   try {
     if (!adminDb) {
-      return NextResponse.json({ countdownAt: DEFAULT_COUNTDOWN_AT });
+      return NextResponse.json({ countdownAt: DEFAULT_COUNTDOWN_AT, updatedAt: null });
     }
     const snapshot = await SETTINGS_REF().get();
-    const stored = snapshot.data()?.countdownAt;
+    const data = snapshot.data();
+    const stored = data?.countdownAt;
+    const updatedAt = data?.updatedAt || null;
     return NextResponse.json({
       countdownAt: typeof stored === "string" && !Number.isNaN(Date.parse(stored))
         ? stored
         : DEFAULT_COUNTDOWN_AT,
+      updatedAt,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Failed to read homepage countdown setting:", error);
@@ -40,8 +43,9 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Choose a valid date and time" }, { status: 400 });
     }
 
-    await SETTINGS_REF().set({ countdownAt, updatedAt: new Date().toISOString(), updatedBy: caller.uid }, { merge: true });
-    return NextResponse.json({ success: true, countdownAt });
+    const nowIso = new Date().toISOString();
+    await SETTINGS_REF().set({ countdownAt, updatedAt: nowIso, updatedBy: caller.uid }, { merge: true });
+    return NextResponse.json({ success: true, countdownAt, updatedAt: nowIso });
   } catch (error) {
     console.error("Failed to update homepage countdown setting:", error);
     const status = error?.code === "auth/id-token-expired" || error?.code === "auth/argument-error" ? 401 : 500;

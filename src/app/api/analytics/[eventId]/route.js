@@ -47,27 +47,27 @@ export async function GET(request, { params }) {
 
     const registrations = [];
     registrationsSnapshot.forEach((doc) => {
-      registrations.push({ id: doc.id, ...doc.data() });
+      registrations.push({ ...doc.data(), id: doc.id });
     });
 
     const tickets = [];
     if (ticketsSnapshot.docs) {
       ticketsSnapshot.docs.forEach((doc) => {
-        tickets.push({ id: doc.id, ...doc.data() });
+        tickets.push({ ...doc.data(), id: doc.id });
       });
     }
 
     const subEvents = [];
     if (subEventsSnapshot.docs) {
       subEventsSnapshot.docs.forEach((doc) => {
-        subEvents.push({ id: doc.id, ...doc.data() });
+        subEvents.push({ ...doc.data(), id: doc.id });
       });
     }
 
     const commissions = [];
     if (commissionsSnapshot.docs) {
       commissionsSnapshot.docs.forEach((doc) => {
-        commissions.push({ id: doc.id, ...doc.data() });
+        commissions.push({ ...doc.data(), id: doc.id });
       });
     }
 

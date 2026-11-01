@@ -1,10 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export function middleware(request) {
-  // Firebase Auth is client-side only.
-  // Route protection is handled in each layout/page via useAuth().
-  // Middleware only handles generic concerns here.
-  return NextResponse.next();
+  const { pathname, search } = request.nextUrl;
+  const cleanPath = pathname.replace(/\/+$/, "");
+
+  // Enforce single unified login: redirect all legacy login paths to /login
+  if (
+    cleanPath === "/organiser-login" ||
+    cleanPath === "/user-login" ||
+    cleanPath === "/super-admin-login" ||
+    pathname.startsWith("/organiser-login") ||
+    pathname.startsWith("/user-login") ||
+    pathname.startsWith("/super-admin-login")
+  ) {
+    const url = new URL(`/login/${search}`, request.url);
+    return NextResponse.redirect(url, 308);
+  }
+
+  const response = NextResponse.next();
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  return response;
 }
 
 // Configure which routes to apply middleware to

@@ -91,9 +91,8 @@ const SelectTrigger = React.forwardRef(
         disabled={disabled}
         className={cn(
           "flex h-10 w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition-all",
-          "bg-white border-[var(--tl-line)] text-[#061a3f] hover:border-[#3157ff]/40 focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 focus:border-[#3157ff]",
-          "dark:bg-white dark:border-[var(--tl-line)] dark:text-[#061a3f] dark:hover:border-[#3157ff]/40 dark:focus:ring-[#3157ff]/20 dark:focus:border-[#3157ff]",
-          !hasSelection && "text-gray-400 dark:text-slate-500",
+          "bg-[#212327] border-[#2A2D31] text-white hover:border-[#FE760B]/40 focus:outline-none focus:ring-1 focus:ring-[#FE760B] focus:border-[#FE760B]",
+          !hasSelection && "text-[#9B9EA4]",
           disabled && "opacity-50 cursor-not-allowed",
           className,
         )}
@@ -102,8 +101,8 @@ const SelectTrigger = React.forwardRef(
         <span className="truncate">{displayText}</span>
         <svg
           className={cn(
-            "h-4 w-4 shrink-0 transition-transform opacity-50",
-            isOpen && "rotate-180",
+            "h-4 w-4 shrink-0 transition-transform text-[#9B9EA4]",
+            isOpen && "rotate-180 text-[#FE760B]",
           )}
           fill="none"
           stroke="currentColor"
@@ -128,11 +127,20 @@ const SelectContent = ({ children, className }) => {
   return (
     <div
       className={cn(
-        "absolute z-50 mt-1.5 w-full rounded-lg border shadow-xl overflow-hidden",
-        "bg-white border-[var(--tl-line)] dark:bg-white dark:border-[var(--tl-line)]",
+        "absolute z-50 mt-1.5 w-full rounded-xl border shadow-2xl overflow-hidden",
+        "bg-[#1A1C1F] border-[#2A2D31] text-white",
       )}
     >
-      <div className={cn("max-h-60 overflow-auto p-1", className)}>
+      <div
+        className={cn(
+          "max-h-60 overflow-y-auto p-1.5 space-y-0.5",
+          className,
+        )}
+        style={{
+          scrollbarWidth: "thin",
+          scrollbarColor: "#2A2D31 transparent",
+        }}
+      >
         {children}
       </div>
     </div>
@@ -163,19 +171,18 @@ const SelectItem = ({ children, value, className, ...props }) => {
         handleSelect(value);
       }}
       className={cn(
-        "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-sm transition-colors",
-        "text-[#061a3f] hover:bg-[#3157ff]/10 hover:text-[#3157ff]",
-        "dark:text-[#061a3f] dark:hover:bg-[#3157ff]/10 dark:hover:text-[#3157ff]",
+        "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2 text-xs sm:text-sm transition-colors",
+        "text-[#D0D0D1] hover:bg-[#212327] hover:text-white",
         isSelected &&
-          "bg-[#3157ff]/10 text-[#3157ff] font-medium dark:bg-[#3157ff]/10 dark:text-[#3157ff]",
+          "bg-[#2A1D13] text-[#FE760B] font-semibold hover:bg-[#2A1D13] hover:text-[#FE760B]",
         className,
       )}
       {...props}
     >
-      {children}
+      <span className="truncate">{children}</span>
       {isSelected && (
         <svg
-          className="ml-auto h-4 w-4 text-[#3157ff]"
+          className="ml-auto h-4 w-4 text-[#FE760B] shrink-0"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

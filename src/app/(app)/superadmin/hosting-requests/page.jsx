@@ -4,13 +4,13 @@ import { HostingRequestManagement } from "@/components/admin/hosting-request-man
 
 export default function HostingRequestsPage() {
   return (
-    <div className="space-y-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-[#061a3f]">
-          Hosting Requests
+    <div className="space-y-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white tracking-tight">
+          Hosting requests
         </h1>
-        <p className="text-[rgba(6,26,63,0.64)] mt-2">
-          Review and manage event hosting requests
+        <p className="text-sm text-[#9B9EA4] mt-1">
+          Approve who can host events on TicketLelo.
         </p>
       </div>
       <HostingRequestManagement />

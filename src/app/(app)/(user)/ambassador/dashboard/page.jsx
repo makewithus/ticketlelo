@@ -144,22 +144,22 @@ export default function AmbassadorDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0B132B] text-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="min-h-screen bg-[#131517] text-white flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
       </div>
     );
   }
 
   if (!ambassador) {
     return (
-      <div className="min-h-screen bg-[#0B132B] text-slate-100 p-6 md:p-12 flex flex-col items-center justify-center">
-        <div className="max-w-2xl w-full bg-slate-900/90 border border-slate-800 p-6 sm:p-10 rounded-3xl shadow-2xl space-y-6">
+      <div className="min-h-screen bg-[#131517] text-white p-6 md:p-12 flex flex-col items-center justify-center">
+        <div className="max-w-2xl w-full bg-[#1A1C1F] border border-[#2A2D31] p-6 sm:p-10 rounded-3xl shadow-xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/30">
+            <div className="w-12 h-12 rounded-2xl bg-[#FE760B]/14 text-[#FE760B] flex items-center justify-center mx-auto border border-[#FE760B]/30">
               <Users className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Campus Ambassador Program</h1>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Campus ambassador program</h1>
+            <p className="text-xs sm:text-sm text-[#9B9EA4] max-w-lg mx-auto">
               Join the official PRAROHA 2027 Ambassador Network. Promote the fest on your campus, track verified referral ticket sales, and earn direct commissions.
             </p>
           </div>
@@ -167,37 +167,37 @@ export default function AmbassadorDashboardPage() {
           <form onSubmit={handleApply} className="space-y-4 pt-2">
             {/* Student Identity */}
             <div className="space-y-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-blue-400">1. Student Identity</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#FE760B]">1. Student identity</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] text-slate-400">Full Name *</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Full name *</label>
                   <Input
                     required
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     placeholder="Adil Mohammed"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400">Verified Email *</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Verified email *</label>
                   <Input
                     required
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="adil@cusat.ac.in"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400">WhatsApp Contact *</label>
+                  <label className="text-[11px] text-[#9B9EA4]">WhatsApp contact *</label>
                   <Input
                     required
                     value={formData.whatsappPhone}
                     onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
                     placeholder="9876543210"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
               </div>
@@ -205,34 +205,34 @@ export default function AmbassadorDashboardPage() {
 
             {/* Academic Affiliation */}
             <div className="space-y-1 pt-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-blue-400">2. Academic Affiliation</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#FE760B]">2. Academic affiliation</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] text-slate-400">College / University *</label>
+                  <label className="text-[11px] text-[#9B9EA4]">College / university *</label>
                   <Input
                     required
                     value={formData.college}
                     onChange={(e) => setFormData({ ...formData, college: e.target.value })}
                     placeholder="CUSAT"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400">Branch / Department</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Branch / department</label>
                   <Input
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     placeholder="Computer Science"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400">Year of Study</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Year of study</label>
                   <Input
                     value={formData.yearOfStudy}
                     onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
                     placeholder="3rd Year B.Tech"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
               </div>
@@ -240,33 +240,33 @@ export default function AmbassadorDashboardPage() {
 
             {/* Campus Reach */}
             <div className="space-y-1 pt-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-blue-400">3. Campus Reach</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#FE760B]">3. Campus reach</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[11px] text-slate-400">Current City</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Current city</label>
                   <Input
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     placeholder="Kochi"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400">Instagram / LinkedIn URL</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Instagram / LinkedIn URL</label>
                   <Input
                     value={formData.socialProfile}
                     onChange={(e) => setFormData({ ...formData, socialProfile: e.target.value })}
                     placeholder="instagram.com/adil_m"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-slate-400">Student Club Roles</label>
+                  <label className="text-[11px] text-[#9B9EA4]">Student club roles</label>
                   <Input
                     value={formData.clubRoles}
                     onChange={(e) => setFormData({ ...formData, clubRoles: e.target.value })}
                     placeholder="Tech Club Lead"
-                    className="bg-slate-800/80 border-slate-700 text-xs h-9 text-white"
+                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
                   />
                 </div>
               </div>
@@ -275,21 +275,21 @@ export default function AmbassadorDashboardPage() {
             {/* Prior Experience & Pitch */}
             <div className="space-y-3 pt-2">
               <div>
-                <label className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider text-blue-400 block mb-1">
-                  4. Prior Experience
+                <label className="text-[11px] text-[#FE760B] font-semibold uppercase tracking-wider block mb-1">
+                  4. Prior experience
                 </label>
                 <textarea
                   value={formData.priorExperience}
                   onChange={(e) => setFormData({ ...formData, priorExperience: e.target.value })}
                   placeholder="Past fest coordinator or ambassador history..."
                   rows={2}
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl p-2.5 text-xs text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B]"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider text-blue-400 block mb-1">
-                  5. Promotion Pitch *
+                <label className="text-[11px] text-[#FE760B] font-semibold uppercase tracking-wider block mb-1">
+                  5. Promotion pitch *
                 </label>
                 <textarea
                   required
@@ -297,7 +297,7 @@ export default function AmbassadorDashboardPage() {
                   onChange={(e) => setFormData({ ...formData, promotionPitch: e.target.value })}
                   placeholder="How do you plan to promote PRAROHA on your campus?"
                   rows={2}
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl p-2.5 text-xs text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B]"
                 />
               </div>
             </div>
@@ -305,9 +305,9 @@ export default function AmbassadorDashboardPage() {
             <Button
               type="submit"
               disabled={submitting}
-              className="w-full h-11 font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all mt-4"
+              className="w-full h-11 font-semibold bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] rounded-xl shadow-sm transition-all mt-4 cursor-pointer"
             >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Ambassador Application"}
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Submit ambassador application"}
             </Button>
           </form>
         </div>
@@ -324,159 +324,161 @@ export default function AmbassadorDashboardPage() {
   const instagramTemplate = `Excited to be a Campus Ambassador for PRAROHA 2027! Grab your fest passes & track combos with code [${ambassador.referralCode}] at ${referralUrl}. Link in bio!`;
 
   return (
-    <div className="min-h-screen bg-[#0B132B] text-slate-100 p-6 md:p-10 space-y-8">
+    <div className="min-h-screen bg-[#131517] text-white p-6 md:p-10 space-y-8">
       {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#2A2D31]">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 border border-blue-800/40 px-2.5 py-0.5 rounded-full">
-              Official Campus Ambassador
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#FE760B] bg-[#FE760B]/14 border border-[#FE760B]/30 px-2.5 py-0.5 rounded-full">
+              Official campus ambassador
             </span>
-            <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-              <CheckCircle className="w-3 h-3" /> Approved
+            <span className="text-xs font-semibold text-[#3DD68C] bg-[#3DD68C]/12 border border-[#3DD68C]/25 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+              Approved
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-white">
             Welcome, {ambassador.fullName}
           </h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            College: <strong className="text-slate-300">{ambassador.college || "Campus Partner"}</strong> | Program: PRAROHA 2027 Ambassador Network
+          <p className="text-xs md:text-sm text-[#9B9EA4] mt-1">
+            College: <strong className="text-white">{ambassador.college || "Campus Partner"}</strong> | Program: PRAROHA 2027 Ambassador Network
           </p>
         </div>
 
         {/* Promo code badge */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-3 flex items-center gap-3">
           <div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Your Referral Code</div>
-            <div className="text-lg font-mono font-bold text-emerald-400">{ambassador.referralCode}</div>
+            <div className="text-[10px] text-[#9B9EA4] uppercase tracking-wider font-semibold">Your referral code</div>
+            <div className="text-lg font-mono font-bold text-[#FE760B]">{ambassador.referralCode}</div>
           </div>
           <Button
             size="sm"
             variant="outline"
             onClick={() => handleCopy(ambassador.referralCode, "code")}
-            className="border-slate-700 text-xs h-8 text-slate-300 hover:text-white"
+            className="border-[#2A2D31] bg-[#212327] text-xs h-8 text-[#D0D0D1] hover:text-white"
           >
-            {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedCode ? <Check className="w-3.5 h-3.5 text-[#3DD68C]" /> : <Copy className="w-3.5 h-3.5" />}
           </Button>
         </div>
       </div>
 
       {/* Share Link Card */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-950/50 to-slate-900 border border-blue-900/40 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-blue-300">
-          <Share2 className="w-4 h-4 text-blue-400" />
-          <span>Your Unique Referral Link</span>
+      <div className="p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] space-y-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#FE760B]">
+          <Share2 className="w-4 h-4 text-[#FE760B]" />
+          <span>Your unique referral link</span>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <Input
             readOnly
             value={referralUrl}
-            className="bg-slate-900/90 border-slate-700 text-xs text-slate-200 font-mono h-10"
+            className="bg-[#212327] border-[#2A2D31] text-xs text-white font-mono h-10"
           />
           <Button
             onClick={() => handleCopy(referralUrl, "link")}
-            className="bg-blue-600 hover:bg-blue-700 text-xs font-semibold h-10 whitespace-nowrap"
+            className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] text-xs font-semibold h-10 whitespace-nowrap cursor-pointer shadow-sm"
           >
             {copiedLink ? (
-              <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" /> Copied!</span>
+              <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-[#131517]" /> Copied!</span>
             ) : (
-              <span className="flex items-center gap-1.5"><Copy className="w-3.5 h-3.5" /> Copy Link</span>
+              <span className="flex items-center gap-1.5"><Copy className="w-3.5 h-3.5 text-[#131517]" /> Copy link</span>
             )}
           </Button>
         </div>
-        <p className="text-[11px] text-slate-400">
+        <p className="text-[11px] text-[#9B9EA4]">
           Share this link with your college peers. Registrations and ticket purchases made via this link are automatically attributed to your account.
         </p>
       </div>
 
       {/* Professional KPI Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Referral Clicks</span>
-            <MousePointer className="w-4 h-4 text-blue-400" />
+        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
+          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
+            <span>Referral clicks</span>
+            <MousePointer className="w-4 h-4 text-[#7AA2FF]" />
           </div>
-          <div className="text-2xl font-bold text-white">{ambassador.metrics?.clicks || 0}</div>
-          <div className="text-[11px] text-slate-500">Total verified visits</div>
+          <div className="text-2xl font-bold text-white tabular-nums">{ambassador.metrics?.clicks || 0}</div>
+          <div className="text-[11px] text-[#9B9EA4]">Total verified visits</div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Paid Tickets Sold</span>
-            <ShoppingBag className="w-4 h-4 text-emerald-400" />
+        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
+          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
+            <span>Paid tickets sold</span>
+            <ShoppingBag className="w-4 h-4 text-[#3DD68C]" />
           </div>
-          <div className="text-2xl font-bold text-white">{ambassador.metrics?.paidOrders || 0}</div>
-          <div className="text-[11px] text-slate-500">Confirmed orders</div>
+          <div className="text-2xl font-bold text-white tabular-nums">{ambassador.metrics?.paidOrders || 0}</div>
+          <div className="text-[11px] text-[#9B9EA4]">Confirmed orders</div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Attributed Revenue</span>
-            <DollarSign className="w-4 h-4 text-purple-400" />
+        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
+          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
+            <span>Attributed revenue</span>
+            <DollarSign className="w-4 h-4 text-[#7AA2FF]" />
           </div>
-          <div className="text-2xl font-bold text-white">₹{ambassador.metrics?.attributedRevenue || 0}</div>
-          <div className="text-[11px] text-slate-500">Gross ticket volume</div>
+          <div className="text-2xl font-bold text-white tabular-nums">₹{ambassador.metrics?.attributedRevenue || 0}</div>
+          <div className="text-[11px] text-[#9B9EA4]">Gross ticket volume</div>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-1">
-          <div className="flex items-center justify-between text-slate-400 text-xs">
-            <span>Earned Commission</span>
-            <Sparkles className="w-4 h-4 text-amber-400" />
+        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
+          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
+            <span>Earned commission</span>
+            <Sparkles className="w-4 h-4 text-[#FDE003]" />
           </div>
-          <div className="text-2xl font-bold text-emerald-400">₹{totalEarned}</div>
-          <div className="text-[11px] text-slate-500">₹{totalHeld} in 7-day holding</div>
+          <div className="text-2xl font-bold text-[#3DD68C] tabular-nums">₹{totalEarned}</div>
+          <div className="text-[11px] text-[#9B9EA4]">₹{totalHeld} in 7-day holding</div>
         </div>
       </div>
 
       {/* Commission Ledger Table */}
-      <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-4">
+      <div className="p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-white">Commission Ledger &amp; Attributed Orders</h3>
-            <p className="text-xs text-slate-400">
+            <h3 className="text-base font-bold text-white">Commission ledger &amp; attributed orders</h3>
+            <p className="text-xs text-[#9B9EA4]">
               Subject to standard 7-day fraud and refund holding period (AMB-010).
             </p>
           </div>
         </div>
 
         {commissions.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">
+          <div className="py-8 text-center text-xs text-[#9B9EA4]">
             No attributed orders recorded yet. Start sharing your referral link with students!
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-semibold">
+                <tr className="border-b border-[#2A2D31] text-[#9B9EA4] font-semibold">
                   <th className="py-2.5 px-3">Order ID</th>
                   <th className="py-2.5 px-3">Buyer</th>
-                  <th className="py-2.5 px-3">Order Amount</th>
+                  <th className="py-2.5 px-3">Order amount</th>
                   <th className="py-2.5 px-3">Commission</th>
                   <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Maturity Date</th>
+                  <th className="py-2.5 px-3">Maturity date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+              <tbody className="divide-y divide-[#2A2D31] text-[#D0D0D1]">
                 {commissions.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-800/30 transition">
-                    <td className="py-2.5 px-3 font-mono text-slate-400">{c.orderId}</td>
-                    <td className="py-2.5 px-3">{c.buyerName || "Attendee"}</td>
-                    <td className="py-2.5 px-3">₹{c.orderAmount}</td>
-                    <td className="py-2.5 px-3 font-semibold text-emerald-400">₹{c.commissionAmount}</td>
+                  <tr key={c.id} className="hover:bg-[#212327]/50 transition">
+                    <td className="py-2.5 px-3 font-mono text-[#9B9EA4]">{c.orderId}</td>
+                    <td className="py-2.5 px-3 font-medium text-white">{c.buyerName || "Attendee"}</td>
+                    <td className="py-2.5 px-3 tabular-nums">₹{c.orderAmount}</td>
+                    <td className="py-2.5 px-3 font-semibold text-[#3DD68C] tabular-nums">₹{c.commissionAmount}</td>
                     <td className="py-2.5 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center gap-1.5 ${
                         c.status === "paid"
-                          ? "bg-emerald-950 text-emerald-400 border border-emerald-800/40"
+                          ? "bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30"
                           : c.status === "held"
-                          ? "bg-amber-950 text-amber-400 border border-amber-800/40"
+                          ? "bg-[#FDE003]/15 text-[#FDE003] border border-[#FDE003]/30"
                           : c.status === "reversed"
-                          ? "bg-red-950 text-red-400 border border-red-800/40"
-                          : "bg-blue-950 text-blue-400 border border-blue-800/40"
+                          ? "bg-[#FF6B6B]/15 text-[#FF6B6B] border border-[#FF6B6B]/30"
+                          : "bg-[#212327] text-[#9B9EA4] border border-[#2A2D31]"
                       }`}>
-                        {c.status}
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        {c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : "Pending"}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-slate-500">
+                    <td className="py-2.5 px-3 text-[#9B9EA4] tabular-nums">
                       {c.matureAt?.toDate ? c.matureAt.toDate().toLocaleDateString("en-IN") : "Matured"}
                     </td>
                   </tr>
@@ -489,44 +491,44 @@ export default function AmbassadorDashboardPage() {
 
       {/* Approved Marketing Copy Templates */}
       <div className="space-y-4">
-        <h3 className="text-base font-bold text-white">Approved Promotional Templates</h3>
+        <h3 className="text-base font-bold text-white">Approved promotional templates</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* WhatsApp Template */}
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+          <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> WhatsApp Message
+              <span className="text-xs font-semibold text-[#3DD68C] flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" /> WhatsApp message
               </span>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => handleCopy(whatsappTemplate, "whatsapp")}
-                className="text-xs text-slate-400 hover:text-white h-7 px-2"
+                className="text-xs text-[#9B9EA4] hover:text-white hover:bg-[#212327] h-7 px-2"
               >
-                {copiedTemplate === "whatsapp" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copiedTemplate === "whatsapp" ? <Check className="w-3 h-3 text-[#3DD68C]" /> : <Copy className="w-3 h-3" />}
               </Button>
             </div>
-            <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-lg font-mono whitespace-pre-wrap">
+            <p className="text-xs text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] p-3 rounded-lg font-mono whitespace-pre-wrap">
               {whatsappTemplate}
             </p>
           </div>
 
           {/* Instagram Story Template */}
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+          <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-purple-400 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> Instagram Story / Bio
+              <span className="text-xs font-semibold text-[#7AA2FF] flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" /> Instagram story / bio
               </span>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => handleCopy(instagramTemplate, "instagram")}
-                className="text-xs text-slate-400 hover:text-white h-7 px-2"
+                className="text-xs text-[#9B9EA4] hover:text-white hover:bg-[#212327] h-7 px-2"
               >
-                {copiedTemplate === "instagram" ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                {copiedTemplate === "instagram" ? <Check className="w-3 h-3 text-[#3DD68C]" /> : <Copy className="w-3 h-3" />}
               </Button>
             </div>
-            <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-lg font-mono whitespace-pre-wrap">
+            <p className="text-xs text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] p-3 rounded-lg font-mono whitespace-pre-wrap">
               {instagramTemplate}
             </p>
           </div>

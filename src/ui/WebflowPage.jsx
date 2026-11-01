@@ -35,18 +35,31 @@ export default function WebflowPage({ page, children, skipStaticCountdown = fals
   return (
     <>
       {page.stylesheets.map((href) => (
-        <link key={href} rel="stylesheet" href={href} />
+        <link key={href} rel="stylesheet" href={href} suppressHydrationWarning />
       ))}
       {page.styles.map((css, i) => (
-        <style key={i} dangerouslySetInnerHTML={{ __html: css }} />
+        <style
+          key={i}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: (css || "").replace(/\r\n/g, "\n"),
+          }}
+        />
       ))}
       <div
         id="tl-ui-root"
         style={{ display: "contents" }}
         suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: page.body }}
+        dangerouslySetInnerHTML={{
+          __html: (page.body || "").replace(/\r\n/g, "\n"),
+        }}
       />
-      <style dangerouslySetInnerHTML={{ __html: NAVBAR_SPACING_FIXES }} />
+      <style
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{
+          __html: NAVBAR_SPACING_FIXES.replace(/\r\n/g, "\n"),
+        }}
+      />
       {children}
       <WebflowRuntime scripts={scripts} rootId="tl-ui-root" />
     </>

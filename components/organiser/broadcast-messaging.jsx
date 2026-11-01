@@ -19,40 +19,32 @@ import {
 
 const STATUS_BADGES = {
   draft: {
-    color: "bg-slate-700/60 text-slate-300 border border-slate-600",
+    dotColor: "bg-[#5C6066]",
     label: "Draft",
-    icon: MessageSquare,
   },
   scheduled: {
-    color: "bg-blue-500/20 text-blue-300 border border-blue-500/30",
+    dotColor: "bg-[#3B82F6]",
     label: "Scheduled",
-    icon: Clock,
   },
   sending: {
-    color: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30",
-    label: "Sending...",
-    icon: Loader2,
+    dotColor: "bg-[#FDE003]",
+    label: "Sending",
   },
   sent: {
-    color: "bg-green-500/20 text-green-300 border border-green-500/30",
+    dotColor: "bg-[#10B981]",
     label: "Sent",
-    icon: CheckCircle,
   },
   failed: {
-    color: "bg-red-500/20 text-red-300 border border-red-500/30",
+    dotColor: "bg-[#EF4444]",
     label: "Failed",
-    icon: XCircle,
   },
 };
 
 function StatusBadge({ status }) {
   const config = STATUS_BADGES[status] || STATUS_BADGES.draft;
-  const Icon = config.icon;
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.color}`}
-    >
-      <Icon size={11} className={status === "sending" ? "animate-spin" : ""} />
+    <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-[#212327] border border-[#2A2D31] text-[#D0D0D1]">
+      <span className={`w-2 h-2 rounded-full ${config.dotColor} ${status === "sending" ? "animate-pulse" : ""}`} />
       {config.label}
     </span>
   );
@@ -64,32 +56,32 @@ function MessageStatsBar({ stats }) {
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {[
         {
-          label: "Total",
+          label: "Total Messages",
           value: stats.totalMessages,
-          color: "text-slate-100",
-          bg: "bg-slate-800/60 border-slate-700",
+          color: "text-[#FFFFFF]",
+          bg: "bg-[#1A1C1F] border-[#2A2D31]",
         },
         {
           label: "Sent",
           value: stats.sent,
-          color: "text-green-300",
-          bg: "bg-green-500/10 border-green-500/20",
+          color: "text-[#10B981]",
+          bg: "bg-[#1A1C1F] border-[#2A2D31]",
         },
         {
           label: "Scheduled",
           value: stats.scheduled,
-          color: "text-blue-300",
-          bg: "bg-blue-500/10 border-blue-500/20",
+          color: "text-[#3B82F6]",
+          bg: "bg-[#1A1C1F] border-[#2A2D31]",
         },
         {
           label: "Failed",
           value: stats.failed,
-          color: "text-red-300",
-          bg: "bg-red-500/10 border-red-500/20",
+          color: "text-[#EF4444]",
+          bg: "bg-[#1A1C1F] border-[#2A2D31]",
         },
       ].map((item) => (
-        <div key={item.label} className={`rounded-xl p-3 border ${item.bg}`}>
-          <p className="text-xs text-slate-400 mb-1">{item.label}</p>
+        <div key={item.label} className={`rounded-xl p-4 border ${item.bg}`}>
+          <p className="text-xs text-[#9B9EA4] mb-1">{item.label}</p>
           <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
         </div>
       ))}
@@ -162,18 +154,18 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-[#FF6A00]/20 rounded-2xl shadow-2xl w-full max-w-lg">
-        <div className="p-6 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl shadow-2xl w-full max-w-lg">
+        <div className="p-6 border-b border-[#2A2D31]">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-100">
+            <h2 className="text-xl font-bold text-[#FFFFFF]">
               Compose Message
             </h2>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-800 transition-colors"
+              className="p-2 rounded-lg hover:bg-[#212327] transition-colors"
             >
-              <XCircle size={20} className="text-slate-400" />
+              <XCircle size={20} className="text-[#9B9EA4]" />
             </button>
           </div>
         </div>
@@ -190,7 +182,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
           )}
 
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">
+            <label className="block text-sm font-semibold text-[#D0D0D1] mb-2">
               Subject / Title *
             </label>
             <input
@@ -200,16 +192,16 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
                 setForm((f) => ({ ...f, title: e.target.value }))
               }
               placeholder="e.g. Important Update About Your Ticket"
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:border-[#FF6A00]/50 transition text-sm"
+              className="w-full px-4 py-2.5 rounded-xl border border-[#2A2D31] bg-[#212327] text-white placeholder-[#9B9EA4] focus:outline-none focus:ring-1 focus:ring-[#FE760B] focus:border-[#FE760B] transition-colors text-sm"
               maxLength={100}
             />
-            <p className="text-xs text-slate-500 mt-1 text-right">
+            <p className="text-xs text-[#9B9EA4] mt-1 text-right">
               {form.title.length}/100
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">
+            <label className="block text-sm font-semibold text-[#D0D0D1] mb-2">
               Message Content *
             </label>
             <textarea
@@ -219,16 +211,16 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
               }
               placeholder="Write your message here..."
               rows={6}
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 focus:border-[#FF6A00]/50 transition text-sm resize-none"
+              className="w-full px-4 py-3 rounded-xl border border-[#2A2D31] bg-[#212327] text-white placeholder-[#9B9EA4] focus:outline-none focus:ring-1 focus:ring-[#FE760B] focus:border-[#FE760B] transition-colors text-sm resize-none"
               maxLength={2000}
             />
-            <p className="text-xs text-slate-500 mt-1 text-right">
+            <p className="text-xs text-[#9B9EA4] mt-1 text-right">
               {form.content.length}/2000
             </p>
           </div>
 
-          <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-3">
-            <p className="text-sm font-semibold text-slate-300">Send Options</p>
+          <div className="p-4 bg-[#212327] border border-[#2A2D31] rounded-xl space-y-3">
+            <p className="text-sm font-semibold text-[#D0D0D1]">Send Options</p>
             <div className="space-y-2">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -238,13 +230,13 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
                   onChange={() =>
                     setForm((f) => ({ ...f, sendNow: true, scheduledAt: "" }))
                   }
-                  className="w-4 h-4 accent-orange-500"
+                  className="w-4 h-4 accent-[#FE760B]"
                 />
                 <div>
-                  <span className="text-sm font-medium text-slate-200">
+                  <span className="text-sm font-medium text-[#FFFFFF]">
                     Send Now
                   </span>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[#9B9EA4]">
                     Message will be sent immediately to all registered
                     participants
                   </p>
@@ -256,13 +248,13 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
                   name="sendOption"
                   checked={!form.sendNow}
                   onChange={() => setForm((f) => ({ ...f, sendNow: false }))}
-                  className="w-4 h-4 accent-orange-500"
+                  className="w-4 h-4 accent-[#FE760B]"
                 />
                 <div>
-                  <span className="text-sm font-medium text-slate-200">
+                  <span className="text-sm font-medium text-[#FFFFFF]">
                     Schedule for Later
                   </span>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[#9B9EA4]">
                     Choose when to send this message
                   </p>
                 </div>
@@ -270,7 +262,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
             </div>
             {!form.sendNow && (
               <div className="mt-3">
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
                   Schedule Date &amp; Time
                 </label>
                 <input
@@ -280,7 +272,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, scheduledAt: e.target.value }))
                   }
-                  className="w-full px-3 py-2.5 rounded-lg border border-slate-600 bg-slate-800 text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/50 text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-[#2A2D31] bg-[#1A1C1F] text-white focus:outline-none focus:ring-1 focus:ring-[#FE760B] text-sm"
                 />
               </div>
             )}
@@ -290,14 +282,14 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 bg-slate-800 text-slate-300 rounded-xl font-medium text-sm hover:bg-slate-700 transition-colors border border-slate-700"
+              className="flex-1 px-4 py-2.5 bg-[#212327] text-[#D0D0D1] rounded-xl font-medium text-sm hover:bg-[#2A2D31] transition-colors border border-[#2A2D31]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-[#FF6A00] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60"
+              className="flex-1 px-4 py-2.5 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60 shadow-sm"
             >
               {loading ? (
                 <>
@@ -343,25 +335,25 @@ function MessageCard({ message, onRetry }) {
   };
 
   return (
-    <div className="bg-slate-900/60 rounded-2xl border border-slate-800 overflow-hidden">
+    <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] overflow-hidden shadow-sm">
       <div
-        className="p-5 cursor-pointer flex items-start justify-between gap-4 hover:bg-slate-800/40 transition-colors"
+        className="p-5 cursor-pointer flex items-start justify-between gap-4 hover:bg-[#212327]/50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap mb-2">
             <StatusBadge status={message.status} />
             {message.scheduledAt && message.status === "scheduled" && (
-              <span className="inline-flex items-center gap-1 text-xs text-blue-400">
+              <span className="inline-flex items-center gap-1 text-xs text-[#7AA2FF]">
                 <Clock size={11} />
                 {formatDate(message.scheduledAt)}
               </span>
             )}
           </div>
-          <h3 className="font-semibold text-slate-100 text-sm truncate">
+          <h3 className="font-semibold text-white text-sm truncate">
             {message.title}
           </h3>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[#9B9EA4] mt-1">
             {message.content.length > 80
               ? `${message.content.substring(0, 80)}...`
               : message.content}
@@ -370,47 +362,47 @@ function MessageCard({ message, onRetry }) {
         <div className="flex items-center gap-4 flex-shrink-0">
           {message.status === "sent" && (
             <div className="text-right">
-              <p className="text-xs text-slate-500">Delivered</p>
-              <p className="text-sm font-bold text-green-400">
+              <p className="text-xs text-[#9B9EA4]">Delivered</p>
+              <p className="text-sm font-bold text-[#3DD68C] tabular-nums">
                 {message.successCount || 0}/{message.recipientCount || 0}
               </p>
             </div>
           )}
           <ChevronDown
             size={16}
-            className={`text-slate-500 transition-transform ${expanded ? "rotate-180" : ""}`}
+            className={`text-[#9B9EA4] transition-transform ${expanded ? "rotate-180" : ""}`}
           />
         </div>
       </div>
 
       {expanded && (
-        <div className="border-t border-slate-800 p-5 bg-slate-800/30 space-y-4">
+        <div className="border-t border-[#2A2D31] p-5 bg-[#212327]/50 space-y-4">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <p className="text-xs font-semibold text-[#9B9EA4] uppercase tracking-wide mb-1">
               Message
             </p>
-            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-[#D0D0D1] whitespace-pre-wrap leading-relaxed">
               {message.content}
             </p>
           </div>
 
           {(message.status === "sent" || message.status === "failed") && (
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-slate-800 rounded-xl p-3 border border-slate-700 text-center">
-                <p className="text-xs text-slate-500 mb-1">Total</p>
-                <p className="font-bold text-slate-100 text-lg">
+              <div className="bg-[#1A1C1F] rounded-xl p-3 border border-[#2A2D31] text-center">
+                <p className="text-xs text-[#9B9EA4] mb-1">Total</p>
+                <p className="font-bold text-white text-lg tabular-nums">
                   {message.recipientCount || 0}
                 </p>
               </div>
-              <div className="bg-green-500/10 rounded-xl p-3 border border-green-500/20 text-center">
-                <p className="text-xs text-green-400 mb-1">Success</p>
-                <p className="font-bold text-green-300 text-lg">
+              <div className="bg-[#3DD68C]/12 rounded-xl p-3 border border-[#3DD68C]/25 text-center">
+                <p className="text-xs text-[#3DD68C] mb-1">Success</p>
+                <p className="font-bold text-[#3DD68C] text-lg tabular-nums">
                   {message.successCount || 0}
                 </p>
               </div>
-              <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20 text-center">
-                <p className="text-xs text-red-400 mb-1">Failed</p>
-                <p className="font-bold text-red-300 text-lg">
+              <div className="bg-[#FF6B6B]/12 rounded-xl p-3 border border-[#FF6B6B]/25 text-center">
+                <p className="text-xs text-[#FF9A9A] mb-1">Failed</p>
+                <p className="font-bold text-[#FF9A9A] text-lg tabular-nums">
                   {message.failureCount || 0}
                 </p>
               </div>
@@ -421,22 +413,22 @@ function MessageCard({ message, onRetry }) {
             <button
               onClick={handleRetry}
               disabled={retrying}
-              className="w-full py-2.5 bg-red-500/10 text-red-400 border border-red-500/30 rounded-xl font-semibold text-sm hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-[#FF6B6B]/12 text-[#FF9A9A] border border-[#FF6B6B]/25 rounded-xl font-semibold text-sm hover:bg-[#FF6B6B]/20 transition-colors flex items-center justify-center gap-2"
             >
               <RefreshCw size={14} className={retrying ? "animate-spin" : ""} />
               {retrying
                 ? "Retrying..."
-                : `Retry ${message.failureCount} Failed`}
+                : `Retry ${message.failureCount} failed`}
             </button>
           )}
 
           {message.sentAt && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#9B9EA4]">
               Sent: {formatDate(message.sentAt)}
             </p>
           )}
           {message.createdAt && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#9B9EA4]">
               Created: {formatDate(message.createdAt)}
             </p>
           )}
@@ -511,22 +503,22 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-100">
-            Broadcast Messages
-          </h1>
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Broadcast messages
+          </h2>
           {eventName && (
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-[#9B9EA4] mt-1">
               Sending to all participants of{" "}
-              <span className="font-medium text-slate-200">{eventName}</span>
+              <span className="font-medium text-white">{eventName}</span>
             </p>
           )}
         </div>
         <button
           onClick={() => setShowCompose(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6A00] text-white font-semibold rounded-xl shadow-sm hover:opacity-90 transition-opacity text-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl shadow-sm transition-colors text-sm"
         >
           <Mail size={16} />
-          Compose Message
+          Compose message
         </button>
       </div>
 
@@ -540,23 +532,24 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
             option.value === "all"
               ? messages.length
               : messages.filter((m) => m.status === option.value).length;
+          const isActive = filter === option.value;
           return (
             <button
               key={option.value}
               onClick={() => setFilter(option.value)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                filter === option.value
-                  ? "bg-[#FF6A00]/10 text-[#FF6A00] border border-[#FF6A00]/30"
-                  : "bg-slate-800/60 text-slate-400 border border-slate-700 hover:border-slate-600"
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                isActive
+                  ? "bg-[#FE760B]/14 text-[#FE760B] border border-[#FE760B]/30"
+                  : "bg-[#1A1C1F] text-[#9B9EA4] border border-[#2A2D31] hover:text-white hover:bg-[#212327]"
               }`}
             >
               {option.label}
               {count > 0 && (
                 <span
-                  className={`ml-2 px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                    filter === option.value
-                      ? "bg-[#FF6A00]/20 text-[#FF6A00]"
-                      : "bg-slate-700 text-slate-400"
+                  className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    isActive
+                      ? "bg-[#FE760B]/20 text-[#FE760B]"
+                      : "bg-[#212327] text-[#9B9EA4]"
                   }`}
                 >
                   {count}
@@ -573,34 +566,34 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
           <div className="text-center">
             <Loader2
               size={36}
-              className="animate-spin text-[#FF6A00] mx-auto mb-4"
+              className="animate-spin text-[#FE760B] mx-auto mb-4"
             />
-            <p className="text-slate-400 text-sm">Loading messages...</p>
+            <p className="text-[#9B9EA4] text-sm">Loading messages…</p>
           </div>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <AlertCircle size={40} className="text-red-400 mb-4" />
-          <p className="text-slate-200 font-medium mb-2">
+          <AlertCircle size={40} className="text-[#FF6B6B] mb-4" />
+          <p className="text-white font-medium mb-2">
             Failed to load messages
           </p>
-          <p className="text-slate-400 text-sm mb-4">{error}</p>
+          <p className="text-[#9B9EA4] text-sm mb-4">{error}</p>
           <button
             onClick={fetchMessages}
-            className="px-4 py-2 bg-slate-800 text-slate-300 border border-slate-700 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors"
+            className="px-4 py-2 bg-[#212327] text-white border border-[#2A2D31] rounded-xl text-sm font-medium hover:bg-[#2A2D31] transition-colors"
           >
             Try Again
           </button>
         </div>
       ) : filteredMessages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-slate-900/60 rounded-2xl border border-slate-800">
-          <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-4">
-            <MessageSquare size={28} className="text-slate-500" />
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-[#1A1C1F] rounded-2xl border border-[#2A2D31]">
+          <div className="w-16 h-16 bg-[#212327] rounded-2xl flex items-center justify-center mb-4">
+            <MessageSquare size={28} className="text-[#9B9EA4]" />
           </div>
-          <h3 className="font-semibold text-slate-200 mb-2">
+          <h3 className="font-semibold text-white mb-1">
             {filter === "all" ? "No messages yet" : `No ${filter} messages`}
           </h3>
-          <p className="text-slate-400 text-sm mb-6 max-w-sm">
+          <p className="text-[#9B9EA4] text-sm mb-6 max-w-sm">
             {filter === "all"
               ? "Compose your first broadcast message to reach all event participants via email."
               : `No messages with status "${filter}" found.`}
@@ -608,10 +601,10 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
           {filter === "all" && (
             <button
               onClick={() => setShowCompose(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF6A00] text-white font-semibold rounded-xl text-sm hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl text-sm transition-colors shadow-sm"
             >
               <Mail size={15} />
-              Send First Message
+              Send first message
             </button>
           )}
         </div>

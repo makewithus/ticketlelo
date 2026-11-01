@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 export default function Html5QrcodePlugin({
   fps = 15,
@@ -32,6 +33,49 @@ export default function Html5QrcodePlugin({
 
     let isMounted = true;
 
+    // Define qrBoxFunction in outer scope so it is always available
+    const qrBoxFunction = (viewfinderWidth, viewfinderHeight) => {
+      const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+      const boxSize = Math.max(160, Math.min(minEdge * 0.75, qrbox || 260));
+      return { width: Math.round(boxSize), height: Math.round(boxSize) };
+    };
+
+    const notifyCameraError = (error) => {
+      const errMsg = error?.message || String(error || "");
+      const errName = error?.name || "";
+
+      let friendlyMessage = "Unable to start camera scanner. Please use manual entry.";
+
+      if (
+        errName === "NotAllowedError" ||
+        errMsg.toLowerCase().includes("permission dismissed") ||
+        errMsg.toLowerCase().includes("permission denied") ||
+        errMsg.toLowerCase().includes("notallowederror")
+      ) {
+        friendlyMessage =
+          "Camera permission was dismissed or denied. Please allow camera permissions in your browser or switch to Manual Entry.";
+      } else if (
+        errName === "NotFoundError" ||
+        errMsg.toLowerCase().includes("no cameras") ||
+        errMsg.toLowerCase().includes("devicesnotfounderror")
+      ) {
+        friendlyMessage =
+          "No camera detected on this device. Please use manual ticket entry.";
+      } else if (
+        errName === "NotReadableError" ||
+        errMsg.toLowerCase().includes("already in use")
+      ) {
+        friendlyMessage = "Camera is currently busy or in use by another application.";
+      }
+
+      // Display friendly toast to the user instead of raw console errors
+      toast.error(friendlyMessage, { id: "qr-camera-status-toast" });
+
+      if (onErrorRef.current) {
+        onErrorRef.current(error, friendlyMessage);
+      }
+    };
+
     const initializeScanner = async () => {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
@@ -42,24 +86,28 @@ export default function Html5QrcodePlugin({
         scannerRef.current = html5QrCode;
 
         // Try to get cameras first
-        const cameras = await Html5Qrcode.getCameras();
-        if (!cameras || cameras.length === 0) {
-          console.error("No cameras found");
-          return;
+        let cameras = [];
+        try {
+          cameras = await Html5Qrcode.getCameras();
+        } catch (camErr) {
+          // Gracefully handle permission dismissed/denied without console.error
+          console.warn("[QR] getCameras note:", camErr?.message || camErr);
+          throw camErr;
         }
 
-        console.log(
-          "Available cameras:",
-          cameras.map((c) => c.label),
-        );
+        if (!cameras || cameras.length === 0) {
+          const noCamErr = new Error("No cameras found on this device");
+          noCamErr.name = "NotFoundError";
+          throw noCamErr;
+        }
 
         // Prefer back camera
         let cameraId = cameras[0].id;
         const backCamera = cameras.find(
           (cam) =>
-            cam.label.toLowerCase().includes("back") ||
-            cam.label.toLowerCase().includes("rear") ||
-            cam.label.toLowerCase().includes("environment"),
+            cam.label?.toLowerCase().includes("back") ||
+            cam.label?.toLowerCase().includes("rear") ||
+            cam.label?.toLowerCase().includes("environment"),
         );
         if (backCamera) {
           cameraId = backCamera.id;
@@ -67,7 +115,7 @@ export default function Html5QrcodePlugin({
 
         const config = {
           fps,
-          qrbox: { width: qrbox, height: qrbox },
+          qrbox: qrBoxFunction,
           aspectRatio,
           disableFlip,
         };
@@ -76,66 +124,82 @@ export default function Html5QrcodePlugin({
           cameraId,
           config,
           (decodedText) => {
-            console.log("[QR] Decoded:", decodedText);
             if (onSuccessRef.current) {
               onSuccessRef.current(decodedText);
             }
           },
-          (errorMessage) => {
-            // Suppress continuous "no QR found" messages
+          () => {
+            // Suppress continuous "no QR found in frame" noise
           },
         );
 
         hasInitialized.current = true;
-        console.log("[QR] Scanner started successfully");
+        toast.success("Camera scanner ready", { id: "qr-scanner-ready" });
 
         if (onReadyRef.current) {
           onReadyRef.current();
         }
       } catch (error) {
-        console.error("[QR] Initialization error:", error);
+        console.warn("[QR] Primary initialization notice:", error?.message || error);
 
-        // Fallback: try with facingMode constraint instead of cameraId
-        try {
-          const { Html5Qrcode } = await import("html5-qrcode");
+        const isPermissionDenied =
+          error?.name === "NotAllowedError" ||
+          String(error?.message || "").toLowerCase().includes("permission dismissed") ||
+          String(error?.message || "").toLowerCase().includes("permission denied");
 
-          if (!isMounted || !scannerRef.current) {
-            const html5QrCode = new Html5Qrcode(elementId, false);
-            scannerRef.current = html5QrCode;
+        // Only try facingMode fallback if it was not an explicit permission denial
+        if (!isPermissionDenied) {
+          try {
+            const { Html5Qrcode } = await import("html5-qrcode");
+
+            if (!isMounted) return;
+
+            if (!scannerRef.current) {
+              const html5QrCode = new Html5Qrcode(elementId, false);
+              scannerRef.current = html5QrCode;
+            }
+
+            // Use facingMode constraint as fallback
+            await scannerRef.current.start(
+              { facingMode: "environment" },
+              {
+                fps,
+                qrbox: qrBoxFunction,
+                aspectRatio,
+                disableFlip,
+              },
+              (decodedText) => {
+                if (onSuccessRef.current) {
+                  onSuccessRef.current(decodedText);
+                }
+              },
+              () => {},
+            );
+
+            hasInitialized.current = true;
+            toast.success("Camera scanner ready", { id: "qr-scanner-ready" });
+
+            if (onReadyRef.current) {
+              onReadyRef.current();
+            }
+            return;
+          } catch (fallbackError) {
+            console.warn(
+              "[QR] Fallback scanner notice:",
+              fallbackError?.message || fallbackError,
+            );
+            notifyCameraError(fallbackError);
+            return;
           }
-
-          // Use facingMode constraint as fallback
-          await scannerRef.current.start(
-            { facingMode: "environment" },
-            {
-              fps,
-              qrbox: { width: qrbox, height: qrbox },
-              aspectRatio,
-              disableFlip,
-            },
-            (decodedText) => {
-              console.log("[QR] Decoded (fallback):", decodedText);
-              if (onSuccessRef.current) {
-                onSuccessRef.current(decodedText);
-              }
-            },
-            () => {},
-          );
-
-          hasInitialized.current = true;
-          console.log("[QR] Scanner started (fallback mode)");
-
-          if (onReadyRef.current) {
-            onReadyRef.current();
-          }
-        } catch (fallbackError) {
-          console.error("[QR] Fallback also failed:", fallbackError);
         }
+
+        // If permission was dismissed/denied, inform the user via toast
+        notifyCameraError(error);
       }
     };
 
     // Small delay to ensure DOM element exists
-    const timeoutId = setTimeout(initializeScanner, 500);
+    const timeoutId = setTimeout(initializeScanner, 400);
 
     return () => {
       isMounted = false;
@@ -145,24 +209,20 @@ export default function Html5QrcodePlugin({
         scannerRef.current
           .stop()
           .then(() => {
-            scannerRef.current.clear();
-            console.log("[QR] Scanner stopped and cleaned up");
+            scannerRef.current?.clear();
           })
           .catch((err) => {
-            console.log("[QR] Cleanup error (safe to ignore):", err);
+            console.warn("[QR] Cleanup notice (safe to ignore):", err?.message || err);
           });
       }
       hasInitialized.current = false;
     };
-  }, []); // Empty deps - only init once
+  }, [fps, qrbox, aspectRatio, disableFlip]);
 
   return (
     <div
       id={elementId}
-      style={{
-        width: "100%",
-        minHeight: "300px",
-      }}
+      className="w-full h-full relative overflow-hidden"
     />
   );
 }

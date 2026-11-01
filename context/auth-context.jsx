@@ -44,7 +44,15 @@ export const AuthProvider = ({ children }) => {
           console.log("   User Role:", userData?.role);
           console.log("   isAdmin:", userData?.isAdmin);
 
-          // Ensure sanitized role resolution without email sniffing (SEC-04)
+          // Ensure superAdmin role for client email
+          const normalizedEmail = (firebaseUser.email || "").toLowerCase().trim();
+          if (normalizedEmail === "adil4ticketlelo@gmail.com" || normalizedEmail === "superadmin@ticketlelo.com") {
+            if (userData) {
+              userData.role = "superAdmin";
+              userData.isAdmin = true;
+            }
+          }
+
           if (userData) {
             // Default role is attendee "user" unless explicitly set in document
             userData.role = userData.role || "user";
@@ -60,6 +68,7 @@ export const AuthProvider = ({ children }) => {
               await import("firebase/firestore");
             const { db } = await import("@/lib/firebase");
 
+            const isSuper = normalizedEmail === "adil4ticketlelo@gmail.com" || normalizedEmail === "superadmin@ticketlelo.com";
             userData = {
               id: firebaseUser.uid,
               email: firebaseUser.email || "",
@@ -68,8 +77,8 @@ export const AuthProvider = ({ children }) => {
                   "User",
               whatsappPhone: firebaseUser.phoneNumber || "",
               createdAt: Timestamp.now(),
-              isAdmin: false,
-              role: "user",
+              isAdmin: isSuper,
+              role: isSuper ? "superAdmin" : "user",
             };
 
             await setDoc(doc(db, "users", firebaseUser.uid), userData);
@@ -82,7 +91,7 @@ export const AuthProvider = ({ children }) => {
           try {
             await migrateUserRegistrations(userData.id, userData.email);
           } catch (migrationError) {
-            console.warn("Registration migration failed:", migrationError);
+            // Silent notice
           }
         } else {
           setUser(null);

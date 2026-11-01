@@ -503,7 +503,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
               placeholder="Enter your full name"
               {...register("fullName")}
               disabled={isLoading}
-              className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
+              className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl"
             />
           </div>
           {errors.fullName && (
@@ -525,7 +525,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
               placeholder="you@example.com"
               {...register("email")}
               disabled={isLoading}
-              className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
+              className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl"
             />
           </div>
           {errors.email && (
@@ -545,7 +545,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
               <button
                 type="button"
                 onClick={() => setCountryOpen(!countryOpen)}
-                className="h-12 px-3 flex items-center gap-1.5 border border-[#FF6A00]/20 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl text-sm text-gray-700 dark:text-slate-300 hover:border-[#FF6A00] dark:hover:border-[#FF6A00]/50 transition-colors min-w-[100px]"
+                className="h-12 px-3 flex items-center gap-1.5 border border-[#FE760B]/20 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl text-sm text-gray-700 dark:text-slate-300 hover:border-[#FE760B] dark:hover:border-[#FE760B]/50 transition-colors min-w-[100px]"
               >
                 <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
                   {selectedCountry.flag}
@@ -556,7 +556,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                 />
               </button>
               {countryOpen && (
-                <div className="absolute left-0 top-full mt-1 w-64 max-h-52 overflow-y-auto z-50 bg-white dark:bg-slate-900 border border-[#FF6A00]/20 dark:border-slate-700 rounded-xl shadow-2xl shadow-[#FF6A00]/10 dark:shadow-black/50">
+                <div className="absolute left-0 top-full mt-1 w-64 max-h-52 overflow-y-auto z-50 bg-white dark:bg-slate-900 border border-[#FE760B]/20 dark:border-slate-700 rounded-xl shadow-2xl shadow-black/50">
                   {COUNTRY_CODES.map((c, idx) => (
                     <button
                       key={`${c.code}-${idx}`}
@@ -567,7 +567,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                         setPhoneValue("");
                         setValue("whatsappPhone", "");
                       }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[#FF6A00]/5 dark:hover:bg-[#FF6A00]/10 transition-colors ${selectedCountry === c ? "bg-[#FFD60A]/10 dark:bg-[#FF6A00]/10 text-[#FF6A00] dark:text-[#FF6A00]" : "text-gray-700 dark:text-slate-300"}`}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[#FE760B]/5 dark:hover:bg-[#FE760B]/10 transition-colors ${selectedCountry === c ? "bg-[#FE760B]/14 text-[#FE760B]" : "text-gray-700 dark:text-slate-300"}`}
                     >
                       <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 w-7 text-center">
                         {c.flag}
@@ -590,7 +590,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                 onChange={handlePhoneChange}
                 disabled={isLoading}
                 maxLength={selectedCountry.len}
-                className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl font-mono tracking-wider"
+                className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl font-mono tracking-wider"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 dark:text-slate-600 font-mono">
                 {phoneValue.length}/{selectedCountry.len}
@@ -616,7 +616,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
               placeholder="Any special requests or message?"
               {...register("message")}
               disabled={isLoading}
-              className="pl-10 min-h-[80px] bg-white dark:bg-slate-900 border-[#FF6A00]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl resize-none"
+              className="pl-10 min-h-[80px] bg-white dark:bg-slate-900 border-[#FE760B]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl resize-none"
             />
           </div>
         </div>
@@ -637,7 +637,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                       setCouponCode(e.target.value.toUpperCase())
                     }
                     disabled={isLoading || couponValidating}
-                    className="h-12 bg-white dark:bg-slate-900 border-[#FF6A00]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl uppercase"
+                    className="h-12 bg-white dark:bg-slate-900 border-[#FE760B]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl uppercase"
                   />
                 </div>
                 <Button
@@ -654,18 +654,18 @@ export function RegistrationForm({ events, preSelectedEventId }) {
                 </Button>
               </div>
             ) : (
-              <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-xl p-4">
+              <div className="bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <CheckCircle className="w-4 h-4 text-[#FF6A00]" />
-                      <span className="text-sm font-semibold text-[#FF6A00]">
+                      <CheckCircle className="w-4 h-4 text-[#FE760B]" />
+                      <span className="text-sm font-semibold text-[#FE760B]">
                         Coupon Applied: {couponCode}
                       </span>
                     </div>
                     <div className="text-xs text-slate-400">
                       <div>Original: ₹{couponData.originalAmount}</div>
-                      <div className="text-[#FF6A00] font-semibold">
+                      <div className="text-[#FE760B] font-semibold">
                         {couponData.discountPercent}% OFF - You save ₹
                         {couponData.discountAmount}
                       </div>
@@ -696,16 +696,16 @@ export function RegistrationForm({ events, preSelectedEventId }) {
         <Button
           type="submit"
           disabled={isLoading || paymentProcessing}
-          className="w-full h-12 text-base font-semibold bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 transition-all rounded-xl gap-2"
+          className="w-full h-12 text-base font-semibold bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] shadow-sm transition-all rounded-xl gap-2 cursor-pointer"
         >
           {isLoading || paymentProcessing ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
               {paymentProcessing ? "Processing Payment..." : "Registering..."}
             </>
           ) : eventPaymentInfo?.isPaid && eventPaymentInfo?.amount > 0 ? (
             <>
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-4 h-4 text-[#131517]" />
               {couponData && couponData.valid ? (
                 <>
                   Pay ₹{couponData.finalAmount}{" "}
@@ -720,7 +720,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="w-4 h-4 text-[#131517]" />
               Register Now
             </>
           )}
@@ -730,11 +730,11 @@ export function RegistrationForm({ events, preSelectedEventId }) {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-[#FF6A00]/30 rounded-2xl p-6 shadow-2xl max-w-md w-full animate-fade-in">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl max-w-md w-full animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <div className="w-12 h-12 rounded-full bg-[#FF6A00]/20 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-[#FF6A00]" />
+                <div className="w-12 h-12 rounded-full bg-[#FE760B]/20 flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-[#FE760B]" />
                 </div>
                 <h3 className="text-xl font-bold text-white">
                   Registration Successful!
@@ -749,30 +749,30 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             </div>
 
             <div className="space-y-4 mb-6">
-              <p className="text-slate-300">
-                 You can now access the{" "}
-                <strong className="text-[#FF6A00]">User Portal</strong> with
+              <p className="text-[#D0D0D1]">
+                You can now access the{" "}
+                <strong className="text-[#FE760B]">User Portal</strong> with
                 your credentials:
               </p>
 
-              <div className="bg-black/50 p-4 rounded-xl border border-[#FF6A00]/20 space-y-3">
+              <div className="bg-[#212327] p-4 rounded-xl border border-[#2A2D31] space-y-3">
                 <div>
-                  <p className="text-xs text-[#FF6A00]/70 mb-1">EMAIL</p>
-                  <p className="font-mono text-sm text-[#FF6A00]">
+                  <p className="text-xs text-[#9B9EA4] mb-1">EMAIL</p>
+                  <p className="font-mono text-sm text-[#FE760B]">
                     {userCredentials.email}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#FF6A00]/70 mb-1">PHONE NUMBER</p>
-                  <p className="font-mono text-sm text-[#FF6A00]">
+                  <p className="text-xs text-[#9B9EA4] mb-1">PHONE NUMBER</p>
+                  <p className="font-mono text-sm text-[#FE760B]">
                     {userCredentials.phone}
                   </p>
                 </div>
               </div>
 
-              <div className="bg-[#FF6A00]/10 border border-[#FF6A00]/30 rounded-lg p-3">
-                <p className="text-xs text-[#FF6A00]">
-                   <strong>Note:</strong> Use these credentials to sign in to
+              <div className="bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-lg p-3">
+                <p className="text-xs text-[#FE760B]">
+                  <strong>Note:</strong> Use these credentials to sign in to
                   the User Portal and view all your tickets.
                 </p>
               </div>
@@ -780,7 +780,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
 
             <Button
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[#FF6A00] hover:bg-[#FFD60A] text-white font-semibold"
+              className="w-full bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold h-11 rounded-xl cursor-pointer"
             >
               Got it!
             </Button>

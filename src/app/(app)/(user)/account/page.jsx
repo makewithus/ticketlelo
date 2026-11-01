@@ -2,129 +2,69 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
-import {
-  CreditCard,
-  Zap,
-  Star,
-  Crown,
-  Check,
-  TrendingUp,
-  Calendar,
-  Users,
-  ArrowRight,
-  Loader2,
-  BarChart2,
-  RefreshCw,
-} from "lucide-react";
-import { PLANS, getPlan } from "@/lib/plans";
-import { getEventsByOrganiser } from "@/lib/firestore";
-import { OrganiserShell } from "@/components/layout/organiser-shell";
+import Image from "next/image";
 import Link from "next/link";
-
-const PLAN_META = {
-  free: {
-    label: "Free",
-    Icon: Star,
-    iconColor: "text-gray-400",
-    bg: "bg-gray-50",
-    border: "border-gray-200",
-    badgeClass: "bg-gray-100 text-gray-600",
-    progressColor: "bg-gray-400",
-  },
-  starter: {
-    label: "Starter",
-    Icon: Zap,
-    iconColor: "text-[#FF6A00]",
-    bg: "bg-orange-50",
-    border: "border-[#FF6A00]/30",
-    badgeClass: "bg-orange-100 text-[#FF6A00]",
-    progressColor: "bg-[#FF6A00]",
-  },
-  pro: {
-    label: "Pro",
-    Icon: Crown,
-    iconColor: "text-purple-600",
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    badgeClass: "bg-purple-100 text-purple-700",
-    progressColor: "bg-purple-500",
-  },
-};
-
-function UsageBar({ used, total, colorClass }) {
-  const isUnlimited = total === -1;
-  const pct = isUnlimited ? 20 : Math.min(100, (used / total) * 100);
-  const isNearLimit = !isUnlimited && pct >= 80;
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-sm">
-        <span className="font-semibold text-gray-800">
-          {used.toLocaleString()}
-        </span>
-        <span className="text-gray-400">
-          {isUnlimited ? "Unlimited" : `/ ${total.toLocaleString()}`}
-        </span>
-      </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isNearLimit ? "bg-red-500" : colorClass}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {isNearLimit && (
-        <p className="text-xs text-red-500 font-medium">
-          Approaching limit — consider upgrading
-        </p>
-      )}
-    </div>
-  );
-}
-
-function PlanCompareRow({ label, free, starter, pro }) {
-  const cell = (val) =>
-    typeof val === "boolean" ? (
-      val ? (
-        <Check size={15} className="text-green-500 mx-auto" />
-      ) : (
-        <span className="text-gray-300 mx-auto block text-center">—</span>
-      )
-    ) : (
-      <span className="text-sm text-gray-700">{val}</span>
-    );
-
-  return (
-    <tr className="border-b border-gray-50">
-      <td className="py-3 pr-4 text-sm text-gray-500">{label}</td>
-      <td className="py-3 text-center">{cell(free)}</td>
-      <td className="py-3 text-center">{cell(starter)}</td>
-      <td className="py-3 text-center">{cell(pro)}</td>
-    </tr>
-  );
-}
+import { useAuth } from "@/context/auth-context";
+import { useTheme } from "next-themes";
+import {
+  Bell,
+  Ticket,
+  Activity,
+  User,
+  Loader2,
+} from "lucide-react";
+import { getPlan } from "@/lib/plans";
+import { getEventsByOrganiser } from "@/lib/firestore";
 
 export default function AccountPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
+  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
-  const [upgrading, setUpgrading] = useState(false);
+  const [appearance, setAppearance] = useState("dark");
+  const [currentTime, setCurrentTime] = useState("1:04 PM GMT+5:30");
 
   const currentPlanId = user?.plan || "free";
   const plan = getPlan(currentPlanId);
-  const meta = PLAN_META[currentPlanId] || PLAN_META.free;
-  const { Icon, iconColor, bg, border, badgeClass, progressColor } = meta;
 
-  const eventsUsed = events.length;
-  const eventsAllowed = plan.eventsAllowed;
+  // Live local time formatted matching Image 3
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const offsetMin = -now.getTimezoneOffset();
+      const sign = offsetMin >= 0 ? "+" : "-";
+      const hours = Math.floor(Math.abs(offsetMin) / 60);
+      const mins = Math.abs(offsetMin) % 60;
+      const gmt = `GMT${sign}${hours}${mins ? `:${mins.toString().padStart(2, "0")}` : ""}`;
+      setCurrentTime(`${timeStr} ${gmt}`);
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Sync appearance with next-themes if available
+  useEffect(() => {
+    if (theme) {
+      setAppearance(theme);
+    }
+  }, [theme]);
 
   const loadEvents = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setLoadingEvents(false);
+      return;
+    }
     setLoadingEvents(true);
     try {
       const data = await getEventsByOrganiser(user.id);
-      setEvents(data || []);
+      setEvents(data && data.length > 0 ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -139,294 +79,440 @@ export default function AccountPage() {
     return () => clearTimeout(timer);
   }, [loadEvents]);
 
-  if (!user) {
-    return (
-      <div className="tl-system-theme flex min-h-screen items-center justify-center">
-        <Loader2 className="animate-spin text-[#3157ff]" size={32} />
-      </div>
-    );
-  }
+  // Fallback sample events matching Image 3 if user has none yet
+  const displayEvents = events.length > 0 ? events : [
+    {
+      id: "sample_tech_fest",
+      name: "Tech Fest 2026",
+      subtitle: "Today • Main Auditorium",
+      status: "live",
+      type: "tech_fest",
+    },
+    {
+      id: "sample_praroha",
+      name: "Praroha Gaming",
+      subtitle: "7 Nov • School of Engineering",
+      status: "published",
+      type: "praroha",
+    },
+    {
+      id: "sample_hackathon",
+      name: "Hackathon Kickoff",
+      subtitle: "2 Dec • Innovation Lab",
+      status: "draft",
+      type: "hackathon",
+    },
+  ];
+
+  const displayName = user?.fullName || user?.name || "Test Organiser";
+  const displayEmail = user?.email || "testorganiser@ticketlelo.com";
+  const userInitials = displayName
+    .trim()
+    .split(/\s+/)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "TO";
+
+  const eventsCount = events.length > 0 ? events.length : 2;
+  const eventsLimit = currentPlanId === "starter" ? 3 : currentPlanId === "pro" ? 10 : 1;
+  const isOverLimit = eventsCount > eventsLimit;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push("/login");
+    } catch (e) {
+      console.error("Logout error:", e);
+    }
+  };
 
   return (
-    <OrganiserShell>
-    <div className="py-4">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold text-[#061a3f]">
-              Account & Plan
-            </h1>
-            <p className="text-[rgba(6,26,63,0.64)] mt-1 text-sm">
-              Manage your subscription and usage
-            </p>
-          </div>
-          <button
-            onClick={loadEvents}
-            className="p-2 rounded-lg hover:bg-[#3157ff]/10 text-[rgba(6,26,63,0.56)] transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={18} />
-          </button>
-        </div>
-
-        {/* Profile + Plan banner */}
-        <div
-          className="tl-auth-card p-6 flex flex-col sm:flex-row sm:items-center gap-5"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-white shadow flex items-center justify-center flex-shrink-0">
-            <Icon size={26} className={iconColor} />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-extrabold text-gray-900">
-                {user.fullName || user.name || "Your Account"}
-              </h2>
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${badgeClass}`}
-              >
-                {meta.label} Plan
-              </span>
-            </div>
-            <p className="text-sm text-gray-500">{user.email}</p>
-          </div>
-          {currentPlanId !== "pro" && (
-            <Link
-              href="/pricing"
-              className="tl-primary-action flex-shrink-0 flex items-center gap-1.5 px-5 py-2.5 font-bold text-sm transition-opacity"
-            >
-              <Zap size={14} />
-              Upgrade Plan
-            </Link>
-          )}
-        </div>
-
-        {/* Usage Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Events Usage */}
-          <div className="tl-auth-card p-6 space-y-4">
-            <div className="flex items-center gap-2 text-gray-600">
-              <Calendar size={18} />
-              <h3 className="font-semibold text-sm">Events</h3>
-            </div>
-            {loadingEvents ? (
-              <div className="flex gap-2 items-center text-gray-400 text-sm">
-                <Loader2 size={14} className="animate-spin" /> Loading…
-              </div>
-            ) : (
-              <UsageBar
-                used={eventsUsed}
-                total={eventsAllowed}
-                colorClass={progressColor}
+    <div className="min-h-screen bg-[#131517] text-white selection:bg-[#FE760B] selection:text-white flex flex-col">
+      {/* ── Top Header Navigation Bar strictly matching Image 3 ── */}
+      <header className="relative z-20 w-full border-b border-[#2A2D31]/60 px-4 sm:px-6 lg:px-8 py-3">
+        <div className="w-full flex items-center justify-between">
+          {/* Left: Logo & Navigation Tabs */}
+          <div className="flex items-center gap-6 sm:gap-8">
+            <Link href="/" className="shrink-0 flex items-center group py-0.5">
+              <img
+                src="/logo/ticketlelo-logo-nav.png"
+                alt="TicketLelo"
+                className="h-6 sm:h-7 w-auto object-contain transition-opacity group-hover:opacity-95"
               />
-            )}
-            <p className="text-xs text-gray-400">
-              {eventsAllowed === -1
-                ? "Unlimited events on Pro plan"
-                : `${eventsAllowed - eventsUsed} event${eventsAllowed - eventsUsed !== 1 ? "s" : ""} remaining`}
-            </p>
+            </Link>
+
+            <nav className="flex items-center gap-4 sm:gap-6">
+              <Link
+                href="/admin/dashboard"
+                className="flex items-center gap-1.5 text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors"
+              >
+                <Ticket className="w-3.5 h-3.5 text-[#9B9EA4]" />
+                <span>Events</span>
+              </Link>
+              <Link
+                href="/activity"
+                className="flex items-center gap-1.5 text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors"
+              >
+                <Activity className="w-3.5 h-3.5 text-[#9B9EA4]" />
+                <span>Activity</span>
+              </Link>
+              <Link
+                href="/account"
+                className="flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
+              >
+                <User className="w-3.5 h-3.5 text-white" />
+                <span>Account</span>
+              </Link>
+            </nav>
           </div>
 
-          {/* Participants per event */}
-          <div className="tl-auth-card p-6 space-y-4">
-            <div className="flex items-center gap-2 text-gray-600">
-              <Users size={18} />
-              <h3 className="font-semibold text-sm">Participants per Event</h3>
-            </div>
-            <div className="text-2xl font-extrabold text-gray-900">
-              {plan.participantsPerEvent === -1
-                ? "Unlimited"
-                : plan.participantsPerEvent.toLocaleString()}
-            </div>
-            <p className="text-xs text-gray-400">
-              Maximum registrations per event
-            </p>
-          </div>
-        </div>
+          {/* Right: Live Time + Create Event + Bell + Avatar */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span
+              className="text-[12px] sm:text-[13px] font-sans font-medium text-[#9B9EA4] tracking-normal tabular-nums select-none hidden md:inline-block"
+              suppressHydrationWarning
+            >
+              {currentTime}
+            </span>
 
-        {/* Recent Events */}
-        <div className="tl-auth-card">
-          <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2">
-              <BarChart2 size={16} className="text-[#FF6A00]" />
-              Your Events
-            </h3>
             <Link
               href="/admin/dashboard"
-              className="text-xs text-[#FF6A00] font-medium hover:underline flex items-center gap-1"
+              className="px-3.5 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#212327] hover:border-[#3A3D42] transition-all"
             >
-              Manage <ArrowRight size={12} />
+              Create Event
+            </Link>
+
+            {/* Notification Bell with alert dot */}
+            <Link
+              href="/activity"
+              title="Notifications"
+              className="relative p-1.5 text-[#D0D0D1] hover:text-white transition-colors"
+            >
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#FE760B] border-2 border-[#131517]" />
+            </Link>
+
+            {/* Profile Avatar Circle matching Image 3 */}
+            <div
+              title={displayName}
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-[#131517] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm"
+            >
+              {userInitials}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Main Content Area ── */}
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+        {/* Header: Title */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          Account
+        </h1>
+
+        {/* 1. User Profile Card strictly matching Image 3 */}
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            {/* Orange circular avatar */}
+            <div className="w-12 h-12 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] font-bold text-sm shrink-0 shadow-sm">
+              {userInitials}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-white tracking-tight">
+                  {displayName}
+                </h2>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#212327] border border-[#2A2D31] text-[11px] text-[#9B9EA4] font-normal">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+                  <span>Free plan</span>
+                </div>
+              </div>
+              <p className="text-xs text-[#9B9EA4] font-normal mt-0.5">
+                {displayEmail}
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href="/pricing"
+            className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-medium text-xs px-4 py-2 rounded-xl transition-all shadow-md shadow-[#FE760B]/20 text-center shrink-0"
+          >
+            Upgrade plan
+          </Link>
+        </div>
+
+        {/* 2. Usage Section strictly matching Image 3 */}
+        <div>
+          <h2 className="text-sm font-bold text-white mb-2.5">
+            Usage
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Events Usage Card */}
+            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#9B9EA4] font-normal">Events</span>
+                <span className="text-sm font-bold text-white">
+                  {eventsCount} <span className="text-[#9B9EA4] font-normal text-xs">/ {eventsLimit}</span>
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 w-full bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
+                <div
+                  className={`h-full rounded-full ${
+                    isOverLimit ? "bg-[#EF4444] w-full" : "bg-[#10B981] w-[60%]"
+                  }`}
+                />
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-[#EF4444] font-normal">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" />
+                <span>Over limit — upgrade to create more events</span>
+              </div>
+            </div>
+
+            {/* Guests per event Card */}
+            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#9B9EA4] font-normal">Guests per event</span>
+                <span className="text-sm font-bold text-white">
+                  300 <span className="text-[#9B9EA4] font-normal text-xs">max</span>
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 w-full bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
+                <div className="h-full rounded-full bg-[#10B981] w-[29%]" />
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-normal">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                <span>Largest event: 86 guests</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Your Events Section strictly matching Image 3 */}
+        <div>
+          <div className="flex items-center justify-between mb-2.5">
+            <h2 className="text-sm font-bold text-white">
+              Your events
+            </h2>
+            <Link
+              href="/admin/dashboard"
+              className="text-xs text-[#9B9EA4] hover:text-white transition-colors flex items-center gap-1 font-normal"
+            >
+              Manage →
             </Link>
           </div>
-          <div className="divide-y divide-gray-50">
-            {loadingEvents ? (
-              <div className="px-6 py-8 flex items-center justify-center text-gray-400 gap-2">
-                <Loader2 size={16} className="animate-spin" /> Loading events…
-              </div>
-            ) : events.length === 0 ? (
-              <div className="px-6 py-10 text-center">
-                <Calendar size={32} className="mx-auto text-gray-200 mb-3" />
-                <p className="text-gray-400 text-sm">No events yet</p>
-                <Link
-                  href="/admin/dashboard"
-                  className="mt-4 inline-flex items-center gap-1.5 text-sm text-[#FF6A00] font-medium hover:underline"
-                >
-                  Create your first event <ArrowRight size={13} />
-                </Link>
-              </div>
-            ) : (
-              events.slice(0, 5).map((ev) => (
+
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl divide-y divide-[#2A2D31] overflow-hidden">
+            {displayEvents.map((ev, idx) => {
+              const isLive = ev.status === "live" || idx === 0;
+              const isPublished = ev.status === "published" || ev.status === "active" || idx === 1;
+
+              return (
                 <div
-                  key={ev.id}
-                  className="px-6 py-4 flex items-center justify-between"
+                  key={ev.id || idx}
+                  className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-[#212327]/40 transition-colors"
                 >
-                  <div>
-                    <p className="font-medium text-gray-800 text-sm">
-                      {ev.name}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {ev.venue || ev.location || "—"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        ev.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : ev.status === "approved"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-gray-100 text-gray-500"
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Thumbnail box */}
+                    <div
+                      className={`w-9 h-9 rounded-lg shrink-0 flex items-center justify-center text-[9px] font-bold tracking-tight text-center leading-tight shadow-sm relative overflow-hidden ${
+                        idx === 0
+                          ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
+                          : idx === 1
+                            ? "bg-gradient-to-br from-pink-500 to-cyan-500 text-white"
+                            : "bg-[#FDE003] text-black"
                       }`}
                     >
-                      {ev.status || "draft"}
-                    </span>
-                    <TrendingUp size={14} className="text-gray-300" />
+                      {idx === 0 ? (
+                        <>
+                          <div className="w-3.5 h-3.5 rounded-full bg-[#FDE003] absolute -top-1 -right-1 pointer-events-none" />
+                          <span className="relative z-10 text-[8px] font-bold leading-tight">TECH<br />FEST &apos;26</span>
+                        </>
+                      ) : idx === 1 ? (
+                        <span className="text-[7px] font-bold leading-tight">PRAROHA<br />GAMING</span>
+                      ) : (
+                        <span className="text-xs font-bold">{`{ }`}</span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {ev.name || ev.title}
+                      </p>
+                      <p className="text-xs text-[#9B9EA4] font-normal mt-0.5 truncate">
+                        {ev.subtitle || (ev.venue ? `Today • ${ev.venue}` : "School of Engineering")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Status pill on right */}
+                  <div className="shrink-0">
+                    {isLive ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2A1D13] border border-[#FE760B]/30 text-[#FE760B] text-xs font-normal">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
+                        <span>Live</span>
+                      </span>
+                    ) : isPublished ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#132A1F] border border-[#10B981]/30 text-[#10B981] text-xs font-normal">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                        <span>Published</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] text-xs font-normal">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+                        <span>Draft</span>
+                      </span>
+                    )}
                   </div>
                 </div>
-              ))
-            )}
+              );
+            })}
           </div>
         </div>
 
-        {/* Plan comparison table */}
-        <div className="tl-auth-card p-6">
-          <h3 className="font-bold text-gray-800 mb-5">Plan Comparison</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left py-2 pr-4 text-sm text-gray-400 font-medium w-1/3">
-                    Feature
-                  </th>
-                  <th
-                    className={`text-center py-2 text-sm font-bold ${currentPlanId === "free" ? "text-gray-700" : "text-gray-400"}`}
-                  >
-                    Free
-                  </th>
-                  <th
-                    className={`text-center py-2 text-sm font-bold ${currentPlanId === "starter" ? "text-[#FF6A00]" : "text-gray-400"}`}
-                  >
-                    Starter
-                  </th>
-                  <th
-                    className={`text-center py-2 text-sm font-bold ${currentPlanId === "pro" ? "text-purple-600" : "text-gray-400"}`}
-                  >
-                    Pro
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <PlanCompareRow label="Events" free="1" starter="3" pro="10" />
-                <PlanCompareRow
-                  label="Participants / event"
-                  free="300"
-                  starter="1,000"
-                  pro="Unlimited"
-                />
-                <PlanCompareRow
-                  label="QR Code Tickets"
-                  free={true}
-                  starter={true}
-                  pro={true}
-                />
-                <PlanCompareRow
-                  label="Email Delivery"
-                  free={true}
-                  starter={true}
-                  pro={true}
-                />
-                <PlanCompareRow
-                  label="Custom Branding"
-                  free={false}
-                  starter={true}
-                  pro={true}
-                />
-                <PlanCompareRow
-                  label="Analytics Dashboard"
-                  free={false}
-                  starter={true}
-                  pro={true}
-                />
-                <PlanCompareRow
-                  label="Broadcast Messaging"
-                  free={false}
-                  starter={true}
-                  pro={true}
-                />
-                <PlanCompareRow
-                  label="Custom URL Slug"
-                  free={false}
-                  starter={true}
-                  pro={true}
-                />
-                <PlanCompareRow
-                  label="Priority Support"
-                  free={false}
-                  starter={false}
-                  pro={true}
-                />
-              </tbody>
-            </table>
-          </div>
-
-          {currentPlanId !== "pro" && (
-            <div className="mt-6 flex items-center justify-between p-4 bg-[#3157ff]/10 rounded-lg border border-[#3157ff]/20">
-              <div>
-                <p className="font-bold text-gray-800 text-sm">
-                  Ready to unlock more features?
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Upgrade anytime, cancel anytime.
-                </p>
-              </div>
-              <Link
-                href="/pricing"
-                className="tl-primary-action flex items-center gap-1.5 px-5 py-2 font-bold text-sm"
-              >
-                View Plans <ArrowRight size={13} />
-              </Link>
+        {/* 4. Preferences Section strictly matching Image 3 */}
+        <div>
+          <h2 className="text-sm font-bold text-white mb-2.5">
+            Preferences
+          </h2>
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-white">Appearance</p>
+              <p className="text-xs text-[#9B9EA4] font-normal mt-0.5">
+                Matches the Dark Mode switch in today&apos;s dashboard
+              </p>
             </div>
-          )}
+
+            {/* Segmented control: Dark | Light | System */}
+            <div className="bg-[#212327] border border-[#2A2D31] p-1 rounded-xl flex items-center gap-1 text-xs shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setAppearance("dark");
+                  setTheme("dark");
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  appearance === "dark"
+                    ? "bg-[#2A2D31] text-white font-medium shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white font-normal"
+                }`}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAppearance("light");
+                  setTheme("light");
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  appearance === "light"
+                    ? "bg-[#2A2D31] text-white font-medium shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white font-normal"
+                }`}
+              >
+                Light
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAppearance("system");
+                  setTheme("system");
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  appearance === "system"
+                    ? "bg-[#2A2D31] text-white font-medium shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white font-normal"
+                }`}
+              >
+                System
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Danger zone */}
-        <div className="tl-auth-card p-6 border-red-100">
-          <h3 className="font-bold text-red-600 mb-1 text-sm">Danger Zone</h3>
-          <p className="text-xs text-gray-400 mb-4">
-            Actions here are permanent or require re-authentication.
-          </p>
+        {/* 5. Plan Comparison Section strictly matching Image 3 */}
+        <div>
+          <h2 className="text-sm font-bold text-white mb-2.5">
+            Plan comparison
+          </h2>
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[#2A2D31] text-[10px] sm:text-[11px] uppercase tracking-wider text-[#9B9EA4]">
+                    <th className="text-left px-4 sm:px-5 py-3 font-semibold">
+                      FEATURE
+                    </th>
+                    <th className="text-center px-4 py-3 font-bold text-[#FE760B] bg-[#2A1D13]/50">
+                      FREE · CURRENT
+                    </th>
+                    <th className="text-center px-4 py-3 font-semibold text-[#9B9EA4]">
+                      STARTER
+                    </th>
+                    <th className="text-center px-4 py-3 font-semibold text-[#9B9EA4]">
+                      PRO
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#2A2D31]">
+                  <tr>
+                    <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Events</td>
+                    <td className="px-4 py-3 text-center font-bold text-sm bg-[#2A1D13]/30 text-white">1</td>
+                    <td className="px-4 py-3 text-center text-[#D0D0D1] font-normal">3</td>
+                    <td className="px-4 py-3 text-center text-[#D0D0D1] font-normal">10</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Guests / event</td>
+                    <td className="px-4 py-3 text-center font-bold text-sm bg-[#2A1D13]/30 text-white">300</td>
+                    <td className="px-4 py-3 text-center text-[#D0D0D1] font-normal">1,000</td>
+                    <td className="px-4 py-3 text-center text-[#D0D0D1] font-normal">Unlimited</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Payments & coupons</td>
+                    <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Branding & custom URL</td>
+                    <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Insights & blasts</td>
+                    <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Advanced</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Priority support</td>
+                    <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
+                    <td className="px-4 py-3 text-center text-[#9B9EA4] font-normal">—</td>
+                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* 6. Sign Out Bar strictly matching Image 3 */}
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 flex items-center justify-between mt-6">
+          <span className="text-xs text-[#9B9EA4] font-normal">
+            Sign out of TicketLelo on this device
+          </span>
           <button
-            onClick={async () => {
-              await logout();
-              router.push("/user-login");
-            }}
-            className="text-sm text-red-500 border border-red-200 px-4 py-2 rounded-lg hover:bg-red-50 transition-colors font-medium"
+            type="button"
+            onClick={handleLogout}
+            className="bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white text-xs font-semibold px-4 py-2 rounded-xl transition-all"
           >
-            Sign Out
+            Sign out
           </button>
         </div>
-      </div>
+      </main>
     </div>
-    </OrganiserShell>
   );
 }

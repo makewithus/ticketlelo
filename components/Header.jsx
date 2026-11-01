@@ -1,64 +1,95 @@
 "use client";
 
-import { Shield, User, Building2 } from "lucide-react";
+import { Shield, User, Building2, Ticket } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
+import Image from "next/image";
+
+import { useAuth } from "@/context/auth-context";
+
 export default function Header() {
+  const { user } = useAuth();
+
   return (
     <>
-      {/* ── Floating Pill Header ── */}
+      {/* ── Calm Canvas Navigation Header ── */}
       <motion.header
-        initial={{ y: -80, opacity: 0 }}
+        initial={{ y: -60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         className="fixed top-0 left-0 right-0 z-[100] mx-auto w-full max-w-full
-          bg-slate-950/90 backdrop-blur-xl
-          border-b border-slate-800/80
+          bg-[#131517]/95 backdrop-blur-md
+          border-b border-[#2A2D31]
           text-white py-3 px-4 sm:px-6 lg:px-8
-          flex items-center justify-between gap-4
-          shadow-[0_4px_30px_rgba(0,0,0,0.4)]"
+          flex items-center justify-between gap-4"
       >
-        {/* Ambient glow */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-transparent to-amber-500/5 pointer-events-none" />
+        {/* Faint top glow only */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#FE760B]/20 to-transparent pointer-events-none" />
 
-        {/* ── Logo Text ── */}
-        <Link href="/" className="relative z-10 shrink-0 flex items-center gap-2 group">
-          <span className="text-2xl font-black bg-gradient-to-r from-[#FF6A00] to-[#FFD60A] bg-clip-text text-transparent group-hover:brightness-110 transition-all">
-            Ticketलेलो
-          </span>
-          <span className="hidden md:inline-flex px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400">
-            Platform
-          </span>
-        </Link>
+        {/* ── Official Wordmark Logo (30px in nav, min 24px) ── */}
+        <div className="flex items-center gap-2 xs:gap-3 sm:gap-6 shrink-0">
+          <Link href="/" className="relative z-10 shrink-0 flex items-center group py-0.5">
+            <Image
+              src="/logo/ticketlelo-logo-nav.png"
+              alt="TicketLelo"
+              width={120}
+              height={30}
+              className="h-6 sm:h-[30px] w-auto object-contain transition-opacity group-hover:opacity-95"
+              style={{ width: "auto", height: "auto" }}
+              priority
+            />
+          </Link>
 
-        {/* ── Right Auth Buttons ── */}
-        <div className="flex items-center gap-2 relative z-10 shrink-0">
           <Link
-            href="/super-admin-login"
-            className="bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-medium px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all border border-white/10 text-xs sm:text-sm whitespace-nowrap"
+            href="/e-tickets"
+            className="flex items-center gap-1.5 text-xs font-semibold text-[#D0D0D1] hover:text-[#FE760B] px-1.5 xs:px-2.5 sm:px-3 py-1.5 rounded-xl hover:bg-[#1A1C1F] transition-colors"
           >
-            <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span className="hidden sm:inline">Super Admin</span>
+            <Ticket className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+            <span className="hidden xs:inline">E-tickets</span>
           </Link>
+        </div>
+
+        {/* ── Right Auth & Theme Controls ── */}
+        <div className="flex items-center gap-1.5 xs:gap-2 relative z-10 shrink-0">
+          {/* LIGHT MODE - Placed to the LEFT of Activity per brand guidelines */}
+          <ThemeToggle inline />
+
+          {/* Activity */}
           <Link
-            href="/organiser-login"
-            className="bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white font-medium px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all border border-white/10 text-xs sm:text-sm whitespace-nowrap"
+            href="/activity"
+            className="flex items-center gap-1.5 px-2.5 xs:px-3 py-1.5 rounded-full bg-[#1A1C1F] border border-[#2A2D31] text-xs text-[#D0D0D1] hover:text-white transition-colors"
           >
-            <Building2 className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Organiser</span>
+            Activity
           </Link>
-          <Link
-            href="/user-login"
-            className="bg-gradient-to-r from-[#FF6A00] to-[#E65C00] hover:from-[#E65C00] hover:to-[#FF6A00] text-white font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all text-xs sm:text-sm shadow-md shadow-[#FF6A00]/20 whitespace-nowrap"
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>Sign In</span>
-          </Link>
-          <div className="pl-1 border-l border-slate-800">
-            <ThemeToggle inline compact className="h-9 w-9 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white" />
-          </div>
+
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-[#131517] font-semibold px-2.5 xs:px-3.5 sm:px-4 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shadow-none border-none"
+            >
+              <User className="w-3.5 h-3.5 text-[#131517] shrink-0" />
+              <span>Dashboard</span>
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/host-event"
+                className="hidden sm:flex bg-[#1A1C1F] hover:bg-[#212327] text-[#D0D0D1] hover:text-white font-medium px-3 py-1.5 rounded-xl items-center gap-1.5 transition-all border border-[#2A2D31] text-xs sm:text-sm whitespace-nowrap"
+              >
+                <Building2 className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+                <span>Host Event</span>
+              </Link>
+              <Link
+                href="/login"
+                className="bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-[#131517] font-semibold px-2.5 xs:px-3.5 sm:px-4 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shadow-none border-none"
+              >
+                <User className="w-3.5 h-3.5 text-[#131517] shrink-0" />
+                <span>Sign In</span>
+              </Link>
+            </>
+          )}
         </div>
       </motion.header>
     </>

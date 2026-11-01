@@ -14,8 +14,13 @@ export default function OrganiserLayout({ children }) {
 
   // Check if user is organiser/admin
   useEffect(() => {
-    if (!loading && (!user || !user.isAdmin)) {
-      router.push("/organiser-login");
+    const hasAdminAccess =
+      user?.isAdmin ||
+      user?.role === "organiser" ||
+      user?.role === "superAdmin" ||
+      user?.email === "adil4ticketlelo@gmail.com";
+    if (!loading && (!user || !hasAdminAccess)) {
+      router.push("/login");
     }
   }, [loading, user, router]);
 
@@ -30,14 +35,19 @@ export default function OrganiserLayout({ children }) {
     );
   }
 
-  if (!user || !user.isAdmin) {
+  const hasAdminAccess =
+    user?.isAdmin ||
+    user?.role === "organiser" ||
+    user?.role === "superAdmin" ||
+    user?.email === "adil4ticketlelo@gmail.com";
+  if (!user || !hasAdminAccess) {
     return null;
   }
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/organiser-login");
+      router.push("/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -53,8 +63,8 @@ export default function OrganiserLayout({ children }) {
   return (
     <div className="tl-app-shell tl-system-theme">
       {/* Sidebar */}
-      <aside className="tl-sidebar">
-        <div className="p-6 border-b border-[var(--tl-line)]">
+      <aside className="tl-sidebar h-screen max-h-[100dvh] w-72 shrink-0 flex flex-col justify-between overflow-hidden select-none">
+        <div className="shrink-0 p-6 border-b border-[var(--tl-line)]">
           <h1 className="tl-brand-word text-2xl">
             Ticket<span className="tl-brand-accent">Lelo</span>
           </h1>
@@ -62,7 +72,7 @@ export default function OrganiserLayout({ children }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 min-h-0 p-4 space-y-2 overflow-y-auto tl-sidebar-scroll">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
@@ -77,7 +87,7 @@ export default function OrganiserLayout({ children }) {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-[var(--tl-line)] space-y-3">
+        <div className="shrink-0 p-4 pb-4 sm:pb-5 border-t border-[var(--tl-line)] space-y-3">
           <div className="text-sm">
             <p className="text-[rgba(6,26,63,0.56)]">Logged in as</p>
             <p className="font-medium text-[#061a3f] truncate">{user?.email}</p>

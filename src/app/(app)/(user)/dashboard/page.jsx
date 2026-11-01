@@ -11,13 +11,20 @@ import {
   CalendarDays,
   TicketCheck,
   Search,
+  Shield,
+  Building2,
 } from "lucide-react";
 import { TicketCard } from "@/components/dashboard/ticket-card";
+import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
+import { detectTicketTheme, parseTicketTitle } from "@/components/tickets/stub-ticket";
 import { useAuth } from "@/context/auth-context";
 import { getEvent, subscribeToUserRegistrations } from "@/lib/firestore";
+import { formatShortDate, formatTicketDate, getEventYear } from "@/lib/date-utils";
 import Link from "next/link";
+import { Layers, LayoutGrid } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
-const LOGO_SRC = "/logo/Ticket%E0%A4%B2%E0%A5%87%E0%A4%B2%E0%A5%8B-final.png";
+const LOGO_SRC = "/logo/ticketlelo-logo-nav.png";
 
 export default function DashboardPage() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -26,30 +33,16 @@ export default function DashboardPage() {
   const [events, setEvents] = useState(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("All");
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "deck";
+    }
+    return "grid";
+  });
 
   useEffect(() => {
-    console.log(" DASHBOARD - User state from useAuth():");
-    console.log("   User:", user);
-    console.log("   User Email:", user?.email);
-    console.log("   User ID:", user?.id);
-    console.log("   User Role:", user?.role);
-    console.log("   Auth Loading:", authLoading);
-
     if (!authLoading && !user) {
-      console.log(" No user found, redirecting to user login");
-      router.push("/user-login");
-    }
-
-    // Redirect super admin to super admin panel
-    if (!authLoading && user && user.role === "superAdmin") {
-      console.log(" Super Admin detected, redirecting to super admin panel");
-      router.push("/superadmin");
-    }
-
-    // Redirect organiser to admin panel (ONLY if role is explicitly "organiser")
-    if (!authLoading && user && user.role === "organiser") {
-      console.log(" Organiser detected, redirecting to admin panel");
-      router.push("/admin/dashboard");
+      router.push("/login");
     }
   }, [user, authLoading, router]);
 
@@ -67,13 +60,16 @@ export default function DashboardPage() {
     const unsubscribe = subscribeToUserRegistrations(user.id, async (regs) => {
       if (!isMounted) return;
       setRegistrations(regs);
+      const uniqueEventIds = Array.from(new Set(regs.map((r) => r.eventId).filter(Boolean)));
       const eventsMap = new Map();
-      for (const reg of regs) {
-        if (!eventsMap.has(reg.eventId)) {
-          const event = await getEvent(reg.eventId);
-          if (event && isMounted) eventsMap.set(reg.eventId, event);
-        }
-      }
+      await Promise.all(
+        uniqueEventIds.map(async (eventId) => {
+          const event = await getEvent(eventId);
+          if (event) {
+            eventsMap.set(eventId, event);
+          }
+        })
+      );
       if (isMounted) {
         setEvents(eventsMap);
         setIsLoading(false);
@@ -96,13 +92,13 @@ export default function DashboardPage() {
 
   if (authLoading || isLoading) {
     return (
-      <main className="tl-system-theme flex min-h-screen items-center justify-center">
+      <main className="tl-system-theme flex min-h-screen items-center justify-center bg-[#131517]">
         <div className="flex flex-col items-center gap-4 opacity-0 animate-fade-in">
-          <div className="tl-auth-icon flex h-16 w-16 items-center justify-center animate-pulse-glow">
-            <Ticket className="w-8 h-8 text-white" />
+          <div className="flex h-14 w-14 items-center justify-center bg-[#FE760B] rounded-2xl shadow-none">
+            <Ticket className="w-7 h-7 text-white" />
           </div>
-          <Loader2 className="w-6 h-6 animate-spin text-[#3157ff]" />
-          <p className="text-[rgba(6,26,63,0.64)]">Loading your tickets...</p>
+          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+          <p className="text-sm text-[#9B9EA4]">Loading your tickets...</p>
         </div>
       </main>
     );
@@ -119,143 +115,268 @@ export default function DashboardPage() {
   const usedCount = registrations.filter((r) => r.status === "Used").length;
 
   return (
-    <main className="tl-system-theme min-h-screen transition-colors">
+    <main className="tl-system-theme min-h-screen bg-[#131517] text-white">
       {/* Header */}
-      <header className="sticky top-0 inset-x-0 z-50 border-b border-[var(--tl-line)] bg-[var(--tl-paper)]/95 backdrop-blur">
-        <nav className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 group">
-            <img src={LOGO_SRC} alt="TicketLelo" className="h-12 w-auto object-contain" />
+      <header className="sticky top-0 inset-x-0 z-50 border-b border-[#2A2D31] bg-[#131517]/95 backdrop-blur-md">
+        <nav className="max-w-7xl mx-auto px-3.5 xs:px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
+            <img src={LOGO_SRC} alt="TicketLelo" className="h-6 sm:h-[30px] w-auto object-contain" />
           </Link>
-          <div className="flex gap-3 items-center">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#3157ff]/10 border border-[#3157ff]/20">
-              <div className="w-2 h-2 rounded-full bg-[#3157ff] animate-pulse" />
-              <span className="text-sm text-[rgba(6,26,63,0.72)]">{user.email}</span>
+
+          <div className="flex gap-2 sm:gap-3 items-center shrink-0">
+            {/* Quick Multi-Portal Access for Super Admin */}
+            {(user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
+              <div className="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-[#1A1C1F] border border-[#2A2D31]">
+                <Link
+                  href="/superadmin"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] hover:bg-[#2A2D31] hover:border-[#FE760B]/40 hover:!text-white transition-all flex items-center gap-1.5 group"
+                >
+                  <Shield className="w-3 h-3 text-[#FE760B] group-hover:scale-105 transition-transform" />
+                  <span>Super Admin</span>
+                </Link>
+                <Link
+                  href="/admin/dashboard"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium text-[#D0D0D1] hover:bg-[#212327] hover:border-[#2A2D31] hover:!text-white transition-all flex items-center gap-1.5 group"
+                >
+                  <Building2 className="w-3 h-3 text-[#FE760B] group-hover:scale-105 transition-transform" />
+                  <span>Organiser</span>
+                </Link>
+              </div>
+            )}
+
+            {/* LIGHT MODE - Placed to the LEFT of Activity per brand guidelines */}
+            <ThemeToggle inline />
+
+            {/* Activity */}
+            <Link
+              href="/activity"
+              className="flex items-center gap-1.5 px-2.5 xs:px-3 py-1.5 rounded-full bg-[#1A1C1F] border border-[#2A2D31] text-xs font-semibold text-[#061A3F] dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors"
+            >
+              Activity
+            </Link>
+
+            {/* User Profile */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1A1C1F] border border-[#2A2D31]">
+              <div className="w-2 h-2 rounded-full bg-[#3DD68C]" />
+              <span className="text-xs font-semibold text-[#061A3F] dark:text-[#D0D0D1]">{user.email}</span>
             </div>
+
+            {/* Sign Out */}
             <Button
               onClick={handleLogout}
               variant="outline"
-              className="h-10 gap-2 border-[var(--tl-line)] text-[#061a3f] hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-all rounded-lg"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 gap-1.5 border-[#2A2D31] bg-[#1A1C1F] text-[#061A3F] dark:text-[#D0D0D1] hover:text-[#FF6B6B] hover:border-[#FF6B6B]/30 hover:bg-[#FF6B6B]/10 transition-all rounded-xl text-xs font-semibold cursor-pointer"
             >
-              <LogOut className="w-4 h-4" /> Sign Out
+              <LogOut className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Sign Out</span>
             </Button>
           </div>
         </nav>
       </header>
 
-      <section className="py-12 px-6">
+      <section className="pt-2 sm:pt-3 pb-3 sm:pb-4 px-3 xs:px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          {/* Welcome */}
-          <div className="mb-10 opacity-0 animate-fade-in-up">
-            <h1 className="text-4xl font-extrabold mb-2 text-[#061a3f]">
-              Welcome, <span className="text-[#ff0084]">{user.fullName}</span>
-            </h1>
-            <p className="text-[rgba(6,26,63,0.64)] text-lg">
-              Your event tickets, all in one place.
-            </p>
-          </div>
+          {/* Welcome & Stats Command Center Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3 sm:mb-3.5 opacity-0 animate-fade-in-up">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-[#061A3F] dark:text-white tracking-tight">
+                Welcome, <span className="text-[#FE760B]">{user.fullName || "Guest"}</span>
+              </h1>
+              <p className="text-[#334155] dark:text-[#9B9EA4] text-xs sm:text-sm mt-0.5 font-medium">
+                Your tickets control room — all event passes in one place.
+              </p>
+            </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-            {[
-              {
-                label: "Total Tickets",
-                value: registrations.length,
-                icon: Ticket,
-                iconBg: "bg-[#3157ff]",
-              },
-              {
-                label: "Upcoming",
-                value: unusedCount,
-                icon: CalendarDays,
-                iconBg: "bg-[#ff0084]",
-              },
-              {
-                label: "Used",
-                value: usedCount,
-                icon: TicketCheck,
-                iconBg: "bg-[#008d46]",
-              },
-            ].map((stat, i) => (
-              <div
-                key={stat.label}
-                className={`tl-auth-card p-5 opacity-0 animate-fade-in-up stagger-${i + 1}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-[rgba(6,26,63,0.64)] mb-1">{stat.label}</p>
-                    <p className="text-3xl font-extrabold text-[#061a3f]">
-                      {stat.value}
-                    </p>
-                  </div>
-                  <div
-                    className={`w-12 h-12 rounded-lg ${stat.iconBg} flex items-center justify-center shadow-lg`}
-                  >
-                    <stat.icon className="w-6 h-6 text-white" />
-                  </div>
+            {/* Compact, Sleek Metric Pills */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full md:w-auto">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
+                <div className="min-w-0">
+                  <p className="text-[8px] xs:text-[9.5px] text-[#1E293B] dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Total</p>
+                  <p className="text-lg sm:text-xl font-bold text-[#061A3F] dark:text-white leading-none mt-0.5">{registrations.length}</p>
+                </div>
+                <div className="w-7 h-7 shrink-0 rounded-lg bg-[#FE760B]/10 text-[#FE760B] flex items-center justify-center border border-[#FE760B]/20">
+                  <Ticket className="w-3.5 h-3.5" />
                 </div>
               </div>
-            ))}
+
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
+                <div className="min-w-0">
+                  <p className="text-[8px] xs:text-[9.5px] text-[#1E293B] dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Upcoming</p>
+                  <p className="text-lg sm:text-xl font-bold text-[#10B981] leading-none mt-0.5">{unusedCount}</p>
+                </div>
+                <div className="w-7 h-7 shrink-0 rounded-lg bg-[#10B981]/10 text-[#10B981] flex items-center justify-center border border-[#10B981]/20">
+                  <CalendarDays className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
+                <div className="min-w-0">
+                  <p className="text-[8px] xs:text-[9.5px] text-[#1E293B] dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Used</p>
+                  <p className="text-lg sm:text-xl font-bold text-[#061A3F] dark:text-[#D0D0D1] leading-none mt-0.5">{usedCount}</p>
+                </div>
+                <div className="w-7 h-7 shrink-0 rounded-lg bg-[#212327] text-[#061A3F] dark:text-[#9B9EA4] flex items-center justify-center border border-[#2A2D31]">
+                  <TicketCheck className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-3 mb-8 opacity-0 animate-fade-in-up stagger-4">
-            <Filter className="w-4 h-4 text-[rgba(6,26,63,0.56)]" />
-            {[
-              { key: "All", label: `All (${registrations.length})` },
-              { key: "Unused", label: `Upcoming (${unusedCount})` },
-              { key: "Used", label: `Used (${usedCount})` },
-            ].map((f) => (
+          {/* Filter Tabs & View Mode Switcher */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2 sm:mb-2.5 opacity-0 animate-fade-in-up stagger-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Filter className="w-3.5 h-3.5 text-[#061A3F] dark:text-[#9B9EA4] mr-0.5" />
+              {[
+                { key: "All", label: `All (${registrations.length})` },
+                { key: "Unused", label: `Upcoming (${unusedCount})` },
+                { key: "Used", label: `Used (${usedCount})` },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  className={`px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                    filter === f.key
+                      ? "bg-[#FE760B] text-[#131517] shadow-none"
+                      : "bg-[#1A1C1F] text-[#061A3F] dark:text-[#D0D0D1] border border-[#2A2D31] hover:bg-[#212327] hover:text-[#061A3F] dark:hover:text-white"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="flex items-center bg-[#1A1C1F] border border-[#2A2D31] p-0.5 rounded-lg shadow-sm">
               <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  filter === f.key
-                    ? "bg-[#3157ff] text-white border border-[#3157ff]"
-                    : "text-[rgba(6,26,63,0.68)] hover:text-[#061a3f] border border-transparent hover:border-[#3157ff]/20 hover:bg-[#3157ff]/10"
+                onClick={() => setViewMode("deck")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === "deck"
+                    ? "bg-[#212327] text-[#061A3F] dark:text-white shadow-sm"
+                    : "text-[#061A3F]/75 dark:text-[#9B9EA4] hover:text-[#061A3F] dark:hover:text-white"
                 }`}
               >
-                {f.label}
+                <Layers className="w-3.5 h-3.5" />
+                <span>Deck view</span>
               </button>
-            ))}
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-[#212327] text-[#061A3F] dark:text-white shadow-sm"
+                    : "text-[#061A3F]/75 dark:text-[#9B9EA4] hover:text-[#061A3F] dark:hover:text-white"
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Grid view</span>
+              </button>
+            </div>
           </div>
 
-          {/* Tickets Grid */}
-          {filteredRegistrations.length === 0 ? (
-            <div className="text-center py-20 opacity-0 animate-fade-in">
-              <div className="w-20 h-20 rounded-lg bg-[#3157ff]/10 flex items-center justify-center mx-auto mb-6">
-                <Search className="w-10 h-10 text-[#3157ff]" />
+          {/* VIEW: DECK VIEW */}
+          {viewMode === "deck" ? (
+            filteredRegistrations.length === 0 ? (
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in">
+                <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
+                  <Ticket className="w-7 h-7 text-[#FE760B]" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
+                </h3>
+                <p className="text-sm text-[#9B9EA4] mb-6">
+                  {filter === "All"
+                    ? "When you register for college festivals or community events, your passes will appear here."
+                    : `You have no tickets currently matching the "${filter}" filter.`}
+                </p>
+                {filter === "All" && (
+                  <Link href="/">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
+                      Browse events
+                    </Button>
+                  </Link>
+                )}
               </div>
-              <h3 className="text-2xl font-bold text-[#061a3f] mb-2">
-                No tickets found
-              </h3>
-              <p className="text-[rgba(6,26,63,0.64)] mb-6">
-                {filter === "All"
-                  ? "You haven't registered for any events yet."
-                  : `No ${filter.toLowerCase()} tickets.`}
-              </p>
-              {filter === "All" && (
-                <Link href="/">
-                  <Button className="tl-primary-action h-11 font-bold gap-2">
-                    Browse Events
-                  </Button>
-                </Link>
-              )}
-            </div>
+            ) : (
+              <div className="flex justify-center py-0 opacity-0 animate-fade-in">
+                <TicketDeckView
+                  initialTickets={filteredRegistrations.map((reg, idx) => {
+                    const rawEvent = events.get(reg.eventId) || {};
+                    const eventName = rawEvent.name || rawEvent.title || reg.eventName || reg.eventTitle || "Tech Fest 2026";
+                    const detectedTheme = rawEvent.theme || reg.theme || detectTicketTheme(eventName, rawEvent.category || reg.category);
+                    const parsed = parseTicketTitle(eventName);
+                    let displayTitle = parsed.line1.toUpperCase();
+                    if (displayTitle === "PRAROHA") displayTitle = "PRARÖHA";
+                    const subTitle = parsed.line2 ? parsed.line2.toUpperCase() : (reg.ticketTier || reg.ticketType || "PASS");
+                    const year = parsed.year || getEventYear(rawEvent.date || reg.eventDate, "2026");
+                    const subBadge = reg.status === "Used"
+                      ? "USED"
+                      : (rawEvent.price === 0 || reg.amount === 0 ? "FREE" : reg.amount ? `₹${reg.amount}` : (reg.ticketTier || "PASS"));
+
+                    return {
+                      id: reg.id || `reg_${idx}`,
+                      title: eventName,
+                      theme: detectedTheme,
+                      date: formatTicketDate(rawEvent.date || reg.eventDate),
+                      time: typeof rawEvent.time === "string" ? rawEvent.time : typeof reg.eventTime === "string" ? reg.eventTime : "12:00 PM",
+                      venue: String(rawEvent.location || rawEvent.venue || reg.venue || reg.location || "MAIN AUDITORIUM"),
+                      ticketType: String(reg.ticketTier || reg.tierName || reg.ticketType || "GENERAL PASS"),
+                      guest: String(reg.attendeeName || reg.fullName || user.fullName || "Adil M"),
+                      ticketId: String(reg.ticketId || `TKT-${reg.id?.slice(0, 8)}`),
+                      qrCode: reg.qrCode,
+                      entryLabel: "SCAN AT ENTRY",
+                      subBadge: subBadge,
+                      price: rawEvent.price !== undefined ? rawEvent.price : reg.amount !== undefined ? reg.amount : null,
+                    };
+                  })}
+                  onBack={() => setViewMode("grid")}
+                />
+              </div>
+            )
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRegistrations.map((registration, i) => {
-                const event = events.get(registration.eventId);
-                if (!event) return null;
-                return (
-                  <div
-                    key={registration.id}
-                    className={`opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)} h-full`}
-                  >
-                    <TicketCard registration={registration} event={event} />
-                  </div>
-                );
-              })}
-            </div>
+            /* VIEW: GRID VIEW */
+            filteredRegistrations.length === 0 ? (
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in">
+                <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
+                  <Ticket className="w-7 h-7 text-[#FE760B]" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
+                </h3>
+                <p className="text-sm text-[#9B9EA4] mb-6">
+                  {filter === "All"
+                    ? "When you register for college festivals or community events, your QR passes will appear here."
+                    : `You have no tickets currently matching the "${filter}" filter.`}
+                </p>
+                {filter === "All" && (
+                  <Link href="/">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
+                      Browse events
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {filteredRegistrations.map((registration, i) => {
+                  const rawEvent = events.get(registration.eventId) || {};
+                  const event = {
+                    ...rawEvent,
+                    name: rawEvent.name || rawEvent.title || registration.eventName || registration.eventTitle || "Tech Fest 2026",
+                    location: rawEvent.location || rawEvent.venue || registration.venue || registration.location || "Main Auditorium",
+                    date: rawEvent.date || rawEvent.startDate || registration.eventDate || registration.createdAt?.toDate?.() || new Date(),
+                    time: rawEvent.time || registration.eventTime || registration.time || "12:00 PM",
+                    price: rawEvent.price !== undefined ? rawEvent.price : registration.amount !== undefined ? registration.amount : registration.amountPaid !== undefined ? registration.amountPaid : 199,
+                    category: rawEvent.category || registration.category,
+                    theme: rawEvent.theme || registration.theme,
+                  };
+                  return (
+                    <div
+                      key={registration.id}
+                      className={`opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)} h-full`}
+                    >
+                      <TicketCard registration={registration} event={event} />
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
       </section>

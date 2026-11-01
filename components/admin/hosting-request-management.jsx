@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Info,
   KeyRound,
+  Search,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -26,71 +28,31 @@ import {
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const REQUESTS_PAGE_SIZE = 5;
+const REQUESTS_PAGE_SIZE = 10;
 
-function paginate(items, page) {
-  const totalPages = Math.max(1, Math.ceil(items.length / REQUESTS_PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * REQUESTS_PAGE_SIZE;
-  return {
-    currentPage,
-    totalPages,
-    pageItems: items.slice(start, start + REQUESTS_PAGE_SIZE),
-    start: items.length === 0 ? 0 : start + 1,
-    end: Math.min(start + REQUESTS_PAGE_SIZE, items.length),
-  };
-}
-
-function PaginationControls({ label, total, pageInfo, onPageChange }) {
-  if (total <= REQUESTS_PAGE_SIZE) return null;
-
-  return (
-    <div className="mt-4 flex flex-col gap-3 rounded-lg border border-[var(--tl-line)] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-[rgba(6,26,63,0.64)]">
-        Showing{" "}
-        <span className="font-semibold text-[#061a3f]">
-          {pageInfo.start}-{pageInfo.end}
-        </span>{" "}
-        of <span className="font-semibold text-[#061a3f]">{total}</span>{" "}
-        {label}
-      </p>
-
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pageInfo.currentPage === 1}
-          onClick={() => onPageChange(pageInfo.currentPage - 1)}
-          className="border-[var(--tl-line)] bg-white text-[#061a3f] hover:bg-[#3157ff]/10"
-        >
-          <ChevronLeft className="mr-1 h-4 w-4" />
-          Previous
-        </Button>
-        <span className="min-w-20 text-center text-sm font-semibold text-[#061a3f]">
-          {pageInfo.currentPage} / {pageInfo.totalPages}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pageInfo.currentPage === pageInfo.totalPages}
-          onClick={() => onPageChange(pageInfo.currentPage + 1)}
-          className="border-[var(--tl-line)] bg-white text-[#061a3f] hover:bg-[#3157ff]/10"
-        >
-          Next
-          <ChevronRight className="ml-1 h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
+function formatRequestDate(ts) {
+  if (!ts) return "Recently";
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+    });
+  } catch {
+    return "Recently";
+  }
 }
 
 export function HostingRequestManagement() {
   const [requests, setRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'pending' | 'approved' | 'rejected'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedDetailRequest, setSelectedDetailRequest] = useState(null);
+
+  // Modal states
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [requestToReject, setRequestToReject] = useState(null);
@@ -98,9 +60,6 @@ export function HostingRequestManagement() {
   const [approvedCredentials, setApprovedCredentials] = useState(null);
   const [approvedRequestData, setApprovedRequestData] = useState(null);
   const [isExistingOrganiser, setIsExistingOrganiser] = useState(false);
-  const [pendingPage, setPendingPage] = useState(1);
-  const [approvedPage, setApprovedPage] = useState(1);
-  const [rejectedPage, setRejectedPage] = useState(1);
 
   const loadRequests = async () => {
     try {
@@ -121,18 +80,46 @@ export function HostingRequestManagement() {
     return () => clearTimeout(timer);
   }, []);
 
+  const counts = useMemo(() => {
+    return {
+      pending: requests.filter((r) => r.status === "pending").length,
+      approved: requests.filter((r) => r.status === "approved").length,
+      rejected: requests.filter((r) => r.status === "rejected").length,
+    };
+  }, [requests]);
+
+  const filteredRequests = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return requests.filter((req) => {
+      const matchesStatus =
+        statusFilter === "all" ? true : req.status === statusFilter;
+      const searchable = [
+        req.eventTitle,
+        req.name,
+        req.email,
+        req.college,
+        req.description,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch = !term || searchable.includes(term);
+      return matchesStatus && matchesSearch;
+    });
+  }, [requests, statusFilter, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PAGE_SIZE));
+  const activePage = Math.min(currentPage, totalPages);
+  const paginatedRequests = filteredRequests.slice(
+    (activePage - 1) * REQUESTS_PAGE_SIZE,
+    activePage * REQUESTS_PAGE_SIZE,
+  );
+
   const handleApprove = async (requestId, requestData) => {
     setProcessingId(requestId);
     try {
-      console.log(" Starting approval process...", {
-        requestId,
-        eventTitle: requestData.eventTitle,
-      });
-
       const organiserEmail = requestData.email;
 
-      // Create organiser account using server-side API (won't affect current session)
-      console.log(" Creating organiser account via API...");
       const createResponse = await fetch("/api/create-organiser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,16 +145,14 @@ export function HostingRequestManagement() {
         isExisting,
         organiserEmail: responseEmail,
       } = createData;
-      console.log(" Organiser account ready:", organiserId);
 
-      // Organizer approval never changes or returns a password.
       const finalEmail = responseEmail || organiserEmail;
-      toast.info(isExisting
-        ? "Organizer access approved. Their existing password was not changed."
-        : "Organizer access approved. They can set a password with Forgot password.");
+      toast.info(
+        isExisting
+          ? "Organizer access approved. Their existing password was not changed."
+          : "Organizer access approved. They can set a password with Forgot password.",
+      );
 
-      // Update hosting request
-      console.log(" Updating hosting request status...");
       await updateDoc(doc(db, "hostingRequests", requestId), {
         status: "approved",
         organiserId,
@@ -175,21 +160,17 @@ export function HostingRequestManagement() {
         approvedAt: Timestamp.now(),
         isExisting,
       });
-      console.log(" Hosting request updated");
 
       const credentials = {
         organiserId,
         organiserEmail: finalEmail,
       };
 
-      // Store credentials and request data for modal
       setApprovedCredentials(credentials);
       setApprovedRequestData(requestData);
       setIsExistingOrganiser(isExisting);
       setApprovalModalOpen(true);
 
-      // Send approval email
-      console.log(" Sending approval email...");
       try {
         const emailResponse = await fetch("/api/send-approval-email", {
           method: "POST",
@@ -205,24 +186,17 @@ export function HostingRequestManagement() {
 
         const emailResult = await emailResponse.json();
         if (emailResult.success) {
-          console.log(" Email sent successfully");
           toast.success("Approved! Email sent to " + requestData.email);
         } else {
-          console.warn(" Email failed:", emailResult.error);
-          toast.warning(
-            "Approved but email failed: " +
-              (emailResult.error || "Unknown error"),
-          );
+          toast.warning("Approved but email delivery had an issue");
         }
       } catch (emailError) {
-        console.error(" Email sending error:", emailError);
-        toast.warning("Approved but failed to send email notification");
+        console.error("Email sending error:", emailError);
       }
 
-      // Reload requests
       await loadRequests();
     } catch (error) {
-      console.error(" Approval failed:", error);
+      console.error("Approval failed:", error);
       toast.error(error.message || "Failed to approve request");
     } finally {
       setProcessingId(null);
@@ -239,7 +213,6 @@ export function HostingRequestManagement() {
     try {
       await rejectHostingRequest(requestToReject.id, rejectionReason);
 
-      // Send rejection email
       try {
         await fetch("/api/send-rejection-email", {
           method: "POST",
@@ -256,14 +229,13 @@ export function HostingRequestManagement() {
         });
       } catch (emailError) {
         console.error("Failed to send rejection email:", emailError);
-        toast.warning("Rejected but failed to send email notification");
       }
 
       toast.success("Hosting request rejected");
       setRejectModalOpen(false);
       setRejectionReason("");
       setRequestToReject(null);
-      loadRequests();
+      await loadRequests();
     } catch (error) {
       console.error("Failed to reject request:", error);
       toast.error(error.message || "Failed to reject request");
@@ -280,229 +252,367 @@ export function HostingRequestManagement() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3157ff]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
       </div>
     );
   }
 
-  const pendingRequests = requests.filter((r) => r.status === "pending");
-  const approvedRequests = requests.filter((r) => r.status === "approved");
-  const rejectedRequests = requests.filter((r) => r.status === "rejected");
-  const pendingPageInfo = paginate(pendingRequests, pendingPage);
-  const approvedPageInfo = paginate(approvedRequests, approvedPage);
-  const rejectedPageInfo = paginate(rejectedRequests, rejectedPage);
-
   return (
-    <div className="space-y-8">
-      {/* Pending Requests */}
-      <section>
-        <h2 className="text-2xl font-extrabold text-[#061a3f] mb-4">
-          Pending Requests ({pendingRequests.length})
-        </h2>
-        <div className="grid gap-4">
-          {pendingRequests.length === 0 ? (
-            <p className="text-[rgba(6,26,63,0.56)] text-center py-8">
-              No pending requests
-            </p>
-          ) : (
-            pendingPageInfo.pageItems.map((request) => (
-              <div
-                key={request.id}
-                className="tl-auth-card p-6 border-l-4 border-l-[#ffe000]"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-[#061a3f]">
-                      {request.eventTitle}
-                    </h3>
-                    <p className="text-sm text-[rgba(6,26,63,0.64)] mt-1">
-                      Requested by {request.name}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleApprove(request.id, request)}
-                      disabled={processingId === request.id}
-                      className="tl-primary-action font-bold"
-                    >
-                      {processingId === request.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4 mr-1" />
-                          Approve
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => openRejectModal(request)}
-                      disabled={processingId === request.id}
-                      className="tl-danger-action"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
-                    <Mail className="w-4 h-4" />
-                    {request.email}
-                  </div>
-                  <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
-                    <Users className="w-4 h-4" />
-                    {request.phone}
-                  </div>
-                  {request.college && (
-                    <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
-                      <MapPin className="w-4 h-4" />
-                      {request.college}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-[rgba(6,26,63,0.72)]">
-                    <Users className="w-4 h-4" />
-                    {request.numberOfTickets} tickets
-                  </div>
-                </div>
-
-                {request.description && (
-                  <p className="mt-4 text-[rgba(6,26,63,0.72)] text-sm">
-                    {request.description}
-                  </p>
-                )}
-
-                <div className="mt-4 flex items-center gap-4">
-                  {request.isPaid && (
-                    <span className="px-3 py-1 bg-[#ffe000]/30 text-[#061a3f] rounded-full text-xs font-medium">
-                      Paid Event
-                    </span>
-                  )}
-                  <span className="text-xs text-[rgba(6,26,63,0.56)]">
-                    Submitted:{" "}
-                    {request.createdAt?.toDate
-                      ? new Date(
-                          request.createdAt.toDate(),
-                        ).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
+    <div className="space-y-6">
+      {/* Search & Status Summary Row (Matching Image 5) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9EA4]" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Search event, name or college"
+            className="w-full h-11 pl-10 pr-4 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl text-sm text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-colors"
+          />
         </div>
-        <PaginationControls
-          label="pending requests"
-          total={pendingRequests.length}
-          pageInfo={pendingPageInfo}
-          onPageChange={setPendingPage}
-        />
-      </section>
 
-      {/* Approved Requests */}
-      <section>
-        <h2 className="text-2xl font-extrabold text-[#061a3f] mb-4">
-          Approved Organisers ({approvedRequests.length})
-        </h2>
-        <div className="grid gap-4">
-          {approvedPageInfo.pageItems.map((request) => (
-            <div
-              key={request.id}
-              className="tl-auth-card p-6 border-l-4 border-l-[#3157ff]"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-[#061a3f]">
-                    {request.eventTitle}
-                  </h3>
-                  <p className="text-sm text-[rgba(6,26,63,0.64)] mt-1">
-                    Organiser: {request.name}
-                  </p>
-                </div>
-                <span className="px-3 py-1 bg-[#008d46]/10 text-[#008d46] rounded-full text-xs font-medium">
-                  Approved
-                </span>
-              </div>
+        {/* Top-Right Status Summary Badges (Matching Image 5) */}
+        <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1 max-w-full overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => {
+              setStatusFilter(statusFilter === "pending" ? "all" : "pending");
+              setCurrentPage(1);
+            }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
+              statusFilter === "pending"
+                ? "bg-[#212327] text-white shadow-sm"
+                : "text-[#D0D0D1] hover:text-white"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-[#FDE003]" />
+            Pending · {counts.pending}
+          </button>
+          <button
+            onClick={() => {
+              setStatusFilter(statusFilter === "approved" ? "all" : "approved");
+              setCurrentPage(1);
+            }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
+              statusFilter === "approved"
+                ? "bg-[#212327] text-white shadow-sm"
+                : "text-[#D0D0D1] hover:text-white"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
+            Approved · {counts.approved}
+          </button>
+          <button
+            onClick={() => {
+              setStatusFilter(statusFilter === "rejected" ? "all" : "rejected");
+              setCurrentPage(1);
+            }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
+              statusFilter === "rejected"
+                ? "bg-[#212327] text-white shadow-sm"
+                : "text-[#D0D0D1] hover:text-white"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-[#FF6B6B]" />
+            Rejected · {counts.rejected}
+          </button>
+        </div>
+      </div>
 
-              <div className="bg-[#f8fafc] border border-[var(--tl-line)] rounded-lg p-4 space-y-3">
-                <h4 className="font-semibold text-[#061a3f]">Organizer sign-in</h4>
-                <p className="font-mono text-sm text-[#061a3f]">{request.organiserEmail}</p>
-                <p className="text-xs text-[rgba(6,26,63,0.64)]">
-                  Passwords are not stored or shown here. The organizer can use the Forgot password flow to set or recover access.
+      {/* Requests Table Container (Matching Image 5) */}
+      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-[#2A2D31] bg-[#131517]/50">
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                  EVENT
+                </th>
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                  REQUESTED BY
+                </th>
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                  TYPE
+                </th>
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                  TICKETS
+                </th>
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-right">
+                  DECISION
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2A2D31]">
+              {paginatedRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-[#9B9EA4] text-sm">
+                    No hosting requests found matching your filter.
+                  </td>
+                </tr>
+              ) : (
+                paginatedRequests.map((request) => {
+                  const isPending = request.status === "pending";
+                  const isApproved = request.status === "approved";
+                  const isRejected = request.status === "rejected";
+
+                  return (
+                    <tr
+                      key={request.id}
+                      className="hover:bg-[#212327]/60 transition-colors group cursor-pointer"
+                      onClick={() => setSelectedDetailRequest(request)}
+                    >
+                      {/* Event Column */}
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-xs text-white">
+                            {request.coverUrl ? (
+                              <img
+                                src={request.coverUrl}
+                                alt={request.eventTitle}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[#FF9A4D]">
+                                {request.eventTitle?.charAt(0) || "E"}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-white group-hover:text-[#FE760B] transition-colors">
+                              {request.eventTitle}
+                            </div>
+                            <div className="text-xs text-[#9B9EA4] mt-0.5">
+                              Sent {formatRequestDate(request.createdAt)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Requested By Column */}
+                      <td className="py-3.5 px-5">
+                        <div className="text-sm font-medium text-white">
+                          {request.name}
+                        </div>
+                        <div className="text-xs text-[#9B9EA4] mt-0.5 truncate max-w-[220px]">
+                          {request.college || "College"} · {request.email}
+                        </div>
+                      </td>
+
+                      {/* Type Column */}
+                      <td className="py-3.5 px-5">
+                        {request.isPaid ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FE760B]/14 text-[#FF9A4D]">
+                            Paid
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white">
+                            Free
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Tickets Column */}
+                      <td className="py-3.5 px-5">
+                        <span className="text-sm text-white font-mono tabular-nums">
+                          {request.numberOfTickets || "—"}
+                        </span>
+                      </td>
+
+                      {/* Decision Column (Matching Image 5) */}
+                      <td
+                        className="py-3.5 px-5 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {isPending ? (
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => openRejectModal(request)}
+                              disabled={processingId === request.id}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#FF9A9A] hover:bg-[#FF6B6B]/15 transition-colors disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              onClick={() => handleApprove(request.id, request)}
+                              disabled={processingId === request.id}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3DD68C] bg-[#3DD68C]/12 hover:bg-[#3DD68C]/20 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                              {processingId === request.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : null}
+                              Approve
+                            </button>
+                          </div>
+                        ) : isApproved ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#3DD68C]/12 text-[#3DD68C]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                            Approved
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FF6B6B]/12 text-[#FF9A9A]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
+                            Rejected
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-[#2A2D31] flex items-center justify-between bg-[#131517]/40 text-xs text-[#9B9EA4]">
+            <div>
+              Showing {(activePage - 1) * REQUESTS_PAGE_SIZE + 1} to{" "}
+              {Math.min(activePage * REQUESTS_PAGE_SIZE, filteredRequests.length)}{" "}
+              of {filteredRequests.length} requests
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={activePage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="h-8 border-[#2A2D31] bg-[#1A1C1F] text-white hover:bg-[#212327]"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-white font-medium px-2">
+                {activePage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={activePage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="h-8 border-[#2A2D31] bg-[#1A1C1F] text-white hover:bg-[#212327]"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Detail Slideout/Modal */}
+      {selectedDetailRequest && (
+        <div
+          className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setSelectedDetailRequest(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  {selectedDetailRequest.eventTitle}
+                </h3>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  Requested by {selectedDetailRequest.name}
                 </p>
               </div>
+              <button
+                onClick={() => setSelectedDetailRequest(null)}
+                className="p-1.5 rounded-lg hover:bg-[#212327] text-[#9B9EA4] hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-              <div className="mt-4 text-xs text-[rgba(6,26,63,0.56)]">
-                Approved:{" "}
-                {request.approvedAt?.toDate
-                  ? new Date(request.approvedAt.toDate()).toLocaleDateString()
-                  : "N/A"}
+            <div className="grid grid-cols-2 gap-3 text-xs bg-[#212327] p-4 rounded-xl border border-[#2A2D31]">
+              <div>
+                <span className="text-[#9B9EA4] block">Email</span>
+                <span className="text-white font-medium break-all">
+                  {selectedDetailRequest.email}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#9B9EA4] block">Phone</span>
+                <span className="text-white font-medium">
+                  {selectedDetailRequest.phone || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#9B9EA4] block">College / Org</span>
+                <span className="text-white font-medium">
+                  {selectedDetailRequest.college || "—"}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#9B9EA4] block">Expected Tickets</span>
+                <span className="text-white font-mono font-medium">
+                  {selectedDetailRequest.numberOfTickets}
+                </span>
               </div>
             </div>
-          ))}
-        </div>
-        <PaginationControls
-          label="approved organisers"
-          total={approvedRequests.length}
-          pageInfo={approvedPageInfo}
-          onPageChange={setApprovedPage}
-        />
-      </section>
 
-      {/* Rejected Requests */}
-      {rejectedRequests.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-extrabold text-[#061a3f] mb-4">
-            Rejected Requests ({rejectedRequests.length})
-          </h2>
-          <div className="grid gap-4">
-            {rejectedPageInfo.pageItems.map((request) => (
-              <div
-                key={request.id}
-                className="tl-auth-card p-6 border-l-4 border-l-red-500 opacity-90"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-bold text-[#061a3f]">
-                      {request.eventTitle}
-                    </h3>
-                    <p className="text-sm text-[rgba(6,26,63,0.64)] mt-1">
-                      {request.name}
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                    Rejected
-                  </span>
-                </div>
+            {selectedDetailRequest.description && (
+              <div>
+                <span className="text-xs text-[#9B9EA4] font-medium block mb-1">
+                  Event Description
+                </span>
+                <p className="text-xs text-[#D0D0D1] bg-[#212327] p-3 rounded-xl border border-[#2A2D31] leading-relaxed">
+                  {selectedDetailRequest.description}
+                </p>
               </div>
-            ))}
+            )}
+
+            {selectedDetailRequest.status === "pending" && (
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => {
+                    openRejectModal(selectedDetailRequest);
+                    setSelectedDetailRequest(null);
+                  }}
+                  className="flex-1 bg-transparent hover:bg-[#FF6B6B]/15 text-[#FF9A9A] border border-[#FF6B6B]/30 h-10 rounded-xl text-xs font-semibold"
+                >
+                  Reject Request
+                </Button>
+                <Button
+                  onClick={() => {
+                    handleApprove(
+                      selectedDetailRequest.id,
+                      selectedDetailRequest,
+                    );
+                    setSelectedDetailRequest(null);
+                  }}
+                  className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] h-10 rounded-xl text-xs font-semibold shadow-none border-none"
+                >
+                  Approve Request
+                </Button>
+              </div>
+            )}
           </div>
-          <PaginationControls
-            label="rejected requests"
-            total={rejectedRequests.length}
-            pageInfo={rejectedPageInfo}
-            onPageChange={setRejectedPage}
-          />
-        </section>
+        </div>
       )}
 
       {/* Rejection Modal */}
       {rejectModalOpen && typeof document !== "undefined" && createPortal(
         <>
           <div
-            className="fixed inset-0 z-[200] overscroll-contain bg-[#061a3f]/55 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs"
             onClick={() => {
               setRejectModalOpen(false);
               setRejectionReason("");
               setRequestToReject(null);
             }}
           />
-          <div className="tl-system-theme tl-modal-frame fixed inset-0 z-[201] flex items-center justify-center overflow-y-auto overscroll-contain p-3 sm:p-5" onClick={(event) => event.stopPropagation()}>
-            <div role="dialog" aria-modal="true" aria-labelledby="rejection-modal-title" className="tl-auth-card my-auto max-h-[min(92dvh,48rem)] w-full max-w-md overflow-y-auto p-4 sm:p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 id="rejection-modal-title" className="text-xl font-bold text-[#061a3f]">
+          <div
+            className="fixed inset-0 z-[201] flex items-center justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white">
                   Reject Hosting Request
                 </h3>
                 <button
@@ -511,59 +621,52 @@ export function HostingRequestManagement() {
                     setRejectionReason("");
                     setRequestToReject(null);
                   }}
-                  className="p-1 hover:bg-[#3157ff]/10 rounded-lg transition-colors"
+                  className="p-1 hover:bg-[#212327] rounded-lg text-[#9B9EA4] hover:text-white transition-colors"
                 >
-                  <X className="w-5 h-5 text-[rgba(6,26,63,0.56)]" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {requestToReject && (
-                <div className="mb-4 p-4 bg-[#3157ff]/10 rounded-lg border border-[#3157ff]/20">
-                  <h4 className="text-[#061a3f] font-semibold mb-1">
+                <div className="p-3 bg-[#212327] rounded-xl border border-[#2A2D31] text-xs">
+                  <div className="font-semibold text-white">
                     {requestToReject.eventTitle}
-                  </h4>
-                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
-                    Requested by {requestToReject.name}
-                  </p>
-                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
-                    {requestToReject.email}
-                  </p>
+                  </div>
+                  <div className="text-[#9B9EA4] mt-0.5">
+                    {requestToReject.name} · {requestToReject.email}
+                  </div>
                 </div>
               )}
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-[#061a3f] mb-2">
-                  Rejection Reason <span className="text-red-400">*</span>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-[#D0D0D1]">
+                  Rejection Reason <span className="text-[#FF6B6B]">*</span>
                 </label>
                 <textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Please provide a detailed reason for rejection..."
-                  rows={5}
-                  className="w-full px-4 py-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f] placeholder:text-[rgba(6,26,63,0.45)] focus:outline-none focus:border-[#3157ff] transition-colors resize-none"
+                  placeholder="Explain why this request is being rejected..."
+                  rows={4}
+                  className="w-full px-3.5 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-xs text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-colors resize-none"
                 />
-                <p className="text-xs text-[rgba(6,26,63,0.56)] mt-2">
-                  This reason will be sent to the user via email.
+                <p className="text-[11px] text-[#9B9EA4]">
+                  This note will be emailed directly to the organizer.
                 </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-2.5 pt-2">
                 <Button
                   onClick={handleReject}
                   disabled={
                     !rejectionReason.trim() ||
                     processingId === requestToReject?.id
                   }
-                  className="tl-danger-action flex-1 font-semibold py-2.5 transition-all disabled:opacity-50"
+                  className="flex-1 bg-[#FF6B6B] hover:bg-[#FF8A8A] text-[#131517] h-10 rounded-xl text-xs font-semibold border-none shadow-none"
                 >
                   {processingId === requestToReject?.id ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />{" "}
-                      Rejecting...
-                    </>
-                  ) : (
-                    <>Reject Request</>
-                  )}
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  Confirm Rejection
                 </Button>
                 <Button
                   onClick={() => {
@@ -571,7 +674,8 @@ export function HostingRequestManagement() {
                     setRejectionReason("");
                     setRequestToReject(null);
                   }}
-                  className="flex-1 bg-white hover:bg-[#3157ff]/10 text-[#061a3f] border border-[var(--tl-line)] font-semibold py-2.5 rounded-lg transition-all"
+                  variant="outline"
+                  className="flex-1 bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] h-10 rounded-xl text-xs font-medium"
                 >
                   Cancel
                 </Button>
@@ -586,7 +690,7 @@ export function HostingRequestManagement() {
       {approvalModalOpen && approvedCredentials && typeof document !== "undefined" && createPortal(
         <>
           <div
-            className="fixed inset-0 z-[200] overscroll-contain bg-[#061a3f]/55 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs"
             onClick={() => {
               setApprovalModalOpen(false);
               setApprovedCredentials(null);
@@ -594,88 +698,48 @@ export function HostingRequestManagement() {
               setIsExistingOrganiser(false);
             }}
           />
-          <div className="tl-system-theme tl-modal-frame fixed inset-0 z-[201] flex items-center justify-center overflow-y-auto overscroll-contain p-3 sm:p-4">
-            <div className="tl-auth-card max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-[#008d46]/10 flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-[#008d46]" />
-                  </div>
-                  <h3 id="approval-modal-title" className="text-lg font-bold text-[#061a3f]">
-                    Request Approved!
+          <div className="fixed inset-0 z-[201] flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#3DD68C]/12 flex items-center justify-center text-[#3DD68C]">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Request approved
                   </h3>
+                  <p className="text-xs text-[#9B9EA4]">
+                    Organizer access granted for {approvedRequestData?.eventTitle}
+                  </p>
                 </div>
-                <button
-                  onClick={() => {
-                    setApprovalModalOpen(false);
-                    setApprovedCredentials(null);
-                    setIsExistingOrganiser(false);
-                    setApprovedRequestData(null);
-                  }}
-                  className="p-1 hover:bg-[#3157ff]/10 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-[rgba(6,26,63,0.56)]" />
-                </button>
               </div>
 
-              {approvedRequestData && (
-                <div className="mb-3 rounded-lg border border-[#3157ff]/20 bg-[#3157ff]/10 p-3">
-                  <h4 className="text-[#061a3f] font-semibold mb-1">
-                    {approvedRequestData.eventTitle}
-                  </h4>
-                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
-                    Organiser: {approvedRequestData.name}
-                  </p>
-                  <p className="text-sm text-[rgba(6,26,63,0.64)]">
-                    {approvedRequestData.email}
-                  </p>
+              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3.5 space-y-2 text-xs">
+                <div className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Sign-in email
                 </div>
-              )}
-
-              <div className="mb-3 rounded-lg border border-[#008d46]/20 bg-[#008d46]/10 p-3">
-                <p className="text-sm text-[#008d46] flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Approval email sent to {approvedRequestData?.email}
+                <div className="flex items-center justify-between bg-[#1A1C1F] border border-[#2A2D31] p-2.5 rounded-lg">
+                  <span className="font-mono text-white text-xs">
+                    {approvedCredentials.organiserEmail}
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        approvedCredentials.organiserEmail,
+                      );
+                      toast.success("Email copied!");
+                    }}
+                    className="p-1 hover:bg-[#212327] rounded text-[#9B9EA4] hover:text-white"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-[#9B9EA4] pt-1">
+                  {isExistingOrganiser
+                    ? "Existing organizer keeps their current credentials."
+                    : "The organizer can set a password using the Forgot password link."}
                 </p>
-              </div>
-
-              <div className="mb-3 space-y-2 rounded-lg border border-[var(--tl-line)] bg-[#f8fafc] p-3">
-                <h4 className="font-semibold text-[#061a3f] flex items-center gap-2">
-                  <KeyRound className="h-4 w-4" /> Organiser Credentials
-                </h4>
-
-                <div className="rounded border border-[var(--tl-line)] bg-white p-2.5">
-                  <p className="mb-1 text-xs text-[rgba(6,26,63,0.56)]">EMAIL</p>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="min-w-0 break-all font-mono text-sm text-[#061a3f]">
-                      {approvedCredentials.organiserEmail}
-                    </p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          approvedCredentials.organiserEmail,
-                        );
-                        toast.success("Email copied!");
-                      }}
-                      className="p-1.5 hover:bg-[#3157ff]/10 rounded transition-colors"
-                    >
-                      <Copy className="w-4 h-4 text-[#3157ff]" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-[#ffe000]/50 bg-[#ffe000]/20 p-2.5">
-                  <p className="text-xs text-[#061a3f] flex gap-2">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>
-                    {isExistingOrganiser ? (
-                      <>This existing account keeps its current password. No credential was reset.</>
-                    ) : (
-                      <>The organizer can set a password using Forgot password on the organizer sign-in page.</>
-                    )}
-                    </span>
-                  </p>
-                </div>
               </div>
 
               <Button
@@ -685,7 +749,7 @@ export function HostingRequestManagement() {
                   setApprovedRequestData(null);
                   setIsExistingOrganiser(false);
                 }}
-                className="tl-primary-action min-h-10 w-full py-2 font-semibold transition-all"
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold h-10 rounded-xl text-xs transition-colors border-none shadow-none"
               >
                 Done
               </Button>

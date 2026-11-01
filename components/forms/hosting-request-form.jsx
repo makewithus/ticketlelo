@@ -63,195 +63,252 @@ export function HostingRequestForm() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto" style={{ fontFamily: '"Object Sans", Arial, sans-serif' }}>
-      <div className="tl-host-form-card bg-[#fffdfa] border-0 rounded-[28px] shadow-[0_24px_80px_rgba(6,26,63,0.14)] overflow-hidden">
-        <div className="grid md:grid-cols-[0.9fr_1.1fr]">
-          <div className="bg-[#ff0084] text-white p-8 md:p-10 flex flex-col justify-between min-h-[320px]">
-            <div>
-              <img src="/logo/Ticket%E0%A4%B2%E0%A5%87%E0%A4%B2%E0%A5%8B-final.png" alt="TicketLelo" className="w-40 mb-10" />
-              <h1 className="text-5xl md:text-6xl leading-[0.94] font-normal tracking-normal uppercase">
-                Host Your Event
-              </h1>
-            </div>
-            <p className="text-lg md:text-xl leading-tight font-extrabold mt-8 max-w-sm">
-              Submit your details once. The admin panel receives your request for review and approval.
+    <div className="w-full max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+        {/* Left Column: Branding, Title, Steps */}
+        <div className="lg:col-span-5 space-y-6 pt-2">
+          {/* Logo */}
+          <div className="mb-4">
+            <img
+              src="/logo/ticketlelo-logo-nav.png"
+              alt="TicketLelo"
+              className="h-9 w-auto object-contain"
+            />
+          </div>
+
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-[#FFFFFF] tracking-tight mb-3">
+              Host your event<br className="hidden sm:inline" /> on TicketLelo
+            </h1>
+            <p className="text-[#9B9EA4] text-sm leading-relaxed">
+              Send your details once. Our team reviews the request and emails you organiser login details.
             </p>
           </div>
 
-          <div className="p-6 md:p-10">
+          {/* Steps */}
+          <div className="space-y-5 pt-4">
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 rounded-full bg-[#FE760B] mt-1.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-white">Send this request</p>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">About two minutes</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 rounded-full bg-[#5C6066] mt-1.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-[#D0D0D1]">We review it</p>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">Approved or we follow up by email</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <span className="w-2 h-2 rounded-full bg-[#5C6066] mt-1.5 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-[#D0D0D1]">Sign in & create your event</p>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">Tickets, questions, banner, QR check-in</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Form Card */}
+        <div className="lg:col-span-7">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 sm:p-8 shadow-xl">
             {submitted ? (
-              <div className="flex min-h-[420px] flex-col justify-center" role="status" aria-live="polite">
-                <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-[#008d46]/10 text-[#008d46]">
+              <div className="flex min-h-[420px] flex-col justify-center text-center items-center py-8">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h2 className="mb-3 text-3xl font-extrabold text-[#061a3f]">
+                <h2 className="mb-2 text-2xl font-bold text-white">
                   Request submitted
                 </h2>
-                <p className="max-w-md text-[#061a3f]/75">
-                  Your hosting request is with the admin team for review. We&apos;ll email you when it has been reviewed.
+                <p className="max-w-md text-[#9B9EA4] text-sm">
+                  Your hosting request is with the admin team for review. We&apos;ll email you when it has been approved.
                 </p>
-                <Button
+                <button
                   type="button"
                   onClick={() => router.push("/")}
-                  className="mt-8 h-12 w-full max-w-xs rounded-full bg-[#3157ff] font-extrabold text-white hover:bg-[#ff0084]"
+                  className="mt-6 px-6 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-black font-semibold text-sm transition-colors"
                 >
                   Back to TicketLelo
-                </Button>
+                </button>
               </div>
             ) : (
-              <>
-            <h2 className="text-3xl md:text-4xl leading-none font-normal text-[#061a3f] mb-2">
-              Event Request
-            </h2>
-            <p className="text-[#061a3f] font-extrabold leading-tight mb-8">
-              Fill the required fields and we will get back to you after admin approval.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-5 [&_label]:leading-tight [&_input:not([type=checkbox])]:min-w-0 [&_textarea]:min-w-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* SECTION 1: ABOUT YOU */}
                 <div>
-                  <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                    Full Name <span className="text-[#ff0084]">*</span>
-                  </label>
-                  <Input
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="John Doe"
-                    required
-                    className="w-full h-12 rounded-full bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                  />
+                  <p className="text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider mb-3">
+                    About you
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                        Full name *
+                      </label>
+                      <input
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        placeholder="John Doe"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        placeholder="john@example.com"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                        Phone number *
+                      </label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="+91 98765 43210"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                        College / organisation
+                      </label>
+                      <input
+                        name="college"
+                        value={formData.college}
+                        onChange={handleChange}
+                        placeholder="ABC University"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                    Email <span className="text-[#ff0084]">*</span>
-                  </label>
-                  <Input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder="john@example.com"
-                    required
-                    className="w-full h-12 rounded-full bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                  />
+                {/* SECTION 2: YOUR EVENT */}
+                <div className="pt-2">
+                  <p className="text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider mb-3">
+                    Your event
+                  </p>
+                  <div className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                        Event title *
+                      </label>
+                      <input
+                        name="eventTitle"
+                        value={formData.eventTitle}
+                        onChange={handleChange}
+                        placeholder="Tech Fest 2026"
+                        required
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                        Event description
+                      </label>
+                      <textarea
+                        name="description"
+                        value={formData.description}
+                        onChange={handleChange}
+                        placeholder="What's the event about? Who is it for?"
+                        rows={3}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors resize-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
+                      <div>
+                        <label className="block text-xs font-medium text-[#D0D0D1] mb-1.5">
+                          Expected tickets
+                        </label>
+                        <input
+                          type="number"
+                          name="numberOfTickets"
+                          value={formData.numberOfTickets || ""}
+                          onChange={handleChange}
+                          placeholder="100"
+                          min="0"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] h-[42px]">
+                        <span className="text-xs font-medium text-[#D0D0D1]">
+                          Paid event
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={formData.isPaid}
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              isPaid: !prev.isPaid,
+                            }))
+                          }
+                          className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                          style={{
+                            backgroundColor: formData.isPaid ? "#FE760B" : "#2A2D31",
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out ${
+                              formData.isPaid ? "translate-x-4" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                    Phone Number <span className="text-[#ff0084]">*</span>
-                  </label>
-                  <Input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    placeholder="+91 98765 43210"
-                    required
-                    className="w-full h-12 rounded-full bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                  />
+                {/* Footer Buttons matching Image 2 */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2A2D31]">
+                  <button
+                    type="button"
+                    onClick={() => router.push("/")}
+                    disabled={isLoading}
+                    className="px-4 py-2 text-sm font-medium text-[#9B9EA4] hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="px-5 py-2.5 rounded-lg bg-white hover:bg-slate-100 text-black font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-black" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      "Submit request"
+                    )}
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                    College/Organization
-                  </label>
-                  <Input
-                    name="college"
-                    value={formData.college}
-                    onChange={handleChange}
-                    placeholder="ABC University"
-                    className="w-full h-12 rounded-full bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                  Event Title <span className="text-[#ff0084]">*</span>
-                </label>
-                <Input
-                  name="eventTitle"
-                  value={formData.eventTitle}
-                  onChange={handleChange}
-                  placeholder="Tech Fest 2026"
-                  required
-                  className="w-full h-12 rounded-full bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                  Event Description
-                </label>
-                <Textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Describe your event..."
-                  rows={4}
-                  className="w-full rounded-[24px] bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 items-end">
-                <label className="mb-0 flex items-center gap-3 cursor-pointer bg-[#f3f0e8] rounded-full px-5 h-12">
-                  <input
-                    type="checkbox"
-                    name="isPaid"
-                    checked={formData.isPaid}
-                    onChange={handleChange}
-                    className="w-5 h-5 accent-[#ff0084]"
-                  />
-                  <span className="text-sm font-extrabold text-[#061a3f] uppercase">
-                    Paid Event
-                  </span>
-                </label>
-
-                <div>
-                  <label className="block text-sm font-extrabold text-[#061a3f] mb-2 uppercase">
-                    Number of Tickets
-                  </label>
-                  <Input
-                    type="number"
-                    name="numberOfTickets"
-                    value={formData.numberOfTickets}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    className="w-full h-12 rounded-full bg-[#f3f0e8] border-transparent text-[#061a3f] placeholder:text-[#061a3f]/45 focus:border-[#3157ff] focus:ring-[#3157ff]"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/")}
-                  className="flex-1 h-[52px] rounded-full bg-[#061a3f] hover:bg-[#102a5f] text-white border-0 font-extrabold"
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 h-[52px] rounded-full bg-[#3157ff] hover:bg-[#ff0084] text-white font-extrabold"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    "Submit Request"
-                  )}
-                </Button>
-              </div>
-            </form>
-              </>
+              </form>
             )}
           </div>
         </div>

@@ -19,6 +19,7 @@ import Link from "next/link";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-context";
+import { getAllEvents, getEventsByOrganiser } from "@/lib/firestore";
 
 function formatTs(ts) {
   if (!ts) return "—";
@@ -55,24 +56,25 @@ function relativeTime(ts) {
 function StatusBadge({ status }) {
   const map = {
     pending: {
-      cls: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+      cls: "bg-[#FDE003]/12 text-[#FDE003] border border-[#FDE003]/25",
       label: "Pending",
     },
     approved: {
-      cls: "bg-green-500/20 text-green-400 border border-green-500/30",
+      cls: "bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/25",
       label: "Approved",
     },
     rejected: {
-      cls: "bg-red-500/20 text-red-400 border border-red-500/30",
+      cls: "bg-[#FF6B6B]/12 text-[#FF6B6B] border border-[#FF6B6B]/25",
       label: "Rejected",
     },
   };
   const { cls, label } = map[status] || {
-    cls: "bg-slate-700 text-slate-400",
+    cls: "bg-white/7 text-[#9B9EA4] border border-[#2A2D31]",
     label: status,
   };
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${cls}`}>
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
       {label}
     </span>
   );
@@ -88,21 +90,21 @@ function MetricCard({
   loading,
 }) {
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 p-5 flex items-center gap-4 shadow-sm">
+    <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] p-5 flex items-center gap-4 shadow-sm">
       <div
-        className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center flex-shrink-0`}
+        className={`w-12 h-12 ${iconBg} rounded-xl flex items-center justify-center flex-shrink-0 border border-[#2A2D31]`}
       >
         <Icon size={22} className={iconColor} />
       </div>
       <div>
         {loading ? (
-          <Loader2 size={20} className="animate-spin text-gray-400 dark:text-slate-600 my-1" />
+          <Loader2 size={20} className="animate-spin text-[#9B9EA4] my-1" />
         ) : (
-          <div className="text-2xl font-extrabold text-gray-900 dark:text-slate-100">{value}</div>
+          <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
         )}
-        <div className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{label}</div>
+        <div className="text-xs text-[#9B9EA4] mt-0.5">{label}</div>
         {sub && !loading && (
-          <div className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{sub}</div>
+          <div className="text-xs text-[#9B9EA4]/80 mt-0.5">{sub}</div>
         )}
       </div>
     </div>
@@ -131,12 +133,21 @@ export default function AdminDashboardPage() {
 
       // Fetch events from Firestore
       if (user?.id) {
-        const eventsRef = collection(db, "events");
-        const q = user.role === "superAdmin"
-          ? query(eventsRef)
-          : query(eventsRef, where("organiserId", "==", user.id));
-        const snap = await getDocs(q);
-        setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        let evts = [];
+        if (user.role === "superAdmin") {
+          evts = await getAllEvents();
+        } else {
+          evts = await getEventsByOrganiser(user.id);
+        }
+        const unique = [];
+        const seen = new Set();
+        for (const ev of (evts || [])) {
+          if (ev?.id && !seen.has(ev.id)) {
+            seen.add(ev.id);
+            unique.push(ev);
+          }
+        }
+        setEvents(unique);
       }
     } catch (e) {
       console.error("Failed to load dashboard data:", e);
@@ -190,51 +201,51 @@ export default function AdminDashboardPage() {
     .slice(0, 8);
 
   return (
-    <div className="p-6 md:p-8 space-y-8 min-h-screen">
+    <div className="p-3.5 xs:p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8 min-h-screen bg-[#131517] text-white">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-slate-100">
-            Admin Dashboard
+          <h1 className="text-xl sm:text-2xl font-extrabold text-white">
+            Admin dashboard
           </h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-[#9B9EA4] mt-1">
             Manage events, hosting requests, and platform activity
           </p>
         </div>
         <button
           onClick={loadData}
-          className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 transition-all"
+          className="p-2 rounded-xl hover:bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] hover:text-white transition-all"
           title="Refresh"
         >
-          <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={17} className={loading ? "animate-spin text-[#FE760B]" : ""} />
         </button>
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <MetricCard
           icon={Radio}
           label="Live Events"
           value={liveEvents}
           sub={liveEvents > 0 ? "Currently published" : undefined}
-          iconBg="bg-green-500/10"
-          iconColor="text-green-500"
+          iconBg="bg-[#3DD68C]/12"
+          iconColor="text-[#3DD68C]"
           loading={loading}
         />
         <MetricCard
           icon={Calendar}
           label="Total Events"
           value={totalEvents}
-          iconBg="bg-blue-500/10"
-          iconColor="text-blue-500"
+          iconBg="bg-white/5"
+          iconColor="text-[#D0D0D1]"
           loading={loading}
         />
         <MetricCard
           icon={Inbox}
           label="Total Requests"
           value={total}
-          iconBg="bg-[#FF6A00]/10"
-          iconColor="text-[#FF6A00]"
+          iconBg="bg-[#FE760B]/14"
+          iconColor="text-[#FE760B]"
           loading={loading}
         />
         <MetricCard
@@ -242,29 +253,29 @@ export default function AdminDashboardPage() {
           label="Pending Approval"
           value={pending}
           sub={pending > 0 ? "Needs review" : undefined}
-          iconBg="bg-yellow-500/10"
-          iconColor="text-yellow-500"
+          iconBg="bg-[#FDE003]/10"
+          iconColor="text-[#FDE003]"
           loading={loading}
         />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 dark:bg-slate-800/60 rounded-xl p-1 w-fit border border-gray-200 dark:border-slate-700/50">
+      <div className="flex gap-1 bg-[#1A1C1F] rounded-xl p-1 max-w-full overflow-x-auto scrollbar-none border border-[#2A2D31]">
         {[
           { id: "events", label: "Events" },
           {
             id: "requests",
-            label: `Hosting Requests${pending > 0 ? ` (${pending})` : ""}`,
+            label: `Hosting requests${pending > 0 ? ` (${pending})` : ""}`,
           },
-          { id: "activity", label: "Activity Log" },
+          { id: "activity", label: "Activity log" },
         ].map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
               activeTab === t.id
-                ? "bg-[#FF6A00] text-white shadow-sm"
-                : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
+                ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                : "text-[#9B9EA4] hover:text-white"
             }`}
           >
             {t.label}
@@ -274,15 +285,15 @@ export default function AdminDashboardPage() {
 
       {/* Tab: Events */}
       {activeTab === "events" && (
-        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 p-6 shadow-sm">
+        <div className="w-full">
           <EventManagement />
         </div>
       )}
 
       {/* Tab: Hosting Requests */}
       {activeTab === "requests" && (
-        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 shadow-sm">
-          <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] shadow-sm">
+          <div className="p-5 border-b border-[#2A2D31] flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
             <div className="flex gap-1.5 flex-wrap">
               {FILTERS.map((f) => (
                 <button
@@ -290,13 +301,13 @@ export default function AdminDashboardPage() {
                   onClick={() => setFilter(f)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     filter === f
-                      ? "bg-[#FF6A00] text-white"
-                      : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-700"
+                      ? "bg-[#FE760B] text-[#131517]"
+                      : "bg-[#212327] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
                   }`}
                 >
                   {f}
                   {f === "Pending" && pending > 0 && (
-                    <span className="ml-1.5 bg-white/20 text-white rounded-full px-1.5 text-xs">
+                    <span className="ml-1.5 bg-[#131517]/30 text-[#131517] rounded-full px-1.5 text-xs">
                       {pending}
                     </span>
                   )}
@@ -306,51 +317,51 @@ export default function AdminDashboardPage() {
             <div className="relative">
               <Search
                 size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9B9EA4]"
               />
               <input
                 type="text"
                 placeholder="Search requests…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-[#FF6A00]/30 text-gray-900 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 w-52"
+                className="pl-8 pr-3 py-2 text-sm bg-[#212327] border border-[#2A2D31] rounded-xl outline-none focus:ring-1 focus:ring-[#FE760B] focus:border-[#FE760B] text-white placeholder-[#9B9EA4] w-full sm:w-52"
               />
             </div>
           </div>
           {loading ? (
-            <div className="py-16 flex items-center justify-center gap-2 text-gray-400 dark:text-slate-500">
-              <Loader2 size={20} className="animate-spin" /> Loading requests…
+            <div className="py-16 flex items-center justify-center gap-2 text-[#9B9EA4]">
+              <Loader2 size={20} className="animate-spin text-[#FE760B]" /> Loading requests…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-gray-400 dark:text-slate-500">
-              <Inbox size={36} className="mx-auto mb-3" />
+            <div className="py-16 text-center text-[#9B9EA4]">
+              <Inbox size={36} className="mx-auto mb-3 opacity-60" />
               <p className="text-sm">No requests found</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-slate-800">
-              {filtered.map((req) => (
+            <div className="divide-y divide-[#2A2D31]">
+              {filtered.map((req, idx) => (
                 <div
-                  key={req.id}
-                  className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors"
+                  key={`${req.id || "req"}-${idx}`}
+                  className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 hover:bg-[#212327]/50 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm text-gray-900 dark:text-slate-100 truncate">
-                        {req.eventTitle || "Untitled Event"}
+                      <p className="font-semibold text-sm text-white truncate">
+                        {req.eventTitle || "Untitled event"}
                       </p>
                       <StatusBadge status={req.status} />
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-[#9B9EA4] mt-0.5">
                       {req.organizerName || req.name} · {req.email}
                     </p>
-                    <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+                    <p className="text-xs text-[#9B9EA4]/70 mt-0.5">
                       Submitted {relativeTime(req.createdAt)} ·{" "}
                       {formatTs(req.createdAt)}
                     </p>
                   </div>
                   <Link
                     href="/superadmin/hosting-requests"
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-[#D0D0D1] border border-[#2A2D31] rounded-lg hover:bg-[#212327] hover:text-white transition-colors flex-shrink-0"
                   >
                     <Eye size={12} /> Review
                   </Link>
@@ -363,60 +374,60 @@ export default function AdminDashboardPage() {
 
       {/* Tab: Activity Log */}
       {activeTab === "activity" && (
-        <div className="bg-white dark:bg-slate-900/60 rounded-2xl border border-[#FF6A00]/10 shadow-sm">
-          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center gap-2">
-            <Activity size={16} className="text-[#FF6A00]" />
-            <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm">
-              Recent Activity
+        <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] shadow-sm">
+          <div className="px-5 py-4 border-b border-[#2A2D31] flex items-center gap-2">
+            <Activity size={16} className="text-[#FE760B]" />
+            <h3 className="font-bold text-white text-sm">
+              Recent activity
             </h3>
           </div>
           {loading ? (
-            <div className="py-12 flex items-center justify-center gap-2 text-gray-400 dark:text-slate-500">
-              <Loader2 size={18} className="animate-spin" />
+            <div className="py-12 flex items-center justify-center gap-2 text-[#9B9EA4]">
+              <Loader2 size={18} className="animate-spin text-[#FE760B]" />
             </div>
           ) : activityLog.length === 0 ? (
-            <div className="py-12 text-center text-gray-400 dark:text-slate-500 text-sm">
+            <div className="py-12 text-center text-[#9B9EA4] text-sm">
               No recent activity
             </div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-slate-800">
-              {activityLog.map((req) => (
-                <div key={req.id} className="px-5 py-4 flex items-start gap-3">
+            <div className="divide-y divide-[#2A2D31]">
+              {activityLog.map((req, idx) => (
+                <div key={`${req.id || "act"}-${idx}`} className="px-5 py-4 flex items-start gap-3">
                   <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${req.status === "approved" ? "bg-green-500/20" : "bg-red-500/20"}`}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${req.status === "approved" ? "bg-[#3DD68C]/12" : "bg-[#FF6B6B]/12"}`}
                   >
                     {req.status === "approved" ? (
-                      <CheckCircle size={13} className="text-green-500" />
+                      <CheckCircle size={13} className="text-[#3DD68C]" />
                     ) : (
-                      <XCircle size={13} className="text-red-500" />
+                      <XCircle size={13} className="text-[#FF6B6B]" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-800 dark:text-slate-200">
-                      <span className="font-semibold">
-                        {req.eventTitle || "Unnamed Event"}
+                    <p className="text-sm text-[#D0D0D1]">
+                      <span className="font-semibold text-white">
+                        {req.eventTitle || "Unnamed event"}
                       </span>{" "}
                       was{" "}
                       <span
                         className={
                           req.status === "approved"
-                            ? "text-green-500"
-                            : "text-red-500"
+                            ? "text-[#3DD68C] font-medium"
+                            : "text-[#FF6B6B] font-medium"
                         }
                       >
                         {req.status}
                       </span>
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-[#9B9EA4] mt-0.5">
                       Organiser: {req.organizerName || req.name || "Unknown"}
                     </p>
                     {req.rejectionReason && (
-                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 italic">
+                      <p className="text-xs text-[#FF9A9A] mt-0.5 italic">
                         Reason: {req.rejectionReason}
                       </p>
                     )}
                   </div>
-                  <div className="text-xs text-gray-400 dark:text-slate-500 flex-shrink-0">
+                  <div className="text-xs text-[#9B9EA4]/70 flex-shrink-0">
                     {relativeTime(req.updatedAt || req.createdAt)}
                   </div>
                 </div>

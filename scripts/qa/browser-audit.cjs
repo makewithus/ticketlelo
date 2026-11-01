@@ -15,7 +15,7 @@ const {chromium}=req('playwright');
   const errors=[],failures=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('requestfailed',r=>failures.push({url:new URL(r.url()).origin,reason:r.failure()?.errorText}));
-  for(const route of ['/user-login/','/organiser-login/','/admin/scanner/','/dashboard/','/ambassador/dashboard/']){
+  for(const route of ['/login/','/admin/scanner/','/dashboard/','/ambassador/dashboard/']){
    const before=errors.length;
    try{
     const response=await page.goto('http://127.0.0.1:3027'+route,{waitUntil:'domcontentloaded',timeout:60000});
@@ -26,7 +26,7 @@ const {chromium}=req('playwright');
     results.push({route,width,httpStatus:response.status(),finalURL:page.url(),...dom,overflow:dom.scrollWidth>width,screenshot:file,pageErrors:errors.slice(before)});
    }catch(e){results.push({route,width,error:e.message});}
   }
-  await page.goto('http://127.0.0.1:3027/user-login/',{waitUntil:'domcontentloaded'});
+  await page.goto('http://127.0.0.1:3027/login/',{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(700);
   const keyboard=[];
   for(let i=0;i<4;i++){await page.keyboard.press('Tab');keyboard.push(await page.evaluate(()=>({tag:document.activeElement.tagName,type:document.activeElement.type,text:document.activeElement.textContent?.slice(0,60)})));}

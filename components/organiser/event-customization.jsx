@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  Link,
+  Link as LinkIcon,
   Palette,
   ImageIcon,
   CheckCircle,
@@ -12,16 +12,19 @@ import {
   Check,
   ExternalLink,
   X,
+  Ticket,
 } from "lucide-react";
+import { getThemeLook } from "@/lib/theme-utils";
+import { getPosterLines } from "@/components/admin/event-create-studio";
 
 const PRESET_COLORS = [
-  { hex: "#FF6A00", name: "Orange" },
-  { hex: "#FFD60A", name: "Yellow" },
-  { hex: "#3b82f6", name: "Blue" },
-  { hex: "#22c55e", name: "Green" },
-  { hex: "#a855f7", name: "Purple" },
-  { hex: "#ef4444", name: "Red" },
-  { hex: "#ec4899", name: "Pink" },
+  { hex: "#FE760B", name: "Ticket Orange" },
+  { hex: "#FDE003", name: "Sunny Yellow" },
+  { hex: "#3DD68C", name: "Success Green" },
+  { hex: "#7AA2FF", name: "Electric Blue" },
+  { hex: "#FF6B6B", name: "Coral Red" },
+  { hex: "#A855F7", name: "Purple" },
+  { hex: "#EC4899", name: "Pink" },
   { hex: "#000000", name: "Black" },
 ];
 
@@ -32,7 +35,8 @@ export default function EventCustomization({
   onUpdate,
 }) {
   const [slug, setSlug] = useState(event?.slug || "");
-  const [themeColor, setThemeColor] = useState(event?.themeColor || "#FF6A00");
+  const [themeColor, setThemeColor] = useState(event?.themeColor || "#FE760B");
+  const [ticketDesign, setTicketDesign] = useState(event?.ticketDesign || "stub");
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(event?.bannerUrl || null);
   const [loading, setLoading] = useState(false);
@@ -67,13 +71,12 @@ export default function EventCustomization({
       );
       const data = await res.json();
 
-      // If event found but it's our own event, it's available
       if (data.success && data.event?.id === eventId) {
         setSlugAvailable(true);
       } else if (data.success) {
-        setSlugAvailable(false); // Taken by another event
+        setSlugAvailable(false);
       } else {
-        setSlugAvailable(true); // Not found = available
+        setSlugAvailable(true);
       }
     } catch {
       setSlugAvailable(null);
@@ -99,27 +102,34 @@ export default function EventCustomization({
 
     setBannerFile(file);
     const reader = new FileReader();
-    reader.onload = (e) => setBannerPreview(e.target?.result);
+    reader.onload = (ev) => setBannerPreview(ev.target.result);
     reader.readAsDataURL(file);
-    setError("");
+  };
+
+  const copyUrl = async () => {
+    if (!eventUrl) return;
+    try {
+      await navigator.clipboard.writeText(eventUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
     setSuccess("");
 
-    if (slug && slug.length < 3) {
-      return setError("Slug must be at least 3 characters");
-    }
-
-    setLoading(true);
     try {
       const formData = new FormData();
       formData.append("eventId", eventId);
-      formData.append("userId", userId);
+      if (userId) formData.append("userId", userId);
+      formData.append("slug", slug);
       formData.append("themeColor", themeColor);
-      if (slug) formData.append("slug", slug);
+      formData.append("ticketDesign", ticketDesign);
       if (bannerFile) formData.append("banner", bannerFile);
 
       const res = await fetch("/api/events/customize", {
@@ -128,65 +138,58 @@ export default function EventCustomization({
       });
 
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || "Failed to save customization");
 
-      setSuccess("Event customization saved successfully!");
-      setBannerFile(null);
-      setSlugAvailable(true);
-      onUpdate?.(data.updates);
+      setSuccess("Event page customization saved successfully");
+      onUpdate?.(data.event);
     } catch (err) {
-      setError(err.message || "Failed to save customization");
+      setError(err.message || "Failed to save");
     } finally {
       setLoading(false);
     }
   };
 
-  const copyUrl = async () => {
-    if (!eventUrl) return;
-    await navigator.clipboard.writeText(eventUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Event Page</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-2xl font-bold text-white tracking-tight">
+          Event page
+        </h2>
+        <p className="text-sm text-[#9B9EA4] mt-1">
           Customize how your event appears to participants
         </p>
       </div>
 
       {success && (
-        <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-xl">
+        <div className="flex items-start gap-3 p-4 bg-[#3DD68C]/12 border border-[#3DD68C]/25 rounded-xl">
           <CheckCircle
             size={18}
-            className="text-green-500 flex-shrink-0 mt-0.5"
+            className="text-[#3DD68C] flex-shrink-0 mt-0.5"
           />
-          <p className="text-sm text-green-700">{success}</p>
+          <p className="text-sm text-[#3DD68C]">{success}</p>
         </div>
       )}
 
       {error && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+        <div className="flex items-start gap-3 p-4 bg-[#FF6B6B]/12 border border-[#FF6B6B]/25 rounded-xl">
           <AlertCircle
             size={18}
-            className="text-red-500 flex-shrink-0 mt-0.5"
+            className="text-[#FF6B6B] flex-shrink-0 mt-0.5"
           />
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-[#FF9A9A]">{error}</p>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ===== Custom URL Slug ===== */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] shadow-sm p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Link size={18} className="text-blue-600" />
+            <div className="w-9 h-9 bg-[#212327] border border-[#2A2D31] rounded-xl flex items-center justify-center">
+              <LinkIcon size={18} className="text-[#FE760B]" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Custom URL</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="font-semibold text-white">Custom URL</h3>
+              <p className="text-xs text-[#9B9EA4]">
                 Create a memorable link for your event
               </p>
             </div>
@@ -194,8 +197,8 @@ export default function EventCustomization({
 
           <div className="space-y-3">
             <div className="relative">
-              <div className="flex rounded-xl overflow-hidden border border-gray-200 focus-within:border-[#FF6A00] focus-within:ring-2 focus-within:ring-[#FF6A00]/20 transition-all">
-                <span className="flex items-center px-3 bg-gray-50 text-gray-400 text-sm border-r border-gray-200 whitespace-nowrap">
+              <div className="flex rounded-xl overflow-hidden border border-[#2A2D31] bg-[#212327] focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B] transition-all">
+                <span className="flex items-center px-3.5 bg-[#2A2D31] text-[#9B9EA4] text-xs font-mono border-r border-[#2A2D31] whitespace-nowrap">
                   ticketlelo.in/
                 </span>
                 <input
@@ -204,21 +207,21 @@ export default function EventCustomization({
                   onChange={(e) => handleSlugChange(e.target.value)}
                   onBlur={() => slug && checkSlugAvailability(slug)}
                   placeholder="my-awesome-event"
-                  className="flex-1 px-3 py-2.5 text-sm outline-none bg-white"
+                  className="flex-1 px-3 py-2.5 text-sm outline-none bg-transparent text-white placeholder-[#9B9EA4]"
                   maxLength={60}
                 />
                 {checkingSlug && (
                   <span className="flex items-center pr-3">
-                    <Loader2 size={14} className="animate-spin text-gray-400" />
+                    <Loader2 size={14} className="animate-spin text-[#9B9EA4]" />
                   </span>
                 )}
                 {!checkingSlug && slugAvailable === true && (
-                  <span className="flex items-center pr-3 text-green-500">
+                  <span className="flex items-center pr-3 text-[#3DD68C]">
                     <CheckCircle size={16} />
                   </span>
                 )}
                 {!checkingSlug && slugAvailable === false && (
-                  <span className="flex items-center pr-3 text-red-500">
+                  <span className="flex items-center pr-3 text-[#FF6B6B]">
                     <AlertCircle size={16} />
                   </span>
                 )}
@@ -226,13 +229,13 @@ export default function EventCustomization({
             </div>
 
             {slugAvailable === false && (
-              <p className="text-xs text-red-500 flex items-center gap-1">
+              <p className="text-xs text-[#FF9A9A] flex items-center gap-1">
                 <AlertCircle size={12} />
                 This URL is already taken
               </p>
             )}
             {slugAvailable === true && (
-              <p className="text-xs text-green-500 flex items-center gap-1">
+              <p className="text-xs text-[#3DD68C] flex items-center gap-1">
                 <CheckCircle size={12} />
                 URL is available!
               </p>
@@ -242,25 +245,25 @@ export default function EventCustomization({
               <button
                 type="button"
                 onClick={generateSlug}
-                className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-3 py-1.5 text-xs bg-[#212327] text-[#D0D0D1] border border-[#2A2D31] rounded-lg hover:bg-[#2A2D31] hover:text-white transition-colors"
               >
                 Auto-generate from name
               </button>
             </div>
 
             {eventUrl && (
-              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                <span className="text-xs text-blue-700 flex-1 truncate font-mono">
+              <div className="flex items-center gap-2 p-3 bg-[#212327] rounded-xl border border-[#2A2D31]">
+                <span className="text-xs text-[#FE760B] flex-1 truncate font-mono">
                   {eventUrl}
                 </span>
                 <button
                   type="button"
                   onClick={copyUrl}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs text-blue-600 hover:bg-blue-50 transition-colors flex-shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1A1C1F] border border-[#2A2D31] rounded-lg text-xs text-[#D0D0D1] hover:text-white transition-colors flex-shrink-0"
                 >
                   {copied ? (
                     <>
-                      <Check size={12} /> Copied!
+                      <Check size={12} className="text-[#3DD68C]" /> Copied!
                     </>
                   ) : (
                     <>
@@ -274,14 +277,14 @@ export default function EventCustomization({
         </div>
 
         {/* ===== Theme Color ===== */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] shadow-sm p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
-              <Palette size={18} className="text-[#FF6A00]" />
+            <div className="w-9 h-9 bg-[#212327] border border-[#2A2D31] rounded-xl flex items-center justify-center">
+              <Palette size={18} className="text-[#FE760B]" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Theme Color</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="font-semibold text-white">Theme color</h3>
+              <p className="text-xs text-[#9B9EA4]">
                 Choose your brand color for the event page
               </p>
             </div>
@@ -289,7 +292,7 @@ export default function EventCustomization({
 
           <div className="space-y-4">
             {/* Preset Colors */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {PRESET_COLORS.map((c) => (
                 <button
                   key={c.hex}
@@ -297,10 +300,10 @@ export default function EventCustomization({
                   onClick={() => setThemeColor(c.hex)}
                   title={c.name}
                   className={`w-9 h-9 rounded-xl flex-shrink-0 transition-all ${
-                    themeColor === c.hex
-                      ? "ring-3 ring-offset-2 ring-gray-400 scale-110"
-                      : "hover:scale-105"
-                  } ${c.hex === "#000000" ? "border border-gray-200" : ""}`}
+                    themeColor.toLowerCase() === c.hex.toLowerCase()
+                      ? "ring-2 ring-offset-2 ring-white ring-offset-[#1A1C1F] scale-110"
+                      : "hover:scale-105 opacity-80 hover:opacity-100"
+                  } ${c.hex === "#000000" ? "border border-[#2A2D31]" : ""}`}
                   style={{ backgroundColor: c.hex }}
                 />
               ))}
@@ -313,18 +316,18 @@ export default function EventCustomization({
                   type="color"
                   value={themeColor}
                   onChange={(e) => setThemeColor(e.target.value)}
-                  className="w-10 h-10 rounded-xl cursor-pointer border-0 p-0.5"
+                  className="w-9 h-9 rounded-xl cursor-pointer border border-[#2A2D31] bg-transparent p-0.5"
                 />
-                <span className="text-sm text-gray-600">Custom color</span>
+                <span className="text-sm text-[#D0D0D1]">Custom color</span>
               </label>
-              <code className="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded">
+              <code className="text-xs font-mono text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] px-2.5 py-1 rounded-lg">
                 {themeColor.toUpperCase()}
               </code>
             </div>
 
             {/* Preview */}
             <div
-              className="h-12 rounded-xl flex items-center justify-center text-white font-semibold text-sm transition-colors"
+              className="h-11 rounded-xl flex items-center justify-center text-[#131517] font-semibold text-sm transition-colors shadow-sm"
               style={{ backgroundColor: themeColor }}
             >
               Preview: Register Now
@@ -333,79 +336,193 @@ export default function EventCustomization({
         </div>
 
         {/* ===== Banner Upload ===== */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] shadow-sm p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center">
-              <ImageIcon size={18} className="text-purple-600" />
+            <div className="w-9 h-9 bg-[#212327] border border-[#2A2D31] rounded-xl flex items-center justify-center">
+              <ImageIcon size={18} className="text-[#FE760B]" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Event Banner</h3>
-              <p className="text-xs text-gray-500">
+              <h3 className="font-semibold text-white">Event banner</h3>
+              <p className="text-xs text-[#9B9EA4]">
                 Upload a banner image (max 5MB, JPEG/PNG/WebP)
               </p>
             </div>
           </div>
 
           <div className="space-y-4">
-            {bannerPreview ? (
-              <div className="relative">
-                <img
-                  src={bannerPreview}
-                  alt="Banner preview"
-                  className="w-full h-48 object-cover rounded-xl"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBannerFile(null);
-                    setBannerPreview(event?.bannerUrl || null);
+            {/* Live Real-Time Banner Preview */}
+            {(() => {
+              const liveLook = getThemeLook(themeColor);
+              const liveLines = getPosterLines(event?.name || slug || "Tech Fest '26");
+              return (
+                <div
+                  className="w-full aspect-[16/7] max-h-52 rounded-xl overflow-hidden relative border border-[#2A2D31] flex items-center justify-center shadow-inner transition-all duration-300 group"
+                  style={{
+                    background: bannerPreview ? "transparent" : liveLook.gradientCss,
                   }}
-                  className="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition-colors text-xs"
-                  aria-label="Remove banner image"
                 >
-                  <X size={16} />
-                </button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-[#FF6A00] hover:bg-orange-50/30 transition-all group">
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-                  <ImageIcon
-                    size={22}
-                    className="text-gray-400 group-hover:text-[#FF6A00] transition-colors"
-                  />
+                  {bannerPreview ? (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={bannerPreview}
+                        alt="Banner preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBannerFile(null);
+                          setBannerPreview(null);
+                        }}
+                        className="absolute top-2 right-2 w-7 h-7 bg-black/75 hover:bg-black text-white rounded-full flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 text-xs border border-white/20 shadow-md cursor-pointer"
+                        aria-label="Remove banner image"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className="w-48 h-48 rounded-full absolute -top-12 -right-12 pointer-events-none opacity-90 transition-colors duration-300"
+                        style={{ backgroundColor: liveLook.sun }}
+                      />
+                      <div
+                        className="absolute inset-0 pointer-events-none opacity-20"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(#000 1.5px, transparent 1.5px), linear-gradient(90deg, #000 1.5px, transparent 1.5px)",
+                          backgroundSize: "20px 20px",
+                        }}
+                      />
+                      <div className="relative z-10 w-full h-full p-4 flex flex-col justify-end select-none">
+                        <span
+                          className="block font-black text-xl leading-[0.92] tracking-tight uppercase break-words drop-shadow-sm transition-colors duration-300"
+                          style={{ color: liveLook.textColor || "#FFFFFF" }}
+                        >
+                          {liveLines.line1}
+                        </span>
+                        {liveLines.line2 && (
+                          <span
+                            className="block font-black text-lg leading-[0.92] tracking-tight uppercase break-words drop-shadow-sm transition-colors duration-300 mt-1"
+                            style={{ color: liveLook.textColor || "#FFFFFF" }}
+                          >
+                            {liveLines.line2}
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-700">
-                    Click to upload banner
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    JPEG, PNG, WebP up to 5MB. Recommended: 1200×400px
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleBannerChange}
-                  className="hidden"
-                />
-              </label>
-            )}
+              );
+            })()}
+
+            {/* Upload or replace banner file input */}
+            <label className="flex items-center justify-center gap-2 p-3 border border-dashed border-[#2A2D31] hover:border-[#FE760B] rounded-xl cursor-pointer bg-[#212327]/40 hover:bg-[#212327] transition-all group">
+              <ImageIcon
+                size={18}
+                className="text-[#9B9EA4] group-hover:text-[#FE760B] transition-colors"
+              />
+              <span className="text-xs font-semibold text-white group-hover:text-[#FE760B] transition-colors">
+                {bannerPreview ? "Replace custom banner image" : "Upload custom banner image (Optional)"}
+              </span>
+              <span className="text-[11px] text-[#9B9EA4]">· JPEG, PNG, WebP up to 5MB</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleBannerChange}
+                className="hidden"
+              />
+            </label>
           </div>
         </div>
 
-        {/* Save Button */}
+        {/* ===== Ticket Layout Template (Stub vs Wide) ===== */}
+        <div className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 bg-[#212327] border border-[#2A2D31] rounded-xl flex items-center justify-center">
+              <Ticket size={18} className="text-[#FE760B]" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-white">Ticket Template</h3>
+              <p className="text-xs text-[#9B9EA4]">
+                Choose how passes are designed for attendees. Editable anytime.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Stub tickets */}
+            <button
+              type="button"
+              onClick={() => setTicketDesign("stub")}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
+                ticketDesign === "stub"
+                  ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B]"
+                  : "border-[#2A2D31] bg-[#212327] hover:border-[#3A3D42]"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#FE760B]" />
+                  Stub tickets (Default)
+                </span>
+                {ticketDesign === "stub" && (
+                  <Check className="w-4 h-4 text-[#FE760B]" />
+                )}
+              </div>
+              <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
+                Standard horizontal pass with right QR check-in stub.
+              </p>
+              <div className="mt-2.5 h-6 rounded-md border border-[#2A2D31] flex overflow-hidden bg-black/40 text-[8px] font-mono">
+                <div className="flex-1 bg-[#FE760B]/80 flex items-center justify-center text-black font-extrabold">ART</div>
+                <div className="w-8 bg-[#201207] border-l border-dashed border-white/30 flex items-center justify-center text-[#FDE003] font-bold">QR</div>
+              </div>
+            </button>
+
+            {/* Wide tickets */}
+            <button
+              type="button"
+              onClick={() => setTicketDesign("wide")}
+              className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
+                ticketDesign === "wide"
+                  ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B]"
+                  : "border-[#2A2D31] bg-[#212327] hover:border-[#3A3D42]"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
+                  Wide tickets
+                </span>
+                {ticketDesign === "wide" && (
+                  <Check className="w-4 h-4 text-[#FE760B]" />
+                )}
+              </div>
+              <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
+                3-panel pass with art center, QR and vertical barcode stub.
+              </p>
+              <div className="mt-2.5 h-6 rounded-md border border-[#2A2D31] flex overflow-hidden bg-black/40 text-[8px] font-mono">
+                <div className="w-7 bg-white text-black font-bold flex items-center justify-center">QR</div>
+                <div className="flex-1 bg-[#FE760B]/80 flex items-center justify-center text-black font-extrabold border-x border-dashed border-black/30">ART</div>
+                <div className="w-7 bg-white text-black font-bold flex items-center justify-center">||||</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Save Button (High contrast dark text on #FE760B) */}
         <button
           type="submit"
           disabled={loading || (slug && slugAvailable === false)}
-          className="w-full py-3.5 bg-[#FF6A00] text-white font-bold rounded-xl disabled:opacity-60 hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          className="w-full py-3.5 bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-sm rounded-xl disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm cursor-pointer"
         >
           {loading ? (
             <>
-              <Loader2 size={18} className="animate-spin" />
-              Saving Changes...
+              <Loader2 size={18} className="animate-spin text-[#131517]" />
+              Saving changes...
             </>
           ) : (
-            "Save Event Customization"
+            "Save event customization"
           )}
         </button>
       </form>

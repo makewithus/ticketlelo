@@ -63,68 +63,64 @@ export default function EmbedRegistrationPage() {
 
   if (loading) {
     return (
-      <div className={`tl-auth-page min-h-screen flex flex-col items-center justify-center p-8 ${theme === "dark" ? "dark bg-[#070D1E] text-white" : ""}`}>
-        <div className="tl-auth-icon inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#3157ff] shadow-[0_14px_28px_rgba(49,87,255,0.22)]">
-          <Loader2 className="w-8 h-8 animate-spin text-white" />
+      <div className="min-h-screen bg-[#131517] text-white flex flex-col items-center justify-center p-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#FE760B] text-[#131517] shadow-sm">
+          <Loader2 className="w-8 h-8 animate-spin" />
         </div>
-        <p className="text-base font-bold text-[#061a3f] dark:text-white">Loading Registration...</p>
-        <p className="text-xs text-[rgba(6,26,63,0.64)] dark:text-slate-400 mt-1">Securing your booking session</p>
+        <p className="text-base font-bold text-white">Loading registration...</p>
+        <p className="text-xs text-[#9B9EA4] mt-1">Securing your booking session</p>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className={`tl-auth-page min-h-screen flex flex-col items-center justify-center p-8 text-center ${theme === "dark" ? "dark bg-[#070D1E] text-white" : ""}`}>
-        <div className="tl-auth-icon inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#3157ff] shadow-[0_14px_28px_rgba(49,87,255,0.22)]">
-          <Ticket className="w-8 h-8 text-white" />
+      <div className="min-h-screen bg-[#131517] text-white flex flex-col items-center justify-center p-8 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#FE760B] text-[#131517] shadow-sm">
+          <Ticket className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-extrabold text-[#061a3f] dark:text-white mb-2">Event Not Available</h2>
-        <p className="text-xs text-[rgba(6,26,63,0.64)] dark:text-slate-400 max-w-xs mx-auto">
+        <h2 className="text-2xl font-bold text-white mb-2">Event not available</h2>
+        <p className="text-xs text-[#9B9EA4] max-w-xs mx-auto">
           This event could not be found or is currently not accepting registrations.
         </p>
       </div>
     );
   }
 
-  const isDark = theme === "dark";
-
   return (
     <div
       id="tl-embed-root"
-      className={`tl-auth-page min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 transition-colors ${
-        isDark ? "dark bg-[#070D1E] text-slate-100" : ""
-      }`}
+      className="min-h-screen bg-[#131517] text-white flex flex-col items-center justify-center p-4 sm:p-6 transition-colors"
     >
       <div className="w-full max-w-md mx-auto">
-        {/* Back to Home Link (from Image 2) */}
+        {/* Back to Home Link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-[rgba(6,26,63,0.64)] dark:text-slate-400 hover:text-[#061a3f] dark:hover:text-white transition-colors mb-6 group text-sm font-medium"
+          className="inline-flex items-center gap-2 text-[#9B9EA4] hover:text-white transition-colors mb-6 group text-sm font-medium"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Home</span>
+          <span>Back to home</span>
         </Link>
 
-        {/* Card (Matching Image 2 Organiser Portal) */}
+        {/* Card */}
         <div
           id="tl-embed-card"
-          className="tl-auth-card p-8 rounded-2xl w-full bg-white dark:bg-slate-900 border border-[var(--tl-line)] dark:border-slate-800 shadow-[0_18px_45px_rgba(6,26,63,0.08)]"
+          className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 xs:p-6 sm:p-8 w-full shadow-xl"
         >
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="tl-auth-icon inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#3157ff] shadow-[0_14px_28px_rgba(49,87,255,0.22)]">
-              <Ticket className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#FE760B] text-[#131517] shadow-sm">
+              <Ticket className="w-8 h-8" />
             </div>
-            <h1 className="text-3xl font-extrabold text-[#061a3f] dark:text-white mb-2 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
               {event.name || event.title}
             </h1>
-            <p className="text-[rgba(6,26,63,0.64)] dark:text-slate-400 text-sm">
+            <p className="text-[#9B9EA4] text-sm">
               {event.location || "Venue"} • Secured by TicketLelo
             </p>
 
             {refCode && (
-              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-[#eef2ff] dark:bg-blue-950/40 border border-[#c7d2fe] dark:border-blue-800 rounded-full text-xs text-[#3157ff] dark:text-blue-300 font-medium">
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-[#3DD68C]/15 border border-[#3DD68C]/30 text-[#3DD68C] rounded-full text-xs font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                 <span>Referral applied: <strong>{refCode}</strong></span>
               </div>
@@ -134,13 +130,13 @@ export default function EmbedRegistrationPage() {
           {/* Embedded Dynamic Registration Form */}
           <DynamicRegistrationForm eventId={eventId} event={event} />
 
-          {/* Footer (from Image 2) */}
-          <div className="mt-6 pt-6 border-t border-[var(--tl-line)] dark:border-slate-800 text-center">
-            <p className="text-sm text-[rgba(6,26,63,0.64)] dark:text-slate-400">
+          {/* Footer */}
+          <div className="mt-6 pt-6 border-t border-[#2A2D31] text-center">
+            <p className="text-sm text-[#9B9EA4]">
               Want to host an event?{" "}
               <Link
                 href="/host-event"
-                className="text-[#3157ff] hover:text-[#173cf4] font-medium transition-colors"
+                className="text-[#FF9A4D] hover:text-[#FE760B] font-medium transition-colors"
               >
                 Apply here
               </Link>
@@ -148,10 +144,10 @@ export default function EmbedRegistrationPage() {
           </div>
         </div>
 
-        {/* Subtext below card (from Image 2) */}
-        <p className="text-center text-xs text-[rgba(6,26,63,0.54)] dark:text-slate-500 mt-6">
+        {/* Subtext below card */}
+        <p className="text-center text-xs text-[#9B9EA4] mt-6">
           Looking for a different portal?{" "}
-          <Link href="/" className="text-[#3157ff] hover:underline font-medium">
+          <Link href="/" className="text-[#FF9A4D] hover:underline font-medium">
             Go to homepage
           </Link>
         </p>

@@ -102,8 +102,8 @@ const { chromium } = req('playwright');
       const screenshot = 'journey-c-attendee-hub.png';
       await page.screenshot({ path: path.join(evidenceDir, screenshot), fullPage: true });
 
-      // In anonymous state, redirects to user-login or displays authentication prompt
-      const isAuthProtected = url.includes('/user-login') || bodyText.includes('Sign in') || bodyText.includes('Login');
+      // In anonymous state, redirects to login or displays authentication prompt
+      const isAuthProtected = url.includes('/login') || url.includes('/user-login') || bodyText.includes('Sign in') || bodyText.includes('Login');
 
       journeyResults.push({
         journey: 'C',
@@ -130,7 +130,7 @@ const { chromium } = req('playwright');
       const screenshot = 'journey-d-gate-scanner.png';
       await page.screenshot({ path: path.join(evidenceDir, screenshot), fullPage: true });
 
-      const isProtected = url.includes('/organiser-login') || url.includes('/user-login') || bodyText.includes('Scan') || bodyText.includes('Login');
+      const isProtected = url.includes('/login') || url.includes('/organiser-login') || url.includes('/user-login') || bodyText.includes('Scan') || bodyText.includes('Login');
 
       journeyResults.push({
         journey: 'D',

@@ -17,8 +17,6 @@ import {
   Bar,
 } from "recharts";
 import {
-  TrendingUp,
-  TrendingDown,
   Users,
   IndianRupee,
   TicketIcon,
@@ -30,13 +28,14 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 
+// TicketLelo Brand Palette & Chart Tokens
 const COLORS = {
-  primary: "#FF6A00",
-  secondary: "#FFD60A",
-  success: "#22c55e",
-  danger: "#ef4444",
-  info: "#3b82f6",
-  purple: "#a855f7",
+  primary: "#FE760B",    // Ticket Orange
+  secondary: "#FDE003",  // Sunny Yellow
+  success: "#3DD68C",    // Success Green
+  danger: "#FF6B6B",     // Error Red
+  info: "#7AA2FF",       // Info Blue
+  off: "#5C6066",        // Inactive Off
 };
 
 function StatCard({
@@ -47,51 +46,42 @@ function StatCard({
   trend,
   color = "orange",
 }) {
-  const colorMap = {
-    orange: {
-      bg: "from-orange-50 to-amber-50",
-      border: "border-orange-100",
-      icon: "bg-orange-100 text-[#FF6A00]",
-      text: "text-[#FF6A00]",
-    },
-    green: {
-      bg: "from-green-50 to-emerald-50",
-      border: "border-green-100",
-      icon: "bg-green-100 text-green-600",
-      text: "text-green-600",
-    },
-    blue: {
-      bg: "from-blue-50 to-sky-50",
-      border: "border-blue-100",
-      icon: "bg-blue-100 text-blue-600",
-      text: "text-blue-600",
-    },
-    purple: {
-      bg: "from-purple-50 to-violet-50",
-      border: "border-purple-100",
-      icon: "bg-purple-100 text-purple-600",
-      text: "text-purple-600",
-    },
-  };
-
-  const c = colorMap[color] || colorMap.orange;
   const isPositive = trend > 0;
   const TrendIcon = isPositive ? ArrowUpRight : ArrowDownRight;
 
+  const colorStyles = {
+    orange: {
+      iconBg: "bg-[#FE760B]/14 text-[#FE760B]",
+      border: "border-[#2A2D31]",
+    },
+    green: {
+      iconBg: "bg-[#3DD68C]/12 text-[#3DD68C]",
+      border: "border-[#2A2D31]",
+    },
+    blue: {
+      iconBg: "bg-[#7AA2FF]/12 text-[#7AA2FF]",
+      border: "border-[#2A2D31]",
+    },
+    purple: {
+      iconBg: "bg-[#FDE003]/10 text-[#FDE003]",
+      border: "border-[#2A2D31]",
+    },
+  };
+
+  const style = colorStyles[color] || colorStyles.orange;
+
   return (
-    <div
-      className={`bg-gradient-to-br ${c.bg} border ${c.border} rounded-2xl p-5 relative overflow-hidden`}
-    >
+    <div className={`bg-[#1A1C1F] border ${style.border} rounded-2xl p-5 relative overflow-hidden shadow-sm`}>
       <div className="flex items-start justify-between mb-4">
-        <div className={`p-2.5 rounded-xl ${c.icon}`}>
+        <div className={`p-2.5 rounded-xl border border-[#2A2D31] ${style.iconBg}`}>
           <Icon size={20} />
         </div>
         {trend !== undefined && trend !== null && (
           <div
-            className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
+            className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
               isPositive
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-600"
+                ? "bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/25"
+                : "bg-[#FF6B6B]/12 text-[#FF9A9A] border border-[#FF6B6B]/25"
             }`}
           >
             <TrendIcon size={12} />
@@ -99,11 +89,13 @@ function StatCard({
           </div>
         )}
       </div>
-      <p className="text-gray-500 text-xs font-medium mb-1 uppercase tracking-wide">
+      <p className="text-[#9B9EA4] text-xs font-medium mb-1 uppercase tracking-wider">
         {label}
       </p>
-      <p className={`text-3xl font-extrabold ${c.text} mb-1`}>{value}</p>
-      {subValue && <p className="text-xs text-gray-400">{subValue}</p>}
+      <p className="text-2xl sm:text-3xl font-extrabold text-white mb-1 tabular-nums">
+        {value}
+      </p>
+      {subValue && <p className="text-xs text-[#9B9EA4]/80">{subValue}</p>}
     </div>
   );
 }
@@ -111,16 +103,16 @@ function StatCard({
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="bg-white rounded-xl shadow-xl border border-gray-100 p-3">
-      <p className="text-xs font-semibold text-gray-500 mb-2">{label}</p>
+    <div className="bg-[#212327] rounded-xl shadow-xl border border-[#2A2D31] p-3 text-white">
+      <p className="text-xs font-semibold text-[#9B9EA4] mb-2">{label}</p>
       {payload.map((entry, i) => (
         <div key={i} className="flex items-center gap-2 text-sm">
           <div
             className="w-2 h-2 rounded-full flex-shrink-0"
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-gray-600">{entry.name}:</span>
-          <span className="font-bold text-gray-900">
+          <span className="text-[#D0D0D1]">{entry.name}:</span>
+          <span className="font-bold text-white font-mono">
             {entry.name === "Revenue"
               ? `₹${entry.value.toLocaleString("en-IN")}`
               : entry.value}
@@ -166,8 +158,8 @@ export default function AnalyticsDashboard({ eventId, userId }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 min-h-[400px]">
-        <Loader2 size={40} className="animate-spin text-[#FF6A00] mb-4" />
-        <p className="text-gray-500 text-sm">Loading analytics...</p>
+        <Loader2 size={36} className="animate-spin text-[#FE760B] mb-4" />
+        <p className="text-[#9B9EA4] text-sm">Loading analytics…</p>
       </div>
     );
   }
@@ -175,14 +167,14 @@ export default function AnalyticsDashboard({ eventId, userId }) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <AlertCircle size={40} className="text-red-400 mb-4" />
-        <p className="font-semibold text-gray-700 mb-2">
+        <AlertCircle size={36} className="text-[#FF6B6B] mb-4" />
+        <p className="font-semibold text-white mb-2">
           Failed to load analytics
         </p>
-        <p className="text-sm text-gray-400 mb-4">{error}</p>
+        <p className="text-sm text-[#9B9EA4] mb-4">{error}</p>
         <button
           onClick={fetchAnalytics}
-          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm hover:bg-gray-200 transition-colors"
+          className="px-4 py-2 bg-[#212327] text-white border border-[#2A2D31] rounded-xl text-sm hover:bg-[#2A2D31] transition-colors"
         >
           Try Again
         </button>
@@ -236,22 +228,22 @@ export default function AnalyticsDashboard({ eventId, userId }) {
     }).format(amount);
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* Event Header */}
+    <div className="space-y-6">
+      {/* Event Header & Days Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1">{analytics.event.name}</p>
+          <h2 className="text-xl font-bold text-white tracking-tight">Overview</h2>
+          <p className="text-sm text-[#9B9EA4] mt-0.5">{analytics.event.name}</p>
         </div>
-        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1">
+        <div className="flex items-center gap-1.5 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 w-fit">
           {[7, 14, 30, 60].map((d) => (
             <button
               key={d}
               onClick={() => setDays(d)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
                 days === d
-                  ? "bg-[#FF6A00] text-white shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                  : "text-[#9B9EA4] hover:text-white"
               }`}
             >
               {d}d
@@ -312,53 +304,58 @@ export default function AnalyticsDashboard({ eventId, userId }) {
 
       {/* Capacity Utilization Bar */}
       {summary.capacity && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-semibold text-gray-700">
+            <span className="text-sm font-semibold text-white">
               Capacity Utilization
             </span>
-            <span className="text-sm font-bold text-[#FF6A00]">
+            <span className="text-sm font-bold text-[#FE760B] font-mono">
               {summary.totalRegistrations} / {summary.capacity}
             </span>
           </div>
-          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-3 bg-[#212327] rounded-full overflow-hidden border border-[#2A2D31]">
             <div
-              className="h-full bg-[#FF6A00] hover:bg-[#E65C00] rounded-full transition-all duration-700"
+              className="h-full bg-[#FE760B] hover:bg-[#FF8A2B] rounded-full transition-all duration-700"
               style={{
                 width: `${Math.min(summary.capacityUtilization, 100)}%`,
               }}
             />
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-[#9B9EA4] mt-2">
             {summary.capacityUtilization}% of capacity filled
           </p>
         </div>
       )}
 
       {/* Registrations Chart */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <h2 className="text-lg font-bold text-gray-900">
-            Registrations Over Time
-          </h2>
+          <div>
+            <h3 className="text-base font-bold text-white">
+              Registrations over time
+            </h3>
+            <p className="text-xs text-[#9B9EA4] mt-0.5">
+              Daily registration volume for the selected period
+            </p>
+          </div>
           {summary.isPaid && (
-            <div className="flex p-1 bg-gray-100 rounded-xl gap-1">
+            <div className="flex p-1 bg-[#212327] border border-[#2A2D31] rounded-xl gap-1">
               <button
                 onClick={() => setActiveChart("registrations")}
-                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
+                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
                   activeChart === "registrations"
-                    ? "bg-white shadow-sm text-[#FF6A00]"
-                    : "text-gray-500"
+                    ? "bg-[#FE760B] text-[#131517]"
+                    : "text-[#9B9EA4] hover:text-white"
                 }`}
               >
                 Registrations
               </button>
               <button
                 onClick={() => setActiveChart("revenue")}
-                className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-all ${
+                className={`px-3 py-1.5 text-xs rounded-lg font-semibold transition-all ${
                   activeChart === "revenue"
-                    ? "bg-white shadow-sm text-[#FF6A00]"
-                    : "text-gray-500"
+                    ? "bg-[#FE760B] text-[#131517]"
+                    : "text-[#9B9EA4] hover:text-white"
                 }`}
               >
                 Revenue
@@ -368,66 +365,68 @@ export default function AnalyticsDashboard({ eventId, userId }) {
         </div>
 
         {chartData.length > 0 && chartData.some((d) => d.registrations > 0) ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart
-              data={chartData}
-              margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
-            >
-              <defs>
-                <linearGradient id="colorRegs" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF6A00" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#FF6A00" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              {activeChart === "registrations" ? (
-                <Area
-                  type="monotone"
-                  dataKey="registrations"
-                  stroke="#FF6A00"
-                  strokeWidth={2.5}
-                  fill="url(#colorRegs)"
-                  name="Registrations"
-                  dot={false}
-                  activeDot={{ r: 5, fill: "#FF6A00" }}
+          <div className="rounded-xl bg-[#000000] p-4 border border-[#2A2D31]/80">
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="colorRegs" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#FE760B" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#FE760B" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3DD68C" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3DD68C" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2D31" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: "#9B9EA4" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#2A2D31" }}
+                  interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
                 />
-              ) : (
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#22c55e"
-                  strokeWidth={2.5}
-                  fill="url(#colorRev)"
-                  name="Revenue"
-                  dot={false}
-                  activeDot={{ r: 5, fill: "#22c55e" }}
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#9B9EA4" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#2A2D31" }}
+                  allowDecimals={false}
                 />
-              )}
-            </AreaChart>
-          </ResponsiveContainer>
+                <Tooltip content={<CustomTooltip />} />
+                {activeChart === "registrations" ? (
+                  <Area
+                    type="monotone"
+                    dataKey="registrations"
+                    stroke="#FE760B"
+                    strokeWidth={2.5}
+                    fill="url(#colorRegs)"
+                    name="Registrations"
+                    dot={false}
+                    activeDot={{ r: 5, fill: "#FE760B" }}
+                  />
+                ) : (
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#3DD68C"
+                    strokeWidth={2.5}
+                    fill="url(#colorRev)"
+                    name="Revenue"
+                    dot={false}
+                    activeDot={{ r: 5, fill: "#3DD68C" }}
+                  />
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-          <div className="h-[280px] flex items-center justify-center">
+          <div className="h-[280px] flex items-center justify-center rounded-xl bg-[#000000] border border-[#2A2D31]/80">
             <div className="text-center">
-              <BarChart2 size={36} className="text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-400 text-sm">
+              <BarChart2 size={36} className="text-[#9B9EA4] mx-auto mb-3 opacity-60" />
+              <p className="text-[#9B9EA4] text-sm">
                 No registrations in the last {days} days
               </p>
             </div>
@@ -438,12 +437,12 @@ export default function AnalyticsDashboard({ eventId, userId }) {
       {/* Bottom Row Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Payment Breakdown Pie */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
-            {summary.isPaid ? "Payment Status" : "Registration Status"}
-          </h2>
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 sm:p-6 shadow-sm">
+          <h3 className="text-base font-bold text-white mb-4">
+            {summary.isPaid ? "Payment status" : "Registration status"}
+          </h3>
           {summary.totalRegistrations > 0 ? (
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center rounded-xl bg-[#000000] p-4 border border-[#2A2D31]/80">
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
@@ -463,33 +462,33 @@ export default function AnalyticsDashboard({ eventId, userId }) {
                   <Legend
                     iconType="circle"
                     iconSize={10}
-                    wrapperStyle={{ fontSize: "12px" }}
+                    wrapperStyle={{ fontSize: "12px", color: "#D0D0D1" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[220px] flex items-center justify-center">
-              <p className="text-gray-400 text-sm">No data yet</p>
+            <div className="h-[220px] flex items-center justify-center rounded-xl bg-[#000000] border border-[#2A2D31]/80">
+              <p className="text-[#9B9EA4] text-sm">No data yet</p>
             </div>
           )}
         </div>
 
         {/* Ticket Usage Pie */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
-            Ticket Usage
-          </h2>
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 sm:p-6 shadow-sm">
+          <h3 className="text-base font-bold text-white mb-4">
+            Ticket usage
+          </h3>
           {ticketStats.total > 0 ? (
-            <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={220}>
+            <div className="flex flex-col items-center rounded-xl bg-[#000000] p-4 border border-[#2A2D31]/80">
+              <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie
                     data={ticketPieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={55}
-                    outerRadius={90}
+                    innerRadius={50}
+                    outerRadius={80}
                     paddingAngle={3}
                     dataKey="value"
                   >
@@ -501,20 +500,20 @@ export default function AnalyticsDashboard({ eventId, userId }) {
                   <Legend
                     iconType="circle"
                     iconSize={10}
-                    wrapperStyle={{ fontSize: "12px" }}
+                    wrapperStyle={{ fontSize: "12px", color: "#D0D0D1" }}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-2 text-center">
-                <p className="text-4xl font-extrabold text-green-600">
+                <p className="text-3xl font-extrabold text-[#3DD68C] tabular-nums">
                   {ticketStats.usageRate}%
                 </p>
-                <p className="text-xs text-gray-400">Scan Rate</p>
+                <p className="text-xs text-[#9B9EA4]">Scan rate</p>
               </div>
             </div>
           ) : (
-            <div className="h-[220px] flex items-center justify-center">
-              <p className="text-gray-400 text-sm">No tickets yet</p>
+            <div className="h-[220px] flex items-center justify-center rounded-xl bg-[#000000] border border-[#2A2D31]/80">
+              <p className="text-[#9B9EA4] text-sm">No tickets yet</p>
             </div>
           )}
         </div>
@@ -522,46 +521,49 @@ export default function AnalyticsDashboard({ eventId, userId }) {
 
       {/* Top Registration Days Bar Chart */}
       {topDays.length > 0 && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-          <h2 className="text-base font-bold text-gray-900 mb-4">
-            Peak Registration Days
-          </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart
-              data={topDays.map((d) => ({
-                date: new Date(d.date).toLocaleDateString("en-IN", {
-                  month: "short",
-                  day: "numeric",
-                }),
-                registrations: d.count,
-              }))}
-              margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip
-                formatter={(value) => [value, "Registrations"]}
-                cursor={{ fill: "#fef3ec" }}
-              />
-              <Bar
-                dataKey="registrations"
-                fill="#FF6A00"
-                radius={[6, 6, 0, 0]}
-                name="Registrations"
-              />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 sm:p-6 shadow-sm">
+          <h3 className="text-base font-bold text-white mb-4">
+            Peak registration days
+          </h3>
+          <div className="rounded-xl bg-[#000000] p-4 border border-[#2A2D31]/80">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={topDays.map((d) => ({
+                  date: new Date(d.date).toLocaleDateString("en-IN", {
+                    month: "short",
+                    day: "numeric",
+                  }),
+                  registrations: d.count,
+                }))}
+                margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2D31" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: "#9B9EA4" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#2A2D31" }}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#9B9EA4" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#2A2D31" }}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#212327", borderColor: "#2A2D31", borderRadius: "12px", color: "#ffffff" }}
+                  formatter={(value) => [value, "Registrations"]}
+                  cursor={{ fill: "rgba(254, 118, 11, 0.08)" }}
+                />
+                <Bar
+                  dataKey="registrations"
+                  fill="#FE760B"
+                  radius={[6, 6, 0, 0]}
+                  name="Registrations"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
     </div>

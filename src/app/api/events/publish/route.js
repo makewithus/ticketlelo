@@ -63,7 +63,15 @@ export async function POST(req) {
       publishedBy: caller.uid,
     });
 
-    return NextResponse.json({ success: true, slug, shareUrl, publishedAt });
+    return NextResponse.json({
+      success: true,
+      slug,
+      shareUrl,
+      publishedAt,
+      published: true,
+      isPublished: true,
+      status: "published",
+    });
   } catch (err) {
     console.error("Publish event error:", err);
     return NextResponse.json(

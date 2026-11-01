@@ -122,6 +122,8 @@ export async function POST(request) {
         paymentStatus: "paid",
         paymentId,
         entitledSubEventIds: entitlements.entitledSubEventIds,
+        qrCode: qrCodeUrl,
+        qrPayload,
         createdAt: now,
         updatedAt: now,
       });

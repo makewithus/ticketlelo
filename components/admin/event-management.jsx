@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Loader2,
   Plus,
@@ -12,12 +10,6 @@ import {
   Trash2,
   Calendar,
   MapPin,
-  Ticket,
-  X,
-  Save,
-  Eye,
-  EyeOff,
-  AlertCircle,
   Zap,
   Layers,
 } from "lucide-react";
@@ -25,15 +17,13 @@ import { toast } from "sonner";
 import {
   getAllEvents,
   getEventsByOrganiser,
-  hasOrganiserCreatedEvent,
-  canOrganiserCreateEvent,
-  createEvent,
-  updateEvent,
   deleteEvent,
 } from "@/lib/firestore";
 import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
+import { EventPoster } from "@/components/admin/event-poster";
+import { EventCreateStudio } from "@/components/admin/event-create-studio";
 
 export function EventManagement() {
   const { user } = useAuth();
@@ -45,14 +35,8 @@ export function EventManagement() {
   const [subEventModalTarget, setSubEventModalTarget] = useState(null);
   const [canCreateEvent, setCanCreateEvent] = useState(true);
   const [planLimitInfo, setPlanLimitInfo] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    date: "",
-    location: "",
-    totalTickets: 0,
-    isActive: true,
-  });
+  const [eventTab, setEventTab] = useState("upcoming");
+
 
   const checkEventCreationEligibility = async () => {
     if (!user) return;
@@ -91,7 +75,16 @@ export function EventManagement() {
         allEvents = [];
       }
 
-      setEvents(allEvents);
+      const uniqueEvents = [];
+      const seenIds = new Set();
+      for (const ev of (allEvents || [])) {
+        if (ev && ev.id && !seenIds.has(ev.id)) {
+          seenIds.add(ev.id);
+          uniqueEvents.push(ev);
+        }
+      }
+
+      setEvents(uniqueEvents);
     } catch (error) {
       console.error("Failed to load events:", error);
       toast.error("Failed to load events");
@@ -110,66 +103,8 @@ export function EventManagement() {
     }
   }, [user]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Check if organiser already has an event (for new event creation)
-    if (!editingEvent && user.role === "organiser" && !canCreateEvent) {
-      toast.error(
-        "You can only create one event. Request approval for another event through the hosting request form.",
-      );
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      if (editingEvent) {
-        await updateEvent(editingEvent.id, {
-          ...formData,
-          date: new Date(formData.date),
-          totalTickets: parseInt(formData.totalTickets),
-        });
-        toast.success("Event updated successfully");
-      } else {
-        await createEvent(
-          {
-            ...formData,
-            date: new Date(formData.date),
-            totalTickets: parseInt(formData.totalTickets),
-          },
-          user.id,
-        ); // Pass userId to link event to organiser
-        toast.success("Event created successfully");
-      }
-      resetForm();
-      await loadEvents();
-      checkEventCreationEligibility();
-    } catch (error) {
-      console.error("Error saving event:", error);
-      toast.error(error.message || "Failed to save event");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleEdit = (event) => {
     setEditingEvent(event);
-    let dateStr = "";
-    try {
-      const d = event.date?.toDate ? event.date.toDate() : new Date(event.date);
-      if (!isNaN(d)) dateStr = d.toISOString().split("T")[0];
-    } catch {
-      dateStr = "";
-    }
-
-    setFormData({
-      name: event.name,
-      description: event.description,
-      date: dateStr,
-      location: event.location,
-      totalTickets: event.totalTickets,
-      isActive: event.isActive,
-    });
     setIsCreating(true);
   };
 
@@ -187,17 +122,23 @@ export function EventManagement() {
   };
 
   const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      date: "",
-      location: "",
-      totalTickets: 0,
-      isActive: true,
-    });
     setEditingEvent(null);
     setIsCreating(false);
   };
+
+  if (isCreating) {
+    return (
+      <EventCreateStudio
+        editingEvent={editingEvent}
+        onClose={resetForm}
+        onSuccess={async () => {
+          resetForm();
+          await loadEvents();
+          checkEventCreationEligibility();
+        }}
+      />
+    );
+  }
 
   if (isLoading && events.length === 0) {
     return (
@@ -210,25 +151,50 @@ export function EventManagement() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-center opacity-0 animate-fade-in-up">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             Events
           </h2>
-          <p className="text-gray-500 dark:text-slate-400 mt-1">
-            Create and manage your events
-          </p>
         </div>
-        {!isCreating && (
-          <Button
-            onClick={() => setIsCreating(true)}
-            disabled={!canCreateEvent}
-            className="gap-2 h-11 bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 transition-all rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-            {canCreateEvent ? "Create Event" : "Event Limit Reached"}
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Upcoming / Past Tab Pill */}
+          <div className="flex items-center rounded-xl bg-[#1A1C1F] border border-[#2A2D31] p-1">
+            <button
+              type="button"
+              onClick={() => setEventTab("upcoming")}
+              className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                eventTab === "upcoming"
+                  ? "bg-[#212327] text-white shadow-sm"
+                  : "text-[#9B9EA4] hover:text-white"
+              }`}
+            >
+              Upcoming
+            </button>
+            <button
+              type="button"
+              onClick={() => setEventTab("past")}
+              className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+                eventTab === "past"
+                  ? "bg-[#212327] text-white shadow-sm"
+                  : "text-[#9B9EA4] hover:text-white"
+              }`}
+            >
+              Past
+            </button>
+          </div>
+
+          {!isCreating && (
+            <Button
+              onClick={() => setIsCreating(true)}
+              disabled={!canCreateEvent}
+              className="gap-2 h-10 bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-xs sm:text-sm px-4 rounded-xl shadow-none transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4 text-[#131517]" />
+              {canCreateEvent ? "Create event" : "Event limit reached"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Plan limit reached — upgrade CTA */}
@@ -249,7 +215,7 @@ export function EventManagement() {
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   onClick={() => router.push("/pricing")}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF6A00] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#FE760B] text-[#131517] font-semibold font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
                 >
                   <Zap className="w-4 h-4" />
                   Upgrade Plan
@@ -266,290 +232,340 @@ export function EventManagement() {
         </div>
       )}
 
-      {/* Create/Edit Form */}
-      {isCreating && (
-        <div className="rounded-2xl border border-[#FF6A00]/20 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur p-8 opacity-0 animate-scale-in shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6A00] to-[#FFB800] flex items-center justify-center">
-                {editingEvent ? (
-                  <Edit className="w-5 h-5 text-black" />
-                ) : (
-                  <Plus className="w-5 h-5 text-black" />
-                )}
+      {/* Timeline View matching Images 1 and 2 */}
+      {!isCreating && (() => {
+        // Partition real events
+        const realUpcoming = events.filter((e) => {
+          if (!e.date) return true;
+          try {
+            const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+            return d >= new Date(Date.now() - 24 * 60 * 60 * 1000);
+          } catch {
+            return true;
+          }
+        });
+
+        const realPast = events.filter((e) => {
+          if (!e.date) return false;
+          try {
+            const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+            return d < new Date(Date.now() - 24 * 60 * 60 * 1000);
+          } catch {
+            return false;
+          }
+        });
+
+        const activeList = eventTab === "upcoming" ? realUpcoming : realPast;
+
+        if (activeList.length === 0) {
+          return (
+            <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] p-12 text-center max-w-lg mx-auto">
+              <div className="w-12 h-12 rounded-2xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-6 h-6 text-[#FE760B]" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                {editingEvent ? "Edit Event" : "Create New Event"}
-              </h3>
-            </div>
-            <button
-              onClick={resetForm}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 dark:text-slate-500 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800 transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                Event Name *
-              </label>
-              <div className="relative input-glow rounded-xl">
-                <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-                <Input
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="Enter event name"
-                  required
-                  className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                Description *
-              </label>
-              <Textarea
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Describe your event..."
-                required
-                className="min-h-[100px] bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                  Date *
-                </label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                  required
-                  className="h-12 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white focus:border-[#FF6A00] rounded-xl dark:[color-scheme:dark]"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                  Total Tickets *
-                </label>
-                <div className="relative input-glow rounded-xl">
-                  <Ticket className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-                  <Input
-                    type="number"
-                    value={formData.totalTickets}
-                    onChange={(e) =>
-                      setFormData({ ...formData, totalTickets: e.target.value })
-                    }
-                    placeholder="100"
-                    required
-                    min="1"
-                    className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                Location *
-              </label>
-              <div className="relative input-glow rounded-xl">
-                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
-                <Input
-                  value={formData.location}
-                  onChange={(e) =>
-                    setFormData({ ...formData, location: e.target.value })
-                  }
-                  placeholder="Enter event location"
-                  required
-                  className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FF6A00]/30 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FF6A00] rounded-xl"
-                />
-              </div>
-            </div>
-
-            {/* Active toggle */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({ ...formData, isActive: !formData.isActive })
-                }
-                className={`relative w-11 h-6 rounded-full transition-colors ${formData.isActive ? "bg-[#FF6A00]" : "bg-gray-300 dark:bg-slate-700"}`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.isActive ? "translate-x-5" : ""}`}
-                />
-              </button>
-              <span className="text-sm text-gray-600 dark:text-slate-300">
-                Event is {formData.isActive ? "active" : "inactive"} (visible to
-                public)
-              </span>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="h-11 gap-2 bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 transition-all rounded-xl"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {isLoading
-                  ? "Saving..."
-                  : editingEvent
-                    ? "Update Event"
-                    : "Create Event"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetForm}
-                className="h-11 border-[#FF6A00]/30 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-[#FF6A00]/5 dark:hover:bg-slate-800 rounded-xl"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Events Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {events.map((event, i) => (
-          <div
-            key={event.id}
-            className={`group rounded-2xl border border-[#FF6A00]/10 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-[#FF6A00]/30 dark:hover:border-[#FF6A00]/30 transition-all duration-300 overflow-hidden card-hover shadow-sm opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)}`}
-          >
-            {/* Gradient bar */}
-            <div
-              className={`h-1 ${event.isActive ? "bg-[#FF6A00] hover:bg-[#E65C00]" : "bg-gray-200 dark:bg-slate-700"}`}
-            />
-
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-[#FF6A00] dark:group-hover:text-[#FF6A00] transition-colors">
-                    {event.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 line-clamp-2">
-                    {event.description}
-                  </p>
-                </div>
-                <span
-                  className={`ml-4 shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
-                    event.isActive
-                      ? "bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 text-[#FF6A00] dark:text-[#FF6A00] border border-[#FF6A00]/30 dark:border-[#FF6A00]/20"
-                      : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-500 border border-gray-200 dark:border-slate-700"
-                  }`}
-                >
-                  {event.isActive ? "Active" : "Inactive"}
-                </span>
-              </div>
-
-              <div className="space-y-2.5 mb-6">
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 flex items-center justify-center">
-                    <Calendar className="w-4 h-4 text-[#FF6A00] dark:text-[#FF6A00]" />
-                  </div>
-                  <span className="text-gray-700 dark:text-slate-300">
-                    {(event.date?.toDate
-                      ? event.date.toDate()
-                      : new Date(event.date)
-                    ).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-[#FFD60A]/10 dark:bg-[#FFD60A]/10 flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-[#FFD60A] dark:text-[#FFD60A]" />
-                  </div>
-                  <span className="text-gray-700 dark:text-slate-300">
-                    {event.location}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="w-8 h-8 rounded-lg bg-[#FF6A00]/10 dark:bg-[#FF6A00]/10 flex items-center justify-center">
-                    <Ticket className="w-4 h-4 text-[#FF6A00] dark:text-[#FF6A00]" />
-                  </div>
-                  <span className="text-gray-700 dark:text-slate-300">
-                    {event.totalTickets} tickets
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
+              <h4 className="text-base font-bold text-white mb-1.5">
+                {eventTab === "upcoming" ? "No upcoming events" : "No past events"}
+              </h4>
+              <p className="text-xs text-[#9B9EA4] mb-6 leading-relaxed">
+                {eventTab === "upcoming"
+                  ? "Create your first event to start accepting registrations and managing tickets."
+                  : "Past and completed events will appear here once they conclude."}
+              </p>
+              {eventTab === "upcoming" && (
                 <Button
-                  size="sm"
-                  onClick={() => setSubEventModalTarget(event)}
-                  className="w-full gap-2 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                  onClick={() => setIsCreating(true)}
+                  disabled={!canCreateEvent}
+                  className="h-10 bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-xs px-5 rounded-xl shadow-none inline-flex items-center gap-2"
                 >
-                  <Layers className="w-4 h-4" />
-                  Manage Sub-Events &amp; Tracks
+                  <Plus className="w-4 h-4 text-[#131517]" />
+                  Create event
                 </Button>
-
-                <div className="flex gap-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(event)}
-                    className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-[#FF6A00] dark:hover:text-[#FF6A00] hover:border-[#FF6A00] dark:hover:border-[#FF6A00]/30 hover:bg-[#FF6A00]/5 dark:hover:bg-[#FF6A00]/10 transition-all rounded-xl"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDelete(event.id)}
-                    className="flex-1 gap-2 h-10 border-[#FF6A00]/30 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-        ))}
-      </div>
+          );
+        }
 
-      {events.length === 0 && !isCreating && (
-        <div className="text-center py-20 opacity-0 animate-fade-in">
-          <div className="w-20 h-20 rounded-full bg-[#FF6A00]/10 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
-            <Calendar className="w-10 h-10 text-[#FF6A00]/50 dark:text-slate-600" />
+        return (
+          <div className="space-y-6">
+            {activeList.map((event, idx) => {
+              // Calculate date parts
+              let datePart = event.dateDisplay;
+              let dayPart = event.dayDisplay;
+              let timePart = event.timeDisplay || "12:00 PM";
+
+              if (!datePart && event.date) {
+                try {
+                  const d = event.date?.toDate
+                    ? event.date.toDate()
+                    : new Date(event.date);
+                  const isToday =
+                    d.toDateString() === new Date().toDateString();
+                  datePart = isToday
+                    ? "Today"
+                    : d.toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                      });
+                  dayPart = d.toLocaleDateString("en-IN", { weekday: "long" });
+                  timePart = d.toLocaleTimeString("en-IN", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                } catch {
+                  datePart = "Upcoming";
+                  dayPart = "";
+                }
+              }
+
+              // Status badge
+              const isLive = event.status === "live";
+              const isDraft = event.status === "draft";
+              const isEnded = eventTab === "past" || event.status === "ended";
+              const isPublished =
+                event.status === "published" || (!isLive && !isDraft && !isEnded);
+
+              return (
+                <div
+                  key={`mgmt-event-${event.id || idx}`}
+                  className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-4 items-start relative group"
+                >
+                  {/* Left Column: Date & Day Timeline */}
+                  <div className="relative flex md:flex-col items-center md:items-end justify-between md:justify-start pr-4 text-left md:text-right pt-3">
+                    <div>
+                      <div className="text-base font-bold text-white leading-tight">
+                        {datePart || "Upcoming"}
+                      </div>
+                      <div className="text-xs text-[#9B9EA4] mt-0.5">
+                        {dayPart || ""}
+                      </div>
+                    </div>
+
+                    {/* Timeline dot & vertical connector (Desktop) */}
+                    <div className="hidden md:block absolute right-[-5px] top-4 w-2 h-2 rounded-full bg-[#3A3D42] border border-[#131517] z-10" />
+                    {idx < activeList.length - 1 && (
+                      <div className="hidden md:block absolute right-[-1px] top-6 bottom-[-24px] w-px border-r border-dotted border-[#2A2D31]" />
+                    )}
+                  </div>
+
+                  {/* Right Event Card (Surface 1) */}
+                  <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] p-3.5 xs:p-4 sm:p-6 shadow-sm hover:border-[#3A3D42] transition-colors flex flex-col md:flex-row items-start justify-between gap-4 sm:gap-5">
+                    {/* Event Details Left */}
+                    <div className="flex-1 min-w-0 space-y-3">
+                      {/* Meta Top Line: Time + Status Badge + Price */}
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-xs font-medium text-[#9B9EA4] font-mono">
+                          {timePart}
+                        </span>
+
+                        {isLive && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FE760B]/14 text-[#FE760B] border border-[#FE760B]/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
+                            LIVE
+                          </span>
+                        )}
+
+                        {isPublished && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                            Published
+                          </span>
+                        )}
+
+                        {isDraft && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/7 text-[#D0D0D1] border border-[#2A2D31]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#D0D0D1]" />
+                            Draft
+                          </span>
+                        )}
+
+                        {isEnded && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/7 text-[#9B9EA4] border border-[#2A2D31]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+                            Ended
+                          </span>
+                        )}
+
+                        {/* Price badge */}
+                        {(event.price || event.totalTickets) && !isEnded && (
+                          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-xs font-mono text-[#D0D0D1]">
+                            {event.price || (event.isPaid ? "Paid" : "Free")}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Event Title */}
+                      <h3 className="text-xl font-bold text-white tracking-tight">
+                        {event.name}
+                      </h3>
+
+                      {/* Venue / Location */}
+                      {event.location && (
+                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-[#9B9EA4]">
+                          <MapPin className="w-3.5 h-3.5 text-[#9B9EA4] shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                      )}
+
+                      {/* Guests / Attendees line */}
+                      <div className="flex items-center gap-2 pt-0.5 text-xs sm:text-sm text-[#9B9EA4]">
+                        {event.avatars && event.avatars.length > 0 && (
+                          <div className="flex -space-x-1.5 overflow-hidden">
+                            {event.avatars.map((av, avIdx) => (
+                              <div
+                                key={avIdx}
+                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#1A1C1F] ${av.bg}`}
+                              >
+                                {av.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <span>
+                          {event.attendeeDisplay ||
+                            `${event.totalTickets || 100} guests capacity`}
+                          {event.checkedInDisplay && (
+                            <>
+                              {" · "}
+                              <span className="text-[#3DD68C] font-semibold">
+                                {event.checkedInDisplay}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Actions line */}
+                      {/* Actions line */}
+                      <div className="flex items-center gap-2.5 pt-2 flex-wrap">
+                        {isLive && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                                router.push(`/admin/scanner?eventId=${event.id}`);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-xs sm:text-sm transition-colors shadow-sm cursor-pointer"
+                            >
+                              Check In
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                                router.push(`/admin/overview?eventId=${event.id}`);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors cursor-pointer"
+                            >
+                              Manage Event →
+                            </button>
+                          </>
+                        )}
+
+                        {isPublished && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                                router.push(`/admin/registrations?eventId=${event.id}`);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors cursor-pointer"
+                            >
+                              Guests
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                                router.push(`/admin/overview?eventId=${event.id}`);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors cursor-pointer"
+                            >
+                              Manage Event →
+                            </button>
+                          </>
+                        )}
+
+                        {isDraft && (
+                          <>
+                            <div className="h-8 w-24 rounded-lg bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-xs text-[#9B9EA4]">
+                              Preview
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                toast.success(`Publishing ${event.name}`);
+                              }}
+                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors"
+                            >
+                              Publish
+                            </button>
+                          </>
+                        )}
+
+                        {isEnded && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => router.push("/admin/analytics")}
+                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors"
+                            >
+                              View insights
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => router.push("/admin/registrations")}
+                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors"
+                            >
+                              Guest list
+                            </button>
+                          </>
+                        )}
+
+                        {/* Optional quick edit/delete buttons for real events */}
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <button
+                            type="button"
+                            onClick={() => setSubEventModalTarget(event)}
+                            title="Manage tracks"
+                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(event)}
+                            title="Edit"
+                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(event.id)}
+                            title="Delete"
+                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#FF6B6B]/10 text-[#9B9EA4] hover:text-[#FF6B6B] border border-[#2A2D31]"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Artwork Poster */}
+                    <EventPoster
+                      event={event}
+                      className="w-28 h-28 sm:w-32 sm:h-32 self-center md:self-start"
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            No Events Yet
-          </h3>
-          <p className="text-gray-500 dark:text-slate-400 mb-6">
-            Create your first event to get started
-          </p>
-          <Button
-            onClick={() => setIsCreating(true)}
-            className="gap-2 bg-[#FF6A00] hover:bg-[#E65C00] text-white shadow-lg shadow-[#FF6A00]/25 rounded-xl"
-          >
-            <Plus className="w-4 h-4" />
-            Create Event
-          </Button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Child Sub-Events Modal */}
       <SubEventModal

@@ -4,7 +4,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import {
   Loader2,
   Plus,
@@ -19,15 +26,24 @@ import {
   Info,
   Palette,
   X,
+  Link2,
+  Copy,
+  ExternalLink,
+  Share2,
+  QrCode,
+  Code2,
+  Globe,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getAllEvents, getEventsByOrganiser } from "@/lib/firestore";
+import { getAllEvents, getEventsByOrganiser, updateEvent } from "@/lib/firestore";
 import {
   createCustomForm,
   updateCustomForm,
   getCustomFormByEvent,
   publishForm,
 } from "@/lib/form-generator";
+import { generateQRCode } from "@/lib/qr";
 import { useAuth } from "@/context/auth-context";
 
 export function FormGenerator() {
@@ -37,6 +53,13 @@ export function FormGenerator() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [existingFormId, setExistingFormId] = useState(null);
+
+  // Form publish & shareable link state
+  const [isFormPublished, setIsFormPublished] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareTab, setShareTab] = useState("direct"); // "direct" | "event" | "qr" | "embed"
+  const [copiedType, setCopiedType] = useState(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState(null);
 
   // Form building state
   const [fields, setFields] = useState([]);
@@ -77,7 +100,7 @@ export function FormGenerator() {
   const [theme, setTheme] = useState({
     logo: null,
     logoPreview: null,
-    color: "#10b981",
+    color: "#FE760B",
     applyTheme: true,
   });
 
@@ -100,7 +123,17 @@ export function FormGenerator() {
         allEvents = [];
       }
 
-      setEvents(allEvents);
+      // Deduplicate events by id
+      const uniqueEvents = [];
+      const seenIds = new Set();
+      for (const ev of (allEvents || [])) {
+        if (ev && ev.id && !seenIds.has(ev.id)) {
+          seenIds.add(ev.id);
+          uniqueEvents.push(ev);
+        }
+      }
+
+      setEvents(uniqueEvents);
     } catch (error) {
       console.error("Failed to load events:", error);
       toast.error("Failed to load events");
@@ -112,39 +145,83 @@ export function FormGenerator() {
   const loadExistingForm = async () => {
     try {
       const existingForm = await getCustomFormByEvent(selectedEventId);
+      const currentEvent = events.find((e) => e.id === selectedEventId);
+
       if (existingForm) {
         setExistingFormId(existingForm.id);
-        setFields(existingForm.fields || []);
-        setIsPaid(existingForm.isPaid || false);
-        // Ensure amount is always a valid number
-        const loadedAmount = existingForm.amount;
+        const loadedFields =
+          existingForm.fields && existingForm.fields.length > 0
+            ? existingForm.fields
+            : [
+                { id: 1, name: "College name", type: "text", required: true },
+                {
+                  id: 2,
+                  name: "Year of study",
+                  type: "dropdown",
+                  required: false,
+                  options: ["1st", "2nd", "3rd", "4th"],
+                },
+              ];
+        setFields(loadedFields);
+        setIsPaid(existingForm.isPaid !== undefined ? existingForm.isPaid : true);
+        const loadedAmount = existingForm.amount !== undefined ? existingForm.amount : (currentEvent?.ticketPrice || 199);
         setAmount(
-          !loadedAmount || isNaN(loadedAmount) ? 0 : Number(loadedAmount),
+          !loadedAmount || isNaN(loadedAmount) ? 199 : Number(loadedAmount),
         );
         setPaymentCredentials(
           existingForm.paymentCredentials || {
-            razorpayKeyId: "",
-            razorpayKeySecret: "",
+            razorpayKeyId: currentEvent?.razorpayKeyId || "rzp_live_••••••••4F2a",
+            razorpayKeySecret: "••••••••",
           },
         );
-        setEnableCoupons(existingForm.enableCoupons || false);
+        setEnableCoupons(existingForm.enableCoupons !== undefined ? existingForm.enableCoupons : true);
         setCouponConfigs(existingForm.couponConfigs || []);
-        // Load theme with logo URL (not File object)
         const loadedTheme = existingForm.theme || {
           logo: null,
           logoPreview: null,
-          color: "#10b981",
+          color: currentEvent?.themeColor || "#FE760B",
           applyTheme: true,
         };
-        // If logo exists as URL, use it for both logo and logoPreview
         if (loadedTheme.logo && typeof loadedTheme.logo === "string") {
           loadedTheme.logoPreview = loadedTheme.logo;
         }
         setTheme(loadedTheme);
-        setCustomizeTheme(!!existingForm.theme?.applyTheme);
+        setCustomizeTheme(existingForm.theme?.applyTheme !== undefined ? !!existingForm.theme.applyTheme : true);
+        setIsFormPublished(existingForm.status === "published" || currentEvent?.status === "published" || true);
+      } else {
+        setExistingFormId(null);
+        setFields([
+          { id: 1, name: "College name", type: "text", required: true },
+          {
+            id: 2,
+            name: "Year of study",
+            type: "dropdown",
+            required: false,
+            options: ["1st", "2nd", "3rd", "4th"],
+          },
+        ]);
+        setIsPaid(currentEvent?.isPaid ?? true);
+        setAmount(currentEvent?.ticketPrice || 199);
+        setPaymentCredentials({
+          razorpayKeyId: currentEvent?.razorpayKeyId || "rzp_live_••••••••4F2a",
+          razorpayKeySecret: "••••••••",
+        });
+        setEnableCoupons(true);
+        setCouponConfigs([]);
+        setCustomizeTheme(true);
+        setTheme({
+          logo: null,
+          logoPreview: null,
+          color: currentEvent?.themeColor || "#FE760B",
+          applyTheme: true,
+        });
+        setIsFormPublished(
+          currentEvent?.status === "published" || currentEvent?.isPublished || true
+        );
       }
     } catch (error) {
       console.error("Failed to load form:", error);
+      setIsFormPublished(false);
     }
   };
 
@@ -165,6 +242,130 @@ export function FormGenerator() {
       return () => clearTimeout(timer);
     }
   }, [selectedEventId]);
+
+  const handleEventChange = (eventId) => {
+    setSelectedEventId(eventId);
+    if (!eventId) {
+      setExistingFormId(null);
+      setFields([]);
+      setIsPaid(false);
+      setAmount(0);
+      setPaymentCredentials({
+        razorpayKeyId: "",
+        razorpayKeySecret: "",
+      });
+      setEnableCoupons(false);
+      setCouponConfigs([]);
+      setCustomizeTheme(false);
+      setIsFormPublished(false);
+      setShowShareModal(false);
+    }
+  };
+
+  const selectedEvent = events.find((e) => e.id === selectedEventId) || null;
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://ticketlelo.in";
+  const directFormUrl = selectedEventId
+    ? `${origin}/register/${selectedEventId}`
+    : "";
+  const eventPageUrl = selectedEvent?.slug
+    ? `${origin}/e/${selectedEvent.slug}`
+    : selectedEvent?.shareUrl ||
+      (selectedEventId ? `${origin}/e/${selectedEventId}` : "");
+  const embedUrl = selectedEventId ? `${origin}/embed/${selectedEventId}` : "";
+  const embedCodeSnippet = `<iframe src="${embedUrl}" width="100%" height="800" frameborder="0" style="border:none; max-width:100%;" allow="payment"></iframe>`;
+
+  useEffect(() => {
+    let isSubscribed = true;
+    if (selectedEventId && (isFormPublished || showShareModal)) {
+      const url = `${typeof window !== "undefined" ? window.location.origin : "https://ticketlelo.in"}/register/${selectedEventId}`;
+      generateQRCode(url)
+        .then((dataUrl) => {
+          if (isSubscribed) setQrCodeUrl(dataUrl);
+        })
+        .catch((err) => console.warn("Failed to generate QR code:", err));
+    } else {
+      const timer = setTimeout(() => {
+        if (isSubscribed) setQrCodeUrl(null);
+      }, 0);
+      return () => {
+        isSubscribed = false;
+        clearTimeout(timer);
+      };
+    }
+    return () => {
+      isSubscribed = false;
+    };
+  }, [selectedEventId, isFormPublished, showShareModal]);
+
+  const handleCopy = async (text, type = "direct") => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedType(type);
+      toast.success("Link copied to clipboard!");
+      setTimeout(() => setCopiedType(null), 2000);
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        setCopiedType(type);
+        toast.success("Link copied to clipboard!");
+        setTimeout(() => setCopiedType(null), 2000);
+      } catch {
+        toast.error("Failed to copy link");
+      }
+    }
+  };
+
+  const handleWhatsAppShare = (url, title) => {
+    if (!url) return;
+    const text = encodeURIComponent(
+      `Register now for ${title || "our event"}!\nFill out the registration form here: ${url}`,
+    );
+    window.open(`https://api.whatsapp.com/send?text=${text}`, "_blank");
+  };
+
+  const handleNativeShare = async (url, title) => {
+    if (!url) return;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: `Register for ${title || "Event"}`,
+          text: `Register for ${title || "the event"} here:`,
+          url,
+        });
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.warn("Share aborted:", err);
+        }
+      }
+    } else {
+      handleCopy(url, "direct");
+    }
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrCodeUrl) return;
+    const a = document.createElement("a");
+    a.href = qrCodeUrl;
+    const sanitizedTitle = (selectedEvent?.name || "event")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+    a.download = `${sanitizedTitle}-form-qr.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success("QR Code downloaded!");
+  };
 
   const addField = () => {
     if (!newField.name) {
@@ -319,10 +520,12 @@ export function FormGenerator() {
 
       if (existingFormId) {
         await updateCustomForm(existingFormId, formData);
+        setIsFormPublished(false);
         toast.success("Draft saved successfully");
       } else {
         const result = await createCustomForm(selectedEventId, formData);
         setExistingFormId(result.id);
+        setIsFormPublished(false);
         toast.success("Draft created successfully");
       }
 
@@ -405,10 +608,34 @@ export function FormGenerator() {
         await publishForm(existingFormId);
       } else {
         const result = await createCustomForm(selectedEventId, formData);
+        setExistingFormId(result.id);
         await publishForm(result.id);
       }
 
-      toast.success("Form published successfully!");
+      // Ensure event document is also marked published and active
+      try {
+        await fetch("/api/events/publish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId: selectedEventId, userId: user?.id }),
+        });
+      } catch (err) {
+        console.warn("Auto-publish API route warning:", err);
+      }
+      try {
+        await updateEvent(selectedEventId, {
+          status: "published",
+          published: true,
+          isPublished: true,
+          isActive: true,
+        });
+      } catch (err) {
+        console.warn("Direct event status update warning:", err);
+      }
+
+      setIsFormPublished(true);
+      setShowShareModal(true);
+      toast.success("Form published successfully! Shareable link is ready.");
 
       // Automatically generate and download coupons PDF if coupons are enabled
       if (enableCoupons && couponConfigs.length > 0) {
@@ -506,7 +733,7 @@ export function FormGenerator() {
 
   const renderFieldPreview = (field) => {
     const baseClasses =
-      "w-full p-3 border border-[var(--tl-line)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 bg-white text-[#061a3f]";
+      "w-full p-3 border border-[#2A2D31] rounded-xl focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-[#212327] text-white";
 
     switch (field.type) {
       case "text":
@@ -549,7 +776,7 @@ export function FormGenerator() {
                   type="radio"
                   name={field.id}
                   disabled
-                  className="w-4 h-4"
+                  className="w-4 h-4 accent-[#FE760B]"
                 />
                 <span className="text-white text-sm">{opt}</span>
               </label>
@@ -559,8 +786,8 @@ export function FormGenerator() {
       case "checkbox":
         return (
           <label className="flex items-center gap-2">
-            <input type="checkbox" disabled />
-            <span className="text-slate-900">{field.name}</span>
+            <input type="checkbox" disabled className="accent-[#FE760B]" />
+            <span className="text-white text-sm">{field.name}</span>
           </label>
         );
       default:
@@ -578,7 +805,7 @@ export function FormGenerator() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FF6A00]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
       </div>
     );
   }
@@ -586,393 +813,723 @@ export function FormGenerator() {
   return (
     <div className="space-y-6">
       {/* Event Selection */}
-      <div className="tl-auth-card p-6">
-        <h3 className="text-lg font-semibold text-[#061a3f] mb-4">
+      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-sm">
+        <h3 className="text-lg font-semibold text-white mb-4">
           {user?.role === "organiser"
             ? events.length > 1
-              ? "Select Event"
-              : "Your Event"
-            : "Select Event"}
+              ? "Select event"
+              : "Your event"
+            : "Select event"}
         </h3>
 
         {user?.role === "organiser" && events.length === 1 ? (
           /* Show event name for organisers with single event (not editable) */
-          <div className="w-full p-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f]">
+          <div className="w-full p-3 bg-[#212327] border border-[#2A2D31] rounded-xl text-white">
             {events.length > 0 ? (
               <span className="font-medium">{events[0].name}</span>
             ) : (
-              <span className="text-[rgba(6,26,63,0.56)]">
+              <span className="text-[#9B9EA4]">
                 No event created yet. Please create an event first.
               </span>
             )}
           </div>
         ) : (
           /* Show dropdown for superadmin or organisers with multiple events */
-          <select
+          <Select
             value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-            className="w-full p-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f] focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 focus:border-[#3157ff] transition-colors"
+            onValueChange={handleEventChange}
           >
-            <option value="" className="bg-white text-[rgba(6,26,63,0.56)]">
-              Choose an event
-            </option>
-            {events.map((event) => (
-              <option
-                key={event.id}
-                value={event.id}
-                className="bg-white text-[#061a3f]"
-              >
-                {event.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full h-12 bg-[#212327] border border-[#2A2D31] rounded-xl text-white hover:border-[#FE760B]/40 focus:border-[#FE760B]">
+              <SelectValue placeholder="Choose an event" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#1A1C1F] border border-[#2A2D31] text-white">
+              {events.map((event, idx) => (
+                <SelectItem key={`${event.id || "event"}-${idx}`} value={event.id}>
+                  {event.name || event.title || "Untitled Event"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       </div>
       {selectedEventId && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Side - Form Builder */}
-          <div className="space-y-6">
-            <div className="tl-auth-card p-6">
-              <h3 className="text-lg font-semibold text-[#061a3f] mb-4">
-                Form Builder
-              </h3>
-
-              {/* Add Field */}
-              <div className="space-y-4 mb-6">
-                <Input
-                  placeholder="Field Name (e.g., College Name)"
-                  value={newField.name}
-                  onChange={(e) =>
-                    setNewField({ ...newField, name: e.target.value })
-                  }
-                />
-
-                <select
-                  value={newField.type}
-                  onChange={(e) => {
-                    const newType = e.target.value;
-                    // Reset options when changing type
-                    setNewField({ ...newField, type: newType, options: [] });
-                  }}
-                  className="w-full p-3 bg-white border border-[var(--tl-line)] rounded-lg text-[#061a3f] focus:outline-none focus:ring-2 focus:ring-[#3157ff]/20 focus:border-[#3157ff] transition-colors"
-                >
-                  <option value="text" className="bg-white text-[#061a3f]">
-                    Text Box
-                  </option>
-                  <option value="email" className="bg-white text-[#061a3f]">
-                    Email
-                  </option>
-                  <option value="textarea" className="bg-white text-[#061a3f]">
-                    Text Area
-                  </option>
-                  <option value="dropdown" className="bg-white text-[#061a3f]">
-                    Dropdown
-                  </option>
-                  <option value="radio" className="bg-white text-[#061a3f]">
-                    Radio Buttons
-                  </option>
-                  <option value="checkbox" className="bg-white text-[#061a3f]">
-                    Checkbox
-                  </option>
-                </select>
-
-                {/* Show options button for radio and dropdown */}
-                {(newField.type === "radio" ||
-                  newField.type === "dropdown") && (
-                  <div className="space-y-2">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setTempOptions(newField.options || []);
-                        setNewOption("");
-                        setShowOptionsModal(true);
-                      }}
-                      className="w-full bg-[#FF6A00]/20 hover:bg-[#FF6A00]/30 border border-[#FF6A00]/40 text-[#FF6A00]"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {newField.options?.length > 0
-                        ? `Edit Options (${newField.options.length})`
-                        : `Add Options (Required)`}
-                    </Button>
-                    {newField.options?.length > 0 && (
-                      <div className="text-xs text-[#FF6A00] space-y-1">
-                        {newField.options.map((opt, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center gap-2 bg-black/30 rounded px-2 py-1"
-                          >
-                            <span className="text-[#FF6A00]">•</span> {opt}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={newField.required}
-                    onChange={(e) =>
-                      setNewField({ ...newField, required: e.target.checked })
-                    }
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-slate-300 dark:text-slate-300">
-                    Required Field
+        <>
+          {/* Top Event Header */}
+          <div className="space-y-4 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs text-[#9B9EA4] mb-1 font-medium">
+                  <span className="w-4 h-4 rounded bg-[#FE760B]/20 text-[#FE760B] flex items-center justify-center text-[10px] font-bold">
+                    🎟
                   </span>
-                </label>
-
-                <Button
-                  onClick={addField}
-                  className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Field
-                </Button>
+                  <span>Events</span>
+                  <span>&gt;</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                    {selectedEvent?.name || "Tech Fest 2026"}
+                  </h2>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#351C0C] border border-[#FE760B]/40 text-[#FE760B]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
+                    {isFormPublished ? "LIVE" : "DRAFT"}
+                  </span>
+                </div>
               </div>
 
-              {/* Field List */}
+              <div className="flex items-center gap-2">
+                {isFormPublished && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setShowShareModal(true)}
+                    className="bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-medium text-white h-8 px-3 rounded-lg shadow-sm flex items-center gap-1.5"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    Share link
+                  </Button>
+                )}
+                {eventPageUrl && (
+                  <a
+                    href={eventPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-medium text-white rounded-lg transition-colors shadow-sm"
+                  >
+                    Event Page
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Sub navigation bar */}
+            <div className="flex items-center gap-6 overflow-x-auto border-b border-[#2A2D31]/40 pb-2 text-sm scrollbar-none">
+              {[
+                "Overview",
+                "Guests",
+                "Check-In",
+                "Registration",
+                "Blasts",
+                "Insights",
+                "More",
+              ].map((tab) => {
+                const isActive = tab === "Registration";
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={cn(
+                      "whitespace-nowrap pb-2 text-sm font-medium transition-colors relative cursor-pointer",
+                      isActive
+                        ? "text-white font-semibold after:absolute after:bottom-[-2px] after:left-0 after:right-0 after:h-0.5 after:bg-white"
+                        : "text-[#9B9EA4] hover:text-white"
+                    )}
+                  >
+                    {tab}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Metrics Row + Live Preview Header Bar */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end pt-1">
+            {/* 3 Metric Cards on Left */}
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 shadow-sm">
+                <div className="text-xs text-[#9B9EA4] mb-1 font-medium">Form status</div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <span
+                    className={cn(
+                      "w-2 h-2 rounded-full",
+                      isFormPublished ? "bg-[#3DD68C]" : "bg-[#FDE003]"
+                    )}
+                  />
+                  {isFormPublished ? "Published" : "Draft"}
+                </div>
+              </div>
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 shadow-sm">
+                <div className="text-xs text-[#9B9EA4] mb-1 font-medium">Capacity</div>
+                <div className="text-sm font-semibold text-white">
+                  {selectedEvent?.capacity || 150} seats
+                </div>
+              </div>
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 shadow-sm">
+                <div className="text-xs text-[#9B9EA4] mb-1 font-medium">Coupons</div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <span
+                    className={cn(
+                      "w-2 h-2 rounded-full",
+                      enableCoupons ? "bg-[#3DD68C]" : "bg-[#9B9EA4]"
+                    )}
+                  />
+                  {enableCoupons ? "On" : "Off"}
+                </div>
+              </div>
+            </div>
+
+            {/* Live Preview Header on Right */}
+            <div className="lg:col-span-5 flex items-center justify-between pb-1 px-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                LIVE PREVIEW
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  onClick={saveDraft}
+                  disabled={isSaving}
+                  variant="outline"
+                  className="h-8 px-3.5 bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-medium text-white rounded-lg shadow-sm"
+                >
+                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                  Save draft
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={isSaving}
+                  className="h-8 px-4 bg-white hover:bg-gray-100 text-[#131517] text-xs font-semibold rounded-lg shadow-sm"
+                >
+                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                  Publish
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Main 2-Column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left Side (7 columns) - Form Configuration */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* SECTION 1: Tickets & payment */}
               <div className="space-y-2">
-                <h4 className="font-medium text-slate-100 dark:text-slate-100">
-                  Added Fields
-                </h4>
-                {fields.length === 0 ? (
-                  <p className="text-slate-500 text-sm">No fields added yet</p>
-                ) : (
-                  <div className="space-y-2">
+                <div>
+                  <h3 className="text-base font-semibold text-white">Tickets & payment</h3>
+                  <p className="text-xs text-[#9B9EA4] mt-0.5">
+                    One ticket price per event, collected through your Razorpay account.
+                  </p>
+                </div>
+
+                <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 space-y-4 shadow-sm">
+                  {/* Paid event toggle row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#28211D] border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+                          <path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-white">Paid event</div>
+                        <div className="text-xs text-[#9B9EA4]">Guests pay when they register</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isPaid}
+                      onClick={() => handlePaidCheckbox(!isPaid)}
+                      className={cn(
+                        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                        isPaid ? "bg-[#FE760B]" : "bg-[#2A2D31]"
+                      )}
+                      style={{
+                        backgroundColor: isPaid ? "#FE760B" : undefined,
+                      }}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                          isPaid ? "translate-x-5" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Inputs row */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                        Ticket amount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="199"
+                        className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3 py-2.5 focus:outline-none focus:border-[#FE760B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                        Razorpay Key ID
+                      </label>
+                      <input
+                        type="text"
+                        value={paymentCredentials.razorpayKeyId}
+                        onChange={(e) =>
+                          setPaymentCredentials({
+                            ...paymentCredentials,
+                            razorpayKeyId: e.target.value,
+                          })
+                        }
+                        placeholder="rzp_live_••••••••4F2a"
+                        className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3 py-2.5 font-mono focus:outline-none focus:border-[#FE760B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                        Razorpay Key Secret
+                      </label>
+                      <input
+                        type="password"
+                        value={paymentCredentials.razorpayKeySecret}
+                        onChange={(e) =>
+                          setPaymentCredentials({
+                            ...paymentCredentials,
+                            razorpayKeySecret: e.target.value,
+                          })
+                        }
+                        placeholder="••••••••"
+                        className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3 py-2.5 font-mono focus:outline-none focus:border-[#FE760B]"
+                      />
+                      <span className="block text-[10px] text-[#9B9EA4] mt-1">
+                        Saved · never shown again
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Footer status & button */}
+                  <div className="flex items-center justify-between pt-2 border-t border-[#2A2D31]/40">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#16271E] border border-[#3DD68C]/30 text-[#3DD68C] text-[11px] font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                      Razorpay connected
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => toast.success("Payment settings saved")}
+                      className="h-8 px-3.5 bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-medium text-white rounded-lg shadow-sm"
+                    >
+                      Save payment settings
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: Registration questions */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-base font-semibold text-white">Registration questions</h3>
+                  <p className="text-xs text-[#9B9EA4] mt-0.5">
+                    We&apos;ll ask guests these questions when they register.
+                  </p>
+                </div>
+
+                {/* PERSONAL INFORMATION */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                    PERSONAL INFORMATION
+                  </div>
+                  <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl divide-y divide-[#2A2D31]/50 overflow-hidden shadow-sm">
+                    <div className="flex items-center justify-between p-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4]">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium text-white">Name</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-[#9B9EA4]">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Required
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4]">
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect width="20" height="16" x="2" y="4" rx="2" />
+                            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium text-white">Email</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-[#9B9EA4]">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Required
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CUSTOM QUESTIONS */}
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                    CUSTOM QUESTIONS
+                  </div>
+                  <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 space-y-3 shadow-sm">
                     {fields.map((field) => (
                       <div
                         key={field.id}
-                        className="flex items-center justify-between p-3 bg-slate-800/50 dark:bg-slate-800/50 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-[#212327] border border-[#2A2D31] rounded-xl hover:border-[#3A3D43] transition-colors"
                       >
-                        <div>
-                          <p className="font-medium text-slate-100 dark:text-slate-100">
-                            {field.name}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {field.type} {field.required && "• Required"}
-                          </p>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-[#1A1C1F] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] shrink-0 font-semibold text-xs">
+                            {field.type === "dropdown" ? (
+                              <span className="text-[10px]">▼</span>
+                            ) : field.type === "radio" ? (
+                              <span className="text-[10px]">◉</span>
+                            ) : (
+                              <span>Aa</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-white truncate">
+                              {field.name}
+                            </div>
+                            <div className="text-xs text-[#9B9EA4] truncate">
+                              {field.type === "dropdown"
+                                ? `Dropdown · ${(field.options && field.options.length > 0 ? field.options.join(", ") : "1st, 2nd, 3rd, 4th")}`
+                                : field.type === "text"
+                                ? "Text box"
+                                : field.type}
+                            </div>
+                          </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeField(field.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFields(
+                                fields.map((f) =>
+                                  f.id === field.id ? { ...f, required: !f.required } : f
+                                )
+                              );
+                            }}
+                            className={cn(
+                              "text-xs font-semibold px-3 py-1 rounded-full transition-all cursor-pointer",
+                              field.required
+                                ? "bg-white text-[#131517] hover:bg-gray-200"
+                                : "bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#3A3D43]"
+                            )}
+                          >
+                            {field.required ? "Required" : "Optional"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeField(field.id)}
+                            className="p-1 text-[#9B9EA4] hover:text-[#FF6B6B] transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Options */}
-            <div className="bg-slate-900/60 dark:bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6 space-y-4">
-              <h3 className="text-lg font-semibold text-slate-100 dark:text-slate-100">
-                Options
-              </h3>
-
-              {/* Paid Event */}
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-slate-300 dark:text-slate-300">
-                  Paid Event
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isPaid}
-                  onChange={(e) => handlePaidCheckbox(e.target.checked)}
-                  className="w-5 h-5"
-                />
-              </label>
-
-              {/* Enable Coupons */}
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-slate-300 dark:text-slate-300">
-                  Enable Coupons
-                </span>
-                <input
-                  type="checkbox"
-                  checked={enableCoupons}
-                  onChange={(e) => handleCouponCheckbox(e.target.checked)}
-                  className="w-5 h-5"
-                />
-              </label>
-
-              {/* Customize Theme */}
-              <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-slate-300 dark:text-slate-300">
-                  Customize Theme
-                </span>
-                <input
-                  type="checkbox"
-                  checked={customizeTheme}
-                  onChange={(e) => handleThemeCheckbox(e.target.checked)}
-                  className="w-5 h-5"
-                />
-              </label>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-4">
-              <Button
-                onClick={saveDraft}
-                disabled={isSaving}
-                variant="outline"
-                className="flex-1 text-white border-[#FF6A00]/30 hover:bg-[#FF6A00]/10 hover:text-white"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save as Draft
-              </Button>
-              <Button
-                onClick={handlePublish}
-                disabled={isSaving}
-                className="flex-1 bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4 mr-2" />
-                )}
-                Publish
-              </Button>
-            </div>
-          </div>
-
-          {/* Right Side - Live Preview */}
-          <div className="lg:sticky lg:top-8 lg:self-start">
-            <div
-              className="bg-slate-900/60 rounded-lg shadow border border-[#FF6A00]/10 p-6"
-              style={{
-                backgroundColor:
-                  customizeTheme && theme.applyTheme
-                    ? `${theme.color}10`
-                    : "rgb(15 23 42 / 0.6)",
-              }}
-            >
-              <h3 className="text-lg font-semibold text-slate-100 mb-4">
-                Live Preview
-              </h3>
-
-              {/* Theme Preview */}
-              {customizeTheme && theme.logoPreview && (
-                <div className="mb-6 text-center">
-                  <img
-                    src={theme.logoPreview}
-                    alt="Logo"
-                    className="h-16 mx-auto object-contain"
-                  />
-                </div>
-              )}
-
-              {/* Form Preview */}
-              <div className="space-y-4">
-                {fields.length === 0 ? (
-                  <p className="text-slate-500 text-center py-8">
-                    Add fields to see preview
-                  </p>
-                ) : (
-                  fields.map((field) => (
-                    <div key={field.id} className="space-y-2">
-                      <label className="block text-sm font-medium text-slate-300 dark:text-slate-300">
-                        {field.name}
-                        {field.required && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
-                      </label>
-                      {renderFieldPreview(field)}
-                    </div>
-                  ))
-                )}
-
-                {/* Amount Display */}
-                {isPaid && amount && parseFloat(amount) > 0 && (
-                  <div className="p-4 bg-[#FF6A00]/10 rounded-lg border border-[#FF6A00]/30">
-                    <p className="text-sm font-medium text-[#FF6A00]">
-                      Amount: ₹{amount}
-                    </p>
-                  </div>
-                )}
-
-                {/* Coupon Field */}
-                {enableCoupons && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-300 dark:text-slate-300">
-                      Coupon Code (Optional)
-                    </label>
-                    <div className="flex gap-2">
+                    {/* Add question row */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
                       <input
                         type="text"
-                        placeholder="Enter coupon code"
-                        className="flex-1 p-3 border border-slate-300 rounded-lg"
-                        disabled
-                      />
-                      <Button
-                        disabled
-                        className="bg-[#FF6A00] text-white font-bold"
-                        style={{
-                          backgroundColor:
-                            customizeTheme && theme.applyTheme
-                              ? theme.color
-                              : "#10b981",
+                        placeholder="New question, e.g. Team name"
+                        value={newField.name}
+                        onChange={(e) => setNewField({ ...newField, name: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addField();
+                          }
                         }}
+                        className="flex-1 bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63] focus:outline-none focus:border-[#FE760B]"
+                      />
+                      <select
+                        value={newField.type}
+                        onChange={(e) => {
+                          const t = e.target.value;
+                          setNewField({
+                            ...newField,
+                            type: t,
+                            options: t === "dropdown" ? ["1st", "2nd", "3rd", "4th"] : [],
+                          });
+                        }}
+                        className="bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3 py-2.5 focus:outline-none focus:border-[#FE760B]"
                       >
-                        Apply
+                        <option value="text">Text box</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="textarea">Text area</option>
+                        <option value="radio">Radio buttons</option>
+                        <option value="checkbox">Checkbox</option>
+                      </select>
+                      <Button
+                        type="button"
+                        onClick={addField}
+                        className="bg-[#2A2D31] hover:bg-[#34383E] text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors h-auto cursor-pointer"
+                      >
+                        + Add
                       </Button>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Coupons & form theme */}
+              <div className="space-y-2">
+                <div>
+                  <h3 className="text-base font-semibold text-white">Coupons & form theme</h3>
+                </div>
+
+                <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 space-y-4 divide-y divide-[#2A2D31]/50 shadow-sm">
+                  {/* Coupon codes row */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Coupon codes</div>
+                      <div className="text-xs text-[#9B9EA4]">Show a coupon field on the form</div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={enableCoupons}
+                      onClick={() => handleCouponCheckbox(!enableCoupons)}
+                      className={cn(
+                        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                        enableCoupons ? "bg-[#FE760B]" : "bg-[#2A2D31]"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                          enableCoupons ? "translate-x-5" : "translate-x-0"
+                        )}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Use brand colour row */}
+                  <div className="flex items-center justify-between pt-4">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Use brand colour on form</div>
+                      <div className="text-xs text-[#9B9EA4]">Buttons and highlights use your colour</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="w-5 h-5 rounded-md border border-white/20 shadow-sm"
+                          style={{ backgroundColor: theme.color || "#FE760B" }}
+                        />
+                        <span className="text-xs font-mono text-[#9B9EA4] uppercase">
+                          {theme.color || "#FE760B"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={customizeTheme}
+                        onClick={() => handleThemeCheckbox(!customizeTheme)}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                          customizeTheme ? "bg-[#FE760B]" : "bg-[#2A2D31]"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                            customizeTheme ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Event logo row */}
+                  <div className="flex items-center justify-between pt-4">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Event logo</div>
+                      <div className="text-xs text-[#9B9EA4]">PNG with transparent background, max 500 KB</div>
+                    </div>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                      <div className="h-8 px-4 bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-medium text-white rounded-lg flex items-center justify-center transition-colors">
+                        {theme.logoPreview ? "Change" : "Upload"}
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Side (5 columns) - Sticky Live Preview */}
+            <div className="lg:col-span-5 lg:sticky lg:top-8 lg:self-start space-y-4">
+              <div
+                className="bg-[#1A1C1F] rounded-2xl border border-[#2A2D31] p-5 space-y-4 shadow-sm"
+                style={{
+                  borderColor:
+                    customizeTheme && theme.applyTheme
+                      ? `${theme.color || "#FE760B"}35`
+                      : "#2A2D31",
+                }}
+              >
+                {customizeTheme && theme.logoPreview && (
+                  <div className="text-center pb-2">
+                    <img
+                      src={theme.logoPreview}
+                      alt="Logo"
+                      className="h-12 mx-auto object-contain"
+                    />
+                  </div>
                 )}
 
-                {/* Submit Button Preview */}
-                {fields.length > 0 && (
+                <h4 className="text-base font-semibold text-white">Register</h4>
+
+                {/* Ticket amount bar */}
+                {isPaid && (
+                  <div className="bg-[#212327] border border-[#2A2D31] rounded-xl px-4 py-3 flex items-center justify-between text-xs">
+                    <span className="text-[#9B9EA4] font-medium">Ticket</span>
+                    <span className="text-white font-semibold text-sm">
+                      ₹{amount || 199}
+                    </span>
+                  </div>
+                )}
+
+                {/* Form fields preview */}
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                      Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Your full name"
+                      disabled
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="you@example.com"
+                      disabled
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
+                    />
+                  </div>
+
+                  {fields.map((field) => (
+                    <div key={field.id}>
+                      <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                        {field.name} {field.required && "*"}
+                      </label>
+                      {field.type === "dropdown" ? (
+                        <div className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-[#9B9EA4] text-xs px-3.5 py-2.5 flex items-center justify-between">
+                          <span>
+                            {field.options?.[0]
+                              ? `Select ${field.name}`
+                              : "Select option"}
+                          </span>
+                          <span className="text-[10px]">▼</span>
+                        </div>
+                      ) : field.type === "textarea" ? (
+                        <textarea
+                          placeholder={`Enter ${field.name.toLowerCase()}`}
+                          disabled
+                          rows={2}
+                          className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63] resize-none"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          placeholder=""
+                          disabled
+                          className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  {enableCoupons && (
+                    <div>
+                      <label className="block text-xs font-medium text-[#9B9EA4] mb-1.5">
+                        Coupon code
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Optional"
+                          disabled
+                          className="flex-1 bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
+                        />
+                        <Button
+                          type="button"
+                          disabled
+                          className="bg-[#2A2D31] text-white text-xs font-medium px-4 py-2.5 rounded-xl h-auto"
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <Button
+                    type="button"
                     disabled
-                    className="w-full bg-[#FF6A00] text-white font-bold"
+                    className="w-full font-semibold text-xs py-3 rounded-xl mt-2 transition-all shadow-md"
                     style={{
                       backgroundColor:
                         customizeTheme && theme.applyTheme
-                          ? theme.color
-                          : "#10b981",
+                          ? theme.color || "#FE760B"
+                          : "#FE760B",
+                      color: "#000000",
                     }}
                   >
-                    Register
+                    {isPaid && amount && parseFloat(amount) > 0
+                      ? `Pay ₹${amount} & register`
+                      : "Register for free"}
                   </Button>
-                )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+      </>
+    )}
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FF6A00]" />
+                <Palette className="w-5 h-5 text-[#FE760B]" />
                 <h3 className="text-xl font-bold text-white">
-                  Payment Integration
+                  Payment integration
                 </h3>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowPaymentModal(false)}
-                className="hover:bg-white/10"
+                className="hover:bg-[#212327] text-[#9B9EA4] hover:text-white rounded-lg"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Razorpay Key ID
                 </label>
                 <Input
@@ -984,12 +1541,12 @@ export function FormGenerator() {
                     })
                   }
                   placeholder="rzp_test_xxxxxxxxxxxxx"
-                  className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
+                  className="bg-[#212327] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white mb-2">
                   Razorpay Key Secret
                 </label>
                 <Input
@@ -1002,13 +1559,13 @@ export function FormGenerator() {
                     })
                   }
                   placeholder="••••••••••••••••••••"
-                  className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
+                  className="bg-[#212327] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Ticket Amount (₹)
+                <label className="block text-sm font-medium text-white mb-2">
+                  Ticket amount (₹)
                 </label>
                 <Input
                   type="number"
@@ -1017,18 +1574,18 @@ export function FormGenerator() {
                   placeholder="500"
                   min="0"
                   step="1"
-                  className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
+                  className="bg-[#212327] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                 />
-                <p className="text-xs text-gray-400 mt-1.5">
+                <p className="text-xs text-[#9B9EA4] mt-1.5">
                   Enter the amount to charge for each ticket registration
                 </p>
               </div>
 
               <Button
                 onClick={() => setShowPaymentModal(false)}
-                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-bold shadow-lg shadow-[#FF6A00]/20"
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl shadow-sm py-3"
               >
-                Save Payment Settings
+                Save payment settings
               </Button>
             </div>
           </div>
@@ -1037,32 +1594,32 @@ export function FormGenerator() {
       {/* Theme Customization Modal */}
       {showThemeModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FF6A00]" />
+                <Palette className="w-5 h-5 text-[#FE760B]" />
                 <h3 className="text-xl font-bold text-white">
-                  Customize Theme
+                  Customize theme
                 </h3>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowThemeModal(false)}
-                className="hover:bg-white/10"
+                className="hover:bg-[#212327] text-[#9B9EA4] hover:text-white rounded-lg"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
 
             <div className="space-y-5">
               {/* Logo Upload Section */}
-              <div className="bg-black/30 rounded-xl p-4 border border-#FF6A00]/10">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
-                  <ImageIcon className="h-4 w-4 text-[#FF6A00]" />
-                  Upload Event Logo
+              <div className="bg-[#212327] rounded-xl p-4 border border-[#2A2D31]">
+                <label className="flex items-center gap-2 text-sm font-medium text-white mb-2">
+                  <ImageIcon className="h-4 w-4 text-[#FE760B]" />
+                  Upload event logo
                 </label>
-                <p className="text-xs text-gray-400 mb-3">
+                <p className="text-xs text-[#9B9EA4] mb-3">
                   PNG with transparent background recommended. Max 500KB
                 </p>
                 <div className="flex items-center gap-4">
@@ -1075,29 +1632,29 @@ export function FormGenerator() {
                   />
                   <label
                     htmlFor="logo-upload"
-                    className="flex items-center gap-2 px-4 py-2 bg-[#FF6A00]/20 border border-[#FF6A00]/30 text-[#FF6A00] rounded-lg cursor-pointer hover:bg-[#FF6A00]/30 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#1A1C1F] border border-[#FE760B]/30 text-[#FF9A4D] rounded-xl cursor-pointer hover:bg-[#2A2D31] transition-colors font-medium text-xs"
                   >
                     <ImageIcon className="w-4 h-4" />
-                    Choose File
+                    Choose file
                   </label>
                   {theme.logoPreview && (
                     <div className="flex items-center gap-2">
                       <img
                         src={theme.logoPreview}
                         alt="Preview"
-                        className="h-12 max-w-[120px] object-contain rounded border border-[#FF6A00]/20 bg-white/5 p-1"
+                        className="h-12 max-w-[120px] object-contain rounded-xl border border-[#2A2D31] bg-white/5 p-1"
                       />
-                      <Check className="h-4 w-4 text-[#FF6A00]" />
+                      <Check className="h-4 w-4 text-[#3DD68C]" />
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Color Picker Section */}
-              <div className="bg-black/30 rounded-xl p-4 border border-#FF6A00]/10">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-3">
-                  <Palette className="h-4 w-4 text-[#FF6A00]" />
-                  Brand Color
+              <div className="bg-[#212327] rounded-xl p-4 border border-[#2A2D31]">
+                <label className="flex items-center gap-2 text-sm font-medium text-white mb-3">
+                  <Palette className="h-4 w-4 text-[#FE760B]" />
+                  Brand color
                 </label>
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -1107,11 +1664,11 @@ export function FormGenerator() {
                       onChange={(e) =>
                         setTheme({ ...theme, color: e.target.value })
                       }
-                      className="w-16 h-16 rounded-lg cursor-pointer border-2 border-#FF6A00]/30 shadow-lg"
+                      className="w-16 h-16 rounded-xl cursor-pointer border-2 border-[#2A2D31] shadow-lg"
                       style={{ backgroundColor: theme.color }}
                     />
-                    <div className="absolute -bottom-1 -right-1 bg-[#FF6A00] rounded-full p-1">
-                      <Palette className="w-3 h-3 text-black" />
+                    <div className="absolute -bottom-1 -right-1 bg-[#FE760B] rounded-full p-1">
+                      <Palette className="w-3 h-3 text-[#131517]" />
                     </div>
                   </div>
                   <div className="flex-1">
@@ -1120,11 +1677,11 @@ export function FormGenerator() {
                       onChange={(e) =>
                         setTheme({ ...theme, color: e.target.value })
                       }
-                      placeholder="#10b981"
+                      placeholder="#FE760B"
                       maxLength={7}
-                      className="bg-black/50 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50 font-mono text-lg"
+                      className="bg-[#1A1C1F] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] font-mono text-lg rounded-xl"
                     />
-                    <p className="text-xs text-gray-400 mt-1.5">
+                    <p className="text-xs text-[#9B9EA4] mt-1.5">
                       Hex color code for your brand
                     </p>
                   </div>
@@ -1132,7 +1689,7 @@ export function FormGenerator() {
               </div>
 
               {/* Apply Theme Toggle */}
-              <div className="bg-#FF6A00]/10 border border-#FF6A00]/20 rounded-xl p-4">
+              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-4">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -1140,13 +1697,13 @@ export function FormGenerator() {
                     onChange={(e) =>
                       setTheme({ ...theme, applyTheme: e.target.checked })
                     }
-                    className="w-5 h-5 rounded border-#FF6A00]/30 bg-black/30 checked:bg-[#FF6A00] cursor-pointer"
+                    className="w-5 h-5 rounded accent-[#FE760B] cursor-pointer"
                   />
                   <div className="flex-1">
                     <span className="block text-sm font-medium text-white">
                       Apply theme to registration form
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-[#9B9EA4]">
                       Use your brand color throughout the form
                     </span>
                   </div>
@@ -1156,9 +1713,9 @@ export function FormGenerator() {
               {/* Save Button */}
               <Button
                 onClick={() => setShowThemeModal(false)}
-                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold shadow-lg shadow-#FF6A00]/20 py-6 text-base"
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl shadow-sm py-3 text-base"
               >
-                Save Theme
+                Save theme
               </Button>
             </div>
           </div>
@@ -1167,36 +1724,36 @@ export function FormGenerator() {
       {/* Coupon Management Modal */}
       {showCouponModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FF6A00]" />
+                <Palette className="w-5 h-5 text-[#FE760B]" />
                 <h3 className="text-xl font-bold text-white">
-                  Coupon Code Management
+                  Coupon code management
                 </h3>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowCouponModal(false)}
-                className="hover:bg-white/10"
+                className="hover:bg-[#212327] text-[#9B9EA4] hover:text-white rounded-lg"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
 
             <div className="space-y-6">
               {/* Add New Coupon Configuration */}
-              <div className="bg-#FF6A00]/10 border border-#FF6A00]/30 rounded-xl p-4">
-                <h4 className="text-sm font-semibold text-[#FF6A00] mb-4 flex items-center gap-2">
+              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-[#FF9A4D] mb-4 flex items-center gap-2">
                   <Plus className="h-4 w-4" />
-                  Add Coupon Batch
+                  Add coupon batch
                 </h4>
 
                 <div className="grid md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-2">
-                      Number of Codes
+                    <label className="block text-xs font-medium text-[#9B9EA4] mb-2">
+                      Number of codes
                     </label>
                     <Input
                       type="number"
@@ -1210,12 +1767,12 @@ export function FormGenerator() {
                         })
                       }
                       placeholder="e.g., 50"
-                      className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500"
+                      className="bg-[#1A1C1F] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-2">
+                    <label className="block text-xs font-medium text-[#9B9EA4] mb-2">
                       Discount (%)
                     </label>
                     <Input
@@ -1230,13 +1787,13 @@ export function FormGenerator() {
                         })
                       }
                       placeholder="e.g., 20"
-                      className="bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500"
+                      className="bg-[#1A1C1F] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-2">
-                      Valid Until
+                    <label className="block text-xs font-medium text-[#9B9EA4] mb-2">
+                      Valid until
                     </label>
                     <Input
                       type="date"
@@ -1247,7 +1804,7 @@ export function FormGenerator() {
                           validityDate: e.target.value,
                         })
                       }
-                      className="bg-black/30 border-#FF6A00]/20 text-white"
+                      className="bg-[#1A1C1F] border border-[#2A2D31] text-white focus:border-[#FE760B] rounded-xl"
                     />
                   </div>
                 </div>
@@ -1283,26 +1840,26 @@ export function FormGenerator() {
                       `Added ${config.quantity} coupons with ${config.discountPercent}% discount`,
                     );
                   }}
-                  className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold"
+                  className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Coupon Batch
+                  Add coupon batch
                 </Button>
               </div>
 
               {/* Existing Coupon Configurations */}
               <div>
-                <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
-                  <FileDown className="h-4 w-4 text-[#FF6A00]" />
-                  Configured Coupon Batches ({couponConfigs.length})
+                <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <FileDown className="h-4 w-4 text-[#FE760B]" />
+                  Configured coupon batches ({couponConfigs.length})
                 </h4>
 
                 {couponConfigs.length === 0 ? (
-                  <div className="text-center py-8 bg-black/20 rounded-xl border border-#FF6A00]/10">
-                    <p className="text-gray-400 text-sm">
+                  <div className="text-center py-8 bg-[#212327] rounded-xl border border-[#2A2D31]">
+                    <p className="text-[#9B9EA4] text-sm">
                       No coupon batches configured yet
                     </p>
-                    <p className="text-gray-500 text-xs mt-1">
+                    <p className="text-[#5C6066] text-xs mt-1">
                       Add a batch above to generate coupon codes
                     </p>
                   </div>
@@ -1311,19 +1868,19 @@ export function FormGenerator() {
                     {couponConfigs.map((config) => (
                       <div
                         key={config.id}
-                        className="bg-black/30 border border-purple-500/20 rounded-lg p-4"
+                        className="bg-[#212327] border border-[#2A2D31] rounded-xl p-4"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
+                              <span className="px-3 py-1 bg-[#FE760B]/15 text-[#FF9A4D] border border-[#FE760B]/30 rounded-full text-xs font-bold">
                                 {config.discountPercent}% OFF
                               </span>
                               <span className="text-white font-semibold">
                                 {config.quantity} Codes
                               </span>
                             </div>
-                            <div className="flex items-center gap-4 text-xs text-gray-400">
+                            <div className="flex items-center gap-4 text-xs text-[#9B9EA4]">
                               <span className="inline-flex items-center gap-1.5">
                                 <CalendarDays className="h-3.5 w-3.5" />
                                 Valid until:{" "}
@@ -1347,7 +1904,7 @@ export function FormGenerator() {
                               );
                               toast.success("Coupon batch removed");
                             }}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            className="text-[#FF6B6B] hover:text-red-300 hover:bg-[#FF6B6B]/10 rounded-lg"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -1359,8 +1916,8 @@ export function FormGenerator() {
               </div>
 
               {/* Info Box */}
-              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
-                <p className="text-xs text-blue-400 flex gap-2">
+              <div className="bg-[#7AA2FF]/10 border border-[#7AA2FF]/30 rounded-xl p-4">
+                <p className="text-xs text-[#7AA2FF] flex gap-2">
                   <Info className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                   <strong>How it works:</strong> When you save or publish the
@@ -1376,10 +1933,10 @@ export function FormGenerator() {
               {couponConfigs.length > 0 && (
                 <Button
                   onClick={handleDownloadCouponsPDF}
-                  className="w-full bg-purple-500 hover:bg-purple-400 text-white font-semibold py-6"
+                  className="w-full bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] font-semibold rounded-xl py-3"
                 >
-                  <FileDown className="mr-2 h-4 w-4" />
-                  Re-Download Coupons PDF (
+                  <FileDown className="mr-2 h-4 w-4 text-[#FE760B]" />
+                  Re-download coupons PDF (
                   {couponConfigs.reduce(
                     (sum, c) => sum + parseInt(c.quantity || 0),
                     0,
@@ -1391,9 +1948,9 @@ export function FormGenerator() {
               {/* Save Button */}
               <Button
                 onClick={() => setShowCouponModal(false)}
-                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold py-6"
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl shadow-sm py-3 text-base"
               >
-                Save Coupon Settings
+                Save coupon settings
               </Button>
             </div>
           </div>
@@ -1402,12 +1959,12 @@ export function FormGenerator() {
       {/* Options Modal (for Radio and Dropdown) */}
       {showOptionsModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-#FF6A00]/20 rounded-2xl p-6 shadow-2xl max-w-md w-full">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-[#FF6A00]" />
+                <Palette className="w-5 h-5 text-[#FE760B]" />
                 <h3 className="text-xl font-bold text-white">
-                  Customize Options
+                  Customize options
                 </h3>
               </div>
               <Button
@@ -1418,9 +1975,9 @@ export function FormGenerator() {
                   setTempOptions([]);
                   setNewOption("");
                 }}
-                className="hover:bg-white/10"
+                className="hover:bg-[#212327] text-[#9B9EA4] hover:text-white rounded-lg"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
 
@@ -1439,7 +1996,7 @@ export function FormGenerator() {
                     }
                   }}
                   placeholder={`Enter option (e.g., ${newField.type === "radio" && newField.name.toLowerCase().includes("gender") ? "Male, Female, Other" : "Option 1"})`}
-                  className="flex-1 bg-black/30 border-#FF6A00]/20 text-white placeholder-gray-500 focus:border-#FF6A00]/50"
+                  className="flex-1 bg-[#212327] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                 />
                 <Button
                   onClick={() => {
@@ -1449,7 +2006,7 @@ export function FormGenerator() {
                       toast.success("Option added");
                     }
                   }}
-                  className="bg-[#FF6A00] hover:bg-[#E65C00] text-black"
+                  className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl"
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -1457,18 +2014,18 @@ export function FormGenerator() {
 
               {/* List of options */}
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-[#9B9EA4]">
                   Added options ({tempOptions.length}):
                 </p>
                 {tempOptions.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">
+                  <p className="text-sm text-[#5C6066] text-center py-4">
                     No options added yet
                   </p>
                 ) : (
                   tempOptions.map((option, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center justify-between bg-black/30 border border-#FF6A00]/10 rounded-lg p-3"
+                      className="flex items-center justify-between bg-[#212327] border border-[#2A2D31] rounded-xl p-3"
                     >
                       <span className="text-white">{option}</span>
                       <div className="flex gap-2">
@@ -1481,7 +2038,7 @@ export function FormGenerator() {
                             setTempOptions(updated);
                             toast.success(`"${removed[0]}" removed`);
                           }}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          className="text-[#FF6B6B] hover:text-red-300 hover:bg-[#FF6B6B]/10 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -1505,14 +2062,363 @@ export function FormGenerator() {
                   toast.success("Options saved");
                 }}
                 disabled={tempOptions.length === 0}
-                className="w-full bg-[#FF6A00] hover:bg-[#E65C00] text-white font-semibold disabled:bg-gray-600 disabled:text-gray-400"
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold rounded-xl shadow-sm disabled:opacity-50 py-3"
               >
-                Save Options
+                Save options
               </Button>
             </div>
           </div>
         </div>
       )}{" "}
+      {/* Sharable Form Link Modal */}
+      {showShareModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="share-modal-title"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
+          onClick={() => setShowShareModal(false)}
+        >
+          <div
+            className="bg-[#1A1C1F] text-white rounded-3xl border border-[#2A2D31] shadow-2xl max-w-xl w-full p-6 sm:p-8 space-y-6 relative overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Ambient background glow */}
+            <div className="absolute -top-20 -right-20 w-44 h-44 bg-[#FE760B]/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 relative z-10">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#3DD68C]/15 border border-[#3DD68C]/30 text-[#3DD68C] text-xs font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-[#3DD68C] animate-pulse" />
+                  Form published & live
+                </div>
+                <h3
+                  id="share-modal-title"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Share registration form
+                </h3>
+                <p className="text-xs sm:text-sm text-[#9B9EA4]">
+                  {selectedEvent?.name
+                    ? `"${selectedEvent.name}"`
+                    : "Your event"}{" "}
+                  is ready for attendee registrations!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowShareModal(false)}
+                className="text-[#9B9EA4] hover:text-white p-2 rounded-xl hover:bg-[#212327] transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Navigation tabs */}
+            <div className="flex p-1 bg-[#212327] rounded-xl border border-[#2A2D31] text-xs font-semibold gap-1 relative z-10">
+              <button
+                type="button"
+                onClick={() => setShareTab("direct")}
+                className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  shareTab === "direct"
+                    ? "bg-[#FE760B] text-[#131517] shadow-sm font-semibold"
+                    : "text-[#9B9EA4] hover:text-white hover:bg-[#1A1C1F]"
+                }`}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                <span>Form link</span>
+              </button>
+
+              {selectedEvent?.slug && (
+                <button
+                  type="button"
+                  onClick={() => setShareTab("event")}
+                  className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    shareTab === "event"
+                      ? "bg-[#FE760B] text-[#131517] shadow-sm font-semibold"
+                      : "text-[#9B9EA4] hover:text-white hover:bg-[#1A1C1F]"
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Event page</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShareTab("qr")}
+                className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  shareTab === "qr"
+                    ? "bg-[#FE760B] text-[#131517] shadow-sm font-semibold"
+                    : "text-[#9B9EA4] hover:text-white hover:bg-[#1A1C1F]"
+                }`}
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>QR code</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShareTab("embed")}
+                className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  shareTab === "embed"
+                    ? "bg-[#FE760B] text-[#131517] shadow-sm font-semibold"
+                    : "text-[#9B9EA4] hover:text-white hover:bg-[#1A1C1F]"
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span>Embed</span>
+              </button>
+            </div>
+
+            {/* Tab 1: Direct Form Link */}
+            {shareTab === "direct" && (
+              <div className="space-y-4 relative z-10">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                    Sharable form link (direct registration)
+                  </label>
+                  <div className="flex items-center gap-2 p-2.5 bg-[#212327] rounded-xl border border-[#2A2D31] focus-within:border-[#FE760B] transition-colors">
+                    <Link2 className="w-4 h-4 text-[#FE760B] flex-shrink-0 ml-1.5" />
+                    <input
+                      type="text"
+                      readOnly
+                      value={directFormUrl}
+                      className="bg-transparent text-xs font-mono text-white flex-1 outline-none px-1 select-all"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleCopy(directFormUrl, "direct")}
+                      className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] text-xs font-semibold h-8 px-3 rounded-lg shrink-0"
+                    >
+                      {copiedType === "direct" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 mr-1 text-[#131517]" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                    <a
+                      href={directFormUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 text-[#9B9EA4] hover:text-white rounded-lg hover:bg-[#1A1C1F] transition-colors shrink-0"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-[#9B9EA4]">
+                    Participants can fill out and submit your custom registration form directly through this link.
+                  </p>
+                </div>
+
+                {/* Social Quick Share Actions */}
+                <div className="pt-2 flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleWhatsAppShare(directFormUrl, selectedEvent?.name)
+                    }
+                    className="flex-1 min-w-[150px] flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#3DD68C] hover:bg-[#34be7c] text-[#131517] font-semibold text-xs transition-colors shadow-sm"
+                  >
+                    <svg
+                      className="w-4 h-4 fill-current shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.045-1.178-.094-.619-.177-1.464-.613-2.502-1.652-1.04-1.04-1.478-1.884-1.656-2.503-.139-.484-.139-.866-.094-1.178.05-.333.419-1.026.824-1.17.135-.048.28-.063.396-.063.13 0 .235.013.313.027.104.019.243.082.35.337.13.312.443 1.077.482 1.156.039.078.065.17.013.273-.052.104-.078.17-.156.26-.078.091-.165.203-.235.273-.078.078-.16.163-.069.319.091.156.403.665.864 1.076.593.528 1.093.691 1.249.769.156.078.247.069.339-.035.091-.104.391-.456.495-.612.104-.156.208-.13.347-.078.139.052.882.416 1.034.495.152.078.252.117.291.182.039.065.039.378-.105.783z" />
+                    </svg>
+                    <span>Share on WhatsApp</span>
+                  </button>
+
+                  {typeof navigator !== "undefined" && navigator.share && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleNativeShare(directFormUrl, selectedEvent?.name)
+                      }
+                      className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white font-semibold text-xs transition-colors border border-[#2A2D31]"
+                    >
+                      <Share2 className="w-4 h-4 text-[#FE760B]" />
+                      <span>Share...</span>
+                    </button>
+                  )}
+
+                  <a
+                    href={directFormUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white font-semibold text-xs transition-colors border border-[#2A2D31]"
+                  >
+                    <ExternalLink className="w-4 h-4 text-[#7AA2FF]" />
+                    <span>Open form</span>
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 2: Event Page Link */}
+            {shareTab === "event" && (
+              <div className="space-y-4 relative z-10">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                    Public event showcase page
+                  </label>
+                  <div className="flex items-center gap-2 p-2.5 bg-[#212327] rounded-xl border border-[#2A2D31] focus-within:border-[#FE760B] transition-colors">
+                    <Globe className="w-4 h-4 text-[#7AA2FF] flex-shrink-0 ml-1.5" />
+                    <input
+                      type="text"
+                      readOnly
+                      value={eventPageUrl}
+                      className="bg-transparent text-xs font-mono text-white flex-1 outline-none px-1 select-all"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleCopy(eventPageUrl, "event")}
+                      className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] text-xs font-semibold h-8 px-3 rounded-lg shrink-0"
+                    >
+                      {copiedType === "event" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 mr-1 text-[#131517]" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                    <a
+                      href={eventPageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 text-[#9B9EA4] hover:text-white rounded-lg hover:bg-[#1A1C1F] transition-colors shrink-0"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-[#9B9EA4]">
+                    Full festival landing page containing poster artwork, track details, venue directions, and checkout drawer.
+                  </p>
+                </div>
+
+                <div className="pt-2 flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleWhatsAppShare(eventPageUrl, selectedEvent?.name)
+                    }
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#3DD68C] hover:bg-[#34be7c] text-[#131517] font-semibold text-xs transition-colors shadow-sm"
+                  >
+                    <span>Share event page on WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: QR Code */}
+            {shareTab === "qr" && (
+              <div className="space-y-4 text-center relative z-10">
+                <div className="p-4 bg-white rounded-2xl inline-block mx-auto shadow-xl">
+                  {qrCodeUrl ? (
+                    <img
+                      src={qrCodeUrl}
+                      alt="Registration Form QR Code"
+                      className="w-48 h-48 object-contain mx-auto"
+                    />
+                  ) : (
+                    <div className="w-48 h-48 flex items-center justify-center text-[#9B9EA4] text-xs">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-[#9B9EA4] max-w-sm mx-auto">
+                  Attendees can scan this QR code directly using their smartphone camera to open the form.
+                </p>
+                <div className="flex justify-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleDownloadQR}
+                    disabled={!qrCodeUrl}
+                    className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] text-xs font-semibold rounded-xl shadow-sm"
+                  >
+                    <FileDown className="w-3.5 h-3.5 mr-1.5" />
+                    Download high-res QR (.PNG)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 4: Embed Widget */}
+            {shareTab === "embed" && (
+              <div className="space-y-4 relative z-10">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                    Website embed snippet
+                  </label>
+                  <div className="relative">
+                    <pre className="p-3 bg-[#212327] rounded-xl border border-[#2A2D31] text-[#9B9EA4] font-mono text-xs overflow-x-auto whitespace-pre-wrap leading-relaxed select-all">
+                      {embedCodeSnippet}
+                    </pre>
+                  </div>
+                  <p className="text-[11px] text-[#9B9EA4]">
+                    Embed this responsive form directly into your college website, WordPress, Webflow, or Notion page.
+                  </p>
+                </div>
+                <div className="pt-2 flex gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleCopy(embedCodeSnippet, "embed")}
+                    className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] text-xs font-semibold rounded-xl shadow-sm"
+                  >
+                    {copiedType === "embed" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 mr-1.5 text-[#131517]" />
+                        Copied snippet!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                        Copy embed code
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="pt-4 border-t border-[#2A2D31] flex items-center justify-between text-xs text-[#9B9EA4] relative z-10">
+              <span className="flex items-center gap-1.5 text-[#9B9EA4]">
+                <Sparkles className="w-3.5 h-3.5 text-[#FE760B]" />
+                Registrations are immediately live
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowShareModal(false)}
+                className="border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#212327] text-xs rounded-xl"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -241,9 +241,7 @@ function wireButtons(body) {
 const FOOTER_LINKS = [
   ["/#events", "Upcoming Events"],
   ["/host-event", "Host Your Event"],
-  ["/user-login", "Sign In"],
-  ["/organiser-login", "Organiser Login"],
-  ["/super-admin-login", "Super Admin"],
+  ["/login", "Sign In"],
 ];
 function addFooterLinks(body) {
   const anchor = 'class="footer-link">Contact Us</a>';
