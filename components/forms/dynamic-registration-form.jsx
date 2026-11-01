@@ -900,7 +900,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                 value={value}
                 onChange={(e) => updateValue(e.target.value)}
                 disabled={isLoading}
-                className="w-full px-3.5 py-2.5 h-10 sm:h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-sm"
+                className="w-full px-3.5 py-2.5 h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-base sm:text-sm"
               />
             </div>
             {error && (
@@ -925,7 +925,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               onChange={(e) => updateValue(e.target.value)}
               disabled={isLoading}
               rows={3}
-              className="w-full p-3 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-sm resize-none"
+              className="w-full p-3 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-all text-base sm:text-sm resize-none"
             />
             {error && (
               <p className="text-[11px] text-red-500 dark:text-red-400">{error}</p>
@@ -981,7 +981,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
               onValueChange={updateValue}
               disabled={isLoading}
             >
-              <SelectTrigger className="w-full h-10 sm:h-11 px-3.5 py-2.5 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-[#FE760B] text-sm">
+              <SelectTrigger className="w-full h-11 px-3.5 py-2.5 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-[#FE760B] text-base sm:text-sm">
                 <SelectValue
                   placeholder={field.placeholder || "Select"}
                 />
@@ -1070,7 +1070,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                         setCouponCode(e.target.value.toUpperCase())
                       }
                       disabled={isLoading || couponValidating}
-                      className="flex-1 px-3.5 py-2 h-10 sm:h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase"
+                      className="flex-1 min-w-0 px-3.5 py-2 h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-base sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase"
                     />
                     <button
                       type="button"
@@ -1078,7 +1078,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
                       disabled={
                         isLoading || couponValidating || !couponCode.trim()
                       }
-                      className="px-4 py-2 h-10 sm:h-11 bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] text-slate-800 dark:text-white font-semibold text-sm rounded-xl transition-all flex items-center justify-center shrink-0"
+                      className="px-4 py-2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] text-slate-800 dark:text-white font-semibold text-sm rounded-xl transition-all flex items-center justify-center shrink-0"
                     >
                       {couponValidating ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1120,7 +1120,7 @@ export function DynamicRegistrationForm({ eventId, event, initialForm }) {
           <button
             type="submit"
             disabled={isLoading || paymentProcessing}
-            className="w-full bg-[#131517] hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-[#131517] disabled:opacity-50 disabled:cursor-not-allowed font-bold h-11 sm:h-12 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm mt-4 cursor-pointer"
+            className="w-full bg-[#131517] hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-[#131517] disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer"
           >
             {isLoading || paymentProcessing ? (
               <>

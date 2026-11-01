@@ -446,15 +446,15 @@ export default function AmbassadorDashboardPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full min-w-[650px] text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-[#2A2D31] text-[#9B9EA4] font-semibold">
-                  <th className="py-2.5 px-3">Order ID</th>
-                  <th className="py-2.5 px-3">Buyer</th>
-                  <th className="py-2.5 px-3">Order amount</th>
-                  <th className="py-2.5 px-3">Commission</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Maturity date</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[100px]">Order ID</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[120px]">Buyer</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Order amount</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Commission</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Status</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">Maturity date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2D31] text-[#D0D0D1]">

@@ -264,16 +264,16 @@ export function EmailMonitoringDashboard() {
       {/* Jobs Table */}
       <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full min-w-[760px] text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-[#2A2D31] bg-[#131517] text-[#9B9EA4]">
-                <th className="py-3 px-4 font-semibold uppercase text-[10px]">Priority / Type</th>
-                <th className="py-3 px-4 font-semibold uppercase text-[10px]">Recipient</th>
-                <th className="py-3 px-4 font-semibold uppercase text-[10px]">Subject</th>
-                <th className="py-3 px-4 font-semibold uppercase text-[10px]">Status</th>
-                <th className="py-3 px-4 font-semibold uppercase text-[10px]">Attempts</th>
-                <th className="py-3 px-4 font-semibold uppercase text-[10px]">Created</th>
-                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-right">Actions</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] whitespace-nowrap min-w-[140px]">Priority / Type</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] whitespace-nowrap min-w-[160px]">Recipient</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] whitespace-nowrap min-w-[180px]">Subject</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] whitespace-nowrap">Status</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] whitespace-nowrap">Attempts</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] whitespace-nowrap">Created</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2A2D31]">

@@ -460,22 +460,22 @@ export function HostingRequestManagement() {
       {/* Requests Table Container (Matching Image 5) */}
       <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#2A2D31] bg-[#131517]/50">
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[220px]">
                   EVENT
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[200px]">
                   REQUESTED BY
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap">
                   TYPE
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px]">
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap">
                   TICKETS
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-right">
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-right whitespace-nowrap">
                   DECISION
                 </th>
               </tr>
@@ -500,7 +500,7 @@ export function HostingRequestManagement() {
                       onClick={() => setSelectedDetailRequest(request)}
                     >
                       {/* Event Column */}
-                      <td className="py-3.5 px-5">
+                      <td className="py-3.5 px-5 min-w-[220px]">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-xs text-white">
                             {request.coverUrl ? (
@@ -515,11 +515,11 @@ export function HostingRequestManagement() {
                               </span>
                             )}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <div className="text-sm font-semibold text-white group-hover:text-[#FE760B] transition-colors">
                               {request.eventTitle}
                             </div>
-                            <div className="text-xs text-[#9B9EA4] mt-0.5">
+                            <div className="text-xs text-[#9B9EA4] mt-0.5 whitespace-nowrap">
                               Sent {formatRequestDate(request.createdAt)}
                             </div>
                           </div>
@@ -527,7 +527,7 @@ export function HostingRequestManagement() {
                       </td>
 
                       {/* Requested By Column */}
-                      <td className="py-3.5 px-5">
+                      <td className="py-3.5 px-5 min-w-[200px]">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-sm font-medium text-white">
                             {request.name}
@@ -555,7 +555,7 @@ export function HostingRequestManagement() {
                       </td>
 
                       {/* Type Column */}
-                      <td className="py-3.5 px-5">
+                      <td className="py-3.5 px-5 whitespace-nowrap">
                         {request.isPaid ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FE760B]/14 text-[#FF9A4D]">
                             Paid
@@ -568,7 +568,7 @@ export function HostingRequestManagement() {
                       </td>
 
                       {/* Tickets Column */}
-                      <td className="py-3.5 px-5">
+                      <td className="py-3.5 px-5 whitespace-nowrap">
                         <span className="text-sm text-white font-mono tabular-nums">
                           {request.numberOfTickets || "—"}
                         </span>
@@ -576,7 +576,7 @@ export function HostingRequestManagement() {
 
                       {/* Decision Column (Matching Image 5) */}
                       <td
-                        className="py-3.5 px-5 text-right"
+                        className="py-3.5 px-5 text-right whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {isPending ? (
@@ -632,7 +632,7 @@ export function HostingRequestManagement() {
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-[#2A2D31] flex items-center justify-between bg-[#131517]/40 text-xs text-[#9B9EA4]">
+          <div className="p-4 border-t border-[#2A2D31] flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#131517]/40 text-xs text-[#9B9EA4] text-center sm:text-left">
             <div>
               Showing {(activePage - 1) * REQUESTS_PAGE_SIZE + 1} to{" "}
               {Math.min(activePage * REQUESTS_PAGE_SIZE, filteredRequests.length)}{" "}

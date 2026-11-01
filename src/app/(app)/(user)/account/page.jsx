@@ -439,19 +439,19 @@ export default function AccountPage() {
           </h2>
           <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full min-w-[480px] text-xs">
                 <thead>
                   <tr className="border-b border-[#2A2D31] text-[10px] sm:text-[11px] uppercase tracking-wider text-[#9B9EA4]">
-                    <th className="text-left px-4 sm:px-5 py-3 font-semibold">
+                    <th className="text-left px-4 sm:px-5 py-3 font-semibold whitespace-nowrap min-w-[140px]">
                       FEATURE
                     </th>
-                    <th className="text-center px-4 py-3 font-bold text-[#FE760B] bg-[#2A1D13]/50">
+                    <th className="text-center px-4 py-3 font-bold text-[#FE760B] bg-[#2A1D13]/50 whitespace-nowrap">
                       FREE · CURRENT
                     </th>
-                    <th className="text-center px-4 py-3 font-semibold text-[#9B9EA4]">
+                    <th className="text-center px-4 py-3 font-semibold text-[#9B9EA4] whitespace-nowrap">
                       STARTER
                     </th>
-                    <th className="text-center px-4 py-3 font-semibold text-[#9B9EA4]">
+                    <th className="text-center px-4 py-3 font-semibold text-[#9B9EA4] whitespace-nowrap">
                       PRO
                     </th>
                   </tr>

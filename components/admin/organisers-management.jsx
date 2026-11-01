@@ -356,16 +356,16 @@ export function OrganisersManagement() {
       {/* High-Density Data Table Container matching Image 1 */}
       <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#2A2D31] text-[11px] font-semibold text-[#71767B] uppercase tracking-wider select-none">
-                <th className="py-3.5 px-5">ORGANISER</th>
-                <th className="py-3.5 px-4">EVENT</th>
-                <th className="py-3.5 px-4">EVENT STATUS</th>
-                <th className="py-3.5 px-4">TICKETS</th>
-                <th className="py-3.5 px-4">LOGIN EMAIL</th>
-                <th className="py-3.5 px-4">APPROVED</th>
-                <th className="py-3.5 px-4 text-right"> </th>
+                <th className="py-3.5 px-5 whitespace-nowrap min-w-[200px]">ORGANISER</th>
+                <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">EVENT</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">EVENT STATUS</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">TICKETS</th>
+                <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">LOGIN EMAIL</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">APPROVED</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap"> </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2A2D31]/60">
@@ -417,7 +417,7 @@ export function OrganisersManagement() {
                       className="hover:bg-white/[0.02] transition-colors group"
                     >
                       {/* Column 1: ORGANISER with Avatar */}
-                      <td className="py-4 px-5">
+                      <td className="py-4 px-5 min-w-[200px]">
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm`}
@@ -436,7 +436,7 @@ export function OrganisersManagement() {
                       </td>
 
                       {/* Column 2: EVENT */}
-                      <td className="py-4 px-4">
+                      <td className="py-4 px-4 min-w-[180px]">
                         <div className="min-w-0">
                           <div className="text-xs sm:text-sm font-semibold text-white truncate max-w-[200px]">
                             {item.eventTitle}

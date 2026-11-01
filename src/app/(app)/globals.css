@@ -826,10 +826,12 @@ body {
     .tl-content {
       padding: 1rem;
     }
-    .tl-system-theme table {
-      display: block;
+    .tl-system-theme :where(.overflow-x-auto) {
+      -webkit-overflow-scrolling: touch;
       max-width: 100%;
-      overflow-x: auto;
+    }
+    .tl-system-theme table {
+      min-width: 680px;
     }
   }
 
@@ -842,8 +844,14 @@ body {
       max-width: 100%;
     }
 
-    .tl-system-theme :where(h1, h2, h3, p, a, label, td, th) {
-      overflow-wrap: anywhere;
+    .tl-system-theme :where(h1, h2, h3, p, a, label) {
+      overflow-wrap: break-word;
+      word-break: normal;
+    }
+
+    .tl-system-theme :where(td, th) {
+      overflow-wrap: normal;
+      word-break: normal;
     }
 
     .tl-system-theme :where([role="dialog"], .fixed.inset-0 > div) {

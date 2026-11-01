@@ -59,13 +59,14 @@ export default function Header() {
               className="bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-white dark:text-[#131517] font-semibold px-3 sm:px-4 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors text-xs sm:text-sm whitespace-nowrap shadow-none border-none"
             >
               <User className="w-3.5 h-3.5 text-white dark:text-[#131517] shrink-0" />
-              <span>
+              <span className="hidden xs:inline">
                 {user.role === "organiser"
                   ? "Organiser Dashboard"
                   : user.role === "superAdmin"
                   ? "Super Admin"
                   : "Dashboard"}
               </span>
+              <span className="xs:hidden">Dashboard</span>
             </Link>
           ) : (
             <>

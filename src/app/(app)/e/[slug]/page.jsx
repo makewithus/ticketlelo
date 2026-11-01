@@ -203,7 +203,7 @@ export default function PublicEventBySlugPage() {
   const posterLines = getPosterLines(event.title || event.name || "Tech Fest '26");
 
   return (
-    <div className="min-h-screen bg-[#131517] text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors overflow-x-hidden">
       {/* Proper warm ambient lighting matching Image 1 */}
       <div className="pointer-events-none fixed top-0 left-0 w-full h-[650px] overflow-hidden z-0 select-none">
         {/* Soft top-left ambient wash across the viewport corner */}
@@ -226,30 +226,31 @@ export default function PublicEventBySlugPage() {
         </div>
       </div>
 
-      {/* Top Navigation matching Image 1 */}
-      <header className="relative z-20 border-b border-[#2A2D31]/60 px-4 sm:px-8 py-2.5 sm:py-3">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      {/* Top Navigation */}
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#131517]/90 backdrop-blur-md border-b border-slate-200 dark:border-[#2A2D31]/60 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 transition-colors">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           {/* Left: Logo + Explore events */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6 shrink-0">
             <Link href="/" className="inline-flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo/ticketlelo-logo-nav.png"
                 alt="TicketLelo"
-                className="h-6 w-auto object-contain"
+                className="h-6 sm:h-7 w-auto object-contain"
               />
             </Link>
             <Link
               href="/"
-              className="text-xs sm:text-sm font-medium text-[#D0D0D1] hover:text-white transition-colors"
+              className="hidden sm:inline-block text-xs sm:text-sm font-medium text-slate-600 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               Explore events
             </Link>
           </div>
 
           {/* Right: Live time + ThemeToggle + Sign in / Account */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <span
-              className="text-[12px] sm:text-[13px] font-sans font-medium text-[#9B9EA4] tracking-normal tabular-nums select-none"
+              className="hidden md:inline-block text-[12px] sm:text-[13px] font-sans font-medium text-slate-500 dark:text-[#9B9EA4] tracking-normal tabular-nums select-none"
               suppressHydrationWarning
             >
               {mounted ? currentTime : "1:04 PM GMT+5:30"}
@@ -261,13 +262,14 @@ export default function PublicEventBySlugPage() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/admin/dashboard"
-                  className="bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
+                  className="hidden sm:inline-flex bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] dark:text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
                 >
                   Create Event
                 </Link>
                 <Link
                   href="/dashboard"
-                  className="w-7 h-7 rounded-full bg-[#FE760B] text-[#131517] font-bold text-xs flex items-center justify-center hover:opacity-90 transition-opacity"
+                  aria-label="Dashboard"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-[#131517] font-bold text-xs flex items-center justify-center hover:opacity-90 transition-opacity shrink-0 shadow-sm"
                 >
                   {(user.fullName || user.email || "U").charAt(0).toUpperCase()}
                 </Link>
@@ -275,7 +277,7 @@ export default function PublicEventBySlugPage() {
             ) : (
               <Link
                 href="/login"
-                className="bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-sm"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] dark:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-sm"
               >
                 Sign in
               </Link>
@@ -284,15 +286,15 @@ export default function PublicEventBySlugPage() {
         </div>
       </header>
 
-      {/* Main Content Layout matching Image 1 */}
+      {/* Main Content Layout */}
       <main className="relative z-10 flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-1 md:grid-cols-[210px_1fr] gap-6 lg:gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 lg:gap-8 items-start">
           
           {/* Left Column: Poster, Host, Attendees */}
-          <div className="w-full max-w-[210px] space-y-4 mx-auto md:mx-0">
-            {/* Poster Card matching Image 1 */}
+          <div className="w-full max-w-sm sm:max-w-md md:max-w-[220px] space-y-4 mx-auto md:mx-0">
+            {/* Poster Card */}
             <div
-              className="w-full aspect-[3/4] rounded-2xl overflow-hidden p-4 flex flex-col justify-between relative shadow-2xl border border-[#2A2D31] transition-all"
+              className="w-full max-w-[260px] xs:max-w-[280px] sm:max-w-[320px] md:max-w-[220px] mx-auto md:mx-0 aspect-[3/4] rounded-2xl overflow-hidden p-4 sm:p-5 flex flex-col justify-between relative shadow-xl border border-slate-200 dark:border-[#2A2D31] transition-all"
               style={{
                 background: event.bannerUrl ? "transparent" : themeLook.gradientCss,
               }}
@@ -327,7 +329,7 @@ export default function PublicEventBySlugPage() {
                   {/* Bottom bold typographic block */}
                   <div className="relative z-10">
                     <h2
-                      className="text-3xl font-black tracking-tight leading-none uppercase select-none drop-shadow-sm"
+                      className="text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase select-none drop-shadow-sm"
                       style={{ color: themeLook.textColor || "#FFFFFF" }}
                     >
                       {posterLines.line1}
@@ -343,59 +345,59 @@ export default function PublicEventBySlugPage() {
               )}
             </div>
 
-            {/* HOSTED BY Section matching Image 1 */}
+            {/* HOSTED BY Section */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
                 HOSTED BY
               </p>
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-[#FE760B] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
                   SE
                 </div>
-                <span className="text-xs font-bold text-white">
+                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {event.organizerName || "School of Engineering"}
                 </span>
               </div>
             </div>
 
-            {/* 86 GOING Attendees Section matching Image 1 */}
+            {/* Attendees Section */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
                 {takenSeats} GOING
               </p>
               <div className="flex items-center">
-                {/* 5 Stacked avatar circles */}
+                {/* Stacked avatar circles */}
                 <div className="flex items-center -space-x-1 shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-blue-600 border border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
+                  <div className="w-5 h-5 rounded-full bg-blue-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
                     AK
                   </div>
-                  <div className="w-5 h-5 rounded-full bg-purple-600 border border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
+                  <div className="w-5 h-5 rounded-full bg-purple-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
                     PS
                   </div>
-                  <div className="w-5 h-5 rounded-full bg-teal-600 border border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
+                  <div className="w-5 h-5 rounded-full bg-teal-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
                     RM
                   </div>
-                  <div className="w-5 h-5 rounded-full bg-amber-600 border border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
+                  <div className="w-5 h-5 rounded-full bg-amber-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
                     SN
                   </div>
-                  <div className="w-5 h-5 rounded-full bg-pink-600 border border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
+                  <div className="w-5 h-5 rounded-full bg-pink-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
                     VS
                   </div>
                 </div>
-                <p className="text-[11px] text-[#9B9EA4] ml-2.5 truncate">
+                <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] ml-2.5 truncate">
                   Aarav Kumar, Priya Sharma and {Math.max(1, takenSeats - 2)} others
                 </p>
               </div>
             </div>
 
-            {/* Contact Host / Report Links matching Image 1 */}
-            <div className="pt-1 space-y-1">
+            {/* Contact Host / Report Links (Desktop Only - on mobile these appear at the footer) */}
+            <div className="pt-1 space-y-1 hidden md:block">
               <button
                 type="button"
                 onClick={() => {
                   window.location.href = `mailto:support@ticketlelo.com?subject=Inquiry about ${encodeURIComponent(event.title)}`;
                 }}
-                className="text-[11px] text-[#9B9EA4] hover:text-white transition-colors block"
+                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left"
               >
                 Contact the host
               </button>
@@ -404,7 +406,7 @@ export default function PublicEventBySlugPage() {
                 onClick={() => {
                   window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title)}`;
                 }}
-                className="text-[11px] text-[#9B9EA4] hover:text-white transition-colors block"
+                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left"
               >
                 Report event
               </button>
@@ -412,79 +414,79 @@ export default function PublicEventBySlugPage() {
           </div>
 
           {/* Right Column: Headline, Logistics, Registration Card, About, Location */}
-          <div className="space-y-3.5">
+          <div className="space-y-4">
             
             {/* Status Pill: Happening now */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2A1D13] text-[#FE760B] border border-[#FE760B]/30 text-[11px] font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/30 text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
               <span>Happening now</span>
             </div>
 
             {/* Event Title */}
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
               {event.title}
             </h1>
 
             {/* Date & Time Block */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#212327] border border-[#2A2D31] flex flex-col items-center justify-center text-center shrink-0">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-[#9B9EA4] leading-none">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex flex-col items-center justify-center text-center shrink-0 shadow-sm">
+                <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] leading-none">
                   {monthShort}
                 </span>
-                <span className="text-xs font-bold text-white leading-tight">
+                <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-tight">
                   {dayNum}
                 </span>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-white leading-snug">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white leading-snug truncate">
                   {weekdayDate}
                 </p>
-                <p className="text-[11px] text-[#9B9EA4]">
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] truncate">
                   12:00 PM – 5:00 PM GMT+5:30
                 </p>
               </div>
             </div>
 
             {/* Location Block */}
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] shrink-0">
-                <MapPin className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center text-slate-500 dark:text-[#9B9EA4] shrink-0 shadow-sm">
+                <MapPin className="w-4 h-4 text-[#FE760B]" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <a
-                  href={event.locationUrl || "https://maps.google.com"}
+                  href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || "") + " " + (event.city || ""))}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs font-semibold text-white hover:text-[#FE760B] transition-colors inline-flex items-center gap-1 leading-snug"
+                  className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors inline-flex items-center gap-1 leading-snug group"
                 >
-                  <span>{event.venue || "Main Auditorium"}</span>
-                  <span className="text-[10px]">↗</span>
+                  <span className="truncate">{event.venue || "Main Stadium Ground & Central Innovation Complex"}</span>
+                  <span className="text-[10px] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">↗</span>
                 </a>
-                <p className="text-[11px] text-[#9B9EA4]">
-                  {event.city || "School of Engineering"}
+                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] truncate">
+                  {event.city || "Kochi, Kerala"}
                 </p>
               </div>
             </div>
 
             {/* Registration Card strictly matching Image 1 */}
-            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-xl">
+            <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-xl transition-colors">
               {/* Header row */}
-              <div className="flex items-center justify-between pb-2.5 border-b border-[#2A2D31]">
-                <span className="text-xs font-semibold text-[#9B9EA4]">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-[#2A2D31]">
+                <span className="text-xs font-semibold text-slate-600 dark:text-[#9B9EA4]">
                   Registration
                 </span>
-                <div className="inline-flex items-center gap-1.5 text-xs text-[#9B9EA4]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FDE003]" />
+                <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-[#9B9EA4]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
                   <span>{seatsLeft} of {totalSeats} seats left</span>
                 </div>
               </div>
 
               {/* Subhead and price */}
               <div className="flex items-start justify-between gap-4 py-2.5">
-                <p className="text-xs text-[#D0D0D1] leading-snug">
+                <p className="text-xs text-slate-600 dark:text-[#D0D0D1] leading-snug">
                   Welcome! Register below to get your QR ticket by email.
                 </p>
-                <span className="text-base sm:text-lg font-bold text-white shrink-0">
+                <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white shrink-0">
                   {priceDisplay}
                 </span>
               </div>
@@ -501,29 +503,64 @@ export default function PublicEventBySlugPage() {
               </div>
             </div>
 
-            {/* ABOUT EVENT Section strictly matching Image 1 */}
+            {/* ABOUT EVENT Section */}
             <div className="pt-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
                 ABOUT EVENT
               </p>
-              <p className="text-xs text-[#D0D0D1] leading-relaxed whitespace-pre-line">
+              <p className="text-xs sm:text-sm text-slate-700 dark:text-[#D0D0D1] leading-relaxed whitespace-pre-line">
                 {event.description || "[Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event.]"}
               </p>
             </div>
 
-            {/* LOCATION Section strictly matching Image 1 */}
+            {/* LOCATION Section */}
             <div className="pt-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] mb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
                 LOCATION
               </p>
-              <div>
-                <p className="text-xs font-semibold text-white">
-                  {event.venue || "Main Auditorium"}
-                </p>
-                <p className="text-[11px] text-[#9B9EA4] mt-0.5">
-                  {event.city || "School of Engineering"}
-                </p>
+              <div className="p-3.5 sm:p-4 rounded-xl bg-slate-100/70 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
+                    {event.venue || "Main Auditorium"}
+                  </p>
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                    {event.city || "School of Engineering"}
+                  </p>
+                </div>
+                <a
+                  href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || "") + " " + (event.city || ""))}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white text-xs font-semibold transition-colors shrink-0 shadow-sm self-start sm:self-auto"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Get Directions</span>
+                  <span className="text-[10px]">↗</span>
+                </a>
               </div>
+            </div>
+
+            {/* Mobile Footer Links */}
+            <div className="pt-6 pb-2 border-t border-slate-200 dark:border-[#2A2D31]/60 flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4] md:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = `mailto:support@ticketlelo.com?subject=Inquiry about ${encodeURIComponent(event.title)}`;
+                }}
+                className="hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Contact the host
+              </button>
+              <span className="text-slate-400 dark:text-[#2A2D31]">•</span>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title)}`;
+                }}
+                className="hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Report event
+              </button>
             </div>
 
           </div>

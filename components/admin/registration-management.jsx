@@ -326,25 +326,25 @@ export function RegistrationManagement() {
       {selectedEventId && (
         <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden mt-6 shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[760px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#2A2D31]">
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider whitespace-nowrap min-w-[120px]">
                     Ticket ID
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider whitespace-nowrap min-w-[150px]">
                     Full Name
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider whitespace-nowrap min-w-[180px]">
                     Email
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider whitespace-nowrap min-w-[130px]">
                     Phone
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider whitespace-nowrap min-w-[120px]">
                     Status
                   </th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider whitespace-nowrap min-w-[120px]">
                     Registered
                   </th>
                 </tr>

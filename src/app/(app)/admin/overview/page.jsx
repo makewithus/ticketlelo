@@ -659,16 +659,16 @@ export default function EventOverviewPage() {
               <p className="text-xs text-white mb-2.5">
                 Welcome, {user?.fullName || "Guest"}! To join the event, please register below.
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col min-[420px]:flex-row items-stretch min-[420px]:items-center gap-2">
                 <input
                   type="text"
                   readOnly
                   value={user?.email || "attendee@example.com"}
-                  className="bg-[#1A1C1F] border border-[#2A2D31] rounded-lg px-2.5 py-1.5 text-xs text-[#9B9EA4] flex-1 outline-none font-mono"
+                  className="bg-[#1A1C1F] border border-[#2A2D31] rounded-lg px-2.5 py-1.5 text-xs text-[#9B9EA4] flex-1 min-w-0 outline-none font-mono truncate"
                 />
                 <Link
                   href={`/register/${publicSlug}`}
-                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-xs transition-colors shrink-0"
+                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-xs transition-colors shrink-0 text-center"
                 >
                   Register
                 </Link>
@@ -678,8 +678,8 @@ export default function EventOverviewPage() {
 
           <div>
             {/* Public Link row with COPY button */}
-            <div className="flex items-center justify-between bg-[#131517] border border-[#2A2D31] rounded-xl px-3 py-2 mb-3">
-              <span className="font-mono text-xs text-[#9B9EA4] truncate mr-2">
+            <div className="flex items-center justify-between gap-2 bg-[#131517] border border-[#2A2D31] rounded-xl px-3 py-2 mb-3 min-w-0">
+              <span className="font-mono text-xs text-[#9B9EA4] truncate flex-1 min-w-0">
                 {publicUrl}
               </span>
               <button
@@ -1051,17 +1051,17 @@ export default function EventOverviewPage() {
               <label className="text-[11px] font-bold uppercase tracking-wider text-[#9B9EA4]">
                 Event Registration Link
               </label>
-              <div className="flex items-center gap-2 bg-[#131517] border border-[#2A2D31] rounded-xl p-2">
+              <div className="flex items-center gap-2 bg-[#131517] border border-[#2A2D31] rounded-xl p-2 min-w-0">
                 <input
                   type="text"
                   readOnly
                   value={fullPublicUrl}
-                  className="bg-transparent text-xs text-[#D0D0D1] flex-1 outline-none font-mono px-2 select-all"
+                  className="bg-transparent text-xs text-[#D0D0D1] flex-1 min-w-0 truncate outline-none font-mono px-2 select-all"
                 />
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="px-3 py-1.5 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                 >
                   {copied ? <Check size={13} className="text-[#3DD68C]" /> : <Copy size={13} />}
                   <span>{copied ? "Copied" : "Copy"}</span>
