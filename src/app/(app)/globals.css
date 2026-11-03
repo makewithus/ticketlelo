@@ -11,7 +11,17 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+html {
+  max-width: 100%;
+  width: 100%;
+  overflow-x: clip;
+}
+
 body {
+  max-width: 100%;
+  width: 100%;
+  overflow-x: clip;
+  position: relative;
   font-family:
     var(--font-inter),
     Inter,
@@ -24,6 +34,20 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body.modal-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+  -webkit-overflow-scrolling: auto !important;
+}
+
+body.modal-open [role="dialog"],
+body.modal-open [role="alertdialog"],
+body.modal-open [data-modal],
+body.modal-open .modal-content,
+body.modal-open .overflow-y-auto {
+  touch-action: pan-y !important;
 }
 
 @layer utilities {

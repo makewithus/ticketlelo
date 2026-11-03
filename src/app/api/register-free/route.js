@@ -29,6 +29,18 @@ export async function POST(request) {
     ]);
     if (!eventSnap.exists) return NextResponse.json({ error: "Event not found" }, { status: 404 });
     const event = eventSnap.data();
+    if (event.status === "cancelled" || event.isCancelled) {
+      return NextResponse.json({ error: "This event has been cancelled. Registrations are closed." }, { status: 409 });
+    }
+    if (event.closeRegistrationEnabled && event.closeRegistrationMode === "now") {
+      return NextResponse.json({ error: "Registration is closed for this event." }, { status: 409 });
+    }
+    if (event.closeRegistrationEnabled && event.closeRegistrationMode === "capacity" && typeof event.closeRegistrationCapacity === "number") {
+      const curAllocated = Number(event.allocatedSeats || 0);
+      if (curAllocated >= Number(event.closeRegistrationCapacity)) {
+        return NextResponse.json({ error: "Registration capacity reached. This event is closed for registration." }, { status: 409 });
+      }
+    }
     if (!(event.isPublished === true || event.published === true || event.status === "published")) {
       return NextResponse.json({ error: "Event registration is not open" }, { status: 409 });
     }
@@ -65,6 +77,11 @@ export async function POST(request) {
       const allocated = Number(current.allocatedSeats || 0);
       if (capacity > 0 && allocated >= capacity) throw new Error("Event capacity has been reached");
 
+      const requiresApproval = Boolean(event.requireApproval || current.requireApproval);
+      const initialStatus = requiresApproval ? "pending" : "Unused";
+      const initialApprovalStatus = requiresApproval ? "pending" : "approved";
+      const initialTicketStatus = requiresApproval ? "Pending Approval" : "Valid";
+
       transaction.create(ticketRef, {
         id: ticketId,
         ticketId,
@@ -82,7 +99,8 @@ export async function POST(request) {
         ticketDesign: event.ticketDesign || current.ticketDesign || "stub",
         qrPayload,
         qrCodeUrl,
-        status: "Valid",
+        status: initialTicketStatus,
+        requireApproval: requiresApproval,
         checkIns: {},
         issuedAt: now,
         updatedAt: now,
@@ -96,7 +114,10 @@ export async function POST(request) {
         email,
         whatsappPhone: phone,
         formData,
-        status: "Unused",
+        customFieldResponses: formData,
+        status: initialStatus,
+        approvalStatus: initialApprovalStatus,
+        requireApproval: requiresApproval,
         paymentStatus: "free",
         ticketDesign: event.ticketDesign || current.ticketDesign || "stub",
         entitledSubEventIds: [],
@@ -106,7 +127,7 @@ export async function POST(request) {
         updatedAt: now,
       });
       if (capacity > 0) transaction.update(eventRef, { allocatedSeats: allocated + 1, updatedAt: now });
-      return { alreadyRegistered: false, ticketId };
+      return { alreadyRegistered: false, ticketId, requiresApproval };
     });
 
     return NextResponse.json({ success: true, ...result });

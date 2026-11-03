@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -30,18 +30,63 @@ import {
   Move,
   RotateCcw,
   Edit3,
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  Lock,
+  Palette,
+  ExternalLink,
+  Navigation,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createEvent, updateEvent } from "@/lib/firestore";
 import { useAuth } from "@/context/auth-context";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { WideTicket } from "@/components/tickets/wide-ticket";
+import { TicketFullPreviewModal } from "@/components/tickets/ticket-full-preview-modal";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { normalizeHex, isLightColor } from "@/lib/ticket-theme";
+import { searchIndianVenues } from "@/lib/venues-catalog";
 
 import { getPosterLines } from "@/lib/theme-utils";
 export { getPosterLines };
 
+export function deriveThemeFromColor(hexColor) {
+  let hex = (hexColor || "#FE760B").trim();
+  if (!hex.startsWith("#")) hex = "#" + hex;
+  if (hex.length === 4) {
+    hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  }
+  const isValid = /^#[0-9A-Fa-f]{6}$/.test(hex);
+  const safeHex = isValid ? hex : "#FE760B";
+
+  const r = parseInt(safeHex.slice(1, 3), 16) || 0;
+  const g = parseInt(safeHex.slice(3, 5), 16) || 0;
+  const b = parseInt(safeHex.slice(5, 7), 16) || 0;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  const darkBg = `rgb(${Math.max(12, Math.round(r * 0.4))}, ${Math.max(12, Math.round(g * 0.4))}, ${Math.max(14, Math.round(b * 0.4))})`;
+  const brightSun = `rgb(${Math.min(255, Math.round(r * 1.25 + 25))}, ${Math.min(255, Math.round(g * 1.25 + 25))}, ${Math.min(255, Math.round(b * 1.25 + 25))})`;
+
+  return {
+    id: "custom",
+    name: `Custom (${safeHex.toUpperCase()})`,
+    color: safeHex,
+    bg: darkBg,
+    sun: brightSun,
+    text: luminance > 0.55 ? "#131517" : "#FFFFFF",
+  };
+}
+
 const THEMES = [
+  {
+    id: "minimal",
+    name: "Minimal",
+    color: "#2E7D32",
+    bg: "#1B3B2B",
+    sun: "#2E7D32",
+    text: "#FFFFFF",
+  },
   {
     id: "sunset",
     name: "Sunset",
@@ -84,32 +129,247 @@ const THEMES = [
   },
 ];
 
-const POPULAR_LOCATIONS = [
-  {
-    name: "KIET Group of Institutions",
-    address: "Delhi-NCR, Meerut Road (NH-58), Ghaziabad, UP 201206",
-  },
-  {
-    name: "Delhi Technological University (DTU)",
-    address: "Shahbad Daulatpur, Main Bawana Road, Delhi 110042",
-  },
-  {
-    name: "Indian Institute of Technology Delhi (IIT-D)",
-    address: "Hauz Khas, New Delhi, Delhi 110016",
-  },
-  {
-    name: "Bharat Mandapam (IECC)",
-    address: "Pragati Maidan, New Delhi, Delhi 110001",
-  },
-  {
-    name: "Cyber Hub",
-    address: "DLF Cyber City, Sector 24, Gurugram, Haryana 122002",
-  },
-  {
-    name: "Innovation Lab, Block E",
-    address: "Engineering Campus, Block E, Floor 2",
-  },
-];
+// 30-minute interval time options from 12:00 am to 11:30 pm matching Image 2
+const TIME_OPTIONS = (() => {
+  const options = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (const min of [0, 30]) {
+      const h12 = hour % 12 === 0 ? 12 : hour % 12;
+      const ampm = hour < 12 ? "pm" : "pm"; // default format helper
+      const actualAmpm = hour < 12 ? "am" : "pm";
+      const minStr = min === 0 ? "00" : String(min);
+      const str = `${String(h12).padStart(2, "0")}:${minStr} ${actualAmpm}`;
+      options.push(str);
+    }
+  }
+  return options;
+})();
+
+function normalizeTime(t) {
+  if (!t) return "";
+  return t.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function formatDatePill(dateStr) {
+  if (!dateStr) return "Select date";
+  try {
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+      const month = d.toLocaleDateString("en-US", { month: "short" });
+      const day = parts[2];
+      return `${weekday}, ${day} ${month}`;
+    }
+  } catch {}
+  return dateStr;
+}
+
+// Interactive calendar popover matching theme (Image 1)
+function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
+  const parsed = useMemo(() => {
+    if (!value) {
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+    }
+    const [y, m, d] = value.split("-").map(Number);
+    if (!y || !m || !d) {
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+    }
+    return { year: y, month: m - 1, day: d };
+  }, [value]);
+
+  const [viewDate, setViewDate] = useState(() => new Date(parsed.year, parsed.month, 1));
+
+  const viewYear = viewDate.getFullYear();
+  const viewMonth = viewDate.getMonth();
+
+  const monthName = viewDate.toLocaleDateString("en-US", { month: "long" });
+
+  const prevMonth = (e) => {
+    e.stopPropagation();
+    setViewDate(new Date(viewYear, viewMonth - 1, 1));
+  };
+
+  const nextMonth = (e) => {
+    e.stopPropagation();
+    setViewDate(new Date(viewYear, viewMonth + 1, 1));
+  };
+
+  const { prevDays, currentDays, nextDays } = useMemo(() => {
+    const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun
+    const daysInCurrentMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+    const prev = [];
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      prev.push(daysInPrevMonth - i);
+    }
+
+    const current = [];
+    for (let d = 1; d <= daysInCurrentMonth; d++) {
+      current.push(d);
+    }
+
+    const total = prev.length + current.length;
+    const remaining = (7 - (total % 7)) % 7;
+    const next = [];
+    for (let d = 1; d <= remaining; d++) {
+      next.push(d);
+    }
+
+    return { prevDays: prev, currentDays: current, nextDays: next };
+  }, [viewYear, viewMonth]);
+
+  const selectDay = (day) => {
+    const yStr = String(viewYear);
+    const mStr = String(viewMonth + 1).padStart(2, "0");
+    const dStr = String(day).padStart(2, "0");
+    onChange(`${yStr}-${mStr}-${dStr}`);
+    onClose();
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute top-full mt-2 left-0 z-40 w-[270px] bg-white dark:bg-[#1A1C1F] border border-gray-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl p-4 select-none animate-in fade-in zoom-in-95 duration-100"
+      >
+        {/* Month Header with < > Navigation */}
+        <div className="flex items-center justify-between mb-3 px-1">
+          <span className="text-sm font-bold text-gray-900 dark:text-white">
+            {monthName}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={prevMonth}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={nextMonth}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Days of week */}
+        <div className="grid grid-cols-7 gap-1 text-center mb-1">
+          {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => (
+            <div
+              key={idx}
+              className="text-[11px] font-medium text-gray-400 dark:text-[#9B9EA4] py-1"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        {/* Days grid */}
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {/* Prev month days */}
+          {prevDays.map((d, idx) => (
+            <div
+              key={`prev-${idx}`}
+              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#4A4D53] select-none"
+            >
+              {d}
+            </div>
+          ))}
+
+          {/* Current month days */}
+          {currentDays.map((d) => {
+            const isSelected =
+              parsed.year === viewYear &&
+              parsed.month === viewMonth &&
+              parsed.day === d;
+            return (
+              <button
+                key={`curr-${d}`}
+                type="button"
+                onClick={() => selectDay(d)}
+                style={isSelected ? { backgroundColor: themeColor } : {}}
+                className={`h-8 w-8 mx-auto flex items-center justify-center text-xs rounded-lg transition-colors cursor-pointer ${
+                  isSelected
+                    ? "text-white font-bold shadow-sm"
+                    : "text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 font-medium"
+                }`}
+              >
+                {d}
+              </button>
+            );
+          })}
+
+          {/* Next month days */}
+          {nextDays.map((d, idx) => (
+            <div
+              key={`next-${idx}`}
+              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#4A4D53] select-none"
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Interactive scrollable time dropdown matching theme (Image 2)
+function ThemedTimeDropdown({ value, onChange, onClose, themeColor }) {
+  const activeRef = useRef(null);
+
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ block: "center", behavior: "auto" });
+    }
+  }, []);
+
+  const normalizedVal = normalizeTime(value);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute top-full mt-2 left-0 z-40 w-32 max-h-60 overflow-y-auto bg-white dark:bg-[#1A1C1F] border border-gray-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl p-1.5 select-none animate-in fade-in zoom-in-95 duration-100 space-y-0.5"
+      >
+        {TIME_OPTIONS.map((slot) => {
+          const isSelected = normalizeTime(slot) === normalizedVal;
+          return (
+            <button
+              key={slot}
+              ref={isSelected ? activeRef : null}
+              type="button"
+              onClick={() => {
+                onChange(slot);
+                onClose();
+              }}
+              style={isSelected ? { backgroundColor: themeColor } : {}}
+              className={`w-full py-1.5 px-2 text-xs font-mono text-center rounded-xl transition-colors cursor-pointer ${
+                isSelected
+                  ? "text-white font-bold shadow-sm"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+              }`}
+            >
+              {slot}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+const EXPANDED_LOCATIONS = [];
+const POPULAR_LOCATIONS = [];
 
 function formatTimeWithTz(date = new Date()) {
   try {
@@ -118,9 +378,9 @@ function formatTimeWithTz(date = new Date()) {
       minute: "2-digit",
       hour12: true,
     });
-    return `${timeStr} GMT+5:30`;
+    return timeStr;
   } catch {
-    return "1:04 PM GMT+5:30";
+    return "1:04 PM";
   }
 }
 
@@ -129,12 +389,12 @@ export function EventCreateStudio({
   onClose,
   onSuccess,
 }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef(null);
 
   // Live top-bar clock
-  const [clockString, setClockString] = useState("1:04 PM GMT+5:30");
+  const [clockString, setClockString] = useState("1:04 PM");
 
   useEffect(() => {
     const updateClock = () => setClockString(formatTimeWithTz(new Date()));
@@ -157,17 +417,17 @@ export function EventCreateStudio({
         sDate = "";
       }
       return {
-        startDate: editingEvent.startDate || sDate || "2026-11-07",
-        startTime: editingEvent.startTime || "12:00 pm",
-        endDate: editingEvent.endDate || sDate || "2026-11-07",
-        endTime: editingEvent.endTime || "05:00 pm",
+        startDate: editingEvent.startDate || sDate || "2026-11-02",
+        startTime: editingEvent.startTime || "11:30 pm",
+        endDate: editingEvent.endDate || sDate || "2026-11-03",
+        endTime: editingEvent.endTime || "12:30 am",
       };
     }
     return {
-      startDate: "2026-11-07",
-      startTime: "12:00 pm",
-      endDate: "2026-11-07",
-      endTime: "05:00 pm",
+      startDate: "2026-11-02",
+      startTime: "11:30 pm",
+      endDate: "2026-11-03",
+      endTime: "12:30 am",
     };
   };
 
@@ -186,9 +446,16 @@ export function EventCreateStudio({
     timezone: editingEvent?.timezone || "GMT+05:30",
     timezoneCity: editingEvent?.timezoneCity || "Kolkata",
     location: editingEvent?.location || "",
+    locationVenue: editingEvent?.locationVenue || "",
+    locationAddress: editingEvent?.locationAddress || "",
+    latitude: editingEvent?.latitude || null,
+    longitude: editingEvent?.longitude || null,
+    locationPin: editingEvent?.locationPin || null,
     locationType: editingEvent?.locationType || "in-person",
     virtualLink: editingEvent?.virtualLink || "",
-    theme: editingEvent?.theme || "sunny",
+    theme: editingEvent?.theme || "minimal",
+    themeColor: editingEvent?.themeColor || editingEvent?.themeHex || "",
+    ticketBgColor: editingEvent?.ticketBgColor || editingEvent?.themeColor || "",
     coverImage: editingEvent?.coverImage || editingEvent?.image || "",
     visibility:
       editingEvent?.visibility ||
@@ -213,13 +480,149 @@ export function EventCreateStudio({
     posterTextY: typeof editingEvent?.posterTextY === "number" ? editingEvent.posterTextY : (editingEvent?.coverImage ? 55 : 68),
     showPosterText: editingEvent?.showPosterText !== undefined ? editingEvent.showPosterText : true,
     posterTextBg: editingEvent?.posterTextBg || "shadow",
+    requireApproval: Boolean(editingEvent?.requireApproval),
+    limitCapacity: Boolean(
+      editingEvent?.limitCapacity ||
+        (editingEvent?.capacity && editingEvent.capacity !== "Unlimited")
+    ),
+    maxCapacity: editingEvent?.maxCapacity || editingEvent?.capacity || 50,
+    waitlist: editingEvent?.waitlist !== undefined ? Boolean(editingEvent.waitlist) : true,
+    ticketBgUrl: editingEvent?.ticketBgUrl || "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locationInput, setLocationInput] = useState(formData.location);
-  const [locationSuggestions, setLocationSuggestions] = useState(POPULAR_LOCATIONS);
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
+  const [customColorHex, setCustomColorHex] = useState(
+    editingEvent?.themeColor || editingEvent?.themeHex || "#FE760B"
+  );
+  const [themeHexInput, setThemeHexInput] = useState(() =>
+    normalizeHex(editingEvent?.themeColor || editingEvent?.themeHex || "#FE760B").replace(/^#/, "")
+  );
+  const [ticketHexInput, setTicketHexInput] = useState(() =>
+    normalizeHex(editingEvent?.ticketBgColor || editingEvent?.themeColor || "#FE760B").replace(/^#/, "")
+  );
+  const [customTextColorHex, setCustomTextColorHex] = useState(() => {
+    const raw = editingEvent?.posterTextColor || editingEvent?.ticketTextColor || "";
+    return raw.startsWith("#") ? normalizeHex(raw).replace(/^#/, "") : "FFFFFF";
+  });
+
+  const [selectedLocationVenue, setSelectedLocationVenue] = useState(() => {
+    if (editingEvent?.locationVenue) {
+      return {
+        name: editingEvent.locationVenue,
+        address: editingEvent.locationAddress || editingEvent.location,
+        lat: editingEvent.latitude || editingEvent.locationPin?.lat || 28.6139,
+        lng: editingEvent.longitude || editingEvent.locationPin?.lng || 77.2090,
+      };
+    }
+    return null;
+  });
+  const [pinPosition, setPinPosition] = useState({ x: 50, y: 50 });
+  const [pinLandmark, setPinLandmark] = useState("");
+
+  // Interactive popup states matching Images 1 - 5
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
+  const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
+  const [showFullTicketModal, setShowFullTicketModal] = useState(false);
+  const [modalPreviewDesign, setModalPreviewDesign] = useState("stub");
+  const [previewTab, setPreviewTab] = useState("both"); // "both" | "stub" | "wide"
+
+  const handleLocationInputChange = (val) => {
+    setLocationInput(val);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    const q = val.trim();
+    if (q.length < 2) {
+      setLocationSuggestions([]);
+      setIsSearchingLocation(false);
+      return;
+    }
+
+    // 1. Instant 0ms local match from verified Indian venues catalog
+    const localMatches = searchIndianVenues(q, 6);
+    if (localMatches.length > 0) {
+      setLocationSuggestions(localMatches);
+    }
+
+    setIsSearchingLocation(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/places/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const places = Array.isArray(data.places) ? data.places : [];
+          const customEntry = {
+            id: `custom-${Date.now()}`,
+            name: q,
+            address: "Custom venue entered by organiser",
+            lat: places[0]?.lat || 28.6139,
+            lng: places[0]?.lng || 77.2090,
+            isCustom: true,
+          };
+          setLocationSuggestions(places.length > 0 ? [...places, customEntry] : [customEntry]);
+        } else {
+          setLocationSuggestions(
+            localMatches.length > 0
+              ? localMatches
+              : [
+                  {
+                    id: "custom-fallback",
+                    name: q,
+                    address: "Use custom entered venue",
+                    lat: 28.6139,
+                    lng: 77.2090,
+                    isCustom: true,
+                  },
+                ]
+          );
+        }
+      } catch (err) {
+        console.error("Location search failed:", err);
+        setLocationSuggestions(
+          localMatches.length > 0
+            ? localMatches
+            : [
+                {
+                  id: "custom-fallback",
+                  name: q,
+                  address: "Use custom entered venue",
+                  lat: 28.6139,
+                  lng: 77.2090,
+                  isCustom: true,
+                },
+              ]
+        );
+      } finally {
+        setIsSearchingLocation(false);
+      }
+    }, 250);
+  };
+
+  const handleSelectLocationItem = (item) => {
+    const name = item.isCustom ? (item.name || locationInput) : item.name;
+    const address = item.address || item.display_name || "";
+    setSelectedLocationVenue({
+      name,
+      address,
+      lat: item.lat || 28.6139,
+      lng: item.lng || 77.2090,
+      isVerified: item.isVerified || false,
+      category: item.category || "Venue",
+    });
+    setPinPosition({ x: 50, y: 50 });
+  };
 
   // Draggable & inline-editable text overlay state
   const [isDraggingText, setIsDraggingText] = useState(false);
@@ -291,8 +694,17 @@ export function EventCreateStudio({
     };
   }, [isDraggingText]);
 
-  const selectedTheme =
-    THEMES.find((t) => t.id === formData.theme) || THEMES[1]; // default Sunny
+  const selectedTheme = useMemo(() => {
+    if (formData.theme === "custom") {
+      return deriveThemeFromColor(formData.themeColor || customColorHex);
+    }
+    const found = THEMES.find((t) => t.id === formData.theme);
+    if (found) return found;
+    if (formData.themeColor && formData.themeColor.startsWith("#")) {
+      return deriveThemeFromColor(formData.themeColor);
+    }
+    return THEMES[0]; // Minimal
+  }, [formData.theme, formData.themeColor, customColorHex]);
 
   // Word-aware poster headline lines
   const posterLines = getPosterLines(
@@ -337,12 +749,50 @@ export function EventCreateStudio({
   };
 
   const handleLocationSave = () => {
+    let venue = selectedLocationVenue;
+
+    // If user clicked Save Location without manually clicking a suggestion first,
+    // auto-select the best matching suggestion from the list or local catalog!
+    if (!venue && locationSuggestions.length > 0) {
+      venue = locationSuggestions[0];
+      setSelectedLocationVenue(venue);
+    }
+
+    if (!venue && locationInput.trim()) {
+      const directMatches = searchIndianVenues(locationInput.trim(), 1);
+      if (directMatches.length > 0) {
+        venue = directMatches[0];
+        setSelectedLocationVenue(venue);
+      }
+    }
+
+    const venueName = venue?.name || locationInput.trim();
+    const venueAddress = venue?.address || "";
+    if (!venueName && !venueAddress) {
+      toast.error("Please search and select a venue or enter location");
+      return;
+    }
+    const finalLocation = pinLandmark
+      ? `${venueName} (${pinLandmark})${venueAddress ? ", " + venueAddress : ""}`
+      : `${venueName}${venueAddress ? ", " + venueAddress : ""}`;
+
     setFormData((prev) => ({
       ...prev,
-      location: locationInput.trim(),
+      location: finalLocation,
+      locationVenue: venueName,
+      locationAddress: venueAddress,
+      latitude: venue?.lat || null,
+      longitude: venue?.lng || null,
+      locationPin: venue?.lat
+        ? {
+            lat: Number(venue.lat.toFixed(6)),
+            lng: Number(venue.lng.toFixed(6)),
+            landmark: pinLandmark || "Venue Pin",
+          }
+        : null,
     }));
     setShowLocationModal(false);
-    toast.success("Event location set");
+    toast.success("Venue location confirmed with verified coordinates!");
   };
 
   const handleFormSubmit = async (e) => {
@@ -366,8 +816,16 @@ export function EventCreateStudio({
         eventDateObj = new Date();
       }
 
+      const generatedSlug = (formData.name || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || `event-${Date.now()}`;
+
       const payload = {
         name: formData.name.trim(),
+        slug: formData.slug || editingEvent?.slug || generatedSlug,
+        customDomain: formData.customDomain || editingEvent?.customDomain || "",
         description: safeDescription.trim(),
         date: eventDateObj,
         startDate: formData.startDate,
@@ -380,13 +838,24 @@ export function EventCreateStudio({
           formData.locationType === "virtual"
             ? formData.virtualLink.trim() || formData.location.trim() || "Virtual / Online Event"
             : formData.location.trim(),
+        locationVenue: formData.locationVenue || formData.location,
+        locationAddress: formData.locationAddress || "",
+        latitude: formData.latitude || null,
+        longitude: formData.longitude || null,
+        locationPin: formData.locationPin || null,
         locationType: formData.locationType,
         virtualLink: formData.virtualLink.trim(),
-        totalTickets: parseInt(formData.capacity, 10) || 150,
-        capacity: parseInt(formData.capacity, 10) || 150,
+        totalTickets: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : 9999,
+        capacity: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : "Unlimited",
+        requireApproval: Boolean(formData.requireApproval),
+        limitCapacity: Boolean(formData.limitCapacity),
+        maxCapacity: parseInt(formData.maxCapacity, 10) || 50,
+        waitlist: Boolean(formData.waitlist),
         theme: formData.theme,
         themeColor: selectedTheme.color || "#FE760B",
+        themeHex: selectedTheme.color || "#FE760B",
         themeName: selectedTheme.name || "Sunset",
+        ticketBgColor: formData.ticketBgColor || selectedTheme.color || "#FE760B",
         coverImage: formData.coverImage || "",
         visibility: formData.visibility,
         isPaid: Boolean(formData.isPaid),
@@ -402,6 +871,7 @@ export function EventCreateStudio({
         posterTextY: typeof formData.posterTextY === "number" ? formData.posterTextY : 68,
         showPosterText: formData.showPosterText !== false,
         posterTextBg: formData.posterTextBg || "shadow",
+        ticketBgUrl: formData.ticketBgUrl || "",
         isActive: formData.visibility !== "draft",
         published: formData.visibility === "public",
         status:
@@ -418,7 +888,7 @@ export function EventCreateStudio({
         savedEvent = { id: editingEvent.id, ...payload };
         toast.success("Event updated successfully!");
       } else {
-        savedEvent = await createEvent(payload, user?.id || null);
+        savedEvent = await createEvent(payload, user?.id || user?.uid || null);
         toast.success("Event created successfully!");
       }
 
@@ -454,88 +924,24 @@ export function EventCreateStudio({
 
   return (
     <div className="min-h-screen bg-[#131517] text-white flex flex-col selection:bg-[#FE760B] selection:text-[#131517]">
-      {/* Top Navigation Bar matching Image 2 */}
-      <header className="h-16 border-b border-[#2A2D31]/60 px-4 sm:px-8 flex items-center justify-between bg-[#131517]/90 backdrop-blur sticky top-0 z-40">
-        <div className="flex items-center gap-6 sm:gap-8">
-          {/* TicketLelo Logo mark */}
+      {/* Main Studio Body: 2 Columns */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="mb-6 flex items-center justify-between text-xs text-[#9B9EA4]">
           <button
             type="button"
             onClick={() => {
               if (onClose) onClose();
               else router.push("/admin/dashboard");
             }}
-            className="flex items-center gap-2 transition-opacity hover:opacity-90"
-            title="TicketLelo Home"
+            className="inline-flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
           >
-            <div className="h-7 w-20 relative flex items-center">
-              <Image
-                src="/logo/ticketlelo-logo-nav.png"
-                alt="TicketLelo"
-                width={80}
-                height={28}
-                className="object-contain"
-                style={{ width: "auto", height: "auto" }}
-                priority
-              />
-            </div>
+            <ArrowLeft className="w-4 h-4 text-[#FE760B]" />
+            <span className="font-medium">Back to Events</span>
           </button>
-
-          {/* Navigation Links matching Image 2 */}
-          <nav className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (onClose) onClose();
-                else router.push("/admin/dashboard");
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors"
-            >
-              <Calendar className="w-4 h-4 text-[#9B9EA4]" />
-              <span>Events</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/activity")}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors"
-            >
-              <Radio className="w-4 h-4 text-[#9B9EA4]" />
-              <span>Activity</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/account")}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors"
-            >
-              <Users className="w-4 h-4 text-[#9B9EA4]" />
-              <span>Account</span>
-            </button>
-          </nav>
+          <span className="font-semibold text-white tracking-wide">
+            {editingEvent ? "Edit Event Studio" : "Create Event Studio"}
+          </span>
         </div>
-
-        {/* Top Right: Clock, Create Event indicator, ThemeToggle, User Avatar */}
-        <div className="flex items-center gap-3 sm:gap-5">
-          <div className="hidden md:block text-xs font-medium text-[#9B9EA4] tracking-wide font-mono">
-            {clockString}
-          </div>
-
-          <div className="text-xs sm:text-sm font-semibold text-white tracking-tight">
-            {editingEvent ? "Edit Event" : "Create Event"}
-          </div>
-
-          <ThemeToggle inline />
-
-          {/* User Organiser Initials Avatar [TO] */}
-          <div
-            className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] font-bold text-xs ring-2 ring-[#2A2D31] select-none shadow-sm cursor-pointer"
-            title={organiserName}
-          >
-            {organiserInitials}
-          </div>
-        </div>
-      </header>
-
-      {/* Main Studio Body: 2 Columns matching Image 2 */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 sm:py-12">
         <form
           onSubmit={handleFormSubmit}
           className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
@@ -781,7 +1187,7 @@ export function EventCreateStudio({
               />
             </div>
 
-            {/* Theme Selector matching Image 2 */}
+            {/* Theme Selector matching Image 2 & 3 */}
             <div className="w-full max-w-[360px] pt-1">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-xs text-[#9B9EA4] font-medium tracking-wide">
@@ -792,17 +1198,25 @@ export function EventCreateStudio({
                 </span>
               </div>
 
-              {/* 5 Theme Color Swatches */}
-              <div className="flex items-center gap-3">
+              {/* Theme Color Swatches + Custom Picker */}
+              <div className="flex items-center gap-2.5 flex-wrap">
                 {THEMES.map((theme) => {
                   const isSelected = formData.theme === theme.id;
                   return (
                     <button
                       key={theme.id}
                       type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, theme: theme.id }))
-                      }
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          theme: theme.id,
+                          themeColor: theme.color,
+                          ticketBgColor: theme.color,
+                        }));
+                        setCustomColorHex(theme.color);
+                        setThemeHexInput(theme.color.replace(/^#/, ""));
+                        setTicketHexInput(theme.color.replace(/^#/, ""));
+                      }}
                       className={`w-7 h-7 rounded-full transition-all duration-200 cursor-pointer ${
                         isSelected
                           ? "ring-2 ring-white ring-offset-2 ring-offset-[#131517] scale-110 shadow-md"
@@ -813,10 +1227,118 @@ export function EventCreateStudio({
                     />
                   );
                 })}
+
+                {/* 7th Swatch: Custom Color with Palette Icon */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fullHex = normalizeHex(customColorHex);
+                    setFormData((prev) => ({
+                      ...prev,
+                      theme: "custom",
+                      themeColor: fullHex,
+                      ticketBgColor: fullHex,
+                    }));
+                  }}
+                  className={`w-7 h-7 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center relative overflow-hidden ${
+                    formData.theme === "custom"
+                      ? "ring-2 ring-white ring-offset-2 ring-offset-[#131517] scale-110 shadow-md"
+                      : "opacity-80 hover:opacity-100 hover:scale-105"
+                  }`}
+                  style={{
+                    backgroundColor: formData.theme === "custom" ? selectedTheme.color : "#3A3D42",
+                    backgroundImage: formData.theme === "custom" ? undefined : "linear-gradient(135deg, #FE760B 0%, #EC4899 50%, #2B59FF 100%)",
+                  }}
+                  title="Custom Color"
+                >
+                  <Palette className="w-3.5 h-3.5 text-white drop-shadow-sm" />
+                </button>
+              </div>
+
+              {/* Custom Color Code & Native Picker Input Box */}
+              <div className="mt-3 p-2.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] flex items-center justify-between gap-3 shadow-inner">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  {/* Clickable color preview button that triggers native color picker */}
+                  <label
+                    title="Click to open color palette wheel"
+                    className="relative w-7 h-7 rounded-lg border border-white/20 shadow-xs cursor-pointer shrink-0 overflow-hidden flex items-center justify-center hover:scale-105 transition-transform"
+                    style={{ backgroundColor: selectedTheme.color }}
+                  >
+                    <input
+                      type="color"
+                      value={normalizeHex(selectedTheme.color)}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase();
+                        setThemeHexInput(val.replace(/^#/, ""));
+                        setTicketHexInput(val.replace(/^#/, ""));
+                        setCustomColorHex(val);
+                        setFormData((prev) => ({
+                          ...prev,
+                          theme: "custom",
+                          themeColor: val,
+                          ticketBgColor: val,
+                        }));
+                      }}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                    />
+                  </label>
+
+                  {/* Hex Color Code text input */}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] uppercase font-bold text-[#9B9EA4] block tracking-wider">
+                      Color Code (HEX)
+                    </span>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-xs text-[#FE760B] font-mono font-bold">#</span>
+                      <input
+                        type="text"
+                        maxLength={7}
+                        value={themeHexInput}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/^#/, "").replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
+                          setThemeHexInput(raw);
+                          if (raw.length === 3 || raw.length === 6) {
+                            const fullHex = normalizeHex(raw);
+                            setCustomColorHex(fullHex);
+                            setTicketHexInput(fullHex.replace(/^#/, ""));
+                            setFormData((prev) => ({
+                              ...prev,
+                              theme: "custom",
+                              themeColor: fullHex,
+                              ticketBgColor: fullHex,
+                            }));
+                          }
+                        }}
+                        placeholder="FE760B"
+                        className="w-24 font-mono text-xs uppercase font-bold text-white bg-transparent outline-none border-b border-[#2A2D31] focus:border-[#FE760B] pb-0.5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fullHex = normalizeHex(themeHexInput);
+                    setThemeHexInput(fullHex.replace(/^#/, ""));
+                    setTicketHexInput(fullHex.replace(/^#/, ""));
+                    setCustomColorHex(fullHex);
+                    setFormData((prev) => ({
+                      ...prev,
+                      theme: "custom",
+                      themeColor: fullHex,
+                      ticketBgColor: fullHex,
+                    }));
+                    toast.success(`Theme color ${fullHex} applied!`);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[11px] font-semibold text-white border border-[#2A2D31] transition-colors cursor-pointer shrink-0"
+                >
+                  Apply
+                </button>
               </div>
 
               {/* Helper text matching Image 2 */}
-              <p className="text-[11px] text-[#71767B] leading-relaxed mt-4">
+              <p className="text-[11px] text-[#71767B] leading-relaxed mt-3">
                 Banner: JPEG, PNG or WebP up to 5 MB • 1200 × 400 recommended
               </p>
 
@@ -825,7 +1347,7 @@ export function EventCreateStudio({
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-white font-bold flex items-center gap-1.5">
                     <Type className="w-3.5 h-3.5 text-[#FE760B]" />
-                    Poster Typography &amp; Layout
+                    Ticket &amp; Poster Typography &amp; Layout
                   </span>
                   <div className="flex items-center gap-1.5">
                     {/* Toggle text visibility on banner */}
@@ -1043,7 +1565,7 @@ export function EventCreateStudio({
                 </div>
 
                 {/* Alignment, Text Color & Readability Backdrop */}
-                <div className="space-y-2 pt-1">
+                <div className="space-y-2.5 pt-1">
                   <div className="flex items-center justify-between text-[11px]">
                     <div className="flex items-center gap-1">
                       <span className="text-[#9B9EA4] mr-1">Align:</span>
@@ -1075,41 +1597,12 @@ export function EventCreateStudio({
                       })}
                     </div>
 
+                    {/* Backdrop / Readability Badge Style */}
                     <div className="flex items-center gap-1">
-                      <span className="text-[#9B9EA4] mr-1">Color:</span>
-                      {[
-                        { id: "auto", label: "Theme" },
-                        { id: "dark", label: "Dark" },
-                        { id: "light", label: "Light" },
-                      ].map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              posterTextColor: c.id,
-                            }))
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                            (formData.posterTextColor || "auto") === c.id
-                              ? "bg-[#FE760B] text-black font-bold border-[#FE760B]"
-                              : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
-                          }`}
-                        >
-                          {c.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Backdrop / Readability Badge Style */}
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-[#2A2D31]/50">
-                    <span className="text-[#9B9EA4]">Backdrop:</span>
-                    <div className="flex items-center gap-1">
+                      <span className="text-[#9B9EA4] mr-0.5">Backdrop:</span>
                       {[
                         { id: "shadow", label: "Shadow" },
-                        { id: "badge", label: "Glass Pill" },
+                        { id: "badge", label: "Glass" },
                         { id: "solid", label: "Solid" },
                         { id: "none", label: "None" },
                       ].map((bg) => (
@@ -1133,73 +1626,167 @@ export function EventCreateStudio({
                       ))}
                     </div>
                   </div>
+
+                  {/* Comprehensive Text Color Section */}
+                  <div className="pt-2 border-t border-[#2A2D31]/50 space-y-2">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                        <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
+                        Text Color:
+                      </span>
+                      <span className="font-mono text-xs text-white font-bold">
+                        {formData.posterTextColor?.startsWith("#")
+                          ? formData.posterTextColor.toUpperCase()
+                          : formData.posterTextColor === "dark"
+                          ? "Dark (#131517)"
+                          : formData.posterTextColor === "light"
+                          ? "White (#FFFFFF)"
+                          : formData.posterTextColor === "gold"
+                          ? "Gold (#FDE003)"
+                          : formData.posterTextColor === "orange"
+                          ? "Orange (#FE760B)"
+                          : formData.posterTextColor === "teal"
+                          ? "Teal (#3DD68C)"
+                          : "Theme Auto"}
+                      </span>
+                    </div>
+
+                    {/* Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[
+                        { id: "auto", label: "Theme Auto" },
+                        { id: "light", label: "White" },
+                        { id: "dark", label: "Dark" },
+                        { id: "gold", label: "Gold" },
+                        { id: "orange", label: "Orange" },
+                        { id: "teal", label: "Teal" },
+                      ].map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              posterTextColor: c.id,
+                              ticketTextColor: c.id,
+                            }));
+                            if (c.id === "light") setCustomTextColorHex("FFFFFF");
+                            if (c.id === "dark") setCustomTextColorHex("131517");
+                            if (c.id === "gold") setCustomTextColorHex("FDE003");
+                            if (c.id === "orange") setCustomTextColorHex("FE760B");
+                            if (c.id === "teal") setCustomTextColorHex("3DD68C");
+                          }}
+                          className={`text-[10px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-semibold ${
+                            (formData.posterTextColor || "auto") === c.id
+                              ? "bg-[#FE760B] text-[#131517] font-bold border-[#FE760B] shadow-sm"
+                              : "border-[#2A2D31] bg-[#212327]/60 text-[#9B9EA4] hover:text-white hover:bg-[#212327]"
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Custom Color Wheel + Hex Code Input */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                      <div className="flex items-center gap-2">
+                        <label
+                          title="Click to choose custom text color"
+                          className="relative w-6 h-6 rounded-md border border-white/20 shadow-xs cursor-pointer shrink-0 overflow-hidden flex items-center justify-center hover:scale-110 transition-transform"
+                          style={{
+                            backgroundColor: formData.posterTextColor?.startsWith("#")
+                              ? formData.posterTextColor
+                              : formData.posterTextColor === "dark"
+                              ? "#131517"
+                              : formData.posterTextColor === "gold"
+                              ? "#FDE003"
+                              : formData.posterTextColor === "orange"
+                              ? "#FE760B"
+                              : formData.posterTextColor === "teal"
+                              ? "#3DD68C"
+                              : "#FFFFFF",
+                          }}
+                        >
+                          <input
+                            type="color"
+                            value={normalizeHex(
+                              formData.posterTextColor?.startsWith("#")
+                                ? formData.posterTextColor
+                                : formData.posterTextColor === "dark"
+                                ? "#131517"
+                                : formData.posterTextColor === "gold"
+                                ? "#FDE003"
+                                : formData.posterTextColor === "orange"
+                                ? "#FE760B"
+                                : formData.posterTextColor === "teal"
+                                ? "#3DD68C"
+                                : "#FFFFFF"
+                            )}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase();
+                              setCustomTextColorHex(val.replace(/^#/, ""));
+                              setFormData((prev) => ({
+                                ...prev,
+                                posterTextColor: val,
+                                ticketTextColor: val,
+                              }));
+                            }}
+                            className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                          />
+                        </label>
+                        <span className="text-[10px] text-[#9B9EA4] font-medium">Custom Color:</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 bg-[#1A1C1F] border border-[#2A2D31] px-2 py-0.5 rounded-lg focus-within:border-[#FE760B] transition-colors">
+                          <span className="text-[10px] text-[#FE760B] font-mono font-bold">#</span>
+                          <input
+                            type="text"
+                            maxLength={7}
+                            value={customTextColorHex}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/^#/, "").replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
+                              setCustomTextColorHex(raw);
+                              if (raw.length === 3 || raw.length === 6) {
+                                const fullHex = normalizeHex(raw);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  posterTextColor: fullHex,
+                                  ticketTextColor: fullHex,
+                                }));
+                              }
+                            }}
+                            placeholder="FFFFFF"
+                            className="w-16 font-mono text-[11px] uppercase font-bold text-white bg-transparent outline-none"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const fullHex = normalizeHex(customTextColorHex);
+                            setCustomTextColorHex(fullHex.replace(/^#/, ""));
+                            setFormData((prev) => ({
+                              ...prev,
+                              posterTextColor: fullHex,
+                              ticketTextColor: fullHex,
+                            }));
+                            toast.success(`Text color ${fullHex} applied!`);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-[10px] font-semibold text-white border border-white/10 transition-colors cursor-pointer"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
               </div>
             </div>
           </div>
 
           {/* ================= RIGHT COLUMN: EVENT DETAILS ================= */}
           <div className="lg:col-span-7 flex flex-col space-y-4">
-            {/* Header Row: Organiser Pill & Visibility Dropdown matching Image 2 */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {/* Organiser Pill [TO] Test Organiser */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs font-medium text-white shadow-sm">
-                <span className="w-5 h-5 rounded-full bg-[#FE760B] text-[#131517] font-bold text-[10px] flex items-center justify-center">
-                  {organiserInitials}
-                </span>
-                <span className="truncate max-w-[160px]">{organiserName}</span>
-              </div>
-
-              {/* Visibility Dropdown Pill matching Image 2 */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowVisibilityMenu(!showVisibilityMenu)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs font-medium text-white hover:border-[#3A3D42] transition-colors shadow-sm"
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      formData.visibility === "public"
-                        ? "bg-[#3DD68C]"
-                        : formData.visibility === "draft"
-                          ? "bg-[#9B9EA4]"
-                          : "bg-[#FE760B]"
-                    }`}
-                  />
-                  <span className="capitalize">{formData.visibility}</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-[#9B9EA4]" />
-                </button>
-
-                {showVisibilityMenu && (
-                  <div className="absolute left-0 top-full mt-1.5 z-30 w-44 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] shadow-xl overflow-hidden py-1">
-                    {[
-                      { id: "public", label: "Public", dot: "bg-[#3DD68C]" },
-                      { id: "draft", label: "Draft / Unlisted", dot: "bg-[#9B9EA4]" },
-                      { id: "private", label: "Private", dot: "bg-[#FE760B]" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            visibility: opt.id,
-                          }));
-                          setShowVisibilityMenu(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-white/5 transition-colors text-white"
-                      >
-                        <span className={`w-2 h-2 rounded-full ${opt.dot}`} />
-                        <span>{opt.label}</span>
-                        {formData.visibility === opt.id && (
-                          <Check className="w-3.5 h-3.5 text-[#FE760B] ml-auto" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
 
             {/* Event Name Input (Large Display typography matching Image 2) */}
             <div className="pt-2">
@@ -1215,54 +1802,82 @@ export function EventCreateStudio({
               />
             </div>
 
-            {/* Date & Time Card matching Image 2 */}
-            <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-sm">
+            {/* Date & Time Card matching Image 1 & Image 2 */}
+            <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-sm relative">
               {/* Left Side: Start and End rows */}
               <div className="flex-1 space-y-3">
-                {/* Start row: ● Start 07 / 11 / 2026 | 12:00 pm */}
+                {/* Start row: ● Start [Mon, 2 Nov] | [11:30 pm] */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2 w-16 shrink-0">
-                    <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: selectedTheme.color }} />
                     <span className="text-xs font-semibold text-[#9B9EA4]">
                       Start
                     </span>
                   </div>
 
-                  {/* Date Input */}
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white">
-                    <input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          startDate: e.target.value,
-                          endDate: prev.endDate < e.target.value ? e.target.value : prev.endDate,
-                        }))
-                      }
-                      className="bg-transparent text-white border-none outline-none focus:ring-0 text-xs p-0 dark:[color-scheme:dark]"
-                    />
-                    <Calendar className="w-3.5 h-3.5 text-[#9B9EA4] pointer-events-none" />
+                  {/* Start Date Pill with Calendar Popover (Image 1) */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowStartCalendar(!showStartCalendar);
+                        setShowStartTimePicker(false);
+                        setShowEndCalendar(false);
+                        setShowEndTimePicker(false);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                    >
+                      <span>{formatDatePill(formData.startDate)}</span>
+                    </button>
+
+                    {showStartCalendar && (
+                      <ThemedCalendarPopover
+                        value={formData.startDate}
+                        onChange={(newDate) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            startDate: newDate,
+                            endDate: prev.endDate < newDate ? newDate : prev.endDate,
+                          }));
+                        }}
+                        onClose={() => setShowStartCalendar(false)}
+                        themeColor={selectedTheme.color}
+                      />
+                    )}
                   </div>
 
-                  {/* Time Input */}
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white">
-                    <input
-                      type="text"
-                      value={formData.startTime}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          startTime: e.target.value,
-                        }))
-                      }
-                      placeholder="12:00 pm"
-                      className="bg-transparent text-white border-none outline-none focus:ring-0 text-xs p-0 w-16"
-                    />
+                  {/* Start Time Pill with Time Dropdown (Image 2) */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowStartTimePicker(!showStartTimePicker);
+                        setShowStartCalendar(false);
+                        setShowEndCalendar(false);
+                        setShowEndTimePicker(false);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                    >
+                      <span>{formData.startTime}</span>
+                    </button>
+
+                    {showStartTimePicker && (
+                      <ThemedTimeDropdown
+                        value={formData.startTime}
+                        onChange={(newTime) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            startTime: newTime,
+                          }));
+                        }}
+                        onClose={() => setShowStartTimePicker(false)}
+                        themeColor={selectedTheme.color}
+                      />
+                    )}
                   </div>
                 </div>
 
-                {/* End row: ○ End 07 / 11 / 2026 | 05:00 pm */}
+                {/* End row: ○ End [Tue, 3 Nov] | [12:30 am] */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2 w-16 shrink-0">
                     <span className="w-2 h-2 rounded-full border border-[#9B9EA4]" />
@@ -1271,194 +1886,383 @@ export function EventCreateStudio({
                     </span>
                   </div>
 
-                  {/* End Date Input */}
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white">
-                    <input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          endDate: e.target.value,
-                        }))
-                      }
-                      className="bg-transparent text-white border-none outline-none focus:ring-0 text-xs p-0 dark:[color-scheme:dark]"
-                    />
-                    <Calendar className="w-3.5 h-3.5 text-[#9B9EA4] pointer-events-none" />
-                  </div>
-
-                  {/* End Time Input */}
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white">
-                    <input
-                      type="text"
-                      value={formData.endTime}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          endTime: e.target.value,
-                        }))
-                      }
-                      placeholder="05:00 pm"
-                      className="bg-transparent text-white border-none outline-none focus:ring-0 text-xs p-0 w-16"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Side Timezone Divider matching Image 2 */}
-              <div className="sm:border-l sm:border-[#2A2D31] sm:pl-5 flex flex-col justify-center items-start gap-0.5 shrink-0">
-                <Globe className="w-4 h-4 text-[#9B9EA4] mb-1" />
-                <div className="text-xs sm:text-sm font-bold text-white font-mono">
-                  {formData.timezone}
-                </div>
-                <div className="text-[11px] text-[#9B9EA4]">
-                  {formData.timezoneCity}
-                </div>
-              </div>
-            </div>
-
-            {/* Location Card matching Image 2 */}
-            <div
-              onClick={() => {
-                setLocationInput(formData.location);
-                setShowLocationModal(true);
-              }}
-              className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-start gap-3.5 hover:border-[#3A3D42] transition-colors cursor-pointer shadow-sm group"
-            >
-              <MapPin className="w-5 h-5 text-[#9B9EA4] group-hover:text-white shrink-0 mt-0.5 transition-colors" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-white">
-                  {formData.location.trim() ? (
-                    <span className="text-white">{formData.location}</span>
-                  ) : (
-                    <span>Add Event Location *</span>
-                  )}
-                </div>
-                <div className="text-xs text-[#9B9EA4] mt-0.5 truncate">
-                  {formData.locationType === "virtual"
-                    ? formData.virtualLink || "Online meeting / virtual link"
-                    : "Offline location or virtual link"}
-                </div>
-              </div>
-            </div>
-
-            {/* Description Card matching Image 2 (Seamless bare input with card focus ring) */}
-            <div
-              onClick={() => descriptionTextareaRef.current?.focus()}
-              className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-start gap-3.5 hover:border-[#3A3D42] focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B]/30 transition-all shadow-sm group cursor-text"
-            >
-              <AlignLeft className="w-5 h-5 text-[#9B9EA4] group-focus-within:text-[#FE760B] shrink-0 mt-1 transition-colors" />
-              <div className="flex-1 min-w-0">
-                <textarea
-                  ref={descriptionTextareaRef}
-                  value={safeDescription}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="Describe your event..."
-                  rows={3}
-                  className="tl-bare-input w-full !bg-transparent text-sm text-white placeholder:text-[#9B9EA4] !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 resize-none leading-relaxed"
-                />
-              </div>
-            </div>
-
-            {/* Event Options Section matching Image 2 */}
-            <div className="pt-2">
-              <div className="text-xs text-[#9B9EA4] font-medium tracking-wide mb-2">
-                Event options
-              </div>
-
-              <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] divide-y divide-[#2A2D31] overflow-hidden shadow-sm">
-                {/* Row 1: Paid tickets toggle */}
-                <div className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Ticket className="w-4 h-4 text-[#9B9EA4]" />
-                    <span className="text-sm font-medium text-white">
-                      Paid tickets
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-[#9B9EA4]">
-                      {formData.isPaid ? `₹${formData.price}` : "Free"}
-                    </span>
-
-                    {/* Toggle button matching Image 2 */}
+                  {/* End Date Pill with Calendar Popover (Image 1) */}
+                  <div className="relative">
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        setShowEndCalendar(!showEndCalendar);
+                        setShowEndTimePicker(false);
+                        setShowStartCalendar(false);
+                        setShowStartTimePicker(false);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                    >
+                      <span>{formatDatePill(formData.endDate)}</span>
+                    </button>
+
+                    {showEndCalendar && (
+                      <ThemedCalendarPopover
+                        value={formData.endDate}
+                        onChange={(newDate) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            endDate: newDate,
+                          }));
+                        }}
+                        onClose={() => setShowEndCalendar(false)}
+                        themeColor={selectedTheme.color}
+                      />
+                    )}
+                  </div>
+
+                  {/* End Time Pill with Time Dropdown (Image 2) */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEndTimePicker(!showEndTimePicker);
+                        setShowEndCalendar(false);
+                        setShowStartCalendar(false);
+                        setShowStartTimePicker(false);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                    >
+                      <span>{formData.endTime}</span>
+                    </button>
+
+                    {showEndTimePicker && (
+                      <ThemedTimeDropdown
+                        value={formData.endTime}
+                        onChange={(newTime) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            endTime: newTime,
+                          }));
+                        }}
+                        onClose={() => setShowEndTimePicker(false)}
+                        themeColor={selectedTheme.color}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Location Card matching Image 3 & Image 5 */}
+            {/* Location Card & Google Maps Live Form Preview */}
+            {formData.location.trim() && formData.locationType === "in-person" ? (
+              <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 space-y-3 shadow-md hover:border-[#3A3D42] transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="p-2 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 text-[#FE760B] shrink-0 mt-0.5">
+                      <MapPin className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#3DD68C] flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Confirmed Venue Location
+                      </span>
+                      <h4 className="text-sm sm:text-base font-bold text-white mt-0.5 truncate">
+                        {formData.locationVenue || formData.location}
+                      </h4>
+                      <p className="text-xs text-[#9B9EA4] line-clamp-2 mt-0.5">
+                        {formData.locationAddress || formData.location}
+                      </p>
+                      {formData.locationPin?.landmark && (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-[11px] text-[#FE760B] font-medium">
+                          <MapPin className="w-3 h-3 text-[#FE760B] shrink-0" />
+                          <span>Spot:</span>
+                          <span>{formData.locationPin.landmark}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationInput(formData.locationVenue || formData.location);
+                        setShowLocationModal(true);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-white border border-[#2A2D31] transition-colors cursor-pointer"
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         setFormData((prev) => ({
                           ...prev,
-                          isPaid: !prev.isPaid,
-                        }))
-                      }
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        formData.isPaid ? "bg-[#FE760B]" : "bg-[#2A2D31]"
-                      }`}
+                          location: "",
+                          locationVenue: "",
+                          locationAddress: "",
+                          latitude: null,
+                          longitude: null,
+                          locationPin: null,
+                        }));
+                        setSelectedLocationVenue(null);
+                      }}
+                      className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
+                      title="Clear location"
                     >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                          formData.isPaid ? "translate-x-5" : ""
-                        }`}
-                      />
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                {/* If Paid is true, show price input */}
-                {formData.isPaid && (
-                  <div className="px-4 py-3 bg-[#212327] flex items-center justify-between gap-4">
-                    <span className="text-xs text-[#9B9EA4]">
-                      Ticket Price (INR)
-                    </span>
-                    <div className="flex items-center gap-1.5 bg-[#1A1C1F] px-3 py-1 rounded-xl border border-[#2A2D31]">
-                      <span className="text-xs font-bold text-[#FE760B]">₹</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={formData.price}
-                        onChange={(e) =>
+                {/* Real Interactive Venue Map Preview */}
+                <div className="rounded-xl overflow-hidden border border-[#2A2D31] h-40 sm:h-44 w-full relative bg-[#131517] shadow-inner">
+                  <iframe
+                    title="Interactive Venue Map Preview"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={
+                      formData.latitude && formData.longitude
+                        ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(formData.longitude) - 0.007}%2C${Number(formData.latitude) - 0.005}%2C${Number(formData.longitude) + 0.007}%2C${Number(formData.latitude) + 0.005}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`
+                        : `https://www.openstreetmap.org/export/embed.html?bbox=77.10%2C28.55%2C77.30%2C28.75&layer=mapnik&marker=28.6139%2C77.2090`
+                    }
+                    className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
+                  />
+                  <div className="absolute top-2 right-2 z-10">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        formData.latitude && formData.longitude
+                          ? `${formData.latitude},${formData.longitude}`
+                          : formData.locationVenue || formData.location
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-black/80 hover:bg-black text-[10px] font-semibold text-white flex items-center gap-1 backdrop-blur-sm border border-white/10 transition-colors shadow-sm"
+                    >
+                      <span>Open in Google Maps</span>
+                      <ExternalLink className="w-2.5 h-2.5 text-[#FE760B]" />
+                    </a>
+                  </div>
+                  {formData.latitude && formData.longitude && (
+                    <div className="absolute bottom-2 left-2 z-10 pointer-events-none text-[10px] text-white bg-black/85 px-2.5 py-1 rounded-md backdrop-blur-sm border border-white/10 font-mono flex items-center gap-1.5 shadow-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C] animate-pulse" />
+                      <span>{Number(formData.latitude).toFixed(4)}° N, {Number(formData.longitude).toFixed(4)}° E</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => {
+                  setLocationInput(formData.location);
+                  setShowLocationModal(true);
+                }}
+                className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-start gap-3.5 hover:border-[#3A3D42] transition-colors cursor-pointer shadow-sm group"
+              >
+                <MapPin className={`w-5 h-5 shrink-0 mt-0.5 transition-colors ${
+                  formData.location.trim() ? "text-[#FE760B]" : "text-[#9B9EA4] group-hover:text-white"
+                }`} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-white">
+                    {formData.location.trim() ? (
+                      <span className="text-white font-bold">{formData.locationVenue || formData.location}</span>
+                    ) : (
+                      <span>Add Event Location *</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-[#9B9EA4] mt-0.5 truncate">
+                    {formData.locationType === "virtual"
+                      ? formData.virtualLink || "Online meeting / virtual link"
+                      : "Search venue on Google Maps or add virtual link"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Description Card (Image 3 Trigger) */}
+            <div
+              onClick={() => setShowDescriptionModal(true)}
+              className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-center gap-3.5 hover:border-[#3A3D42] transition-colors cursor-pointer shadow-sm group"
+            >
+              <AlignLeft className="w-5 h-5 text-[#9B9EA4] group-hover:text-white shrink-0 transition-colors" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-white">
+                  {safeDescription.trim() ? (
+                    <span className="line-clamp-2">{safeDescription}</span>
+                  ) : (
+                    <span className="text-[#9B9EA4]">Add Description</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Event Options Section matching Image 1, 2, 4 */}
+            <div className="pt-2">
+              <div className="text-xs text-[#9B9EA4] font-medium tracking-wide mb-2">
+                Event Options
+              </div>
+
+              <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] divide-y divide-[#2A2D31] overflow-hidden shadow-sm">
+                {/* Row 1: Ticket Price (Properly styled & prominent for easy identification & price setting) */}
+                <div className="p-4 sm:p-5 space-y-3.5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
+                        <Ticket className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-white block">
+                          Ticket Pricing
+                        </span>
+                        <span className="text-[11px] text-[#9B9EA4] block">
+                          Set free registration or charge a fixed price per attendee
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-xs font-bold px-3 py-1 rounded-full border transition-all ${
+                          formData.isPaid
+                            ? "bg-[#FE760B]/15 text-[#FE760B] border-[#FE760B]/30"
+                            : "bg-[#3DD68C]/15 text-[#3DD68C] border-[#3DD68C]/30"
+                        }`}
+                      >
+                        {formData.isPaid ? `Paid Pass (₹${formData.price || 0})` : "Free Entry"}
+                      </span>
+
+                      {/* Toggle button matching Image 2 */}
+                      <button
+                        type="button"
+                        onClick={() =>
                           setFormData((prev) => ({
                             ...prev,
-                            price: e.target.value,
+                            isPaid: !prev.isPaid,
                           }))
                         }
-                        className="bg-transparent text-xs font-bold text-white w-16 border-none outline-none focus:ring-0 p-0"
-                      />
+                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                          formData.isPaid ? "bg-[#FE760B]" : "bg-[#2A2D31]"
+                        }`}
+                        title={formData.isPaid ? "Switch to Free event" : "Switch to Paid event"}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                            formData.isPaid ? "translate-x-5" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                   </div>
-                )}
 
-                {/* Row 2: Capacity * input stepper */}
+                  {/* Prominent, Beautifully Styled Price Input Box when Paid is enabled */}
+                  {formData.isPaid && (
+                    <div className="p-4 rounded-xl bg-[#141619] border border-[#2A2D31] space-y-3 animate-fade-in shadow-inner">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <label className="text-xs font-bold text-white block">
+                            Ticket Price (INR)
+                          </label>
+                          <span className="text-[11px] text-[#9B9EA4]">
+                            Enter the pass amount per attendee
+                          </span>
+                        </div>
+
+                        {/* Large, Clear, High-Contrast Price Input Box */}
+                        <div className="flex items-center gap-2 bg-[#1A1C1F] px-4 py-2.5 rounded-xl border border-[#3A3D42] focus-within:border-[#FE760B] focus-within:ring-2 focus-within:ring-[#FE760B]/20 transition-all w-full sm:w-52">
+                          <span className="text-xl font-black text-[#FE760B]">₹</span>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            placeholder="199"
+                            value={formData.price}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                price: e.target.value,
+                              }))
+                            }
+                            className="bg-transparent text-xl font-black text-white w-full border-none outline-none focus:ring-0 p-0 tracking-tight"
+                          />
+                          <span className="text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                            INR
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick select price chips */}
+                      <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-[#2A2D31]/70">
+                        <span className="text-[10px] text-[#9B9EA4] font-semibold uppercase">Popular:</span>
+                        {["99", "199", "499", "999"].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setFormData((prev) => ({ ...prev, price: preset }))}
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              String(formData.price) === preset
+                                ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                                : "bg-[#212327] text-[#D0D0D1] hover:text-white hover:bg-[#2A2D31] border border-[#2A2D31]"
+                            }`}
+                          >
+                            ₹{preset}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Row 2: Require Approval toggle (Image 1 & 2) */}
                 <div className="p-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <Users className="w-4 h-4 text-[#9B9EA4]" />
+                    <Lock className="w-4 h-4 text-[#9B9EA4]" />
                     <span className="text-sm font-medium text-white">
-                      Capacity *
+                      Require Approval
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1 bg-[#212327] px-3 py-1.5 rounded-xl border border-[#2A2D31]">
-                    <input
-                      type="number"
-                      min="1"
-                      required
-                      value={formData.capacity}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          capacity: e.target.value,
-                        }))
-                      }
-                      className="bg-transparent text-sm font-bold text-white w-16 text-right border-none outline-none focus:ring-0 p-0 font-mono"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        requireApproval: !prev.requireApproval,
+                      }))
+                    }
+                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                      formData.requireApproval ? "bg-[#3DD68C]" : "bg-[#2A2D31]"
+                    }`}
+                    style={formData.requireApproval ? { backgroundColor: selectedTheme.color } : {}}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                        formData.requireApproval ? "translate-x-5" : ""
+                      }`}
                     />
+                  </button>
+                </div>
+
+                {/* Row 3: Capacity field (Image 4 Dialog trigger) */}
+                <div
+                  onClick={() => setShowCapacityModal(true)}
+                  className="p-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-3">
+                    <Upload className="w-4 h-4 text-[#9B9EA4] group-hover:text-white transition-colors rotate-180" />
+                    <span className="text-sm font-medium text-white">
+                      Capacity
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[#9B9EA4] group-hover:text-white transition-colors">
+                      {formData.limitCapacity ? `${formData.maxCapacity} spots` : "Unlimited"}
+                    </span>
+                    <Edit3 className="w-3.5 h-3.5 text-[#9B9EA4] group-hover:text-white transition-colors" />
                   </div>
                 </div>
 
-                {/* Row 3: Ticket Format & Style (Stub tickets vs Wide tickets) */}
+                {/* Ticket Format & Style (Stub tickets vs Wide tickets) */}
                 <div className="p-4 sm:p-5 border-t border-[#2A2D31]/80 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1538,7 +2342,103 @@ export function EventCreateStudio({
                     </button>
                   </div>
 
-                  {/* ── Interactive Live Ticket Preview Area ── */}
+                  {/* Ticket Background & Accent Color Card */}
+                  <div className="mt-4 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 sm:p-5 space-y-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Ticket className="w-4 h-4 text-[#FE760B]" />
+                        <h4 className="text-xs sm:text-sm font-bold text-white tracking-wide">
+                          Ticket Background &amp; Accent Color
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-[#9B9EA4] mt-1">
+                        Choose your custom ticket accent and background color. Select from the palette wheel or enter any 6-digit hex code.
+                      </p>
+                    </div>
+
+                    {/* Ticket Background Color Picker and Hex Code Input */}
+                    <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <label
+                          title="Click to choose custom ticket color"
+                          className="relative w-8 h-8 rounded-lg border border-white/20 shadow-xs cursor-pointer shrink-0 overflow-hidden flex items-center justify-center hover:scale-105 transition-transform"
+                          style={{ backgroundColor: formData.ticketBgColor || selectedTheme.color }}
+                        >
+                          <input
+                            type="color"
+                            value={normalizeHex(formData.ticketBgColor || selectedTheme.color)}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase();
+                              setTicketHexInput(val.replace(/^#/, ""));
+                              setCustomColorHex(val);
+                              setFormData((prev) => ({
+                                ...prev,
+                                theme: "custom",
+                                themeColor: val,
+                                ticketBgColor: val,
+                              }));
+                            }}
+                            className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                          />
+                        </label>
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] block">
+                            Current Ticket Color
+                          </span>
+                          <span className="text-xs font-mono font-bold text-white">
+                            {normalizeHex(formData.ticketBgColor || selectedTheme.color)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 bg-[#1A1C1F] border border-[#2A2D31] px-2.5 py-1 rounded-lg focus-within:border-[#FE760B] transition-colors">
+                          <span className="text-xs text-[#FE760B] font-mono font-bold">#</span>
+                          <input
+                            type="text"
+                            maxLength={7}
+                            value={ticketHexInput}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/^#/, "").replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
+                              setTicketHexInput(raw);
+                              if (raw.length === 3 || raw.length === 6) {
+                                const fullHex = normalizeHex(raw);
+                                setCustomColorHex(fullHex);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  theme: "custom",
+                                  themeColor: fullHex,
+                                  ticketBgColor: fullHex,
+                                }));
+                              }
+                            }}
+                            placeholder="FE760B"
+                            className="w-20 font-mono text-xs uppercase font-bold text-white bg-transparent outline-none"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const fullHex = normalizeHex(ticketHexInput);
+                            setTicketHexInput(fullHex.replace(/^#/, ""));
+                            setCustomColorHex(fullHex);
+                            setFormData((prev) => ({
+                              ...prev,
+                              theme: "custom",
+                              themeColor: fullHex,
+                              ticketBgColor: fullHex,
+                            }));
+                            toast.success(`Ticket color ${fullHex} applied!`);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-xs font-semibold text-white border border-white/10 transition-colors cursor-pointer"
+                        >
+                          Use Color
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Live Ticket Preview Area ── */}
                   <div className="mt-5 rounded-2xl bg-[#141619] border border-[#2A2D31] p-4 sm:p-5 space-y-4 shadow-xl relative">
                     <div className="flex items-center justify-between flex-wrap gap-2.5">
                       <div className="flex items-center gap-2">
@@ -1546,125 +2446,189 @@ export function EventCreateStudio({
                         <span className="text-xs font-bold text-white tracking-wide uppercase">
                           Live Attendee Ticket Preview
                         </span>
-                        <span className="text-[10px] text-[#9B9EA4] font-medium hidden sm:inline">
-                          (Renders with live form data)
-                        </span>
                       </div>
 
-                      {/* Preview format switcher tabs */}
+                      {/* Preview format switcher tabs (Both views, Stub, Wide) */}
                       <div className="flex items-center rounded-xl bg-[#212327] p-1 border border-[#2A2D31]">
                         <button
                           type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({ ...prev, ticketDesign: "stub" }))
-                          }
+                          onClick={() => setPreviewTab("both")}
                           className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                            formData.ticketDesign === "stub"
+                            previewTab === "both"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
                               : "text-[#9B9EA4] hover:text-white"
                           }`}
                         >
-                          Stub Preview (780×240)
+                          Both Views
                         </button>
                         <button
                           type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({ ...prev, ticketDesign: "wide" }))
-                          }
+                          onClick={() => {
+                            setPreviewTab("stub");
+                            setFormData((prev) => ({ ...prev, ticketDesign: "stub" }));
+                          }}
                           className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                            formData.ticketDesign === "wide"
+                            previewTab === "stub"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
                               : "text-[#9B9EA4] hover:text-white"
                           }`}
                         >
-                          Wide Preview (720×200)
+                          Stub (780×240)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewTab("wide");
+                            setFormData((prev) => ({ ...prev, ticketDesign: "wide" }));
+                          }}
+                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            previewTab === "wide"
+                              ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
+                              : "text-[#9B9EA4] hover:text-white"
+                          }`}
+                        >
+                          Wide (720×200)
                         </button>
                       </div>
                     </div>
 
-                    {/* Ticket Render Container */}
-                    <div className="pt-2 pb-1 overflow-x-auto flex justify-center no-scrollbar">
-                      <div className="w-full max-w-[780px] min-w-[320px]">
-                        {formData.ticketDesign === "wide" ? (
-                          <WideTicket
-                            event={{
-                              name: formData.name || "Developer's Night 2026",
-                              title: formData.name || "Developer's Night 2026",
-                              date: formData.startDate || "2026-11-07",
-                              time: formData.startTime || "12:00 PM",
-                              location: formData.location || "Main Auditorium, Campus",
-                              theme: formData.theme,
-                              themeColor: selectedTheme.color,
-                              price: formData.isPaid ? formData.price : "Free",
-                              ticketDesign: "wide",
+                    {/* Ticket Render Container - Clicking preview opens full length ticket */}
+                    <div className="pt-2 pb-1 space-y-4">
+                      {/* Render Stub Ticket if in "both" or "stub" mode */}
+                      {(previewTab === "both" || previewTab === "stub") && (
+                        <div className="space-y-1.5">
+                          {previewTab === "both" && (
+                            <div className="flex items-center justify-between text-xs px-1 text-[#9B9EA4]">
+                              <span className="font-semibold text-white">Stub Layout (780×240)</span>
+                              <span className="text-[11px] text-[#FE760B]">Click ticket to view full length</span>
+                            </div>
+                          )}
+                          <div
+                            onClick={() => {
+                              setModalPreviewDesign("stub");
+                              setShowFullTicketModal(true);
                             }}
-                            registration={{
-                              ticketId: "TKT-1793-DEMO-WIDE",
-                              attendeeName: "Rahul Sharma (Attendee)",
-                              status: "Unused",
-                              ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-                            }}
-                            interactive={true}
-                            showActions={false}
-                          />
-                        ) : (
-                          <StubTicket
-                            event={{
-                              name: formData.name || "Developer's Night 2026",
-                              title: formData.name || "Developer's Night 2026",
-                              date: formData.startDate || "2026-11-07",
-                              time: formData.startTime || "12:00 PM",
-                              location: formData.location || "Main Auditorium, Campus",
-                              theme: formData.theme,
-                              themeColor: selectedTheme.color,
-                              price: formData.isPaid ? formData.price : "Free",
-                              ticketDesign: "stub",
-                            }}
-                            registration={{
-                              ticketId: "TKT-1793-DEMO-STUB",
-                              attendeeName: "Rahul Sharma (Attendee)",
-                              status: "Unused",
-                              ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-                            }}
-                            interactive={true}
-                            showActions={false}
-                          />
-                        )}
-                      </div>
-                    </div>
+                            className="pt-1 pb-1 overflow-x-auto flex justify-center no-scrollbar cursor-pointer transition-transform hover:scale-[1.005]"
+                            title="Click to view full length ticket"
+                          >
+                            <div className="w-full max-w-[780px] min-w-[320px]">
+                              <StubTicket
+                                event={{
+                                  name: formData.name || "Developer's Night 2026",
+                                  title: formData.name || "Developer's Night 2026",
+                                  date: formData.startDate || "2026-11-07",
+                                  time: formData.startTime || "12:00 PM",
+                                  location: formData.location || "Main Auditorium, Campus",
+                                  theme: formData.theme,
+                                  themeColor: selectedTheme.color,
+                                  themeHex: selectedTheme.color,
+                                  ticketBgColor: formData.ticketBgColor || selectedTheme.color,
+                                  price: formData.isPaid ? formData.price : "Free",
+                                  ticketDesign: "stub",
+                                  ticketBgUrl: "",
+                                  posterLine1: formData.posterLine1,
+                                  posterLine2: formData.posterLine2,
+                                  posterTextMode: formData.posterTextMode,
+                                  posterTextColor: formData.posterTextColor,
+                                  ticketTextColor: formData.posterTextColor,
+                                  posterFontSize: formData.posterFontSize,
+                                  posterAlign: formData.posterAlign,
+                                  posterTextY: formData.posterTextY,
+                                  posterTextBg: formData.posterTextBg,
+                                  showPosterText: formData.showPosterText,
+                                }}
+                                registration={{
+                                  ticketId: "TKT-1793-DEMO-STUB",
+                                  attendeeName: "Rahul Sharma (Attendee)",
+                                  status: "Valid Pass",
+                                  ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+                                }}
+                                interactive={true}
+                                showActions={true}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                    {/* Format Explanation Footer */}
-                    <div className="text-[11px] text-[#9B9EA4] pt-3 flex flex-col sm:flex-row sm:items-center justify-between border-t border-[#2A2D31]/80 gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-[#212327] border border-[#2A2D31] text-[#FE760B]">
-                          {formData.ticketDesign === "wide" ? "3-Panel Wide Format" : "Classic Stub Format"}
-                        </span>
-                        <span className="text-white/90 font-medium">
-                          {formData.ticketDesign === "wide"
-                            ? "Left QR code scanner + Center full event artwork + Right Code-128 barcode stub."
-                            : "Wide festival cover artwork with tear-off QR verification check-in stub."}
-                        </span>
-                      </div>
-                      <span className="text-[#FE760B] font-mono text-[10px] flex items-center gap-1 shrink-0">
-                        <Sparkles size={11} className="text-[#FE760B]" />
-                        <span>Click ticket perforation to test tear animation</span>
-                      </span>
+                      {/* Render Wide Ticket if in "both" or "wide" mode */}
+                      {(previewTab === "both" || previewTab === "wide") && (
+                        <div className="space-y-1.5">
+                          {previewTab === "both" && (
+                            <div className="flex items-center justify-between text-xs px-1 text-[#9B9EA4] pt-2 border-t border-[#2A2D31]/60">
+                              <span className="font-semibold text-white">Wide Layout (720×200)</span>
+                              <span className="text-[11px] text-[#FE760B]">Click ticket to view full length</span>
+                            </div>
+                          )}
+                          <div
+                            onClick={() => {
+                              setModalPreviewDesign("wide");
+                              setShowFullTicketModal(true);
+                            }}
+                            className="pt-1 pb-1 overflow-x-auto flex justify-center no-scrollbar cursor-pointer transition-transform hover:scale-[1.005]"
+                            title="Click to view full length ticket"
+                          >
+                            <div className="w-full max-w-[780px] min-w-[320px]">
+                              <WideTicket
+                                event={{
+                                  name: formData.name || "Developer's Night 2026",
+                                  title: formData.name || "Developer's Night 2026",
+                                  date: formData.startDate || "2026-11-07",
+                                  time: formData.startTime || "12:00 PM",
+                                  location: formData.location || "Main Auditorium, Campus",
+                                  theme: formData.theme,
+                                  themeColor: selectedTheme.color,
+                                  themeHex: selectedTheme.color,
+                                  ticketBgColor: formData.ticketBgColor || selectedTheme.color,
+                                  price: formData.isPaid ? formData.price : "Free",
+                                  ticketDesign: "wide",
+                                  ticketBgUrl: "",
+                                  posterLine1: formData.posterLine1,
+                                  posterLine2: formData.posterLine2,
+                                  posterTextMode: formData.posterTextMode,
+                                  posterTextColor: formData.posterTextColor,
+                                  ticketTextColor: formData.posterTextColor,
+                                  posterFontSize: formData.posterFontSize,
+                                  posterAlign: formData.posterAlign,
+                                  posterTextY: formData.posterTextY,
+                                  posterTextBg: formData.posterTextBg,
+                                  showPosterText: formData.showPosterText,
+                                }}
+                                registration={{
+                                  ticketId: "TKT-1793-DEMO-WIDE",
+                                  attendeeName: "Rahul Sharma (Attendee)",
+                                  status: "Valid Pass",
+                                  ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+                                }}
+                                interactive={true}
+                                showActions={true}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Submit Action Button (White rounded pill matching Image 2) */}
+            {/* Bottom Submit Action Button (Themed button with dynamic high-contrast text) */}
             <div className="pt-4 space-y-3">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-white hover:bg-neutral-100 active:bg-neutral-200 text-[#131517] font-bold text-sm sm:text-base py-3.5 px-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                style={{
+                  backgroundColor: selectedTheme.color,
+                  color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
+                }}
+                className={`w-full font-bold text-sm sm:text-base py-3.5 px-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:opacity-90 active:scale-[0.99] ${
+                  isLightColor(selectedTheme.color) ? "border border-black/15 shadow-md" : ""
+                }`}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin text-[#131517]" />
+                    <Loader2 className="w-5 h-5 animate-spin text-white" />
                     <span>Saving event...</span>
                   </>
                 ) : (
@@ -1746,42 +2710,210 @@ export function EventCreateStudio({
             </div>
 
             {formData.locationType === "in-person" ? (
-              <div className="space-y-3">
-                <label className="text-xs text-[#9B9EA4] font-medium">
-                  Venue Name or Address
-                </label>
-                <input
-                  type="text"
-                  value={locationInput}
-                  onChange={(e) => setLocationInput(e.target.value)}
-                  placeholder="e.g. KIET Group of Institutions, Main Auditorium"
-                  className="w-full h-11 px-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-sm text-white placeholder:text-[#9B9EA4] outline-none focus:border-[#FE760B]"
-                />
+              <div className="space-y-4">
+                {!selectedLocationVenue ? (
+                  /* STEP A: Searching with Real-Time Suggestions */
+                  <div className="space-y-3">
+                    <label className="text-xs text-[#9B9EA4] font-medium flex items-center justify-between">
+                      <span>Venue Name or Address</span>
+                      <span className="text-[10px] text-[#9B9EA4]">Search venue, campus, hall, or address</span>
+                    </label>
 
-                <div className="space-y-1.5 pt-2">
-                  <div className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
-                    Quick suggestions
-                  </div>
-                  <div className="max-h-48 overflow-y-auto space-y-1.5 divide-y divide-[#2A2D31]/40">
-                    {locationSuggestions.map((item, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setLocationInput(`${item.name}, ${item.address}`);
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={locationInput}
+                        onChange={(e) => handleLocationInputChange(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (locationSuggestions.length > 0) {
+                              handleSelectLocationItem(locationSuggestions[0]);
+                            }
+                          }
                         }}
-                        className="w-full text-left p-2 rounded-lg hover:bg-white/5 transition-colors"
-                      >
-                        <div className="text-xs font-bold text-white">
-                          {item.name}
+                        placeholder="Search location or venue..."
+                        className="w-full h-11 px-3.5 pr-9 rounded-xl bg-[#212327] text-white placeholder:text-[#9B9EA4] border border-[#2A2D31] outline-none focus:border-[#FE760B] text-sm font-medium transition-colors"
+                        autoFocus
+                      />
+                      {isSearchingLocation ? (
+                        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
+                          <Loader2 className="w-4 h-4 animate-spin text-[#FE760B]" />
                         </div>
-                        <div className="text-[11px] text-[#9B9EA4] truncate">
-                          {item.address}
-                        </div>
-                      </button>
-                    ))}
+                      ) : locationInput ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLocationInput("");
+                            setLocationSuggestions([]);
+                          }}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9B9EA4] hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Suggestions Box: Displayed when user types 2+ characters */}
+                    {locationInput.trim().length >= 2 && (
+                      <div className="rounded-xl bg-[#17191C] border border-[#2A2D31] shadow-2xl overflow-hidden divide-y divide-[#2A2D31]/60 max-h-64 overflow-y-auto">
+                        {isSearchingLocation && locationSuggestions.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-[#9B9EA4] flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-[#FE760B]" />
+                            <span>Searching venues and locations...</span>
+                          </div>
+                        ) : locationSuggestions.length > 0 ? (
+                          locationSuggestions.map((item, idx) => (
+                            <div
+                              key={item.id || idx}
+                              onClick={() => handleSelectLocationItem(item)}
+                              className="p-3 flex items-start gap-2.5 hover:bg-[#212327] cursor-pointer transition-colors text-left group"
+                            >
+                              <div className="p-1.5 rounded-lg bg-[#FE760B]/10 text-[#FE760B] group-hover:bg-[#FE760B] group-hover:text-[#131517] transition-colors mt-0.5 shrink-0">
+                                <MapPin className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-xs sm:text-sm font-bold text-white leading-snug group-hover:text-[#FE760B] transition-colors">
+                                    {item.name}
+                                  </p>
+                                  {item.isVerified && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30">
+                                      <Check className="w-2.5 h-2.5" /> Verified Campus
+                                    </span>
+                                  )}
+                                  {item.category && !item.isVerified && (
+                                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-[#9B9EA4]">
+                                      {item.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[#9B9EA4] truncate mt-0.5">
+                                  {item.address}
+                                </p>
+                                {item.lat && item.lng && (
+                                  <p className="text-[10px] font-mono text-[#3DD68C]/90 mt-0.5 flex items-center gap-1">
+                                    <MapPin className="w-2.5 h-2.5 text-[#3DD68C]" />
+                                    <span>{Number(item.lat).toFixed(4)}° N, {Number(item.lng).toFixed(4)}° E</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div
+                            onClick={() =>
+                              handleSelectLocationItem({
+                                name: locationInput.trim(),
+                                address: "Custom venue entered by organiser",
+                                lat: 28.6139,
+                                lng: 77.2090,
+                                isCustom: true,
+                              })
+                            }
+                            className="p-3.5 text-xs text-[#9B9EA4] hover:bg-[#212327] hover:text-white cursor-pointer flex items-center gap-2 font-semibold transition-colors"
+                          >
+                            <MapPin className="w-4 h-4 text-[#FE760B]" />
+                            <span>Use &quot;{locationInput.trim()}&quot; as custom venue</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  /* STEP B: Location Preview & Real Interactive Map */
+                  <div className="space-y-3.5 animate-fade-in">
+                    {/* Selected Venue Header & Change button */}
+                    <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-start justify-between gap-3 shadow-sm">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#3DD68C] flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Selected Venue
+                        </span>
+                        <h4 className="text-sm sm:text-base font-bold text-white truncate mt-0.5">
+                          {selectedLocationVenue.name}
+                        </h4>
+                        <p className="text-xs text-[#9B9EA4] line-clamp-2 mt-0.5">
+                          {selectedLocationVenue.address}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLocationVenue(null)}
+                        className="text-xs text-[#FE760B] hover:underline font-semibold shrink-0 pt-0.5 cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+
+                    {/* Real Live Map View */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-white font-semibold flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-[#FE760B]" />
+                          <span>Interactive Venue Map View</span>
+                        </span>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                            selectedLocationVenue.lat && selectedLocationVenue.lng
+                              ? `${selectedLocationVenue.lat},${selectedLocationVenue.lng}`
+                              : selectedLocationVenue.name + ", " + selectedLocationVenue.address
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-[#FE760B] hover:underline flex items-center gap-1"
+                        >
+                          <span>Open in Google Maps</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+
+                      {/* Real Interactive Map Embed Container */}
+                      <div className="relative h-56 sm:h-64 w-full rounded-xl overflow-hidden border border-[#2A2D31] bg-[#17191C] shadow-inner">
+                        <iframe
+                          title="Interactive Venue Map View"
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          allowFullScreen
+                          referrerPolicy="no-referrer-when-downgrade"
+                          src={
+                            selectedLocationVenue.lat && selectedLocationVenue.lng
+                              ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(selectedLocationVenue.lng) - 0.007}%2C${Number(selectedLocationVenue.lat) - 0.005}%2C${Number(selectedLocationVenue.lng) + 0.007}%2C${Number(selectedLocationVenue.lat) + 0.005}&layer=mapnik&marker=${selectedLocationVenue.lat}%2C${selectedLocationVenue.lng}`
+                              : `https://www.openstreetmap.org/export/embed.html?bbox=77.10%2C28.55%2C77.30%2C28.75&layer=mapnik&marker=28.6139%2C77.2090`
+                          }
+                          className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
+                        />
+
+                        {/* Coords & Venue Floating Badge */}
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[10px] text-white bg-black/85 px-2.5 py-1.5 rounded-lg backdrop-blur-sm border border-white/10 font-mono shadow-md">
+                          <span className="truncate max-w-[200px] flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-[#FE760B] shrink-0" />
+                            <span className="truncate">{selectedLocationVenue.name}</span>
+                          </span>
+                          <span className="text-[#3DD68C] font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C] animate-pulse" />
+                            {selectedLocationVenue.lat ? `${Number(selectedLocationVenue.lat).toFixed(4)}° N, ${Number(selectedLocationVenue.lng).toFixed(4)}° E` : "Verified Coordinates"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Specific Gate or Spot Note */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-[#9B9EA4] font-medium">
+                        Spot / Gate / Block Note (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={pinLandmark}
+                        onChange={(e) => setPinLandmark(e.target.value)}
+                        placeholder="Add landmark, gate, or hall note (optional)"
+                        className="w-full h-10 px-3 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder:text-[#9B9EA4] outline-none focus:border-[#FE760B]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -1819,6 +2951,233 @@ export function EventCreateStudio({
                 className="px-4 h-10 rounded-xl bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Event Description Modal (Properly styled & modern) */}
+      {showDescriptionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-150"
+          onClick={() => setShowDescriptionModal(false)}
+        >
+          <div
+            className="w-full max-w-xl bg-[#1A1C1F] border border-[#2A2D31] rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 space-y-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#2A2D31]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
+                    Event Description
+                  </h3>
+                  <p className="text-xs text-[#9B9EA4] mt-0.5">
+                    Provide clear details about what attendees should expect
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDescriptionModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body: High quality textarea box */}
+            <div className="p-5 space-y-2">
+              <div className="rounded-2xl bg-[#141619] border border-[#2A2D31] focus-within:border-[#FE760B] focus-within:ring-2 focus-within:ring-[#FE760B]/20 p-4 transition-all">
+                <textarea
+                  autoFocus
+                  value={safeDescription}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="Who should come? What's the event about? Include schedule, guidelines, and what to bring..."
+                  rows={7}
+                  className="w-full bg-transparent text-sm sm:text-base text-white placeholder:text-[#9B9EA4]/70 border-none outline-none focus:ring-0 resize-none leading-relaxed"
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-[#9B9EA4] px-1">
+                <span>Markdown & line breaks supported</span>
+                <span>{safeDescription.length} characters</span>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-5 pt-1 border-t border-[#2A2D31]/80 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDescriptionModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDescriptionModal(false)}
+                className="px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs sm:text-sm transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Length Ticket Pass Preview Modal */}
+      <TicketFullPreviewModal
+        isOpen={showFullTicketModal}
+        onClose={() => setShowFullTicketModal(false)}
+        event={{
+          name: formData.name || "Developer's Night 2026",
+          title: formData.name || "Developer's Night 2026",
+          date: formData.startDate || "2026-11-07",
+          time: formData.startTime || "12:00 PM",
+          location: formData.location || "Main Auditorium, Campus",
+          theme: formData.theme,
+          themeColor: selectedTheme.color,
+          themeHex: selectedTheme.color,
+          ticketBgColor: formData.ticketBgColor || selectedTheme.color,
+          price: formData.isPaid ? formData.price : "Free",
+          ticketDesign: modalPreviewDesign,
+          ticketBgUrl: "",
+          posterLine1: formData.posterLine1,
+          posterLine2: formData.posterLine2,
+          posterTextMode: formData.posterTextMode,
+          posterTextColor: formData.posterTextColor,
+          ticketTextColor: formData.posterTextColor,
+          posterFontSize: formData.posterFontSize,
+          posterAlign: formData.posterAlign,
+          posterTextY: formData.posterTextY,
+          posterTextBg: formData.posterTextBg,
+          showPosterText: formData.showPosterText,
+        }}
+        ticket={{
+          ticketId: modalPreviewDesign === "wide" ? "TKT-1793-DEMO-WIDE" : "TKT-1793-DEMO-STUB",
+          attendeeName: "Rahul Sharma (Attendee)",
+          status: "Valid Pass",
+          ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+        }}
+        design={modalPreviewDesign}
+      />
+
+      {/* Max Capacity Dialog matching Image 4 */}
+      {showCapacityModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          onClick={() => setShowCapacityModal(false)}
+        >
+          <div
+            className="w-full max-w-[360px] bg-white dark:bg-[#1A1C1F] border border-gray-200 dark:border-[#2A2D31] rounded-3xl shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Icon */}
+            <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-[#212327] border border-gray-200 dark:border-[#2A2D31] flex items-center justify-center text-gray-700 dark:text-gray-300">
+              <Upload className="w-5 h-5 rotate-180" />
+            </div>
+
+            {/* Title & Description */}
+            <div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                Max Capacity
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-[#9B9EA4] leading-relaxed mt-1">
+                Close registration when reaching the capacity. Only approved guests count towards it.
+              </p>
+            </div>
+
+            {/* Limit Event Capacity Toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                Limit Event Capacity
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    limitCapacity: !prev.limitCapacity,
+                  }))
+                }
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                  formData.limitCapacity ? "bg-[#3DD68C]" : "bg-gray-300 dark:bg-[#2A2D31]"
+                }`}
+                style={formData.limitCapacity ? { backgroundColor: selectedTheme.color } : {}}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                    formData.limitCapacity ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Max Capacity input (visible if limitCapacity is true) */}
+            {formData.limitCapacity && (
+              <div className="flex items-center justify-between animate-in fade-in duration-100">
+                <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                  Max Capacity
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxCapacity}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      maxCapacity: e.target.value,
+                      capacity: e.target.value,
+                    }))
+                  }
+                  className="w-20 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#2A2D31] bg-gray-50 dark:bg-[#212327] text-gray-900 dark:text-white text-center font-bold text-sm outline-none focus:ring-1 focus:ring-black dark:focus:ring-white"
+                />
+              </div>
+            )}
+
+            {/* Over-Capacity Waitlist Toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                Over-Capacity Waitlist
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    waitlist: !prev.waitlist,
+                  }))
+                }
+                className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                  formData.waitlist ? "bg-[#3DD68C]" : "bg-gray-300 dark:bg-[#2A2D31]"
+                }`}
+                style={formData.waitlist ? { backgroundColor: selectedTheme.color } : {}}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                    formData.waitlist ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Confirm button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCapacityModal(false)}
+                className="w-full py-2.5 rounded-xl bg-[#1A1C1F] dark:bg-white text-white dark:text-[#131517] font-semibold text-sm hover:opacity-90 transition-opacity shadow-md cursor-pointer"
+              >
+                Confirm
               </button>
             </div>
           </div>

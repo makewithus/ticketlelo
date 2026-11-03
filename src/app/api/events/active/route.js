@@ -24,18 +24,33 @@ function serializePublicEvent(id, data) {
   return {
     id,
     name: data.name || data.title || data.eventName || "Live Event",
+    title: data.name || data.title || data.eventName || "Live Event",
     description:
       typeof data.description === "string"
         ? data.description
         : data.description?.text || "",
     location: data.location || data.venue || "Location to be announced",
+    locationVenue: data.locationVenue || data.location || "",
+    locationAddress: data.locationAddress || "",
+    locationType: data.locationType || "in-person",
     date: parseEventDate(data),
+    startDate: data.startDate || null,
+    startTime: data.startTime || null,
+    endDate: data.endDate || null,
+    endTime: data.endTime || null,
     totalTickets: Number(data.totalTickets ?? data.capacity ?? 150),
-    coverImage: data.coverImage || data.image || "",
-    themeColor: data.themeColor || "#FE760B",
+    capacity: data.capacity || data.maxCapacity || 150,
+    coverImage: data.coverImage || data.image || data.bannerUrl || "",
+    bannerUrl: data.bannerUrl || data.coverImage || data.image || "",
+    ticketBgUrl: data.ticketBgUrl || "",
+    theme: data.theme || "minimal",
+    themeColor: data.themeColor || data.themeHex || "#FE760B",
     price: data.price || (data.isPaid ? "Paid" : "Free"),
     isPaid: Boolean(data.isPaid),
     slug: data.slug || id,
+    category: data.category || (data.isPaid ? "Featured" : "Popular"),
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    ticketDesign: data.ticketDesign || "stub",
   };
 }
 
@@ -71,8 +86,8 @@ export async function GET() {
       .map(({ id, data }) => serializePublicEvent(id, data));
 
     return NextResponse.json(
-      { events },
-      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } },
+      { success: true, events },
+      { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=60" } },
     );
   } catch (error) {
     console.error("Load active events failed:", error.code || "unknown-error");

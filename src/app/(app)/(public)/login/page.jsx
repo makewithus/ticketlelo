@@ -85,19 +85,12 @@ function UnifiedLoginContent() {
       const checkAndRedirect = async () => {
         let activeRole = currentUser.role;
 
-        // If redirecting to admin dashboard, ensure latest role & claims are synchronized
-        if (
-          redirectParam &&
-          redirectParam.includes("/admin") &&
-          activeRole !== "organiser" &&
-          activeRole !== "superAdmin"
-        ) {
-          try {
-            const fresh = await refreshUser?.();
-            if (fresh?.role) activeRole = fresh.role;
-          } catch (e) {
-            console.warn("Could not refresh user role on login page:", e);
-          }
+        // Ensure latest verified role from Firestore & claims are synchronized
+        try {
+          const fresh = await refreshUser?.();
+          if (fresh?.role) activeRole = fresh.role;
+        } catch (e) {
+          console.warn("Could not refresh user role on login page:", e);
         }
 
         if (!isMounted) return;
@@ -109,10 +102,31 @@ function UnifiedLoginContent() {
           ? activeRole === "organiser" || activeRole === "superAdmin"
           : true;
 
-        const targetPath =
-          hasAccess && redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login")
-            ? redirectParam
-            : getRedirectPathForRole(activeRole);
+        let targetPath = getRedirectPathForRole(activeRole);
+        if (
+          hasAccess &&
+          redirectParam &&
+          redirectParam.startsWith("/") &&
+          !redirectParam.startsWith("/login")
+        ) {
+          if (activeRole === "superAdmin") {
+            targetPath = redirectParam.startsWith("/superadmin") ? redirectParam : "/superadmin";
+          } else if (activeRole === "organiser") {
+            if (
+              redirectParam === "/dashboard" ||
+              redirectParam === "/account" ||
+              redirectParam === "/host-event" ||
+              redirectParam === "/" ||
+              redirectParam.startsWith("/(user)")
+            ) {
+              targetPath = "/admin/dashboard";
+            } else {
+              targetPath = redirectParam;
+            }
+          } else {
+            targetPath = redirectParam;
+          }
+        }
 
         router.replace(targetPath);
       };
@@ -133,12 +147,33 @@ function UnifiedLoginContent() {
       ? role === "organiser" || role === "superAdmin"
       : true;
 
-    const targetPath =
-      hasAccess && redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login")
-        ? redirectParam
-        : getRedirectPathForRole(role);
+    let targetPath = getRedirectPathForRole(role);
+    if (
+      hasAccess &&
+      redirectParam &&
+      redirectParam.startsWith("/") &&
+      !redirectParam.startsWith("/login")
+    ) {
+      if (role === "superAdmin") {
+        targetPath = redirectParam.startsWith("/superadmin") ? redirectParam : "/superadmin";
+      } else if (role === "organiser") {
+        if (
+          redirectParam === "/dashboard" ||
+          redirectParam === "/account" ||
+          redirectParam === "/host-event" ||
+          redirectParam === "/" ||
+          redirectParam.startsWith("/(user)")
+        ) {
+          targetPath = "/admin/dashboard";
+        } else {
+          targetPath = redirectParam;
+        }
+      } else {
+        targetPath = redirectParam;
+      }
+    }
 
-    if (redirectParam && redirectParam.startsWith("/")) {
+    if (redirectParam && redirectParam.startsWith("/") && targetPath === redirectParam) {
       toast.success(
         `Welcome${displayName ? `, ${displayName}` : ""}! Returning to your event request...`
       );
@@ -227,8 +262,16 @@ function UnifiedLoginContent() {
     try {
       const userData = await loginWithGoogle();
       if (!userData) return;
-      const role = userData?.role || "user";
-      handleAuthSuccess(role, userData?.fullName);
+      let role = userData?.role || "user";
+      let fullName = userData?.fullName;
+      try {
+        const freshUser = await refreshUser?.();
+        if (freshUser?.role) {
+          role = freshUser.role;
+          fullName = freshUser.fullName || fullName;
+        }
+      } catch (_) {}
+      handleAuthSuccess(role, fullName);
     } catch (err) {
       if (
         err?.isCancelled ||

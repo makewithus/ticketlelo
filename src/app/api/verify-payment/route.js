@@ -7,6 +7,8 @@ import { getAuthenticatedUser } from "@/lib/auth-server";
 import { configuredPaymentSecret, verifyPaymentHmac } from "@/lib/payment-security";
 import { resolveTicketEntitlements } from "@/lib/combos";
 import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
+import { getDefaultPaymentProvider } from "@/lib/payments/provider-registry";
+import { recordPaymentCaptureLedger } from "@/lib/payments/ledger";
 
 const deterministicId = (orderId) => crypto.createHash("sha256").update(orderId).digest("hex");
 
@@ -52,7 +54,8 @@ export async function POST(request) {
     const ticketRef = adminDb.collection("tickets").doc(ticketId);
     const registrationRef = adminDb.collection("registrations").doc(registrationId);
     const reservationRef = order.reservationId ? adminDb.collection("reservations").doc(order.reservationId) : null;
-    const eventSnap = await adminDb.collection("events").doc(order.eventId).get();
+    const eventRef = adminDb.collection("events").doc(order.eventId);
+    const eventSnap = await eventRef.get();
     if (!eventSnap.exists) return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
     const event = eventSnap.data();
     const entitlements = resolveTicketEntitlements(order.ticketConfig);
@@ -131,7 +134,69 @@ export async function POST(request) {
       });
       transaction.update(orderRef, { status: "paid", paymentId, ticketId, registrationId, paidAt: now, updatedAt: now });
       if (reservationRef) transaction.update(reservationRef, { status: "finalized", finalizedAt: now, updatedAt: now });
+      
+      // Increment event allocated seats upon completed paid registration
+      const paidQty = Number(order.quantity || 1);
+      const currentAllocated = Number(event.allocatedSeats || 0);
+      transaction.update(eventRef, {
+        allocatedSeats: currentAllocated + paidQty,
+        updatedAt: now,
+      });
     });
+
+    // 8. Marketplace Split Allocation & Double-Entry Financial Ledger
+    try {
+      const organizerSharePaise = Number(order.organizerSharePaise || (expectedPaise - Math.round(Number(order.pricing?.platformFee || 0) * 100)));
+      const platformCommissionPaise = Number(order.platformCommissionPaise || Math.round(Number(order.pricing?.platformFee || 0) * 100));
+
+      let splitResults = null;
+      if (order.isRouteTransfer && order.connectedAccountId && organizerSharePaise > 0) {
+        const provider = getDefaultPaymentProvider();
+        splitResults = await provider.createTransferOrSplit(paymentId, [{
+          accountId: order.connectedAccountId,
+          amountPaise: organizerSharePaise,
+          currency: "INR",
+          notes: { orderId, bookingId: ticketId, eventId: order.eventId }
+        }]).catch(err => {
+          console.error("[verify-payment] Route transfer execution error:", err.message);
+          return null;
+        });
+
+        await adminDb.collection("paymentSplits").doc(`split_${orderId}`).set({
+          paymentId,
+          orderId,
+          organizerId: order.organizerId || null,
+          connectedAccountId: order.connectedAccountId,
+          grossAmountPaise: expectedPaise,
+          organizerAmountPaise: organizerSharePaise,
+          platformCommissionPaise,
+          transferStatus: splitResults ? "PROCESSED" : "FAILED",
+          providerTransferId: splitResults?.[0]?.transferId || null,
+          transferredAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      // Commit balanced double-entry accounting ledger
+      await recordPaymentCaptureLedger({
+        transactionId: `tx_pay_${orderId}`,
+        orderId,
+        bookingId: ticketId,
+        eventId: order.eventId,
+        organizerId: order.organizerId,
+        grossAmountPaise: expectedPaise,
+        organizerSharePaise,
+        platformCommissionPaise
+      });
+
+      await orderRef.update({
+        paymentStatus: "CAPTURED",
+        transferStatus: splitResults ? "TRANSFERRED" : (order.isRouteTransfer ? "TRANSFER_FAILED" : "NOT_APPLICABLE"),
+        capturedPaymentId: paymentId,
+        updatedAt: Timestamp.now()
+      });
+    } catch (ledgerErr) {
+      console.warn("[verify-payment] Ledger or split recording warning:", ledgerErr.message);
+    }
 
     return NextResponse.json({ success: true, message: "Payment verified and ticket issued", ticketId });
   } catch (error) {

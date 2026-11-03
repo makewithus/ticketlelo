@@ -47,99 +47,17 @@ export function HostingRequestForm() {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
-  // 1. Initial check: restore active request for signed-in user
+  // 1. Ensure any legacy drafts are cleaned up so form is fresh every time
   useEffect(() => {
-    let isMounted = true;
-
-    const checkActiveRequest = async () => {
-      // Super Admins administer the platform and never have a pending hosting request
-      if (
-        user?.role === "superAdmin" ||
-        user?.email === "adil4ticketlelo@gmail.com" ||
-        user?.email === "superadmin@ticketlelo.com"
-      ) {
-        return;
-      }
-
-      const storedReqId =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("ticketlelo_submitted_req_id") ||
-            localStorage.getItem("ticketlelo_submitted_req_id")
-          : null;
-      const storedEmail =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("ticketlelo_submitted_req_email") ||
-            user?.email
-          : user?.email;
-
-      const lookupParam = storedReqId
-        ? `id=${encodeURIComponent(storedReqId)}`
-        : storedEmail
-        ? `email=${encodeURIComponent(storedEmail)}`
-        : null;
-
-      if (!lookupParam) return;
-
-      try {
-        const res = await fetch(`/api/hosting-requests/status?${lookupParam}`);
-        if (!res.ok) return;
-        const data = await res.json();
-
-        if (!isMounted) return;
-
-        // If request belongs to a different email than signed-in user, ignore it and clear storage
-        if (
-          user?.email &&
-          data.request?.email &&
-          data.request.email.toLowerCase() !== user.email.toLowerCase()
-        ) {
-          try {
-            sessionStorage.removeItem("ticketlelo_submitted_req_id");
-            sessionStorage.removeItem("ticketlelo_submitted_req_email");
-            localStorage.removeItem("ticketlelo_submitted_req_id");
-            localStorage.removeItem("ticketlelo_submitted_req_email");
-          } catch (_) {}
-          return;
-        }
-
-        if (data.found && data.request) {
-          setRequestId(data.request.id);
-          setRequestStatus(data.status);
-          if (data.request.rejectionReason) {
-            setRejectionReason(data.request.rejectionReason);
-          }
-          setFormData((prev) => ({
-            ...prev,
-            name: data.request.name || prev.name,
-            email: data.request.email || prev.email,
-            phone: data.request.phone || prev.phone,
-            college: data.request.college || prev.college,
-            eventTitle: data.request.eventTitle || prev.eventTitle,
-            description: data.request.description || prev.description,
-            isPaid: Boolean(data.request.isPaid),
-            numberOfTickets: data.request.numberOfTickets || prev.numberOfTickets,
-          }));
-
-          setSubmitted(true);
-
-          if (data.isApproved) {
-            setIsApproved(true);
-            setRequestStatus("approved");
-          }
-        }
-      } catch (err) {
-        console.warn("Could not check active hosting request:", err);
-      }
-    };
-
-    if (!authLoading) {
-      checkActiveRequest();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user?.email, user?.role, authLoading]);
+    try {
+      sessionStorage.removeItem(DRAFT_KEY);
+      sessionStorage.removeItem("ticketlelo_submitted_req_id");
+      sessionStorage.removeItem("ticketlelo_submitted_req_email");
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem("ticketlelo_submitted_req_id");
+      localStorage.removeItem("ticketlelo_submitted_req_email");
+    } catch (_) {}
+  }, []);
 
   // 2. Real-time approval listener (polling API + Firestore doc listener)
   useEffect(() => {
@@ -281,77 +199,25 @@ export function HostingRequestForm() {
     };
   }, [isApproved, refreshUser]);
 
-  // Restore any saved draft from storage post-hydration to prevent SSR mismatch
-  useEffect(() => {
-    if (submitted || isApproved) return;
-    const timer = setTimeout(() => {
-      try {
-        const saved =
-          sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && typeof parsed === "object") {
-            setFormData((prev) => ({
-              ...prev,
-              name: parsed.name || prev.name,
-              email: parsed.email || prev.email,
-              phone: parsed.phone || prev.phone,
-              college: parsed.college || prev.college,
-              eventTitle: parsed.eventTitle || prev.eventTitle,
-              description: parsed.description || prev.description,
-              isPaid:
-                parsed.isPaid !== undefined
-                  ? Boolean(parsed.isPaid)
-                  : prev.isPaid,
-              numberOfTickets: parsed.numberOfTickets || prev.numberOfTickets,
-            }));
-          }
-        }
-      } catch (e) {
-        console.warn("Storage restoration error:", e);
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [submitted, isApproved]);
-
-  // Pre-fill and synchronize user profile details with authenticated user
+  // Pre-fill signed-in user name & email; event details start empty every time
   useEffect(() => {
     if (!user) return;
     const timer = setTimeout(() => {
       setFormData((prev) => {
         const nextName = prev.name || user.fullName || user.displayName || "";
         const nextEmail = user.email || prev.email;
-        const nextPhone =
-          prev.phone ||
-          (user.whatsappPhone
-            ? String(user.whatsappPhone).replace(/\D/g, "").slice(0, 10)
-            : "");
-        if (prev.name === nextName && prev.email === nextEmail && prev.phone === nextPhone) {
+        if (prev.name === nextName && prev.email === nextEmail) {
           return prev;
         }
         return {
           ...prev,
           name: nextName,
           email: nextEmail,
-          phone: nextPhone,
         };
       });
     }, 0);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.email, user?.fullName, user?.displayName, user?.whatsappPhone]);
-
-  // Continuously persist form draft to sessionStorage & localStorage
-  useEffect(() => {
-    try {
-      const hasContent = Object.values(formData).some((v) => Boolean(v));
-      if (hasContent) {
-        const json = JSON.stringify(formData);
-        sessionStorage.setItem(DRAFT_KEY, json);
-        localStorage.setItem(DRAFT_KEY, json);
-      }
-    } catch (e) {}
-  }, [formData]);
+  }, [user?.email, user?.fullName, user?.displayName]);
 
   const validateField = (fieldName, value) => {
     const val = typeof value === "string" ? value.trim() : value;

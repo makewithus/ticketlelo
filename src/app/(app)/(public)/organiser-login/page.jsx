@@ -7,7 +7,7 @@ export default function OrganiserLoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/login");
+    router.replace("/login?role=organiser&redirect=/admin/dashboard");
   }, [router]);
 
   return (

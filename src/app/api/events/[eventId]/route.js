@@ -34,3 +34,47 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export async function PATCH(request, { params }) {
+  try {
+    const { eventId } = await params;
+    if (!eventId) {
+      return NextResponse.json({ error: "Event ID is required" }, { status: 400 });
+    }
+
+    if (!isFirebaseAdminReady()) {
+      return NextResponse.json({ error: "Database service unavailable" }, { status: 503 });
+    }
+
+    const updates = await request.json();
+    if (!updates || typeof updates !== "object") {
+      return NextResponse.json({ error: "Invalid updates payload" }, { status: 400 });
+    }
+
+    const eventRef = adminDb.collection("events").doc(eventId);
+    const docSnap = await eventRef.get();
+    if (!docSnap.exists) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
+
+    // Clean payload
+    const safeUpdates = {
+      ...updates,
+      updatedAt: new Date(),
+    };
+    delete safeUpdates.id;
+
+    await eventRef.update(safeUpdates);
+
+    return NextResponse.json({
+      success: true,
+      message: "Event updated successfully",
+      eventId,
+      updates: safeUpdates,
+    });
+  } catch (error) {
+    console.error("Patch event API error:", error?.message || error);
+    return NextResponse.json({ error: error.message || "Failed to update event" }, { status: 500 });
+  }
+}
+

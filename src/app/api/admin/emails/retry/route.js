@@ -18,11 +18,13 @@ export async function POST(request) {
     }
 
     const emailLower = (caller?.email || "").toLowerCase().trim();
+    const superAdminEnv = (process.env.SUPER_ADMIN_EMAIL || "").toLowerCase().trim();
     const isSuperAdmin =
       caller.role === "superAdmin" ||
+      caller.isAdmin === true ||
       emailLower === "adil4ticketlelo@gmail.com" ||
       emailLower === "superadmin@ticketlelo.com" ||
-      emailLower === (process.env.SUPER_ADMIN_EMAIL || "").toLowerCase().trim();
+      (superAdminEnv && emailLower === superAdminEnv);
 
     if (!isSuperAdmin) {
       return NextResponse.json({ error: "Superadmin access required" }, { status: 403 });

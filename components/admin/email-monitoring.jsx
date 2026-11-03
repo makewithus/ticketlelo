@@ -15,6 +15,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { auth } from "@/lib/firebase";
+import { StyledDropdown } from "@/components/ui/styled-dropdown";
 
 export function EmailMonitoringDashboard() {
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,15 @@ export function EmailMonitoringDashboard() {
       if (statusFilter) params.set("status", statusFilter);
       if (searchQuery) params.set("recipient", searchQuery);
 
-      const res = await fetch(`/api/admin/emails?${params.toString()}`);
+      let headers = {};
+      try {
+        if (auth?.currentUser) {
+          const token = await auth.currentUser.getIdToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (_) {}
+
+      const res = await fetch(`/api/admin/emails?${params.toString()}`, { headers });
       if (!res.ok) {
         throw new Error("Failed to load email statistics");
       }
@@ -73,7 +83,15 @@ export function EmailMonitoringDashboard() {
         const params = new URLSearchParams();
         if (statusFilter) params.set("status", statusFilter);
 
-        const res = await fetch(`/api/admin/emails?${params.toString()}`);
+        let headers = {};
+        try {
+          if (auth?.currentUser) {
+            const token = await auth.currentUser.getIdToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (_) {}
+
+        const res = await fetch(`/api/admin/emails?${params.toString()}`, { headers });
         if (!res.ok) throw new Error("Failed to load email statistics");
         const json = await res.json();
         if (!ignore) {
@@ -96,9 +114,17 @@ export function EmailMonitoringDashboard() {
   const handleRetry = async (jobId) => {
     try {
       setRetryingId(jobId);
+      let headers = { "Content-Type": "application/json" };
+      try {
+        if (auth?.currentUser) {
+          const token = await auth.currentUser.getIdToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (_) {}
+
       const res = await fetch("/api/admin/emails/retry", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ jobId }),
       });
       const json = await res.json();
@@ -112,8 +138,29 @@ export function EmailMonitoringDashboard() {
     }
   };
 
-  const dailyPct = Math.min(100, Math.round((data.quota.dailyUsed / (data.quota.dailyLimit || 1)) * 100));
-  const monthlyPct = Math.min(100, Math.round((data.quota.monthlyUsed / (data.quota.monthlyLimit || 1)) * 100));
+  const quota = data?.quota || {
+    dailyUsed: 0,
+    dailyLimit: 100,
+    dailyRemaining: 100,
+    monthlyUsed: 0,
+    monthlyLimit: 3000,
+    monthlyRemaining: 3000,
+    safetyMargin: 5,
+    nextDailyReset: null,
+  };
+  const stats = data?.stats || {
+    totalSent: 0,
+    totalDelivered: 0,
+    totalPending: 0,
+    totalScheduled: 0,
+    totalFailed: 0,
+    totalBounced: 0,
+    totalComplained: 0,
+  };
+  const jobs = Array.isArray(data?.jobs) ? data.jobs : [];
+
+  const dailyPct = Math.min(100, Math.round(((quota.dailyUsed || 0) / (quota.dailyLimit || 1)) * 100));
+  const monthlyPct = Math.min(100, Math.round(((quota.monthlyUsed || 0) / (quota.monthlyLimit || 1)) * 100));
 
   return (
     <div className="space-y-6">
@@ -128,14 +175,6 @@ export function EmailMonitoringDashboard() {
             Real-time delivery status, Resend daily quota management & persistent queue monitoring
           </p>
         </div>
-        <button
-          onClick={fetchEmailData}
-          disabled={loading}
-          className="px-3.5 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-white border border-[#2A2D31] transition-colors flex items-center gap-2 self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </button>
       </div>
 
       {/* Quota Cards */}
@@ -147,7 +186,7 @@ export function EmailMonitoringDashboard() {
               Daily Quota (Resend)
             </span>
             <span className="text-xs font-bold text-white">
-              {data.quota.dailyUsed} / {data.quota.dailyLimit}
+              {quota.dailyUsed} / {quota.dailyLimit}
             </span>
           </div>
           <div className="w-full h-2 rounded-full bg-[#131517] overflow-hidden mb-3">
@@ -159,13 +198,13 @@ export function EmailMonitoringDashboard() {
             />
           </div>
           <div className="flex items-center justify-between text-[11px] text-[#9B9EA4]">
-            <span>Remaining: <strong className="text-white">{data.quota.dailyRemaining}</strong></span>
-            <span>Safety Margin: <strong className="text-amber-400">{data.quota.safetyMargin}</strong> (reserved for P0 tickets)</span>
+            <span>Remaining: <strong className="text-white">{quota.dailyRemaining}</strong></span>
+            <span>Safety Margin: <strong className="text-amber-400">{quota.safetyMargin}</strong> (reserved for P0 tickets)</span>
           </div>
-          {data.quota.nextDailyReset && (
+          {quota.nextDailyReset && (
             <p className="text-[10px] text-[#6C7075] mt-2 flex items-center gap-1">
               <Clock className="w-3 h-3 text-[#9B9EA4]" />
-              Next reset: {new Date(data.quota.nextDailyReset).toUTCString()}
+              Next reset: {new Date(quota.nextDailyReset).toUTCString()}
             </p>
           )}
         </div>
@@ -177,7 +216,7 @@ export function EmailMonitoringDashboard() {
               Monthly Quota
             </span>
             <span className="text-xs font-bold text-white">
-              {data.quota.monthlyUsed} / {data.quota.monthlyLimit}
+              {quota.monthlyUsed} / {quota.monthlyLimit}
             </span>
           </div>
           <div className="w-full h-2 rounded-full bg-[#131517] overflow-hidden mb-3">
@@ -189,8 +228,7 @@ export function EmailMonitoringDashboard() {
             />
           </div>
           <div className="flex items-center justify-between text-[11px] text-[#9B9EA4]">
-            <span>Remaining: <strong className="text-white">{data.quota.monthlyRemaining}</strong></span>
-            <span>Resets on: 1st of next month (00:00 UTC)</span>
+            <span>Remaining: <strong className="text-white">{quota.monthlyRemaining}</strong></span>
           </div>
         </div>
       </div>
@@ -199,31 +237,31 @@ export function EmailMonitoringDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-[#9B9EA4]">Sent</p>
-          <p className="text-lg font-extrabold text-white mt-1">{data.stats.totalSent}</p>
+          <p className="text-lg font-extrabold text-white mt-1">{stats.totalSent}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-emerald-400">Delivered</p>
-          <p className="text-lg font-extrabold text-emerald-400 mt-1">{data.stats.totalDelivered}</p>
+          <p className="text-lg font-extrabold text-emerald-400 mt-1">{stats.totalDelivered}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-blue-400">Pending</p>
-          <p className="text-lg font-extrabold text-blue-400 mt-1">{data.stats.totalPending}</p>
+          <p className="text-lg font-extrabold text-blue-400 mt-1">{stats.totalPending}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-amber-400">Scheduled</p>
-          <p className="text-lg font-extrabold text-amber-400 mt-1">{data.stats.totalScheduled}</p>
+          <p className="text-lg font-extrabold text-amber-400 mt-1">{stats.totalScheduled}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-red-400">Failed (DLQ)</p>
-          <p className="text-lg font-extrabold text-red-400 mt-1">{data.stats.totalFailed}</p>
+          <p className="text-lg font-extrabold text-red-400 mt-1">{stats.totalFailed}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-rose-400">Bounced</p>
-          <p className="text-lg font-extrabold text-rose-400 mt-1">{data.stats.totalBounced}</p>
+          <p className="text-lg font-extrabold text-rose-400 mt-1">{stats.totalBounced}</p>
         </div>
         <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-center">
           <p className="text-[10px] uppercase font-bold text-purple-400">Complaints</p>
-          <p className="text-lg font-extrabold text-purple-400 mt-1">{data.stats.totalComplained}</p>
+          <p className="text-lg font-extrabold text-purple-400 mt-1">{stats.totalComplained}</p>
         </div>
       </div>
 
@@ -242,22 +280,26 @@ export function EmailMonitoringDashboard() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="w-3.5 h-3.5 text-[#9B9EA4]" />
-          <select
+          <StyledDropdown
+            icon={Filter}
+            label="Status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-xs text-white focus:outline-none focus:border-[#FE760B]"
-          >
-            <option value="">All Statuses</option>
-            <option value="QUEUED">QUEUED</option>
-            <option value="PROCESSING">PROCESSING</option>
-            <option value="SCHEDULED">SCHEDULED (Deferred)</option>
-            <option value="SENT">SENT</option>
-            <option value="DELIVERED">DELIVERED</option>
-            <option value="FAILED">FAILED</option>
-            <option value="BOUNCED">BOUNCED</option>
-            <option value="COMPLAINED">COMPLAINED</option>
-          </select>
+            options={[
+              { value: "", label: "All Statuses" },
+              { value: "QUEUED", label: "QUEUED" },
+              { value: "PROCESSING", label: "PROCESSING" },
+              { value: "SCHEDULED", label: "SCHEDULED (Deferred)" },
+              { value: "SENT", label: "SENT" },
+              { value: "DELIVERED", label: "DELIVERED" },
+              { value: "FAILED", label: "FAILED" },
+              { value: "BOUNCED", label: "BOUNCED" },
+              { value: "COMPLAINED", label: "COMPLAINED" },
+            ]}
+            onChange={(val) => setStatusFilter(val)}
+            align="right"
+            buttonClassName="h-9 rounded-lg bg-[#212327] border-[#2A2D31]"
+            menuClassName="w-56"
+          />
         </div>
       </div>
 
@@ -277,14 +319,14 @@ export function EmailMonitoringDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2A2D31]">
-              {data.jobs.length === 0 ? (
+              {jobs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-[#9B9EA4]">
                     No email jobs matching criteria.
                   </td>
                 </tr>
               ) : (
-                data.jobs.map((job) => (
+                jobs.map((job) => (
                   <tr key={job.id} className="hover:bg-[#212327]/50 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1.5">

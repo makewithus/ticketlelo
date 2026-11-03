@@ -26,6 +26,7 @@ import {
   Download,
   X,
   Mail,
+  Pencil,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { EventControlHeader } from "@/components/admin/event-control-header";
@@ -36,10 +37,15 @@ import {
   subscribeToEvent,
   subscribeToEventRegistrations,
   updateEvent,
+  approveRegistration,
+  declineRegistration,
 } from "@/lib/firestore";
 import { getThemeLook, getPosterLines } from "@/lib/theme-utils";
 import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
 import { getPublicEventUrl, getPublicEventDisplayUrl } from "@/lib/app-url";
+import { EditEventSlider } from "@/components/admin/edit-event-slider";
+import { SquarePhotoUploadModal } from "@/components/admin/square-photo-upload-modal";
+import { WebScannerModal } from "@/components/admin/web-scanner-modal";
 
 const THEMES = [
   { id: "sunset", name: "Sunset", color: "#FE760B", bg: "#FE760B", sun: "#FB923C", text: "#131517" },
@@ -116,6 +122,19 @@ export default function EventOverviewPage() {
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
 
+  // Slide-over & Interactive Modals
+  const [showEditSlider, setShowEditSlider] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [targetScannerGuest, setTargetScannerGuest] = useState(null);
+
+  // Real-time Location Editor states (Image 5)
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+
   // 1. Initial Load: Fetch organiser events from Firestore
   useEffect(() => {
     let isMounted = true;
@@ -124,7 +143,12 @@ export default function EventOverviewPage() {
       try {
         setLoading(true);
         let list = [];
-        if (user.role === "superAdmin") {
+        const emailLower = (user?.email || "").toLowerCase().trim();
+        const isSuper =
+          user.role === "superAdmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+        if (isSuper) {
           list = await getAllEvents();
         } else {
           list = await getEventsByOrganiser(user.id);
@@ -170,7 +194,7 @@ export default function EventOverviewPage() {
         }
       } catch (err) {
         console.error("Failed to load events for overview:", err);
-        toast.error("Could not load events from database");
+        toast.error("Could not load events");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -247,9 +271,70 @@ export default function EventOverviewPage() {
     ).length;
   }, [registrations]);
 
-  const notYetCount = Math.max(0, totalGuests - checkedInCount);
-  const totalCapacity = parseInt(event?.capacity || event?.totalTickets || 150, 10);
-  const seatsLeft = Math.max(0, totalCapacity - totalGuests);
+  const safeTotalGuests = Number.isFinite(totalGuests) ? totalGuests : 0;
+  const safeCheckedInCount = Number.isFinite(checkedInCount) ? checkedInCount : 0;
+  const notYetCount = Math.max(0, safeTotalGuests - safeCheckedInCount);
+
+  const rawCap = event?.capacity ?? event?.totalTickets ?? 150;
+  const digits = String(rawCap).replace(/[^\d]/g, "");
+  const parsedCap = digits ? parseInt(digits, 10) : 150;
+  const totalCapacity = Number.isFinite(parsedCap) && parsedCap > 0 ? parsedCap : 150;
+  const seatsLeft = Math.max(0, totalCapacity - safeTotalGuests);
+
+  // Live Location search for real-time venue editing (Image 5)
+  useEffect(() => {
+    if (!isEditingLocation || !locationQuery || locationQuery.trim().length < 2) {
+      setLocationSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearchingPlaces(true);
+      try {
+        const res = await fetch(`/api/places/search?q=${encodeURIComponent(locationQuery.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLocationSuggestions(data.places || []);
+        }
+      } catch (err) {
+        console.warn("Places search error:", err);
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [locationQuery, isEditingLocation]);
+
+  const handleSelectLocation = async (place) => {
+    if (!event?.id) return;
+    setIsSavingLocation(true);
+    try {
+      const newLoc = place.name || place.address;
+      const newAddr = place.address || place.name;
+      await updateEvent(event.id, {
+        location: newLoc,
+        address: newAddr,
+        venue: newLoc,
+        lat: place.lat || null,
+        lng: place.lng || null,
+      });
+      setEvent((prev) => ({
+        ...prev,
+        location: newLoc,
+        address: newAddr,
+        venue: newLoc,
+        lat: place.lat || null,
+        lng: place.lng || null,
+      }));
+      toast.success("Event location updated in real time!");
+      setIsEditingLocation(false);
+      setLocationQuery("");
+    } catch (err) {
+      console.error("Location update error:", err);
+      toast.error("Failed to update location");
+    } finally {
+      setIsSavingLocation(false);
+    }
+  };
 
   // Status toggle: live vs draft
   const isLive =
@@ -435,7 +520,7 @@ export default function EventOverviewPage() {
   }
 
   return (
-    <div className="py-4 sm:py-6 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">
+    <div className="py-4 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">
       {/* ── Standard Navigation Header with Live Event Switcher ── */}
       <EventControlHeader
         activeTab="Overview"
@@ -491,19 +576,19 @@ export default function EventOverviewPage() {
         }
       />
 
-      {/* ── 3 Action Buttons matching Images 1 & 2 ── */}
+      {/* ── 3 Action Buttons matching Image 1 with vibrant squircle icons & glowing hover effects ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-6">
         {/* Button 1: Invite Guests */}
         <button
           type="button"
           onClick={() => setShowInviteModal(true)}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm group cursor-pointer"
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#2B59FF]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm hover:shadow-[0_0_28px_rgba(43,89,255,0.4)] hover:scale-[1.01] group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-full bg-[#1E293B] border border-blue-500/20 flex items-center justify-center text-[#3B82F6] transition-colors">
-            <UserPlus size={18} />
+          <div className="w-11 h-11 rounded-2xl bg-[#2B59FF] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+            <Mail size={19} className="text-white fill-white/20" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
+            <h3 className="text-sm font-bold text-white group-hover:text-[#2B59FF] transition-colors">
               Invite Guests
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
@@ -515,13 +600,13 @@ export default function EventOverviewPage() {
         {/* Button 2: Send a blast */}
         <Link
           href={`/admin/messages?eventId=${event.id}`}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm group cursor-pointer"
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#A855F7]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm hover:shadow-[0_0_28px_rgba(168,85,247,0.4)] hover:scale-[1.01] group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-full bg-[#2A1830] border border-purple-500/20 flex items-center justify-center text-[#A855F7] transition-colors">
-            <MessageSquare size={18} />
+          <div className="w-11 h-11 rounded-2xl bg-[#A855F7] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+            <MessageSquare size={19} className="text-white fill-white/20" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
+            <h3 className="text-sm font-bold text-white group-hover:text-[#A855F7] transition-colors">
               Send a Blast
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
@@ -534,13 +619,13 @@ export default function EventOverviewPage() {
         <button
           type="button"
           onClick={handleShareEvent}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm group cursor-pointer"
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#EC4899]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm hover:shadow-[0_0_28px_rgba(236,72,153,0.4)] hover:scale-[1.01] group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-full bg-[#2A1525] border border-pink-500/20 flex items-center justify-center text-[#EC4899] transition-colors">
-            <Share2 size={18} />
+          <div className="w-11 h-11 rounded-2xl bg-[#EC4899] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+            <Share2 size={19} className="text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
+            <h3 className="text-sm font-bold text-white group-hover:text-[#EC4899] transition-colors">
               Share Event
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
@@ -666,12 +751,18 @@ export default function EventOverviewPage() {
                   value={user?.email || "attendee@example.com"}
                   className="bg-[#1A1C1F] border border-[#2A2D31] rounded-lg px-2.5 py-1.5 text-xs text-[#9B9EA4] flex-1 min-w-0 outline-none font-mono truncate"
                 />
-                <Link
-                  href={`/register/${publicSlug}`}
-                  className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-xs transition-colors shrink-0 text-center"
-                >
-                  Register
-                </Link>
+                {(event.status === "cancelled" || event.isCancelled || (event.closeRegistrationEnabled === true ? (event.closeRegistrationMode === "now" || event.registrationClosed === true) : event.closeRegistrationEnabled === false ? false : (event.registrationClosed || event.registrationStatus === "Closed" || event.status === "closed"))) ? (
+                  <span className="px-3 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] font-semibold text-xs shrink-0 text-center cursor-not-allowed">
+                    Registration Closed
+                  </span>
+                ) : (
+                  <Link
+                    href={`/register/${publicSlug}`}
+                    className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-xs transition-colors shrink-0 text-center"
+                  >
+                    Register
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -750,7 +841,7 @@ export default function EventOverviewPage() {
 
         {/* ── RIGHT CARD: When & Where ── */}
         <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div>
+          <div className="flex-1 flex flex-col min-h-0">
             <h3 className="text-sm font-bold text-white mb-4">When &amp; Where</h3>
 
             {/* Date Section */}
@@ -773,111 +864,282 @@ export default function EventOverviewPage() {
               </div>
             </div>
 
-            {/* Venue Section */}
-            <div className="flex items-start gap-3.5 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] shrink-0">
-                <MapPin size={20} className="text-[#FE760B]" />
+            {/* Venue Section with Edit Location button */}
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div className="flex items-start gap-3.5 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#FE760B] shrink-0">
+                  <MapPin size={20} className="text-[#FE760B]" />
+                </div>
+                <div className="min-w-0">
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(event.address || event.location || "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-bold text-white hover:text-[#FE760B] transition-colors flex items-center gap-1.5 truncate"
+                  >
+                    <span>{event.location || "School of Engineering, CUSAT"}</span>
+                    <ArrowUpRight size={14} className="text-[#9B9EA4] shrink-0" />
+                  </a>
+                  <p className="text-xs text-[#9B9EA4] font-medium mt-0.5 line-clamp-2">
+                    {event.address || event.location || "Main Campus Hall, Kochi, Kerala"}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-white flex items-center gap-1.5 truncate">
-                  <span>{event.location || "School of Engineering, CUSAT"}</span>
-                  <ArrowUpRight size={14} className="text-[#9B9EA4] shrink-0" />
-                </p>
-                <p className="text-xs text-[#9B9EA4] font-medium mt-0.5 line-clamp-2">
-                  {event.address || event.location || "Main Campus Hall, Kochi, Kerala"}
-                </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setLocationQuery(event.location || "");
+                  setIsEditingLocation((prev) => !prev);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[11px] font-semibold text-slate-300 hover:text-white border border-[#2A2D31] transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <Pencil size={12} className="text-[#FE760B]" />
+                <span>{isEditingLocation ? "Close" : "Edit"}</span>
+              </button>
+            </div>
+
+            {/* Real-time Location Search & Edit dropdown (Image 5) */}
+            {isEditingLocation && (
+              <div className="mb-4 p-3 rounded-xl bg-[#131517] border border-[#FE760B]/40 space-y-2 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={locationQuery}
+                      onChange={(e) => setLocationQuery(e.target.value)}
+                      placeholder="Type campus, college, hall or address..."
+                      className="w-full h-9 px-3 pr-8 rounded-lg bg-[#1A1C1F] border border-[#2A2D31] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FE760B]"
+                      autoFocus
+                    />
+                    {isSearchingPlaces && (
+                      <Loader2 size={13} className="animate-spin text-[#FE760B] absolute right-2.5 top-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSavingLocation || !locationQuery.trim()}
+                    onClick={() => handleSelectLocation({ name: locationQuery, address: locationQuery })}
+                    className="h-9 px-3 rounded-lg bg-[#FE760B] hover:bg-[#FF8A2B] text-white text-xs font-bold transition-all disabled:opacity-50 shrink-0 cursor-pointer"
+                  >
+                    {isSavingLocation ? "Saving..." : "Save"}
+                  </button>
+                </div>
+
+                {locationSuggestions.length > 0 && (
+                  <div className="divide-y divide-[#2A2D31] max-h-48 overflow-y-auto rounded-lg border border-[#2A2D31] bg-[#1A1C1F]">
+                    {locationSuggestions.map((place, pIdx) => (
+                      <button
+                        key={place.id || pIdx}
+                        type="button"
+                        onClick={() => handleSelectLocation(place)}
+                        className="w-full p-2 text-left hover:bg-[#212327] transition-colors flex items-start gap-2 text-xs cursor-pointer"
+                      >
+                        <MapPin size={13} className="text-[#FE760B] mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-white truncate">{place.name}</p>
+                          <p className="text-[11px] text-[#9B9EA4] truncate">{place.address}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Google Maps Interactive Card Styled & Spaced */}
+            <div className="w-full flex-1 min-h-[240px] sm:min-h-[280px] md:min-h-[300px] rounded-2xl overflow-hidden border border-[#2A2D31] mb-2.5 relative bg-[#131517] shadow-inner group flex flex-col">
+              <iframe
+                title="Google Maps Location Preview"
+                width="100%"
+                height="100%"
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                  event.address || event.location || "Delhi, India"
+                )}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                className="w-full h-full flex-1 min-h-[240px] border-0 filter contrast-[1.05] brightness-95 rounded-2xl"
+              />
+              <div className="absolute bottom-2.5 right-2.5 z-10">
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(event.address || event.location || "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-[#131517]/90 hover:bg-[#131517] text-xs font-bold text-white border border-[#2A2D31] backdrop-blur-md transition-all flex items-center gap-1.5 shadow-lg hover:border-[#FE760B]/50 hover:text-[#FE760B]"
+                >
+                  <span>Open in Google Maps</span>
+                  <ExternalLink size={11} />
+                </a>
               </div>
             </div>
 
-            <p className="text-[11px] text-[#9B9EA4] mb-6">
+            <p className="text-[11px] text-[#9B9EA4] mb-4">
               The address is shown publicly on the event page.
             </p>
           </div>
 
-          <div className="space-y-3">
-            {/* Big Check In Guests Button */}
-            <Link
-              href={`/admin/scanner?eventId=${event.id}`}
-              className="w-full py-3 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-sm"
+          <div className="space-y-3 pt-1">
+            {/* Big Check In Guests Button - Opens Web Scanner */}
+            <button
+              type="button"
+              onClick={() => {
+                setTargetScannerGuest(null);
+                setShowScannerModal(true);
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] hover:border-[#3DD68C]/50 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer group hover:shadow-[0_0_20px_rgba(61,214,140,0.3)]"
             >
-              <QrCode size={18} className="text-[#FE760B]" />
+              <QrCode size={18} className="text-[#3DD68C] group-hover:scale-110 transition-transform" />
               <span>Check In Guests</span>
-            </Link>
+            </button>
 
             {/* Secondary Edit & Photo Buttons */}
             <div className="grid grid-cols-2 gap-2.5">
-              <Link
-                href={`/admin/create-event?eventId=${event.id}`}
-                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white text-center transition-colors"
+              <button
+                type="button"
+                onClick={() => setShowEditSlider(true)}
+                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] hover:border-[#FE760B]/40 text-xs font-semibold text-white text-center transition-colors cursor-pointer"
               >
                 Edit Event
-              </Link>
-              <Link
-                href={`/admin/customize?eventId=${event.id}`}
-                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white text-center transition-colors"
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPhotoModal(true)}
+                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] hover:border-[#FE760B]/40 text-xs font-semibold text-white text-center transition-colors cursor-pointer"
               >
                 Change Photo
-              </Link>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Invites Section matching Images 1 & 2 ── */}
-      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-bold text-white mb-1">Invites</h3>
-          <p className="text-xs text-[#9B9EA4]">
-            Invite subscribers, contacts and past guests via email or SMS.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowInviteModal(true)}
-          className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
-        >
-          <Plus size={14} className="text-[#FE760B]" />
-          <span>Invite Guests</span>
-        </button>
-      </div>
-
-      {/* ── Status Banner matching Image 3 with Real Firestore Live Toggle ── */}
-      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 mb-8 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span
-            className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              isLive ? "bg-[#3DD68C] animate-pulse" : "bg-[#9B9EA4]"
-            }`}
-          />
+      {/* ── Invites Section matching Image 1 ── */}
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-              <span>Event is {isLive ? "live — visible to the public" : "unlisted / draft mode"}</span>
-              {isUpdatingLive && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FE760B]" />}
+            <h3 className="text-base font-bold text-white">Invites</h3>
+            <p className="text-xs text-[#9B9EA4]">
+              Invite subscribers, contacts and past guests via email or SMS.
             </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowInviteModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+          >
+            <Plus size={14} className="text-[#FE760B]" />
+            <span>Invite Guests</span>
+          </button>
+        </div>
+
+        {/* Empty / Status card */}
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+          <div className="w-10 h-10 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4] shrink-0">
+            <Mail size={18} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-white">No Invites Sent</p>
             <p className="text-[11px] text-[#9B9EA4] mt-0.5">
-              {isLive
-                ? "Guests can discover your event and register for tickets online."
-                : "Event is hidden from public view. Only organizers can access it."}
+              You can invite subscribers, contacts and past guests to the event.
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Real-time Toggle switch */}
-        <button
-          type="button"
-          disabled={isUpdatingLive}
-          onClick={handleToggleLive}
-          className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 cursor-pointer disabled:opacity-50 ${
-            isLive ? "bg-[#FE760B]" : "bg-[#2A2D31]"
-          }`}
-          aria-label="Toggle event live visibility"
-        >
-          <div
-            className={`w-5 h-5 rounded-full bg-white transition-transform ${
-              isLive ? "translate-x-6" : "translate-x-0"
+      {/* ── Hosts Section matching Image 1 ── */}
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-white">Hosts</h3>
+          <button
+            type="button"
+            onClick={() => setShowInviteModal(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+          >
+            <Plus size={14} className="text-[#FE760B]" />
+            <span>Add Host</span>
+          </button>
+        </div>
+
+        {/* Host item matching Image 1 */}
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-[#183124] border border-[#3DD68C]/30 flex items-center justify-center text-xs font-bold text-[#3DD68C] shrink-0">
+              {(user?.fullName || "Krrish Singhal")[0].toUpperCase()}
+            </div>
+            <div className="min-w-0 flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-bold text-white truncate">
+                {user?.fullName || "Krrish Singhal"}
+              </span>
+              <span className="text-xs text-[#9B9EA4] font-mono truncate">
+                {user?.email || "krrishsinghal62@gmail.com"}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-[#183124] text-[#3DD68C] border border-[#3DD68C]/30 text-[10px] font-bold uppercase tracking-wider">
+                Creator
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowEditSlider(true)}
+            className="p-1.5 text-[#9B9EA4] hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            title="Edit host options"
+          >
+            <Pencil size={14} />
+          </button>
+        </div>
+
+        <p className="text-[11px] text-[#9B9EA4] flex items-center gap-1.5">
+          <QrCode size={13} className="text-[#9B9EA4]" />
+          <span>Manage check-in staff and options</span>
+        </p>
+      </div>
+
+      {/* ── Visibility & Discovery matching Image 1 ── */}
+      <div className="mb-8 space-y-3">
+        <div>
+          <h3 className="text-base font-bold text-white">Visibility &amp; Discovery</h3>
+          <p className="text-xs text-[#9B9EA4]">Control how people can find your event.</p>
+        </div>
+
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span
+              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                isLive ? "bg-[#3DD68C] animate-pulse" : "bg-[#9B9EA4]"
+              }`}
+            />
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                <span>Event is {isLive ? "Public & Live" : "Private / Draft Mode"}</span>
+                {isUpdatingLive && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FE760B]" />}
+              </p>
+              <p className="text-[11px] text-[#9B9EA4] mt-0.5">
+                {isLive
+                  ? "Shown on public event pages and open for registrations."
+                  : "Hidden from public discovery. Only organizers have access."}
+              </p>
+            </div>
+          </div>
+
+          {/* Real-time Toggle switch */}
+          <button
+            type="button"
+            disabled={isUpdatingLive}
+            onClick={handleToggleLive}
+            className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 cursor-pointer disabled:opacity-50 ${
+              isLive ? "bg-[#FE760B]" : "bg-[#2A2D31]"
             }`}
-          />
-        </button>
+            aria-label="Toggle event live visibility"
+          >
+            <div
+              className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                isLive ? "translate-x-6" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* ── At a Glance matching Image 3 with Real Firestore Numbers ── */}
@@ -885,11 +1147,11 @@ export default function EventOverviewPage() {
         <h2 className="text-base font-bold text-white mb-2">At a glance</h2>
         <div className="flex items-baseline justify-between mb-2">
           <p className="text-2xl font-black text-[#3DD68C] tracking-tight">
-            {totalGuests}{" "}
+            {String(Number.isFinite(totalGuests) ? totalGuests : 0)}{" "}
             <span className="text-xs font-semibold text-[#9B9EA4]">guests</span>
           </p>
           <span className="text-xs text-[#9B9EA4] font-medium font-mono">
-            cap {totalCapacity}
+            cap {String(Number.isFinite(totalCapacity) ? totalCapacity : 150)}
           </span>
         </div>
 
@@ -897,12 +1159,12 @@ export default function EventOverviewPage() {
         <div className="w-full h-2 rounded-full bg-[#2A2D31] overflow-hidden flex mb-2.5">
           <div
             className="h-full bg-[#3DD68C] transition-all duration-500"
-            style={{ width: `${Math.min(100, (checkedInCount / Math.max(1, totalCapacity)) * 100)}%` }}
-            title={`${checkedInCount} checked in`}
+            style={{ width: `${Math.min(100, ((safeCheckedInCount || 0) / Math.max(1, totalCapacity)) * 100)}%` }}
+            title={`${safeCheckedInCount} checked in`}
           />
           <div
             className="h-full bg-[#FE760B] transition-all duration-500"
-            style={{ width: `${Math.min(100, (notYetCount / Math.max(1, totalCapacity)) * 100)}%` }}
+            style={{ width: `${Math.min(100, ((notYetCount || 0) / Math.max(1, totalCapacity)) * 100)}%` }}
             title={`${notYetCount} not yet checked in`}
           />
         </div>
@@ -911,15 +1173,15 @@ export default function EventOverviewPage() {
         <div className="flex items-center gap-4 text-xs font-medium text-[#9B9EA4] flex-wrap">
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-            <strong className="text-white">{checkedInCount}</strong> checked in
+            <strong className="text-white">{String(safeCheckedInCount)}</strong> checked in
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
-            <strong className="text-white">{notYetCount}</strong> not yet
+            <strong className="text-white">{String(notYetCount)}</strong> not yet
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
-            <strong className="text-white">{seatsLeft}</strong> seats left
+            <strong className="text-white">{String(seatsLeft)}</strong> seats left
           </span>
         </div>
       </div>
@@ -967,7 +1229,17 @@ export default function EventOverviewPage() {
                 guest.status === "used" ||
                 guest.status === "checked-in" ||
                 guest.checkedIn === true;
-              const isPending = guest.status === "pending" || guest.paymentStatus === "pending";
+              const isDeclined =
+                guest.status === "declined" ||
+                guest.status === "Cancelled" ||
+                guest.status === "cancelled" ||
+                guest.approvalStatus === "declined";
+              const isPending =
+                !isCheckedIn &&
+                !isDeclined &&
+                (guest.status === "pending" ||
+                  guest.approvalStatus === "pending" ||
+                  guest.paymentStatus === "pending");
               const initials = getInitials(guestName);
               const avatarBg = getAvatarColor(guestName);
               const timeDisplay = formatRelativeTime(guest.createdAt);
@@ -1010,14 +1282,63 @@ export default function EventOverviewPage() {
                         <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                         Checked In
                       </span>
-                    ) : isPending ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2C2614] text-[#FDE003] border border-[#FDE003]/30 text-[11px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FDE003]" />
-                        Payment pending
+                    ) : isDeclined ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2B1414] text-red-400 border border-red-500/30 text-[11px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                        Declined
                       </span>
+                    ) : isPending ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setRegistrations((prev) =>
+                                prev.map((g) =>
+                                  g.id === guest.id
+                                    ? { ...g, status: "Going", approvalStatus: "approved" }
+                                    : g
+                                )
+                              );
+                              await approveRegistration(guest.id);
+                              toast.success(`${guestName} approved!`);
+                            } catch (err) {
+                              toast.error("Failed to approve guest");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#3DD68C] hover:text-[#52e89f] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#3DD68C]/10"
+                        >
+                          <Check size={13} strokeWidth={2.5} />
+                          <span>Approve</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setRegistrations((prev) =>
+                                prev.map((g) =>
+                                  g.id === guest.id
+                                    ? { ...g, status: "declined", approvalStatus: "declined" }
+                                    : g
+                                )
+                              );
+                              await declineRegistration(guest.id);
+                              toast.error(`${guestName} declined`);
+                            } catch (err) {
+                              toast.error("Failed to decline guest");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#EF4444] hover:text-[#f87171] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#EF4444]/10"
+                        >
+                          <X size={13} strokeWidth={2.5} />
+                          <span>Decline</span>
+                        </button>
+                      </div>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#192738] text-[#7AA2FF] border border-[#7AA2FF]/30 text-[11px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#7AA2FF]" />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#183124] text-[#3DD68C] border border-[#3DD68C]/30 text-[11px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                         Going
                       </span>
                     )}
@@ -1164,6 +1485,39 @@ export default function EventOverviewPage() {
           }}
         />
       )}
+
+      {/* ── Edit Event Right-Side Slider (matching Image 2) ── */}
+      <EditEventSlider
+        isOpen={showEditSlider}
+        onClose={() => setShowEditSlider(false)}
+        event={event}
+        onEventUpdated={(updated) => {
+          setEvent(updated);
+        }}
+      />
+
+      {/* ── Square Photo Upload Modal (enforces strict 1:1 square ratio) ── */}
+      <SquarePhotoUploadModal
+        isOpen={showPhotoModal}
+        onClose={() => setShowPhotoModal(false)}
+        event={event}
+        onPhotoUpdated={(newUrl) => {
+          setEvent((prev) => ({ ...prev, coverImage: newUrl, bannerUrl: newUrl }));
+        }}
+      />
+
+      {/* ── Web QR Scanner Modal (verifies identity on web/mobile) ── */}
+      <WebScannerModal
+        isOpen={showScannerModal}
+        onClose={() => setShowScannerModal(false)}
+        event={event}
+        targetGuest={targetScannerGuest}
+        onGuestVerified={(verified) => {
+          setRegistrations((prev) =>
+            prev.map((g) => (g.id === verified.id ? { ...g, ...verified } : g))
+          );
+        }}
+      />
     </div>
   );
 }

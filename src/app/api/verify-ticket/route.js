@@ -94,11 +94,27 @@ export async function POST(req) {
       }
     }
 
-    // 3. Verify Revocation
+    // 3. Verify Revocation & Approval Status
     if (ticket.status === "Revoked") {
       return NextResponse.json({
         status: "revoked",
         message: "This ticket has been revoked by the event organizer.",
+      });
+    }
+
+    if (ticket.status === "Pending Approval" || ticket.status === "pending") {
+      return NextResponse.json({
+        status: "pending_approval",
+        attendee: ticket.buyerName,
+        message: "This guest is currently pending approval by the organiser.",
+      });
+    }
+
+    if (ticket.status === "Cancelled" || ticket.status === "declined") {
+      return NextResponse.json({
+        status: "declined",
+        attendee: ticket.buyerName,
+        message: "Registration for this ticket was declined by the organiser.",
       });
     }
 
@@ -125,6 +141,8 @@ export async function POST(req) {
       if (!fresh.exists) return { status: "not_found" };
       const latest = fresh.data();
       if (latest.status === "Revoked") return { status: "revoked" };
+      if (latest.status === "Pending Approval" || latest.status === "pending") return { status: "pending_approval" };
+      if (latest.status === "Cancelled" || latest.status === "declined") return { status: "declined" };
       const checkIns = latest.checkIns || {};
       if (checkIns[gateStationSubEventId]) return { status: "already_used", prior: checkIns[gateStationSubEventId] };
       const checkin = { time: now, station: gateStationSubEventId, scannedBy: caller.uid };
@@ -139,7 +157,11 @@ export async function POST(req) {
     if (admission.status !== "admitted") {
       const priorTime = admission.prior?.time?.toDate?.();
       const usedTime = priorTime ? priorTime.toLocaleTimeString("en-IN") : "Earlier";
-      return NextResponse.json({ status: admission.status, attendee: ticket.buyerName, ticketTitle: ticket.ticketTitle || "Ticket", message: admission.status === "already_used" ? `Duplicate Scan: Already admitted at ${usedTime}.` : "Ticket is no longer valid." });
+      let msg = "Ticket is no longer valid.";
+      if (admission.status === "already_used") msg = `Duplicate Scan: Already admitted at ${usedTime}.`;
+      else if (admission.status === "pending_approval") msg = "This guest is currently pending approval by the organiser.";
+      else if (admission.status === "declined") msg = "Registration for this ticket was declined by the organiser.";
+      return NextResponse.json({ status: admission.status, attendee: ticket.buyerName, ticketTitle: ticket.ticketTitle || "Ticket", message: msg });
     }
 
     return NextResponse.json({

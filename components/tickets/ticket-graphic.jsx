@@ -65,6 +65,7 @@ export function TicketGraphic({
   ticket,
   horizontal = false,
   notchBg,
+  onQrClick,
   className = "",
 }) {
   const theme = normalizeTheme(ticket?.theme);
@@ -85,16 +86,21 @@ export function TicketGraphic({
 
   const ticketId = ticket?.ticketId || "TKT-1793-AB12C";
   const attendeeName = ticket?.guest || ticket?.attendeeName || "Adil M";
+  const isPending =
+    ticket?.isPending ||
+    ticket?.status === "pending" ||
+    ticket?.approvalStatus === "pending" ||
+    ticket?.entryLabel === "PENDING APPROVAL";
   return (
     <div
       data-ticket="true"
       className={`ticket-graphic-root relative select-none flex rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl transition-all duration-300 ${className} ${
         horizontal
-          ? "w-[310px] xs:w-[350px] sm:w-[450px] md:w-[540px] lg:w-[680px] xl:w-[780px] h-[115px] xs:h-[130px] sm:h-[155px] md:h-[180px] lg:h-[220px] xl:h-[250px]"
-          : "w-[285px] xs:w-[315px] sm:w-[380px] md:w-[450px] lg:w-[560px] xl:w-[640px] h-[104px] xs:h-[115px] sm:h-[135px] md:h-[155px] lg:h-[190px] xl:h-[215px]"
+          ? "w-[310px] min-[360px]:w-[340px] xs:w-[400px] sm:w-[520px] md:w-[640px] lg:w-[800px] xl:w-[920px] h-[125px] min-[360px]:h-[135px] xs:h-[155px] sm:h-[190px] md:h-[225px] lg:h-[265px] xl:h-[295px]"
+          : "w-[300px] min-[360px]:w-[330px] xs:w-[375px] sm:w-[465px] md:w-[550px] lg:w-[680px] xl:w-[780px] h-[120px] min-[360px]:h-[126px] xs:h-[142px] sm:h-[172px] md:h-[198px] lg:h-[235px] xl:h-[265px]"
       }`}
       style={{
-        boxShadow: "0 18px 45px -10px rgba(0,0,0,0.75), 0 4px 14px rgba(0,0,0,0.45)",
+        boxShadow: "0 22px 50px -12px rgba(0,0,0,0.85), 0 6px 18px rgba(0,0,0,0.55)",
       }}
     >
       {/* ══════════════════════════════════════════════════
@@ -409,7 +415,8 @@ export function TicketGraphic({
           {/* Main Typography Header (Exact Image 2 layout) */}
           <div className="relative z-10 max-w-[65%] sm:max-w-[62%] my-auto">
             <h2
-              className={`text-xs xs:text-sm sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-black uppercase tracking-tight leading-none ${themeConfig.titleColor}`}
+              style={themeConfig.titleStyle}
+              className={`text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black uppercase tracking-tight leading-none ${themeConfig.titleColor}`}
             >
               {titleInfo.line1}
             </h2>
@@ -418,7 +425,8 @@ export function TicketGraphic({
             {titleInfo.line2 && (
               <div className="mt-0.5 sm:mt-1 lg:mt-1.5">
                 <span
-                  className={`text-xs xs:text-sm sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor}`}
+                  style={themeConfig.titleStyle}
+                  className={`text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor}`}
                 >
                   {titleInfo.line2}
                 </span>
@@ -432,7 +440,7 @@ export function TicketGraphic({
           style={themeConfig.bottomBarStyle}
           className="relative z-10 px-2 sm:px-3.5 lg:px-6 py-1 sm:py-1.5 lg:py-2.5 flex items-center overflow-hidden border-t border-black/10"
         >
-          <div className="font-mono text-[6.5px] xs:text-[7.5px] sm:text-[8px] md:text-[8.5px] lg:text-[10.5px] xl:text-[11.5px] font-bold tracking-tight sm:tracking-wider text-[#D0D0D1] uppercase whitespace-nowrap overflow-x-auto scrollbar-none w-full flex items-center gap-1 sm:gap-1.5 lg:gap-2.5">
+          <div className="font-mono text-[7px] xs:text-[8px] sm:text-[9.5px] md:text-[10px] lg:text-[12px] xl:text-[13px] font-bold tracking-tight sm:tracking-wider text-[#D0D0D1] uppercase whitespace-nowrap overflow-x-auto scrollbar-none w-full flex items-center gap-1 sm:gap-1.5 lg:gap-2.5">
             <span>{meta.dateStr}</span>
             <span className="text-[#9B9EA4]">•</span>
             <span>{meta.timeStr}</span>
@@ -475,27 +483,40 @@ export function TicketGraphic({
           ══════════════════════════════════════════════════ */}
       <div
         style={themeConfig.stubBgStyle}
-        className="relative w-[76px] xs:w-[86px] sm:w-[110px] md:w-[124px] lg:w-[160px] xl:w-[185px] shrink-0 p-1.5 sm:p-2 lg:p-3.5 flex flex-col items-center justify-between text-center overflow-hidden"
+        className="relative w-[84px] xs:w-[94px] sm:w-[118px] md:w-[132px] lg:w-[170px] xl:w-[195px] shrink-0 p-1.5 sm:p-2 lg:p-3.5 flex flex-col items-center justify-between text-center overflow-hidden"
       >
-        {/* Stub Header: "SCAN AT ENTRY" (Matching Image 2) */}
+        {/* Stub Header: "SCAN AT ENTRY" or "PENDING APPROVAL" */}
         <div className="w-full text-center mb-0.5 lg:mb-1">
           <span
-            className={`text-[7px] xs:text-[8px] sm:text-[9.5px] lg:text-xs xl:text-[13px] font-black tracking-widest uppercase block ${themeConfig.scanColor}`}
+            className={`text-[7.5px] xs:text-[8.5px] sm:text-[10px] lg:text-[13px] xl:text-[14px] font-black tracking-widest uppercase block ${
+              isPending ? "text-amber-400" : themeConfig.scanColor
+            }`}
           >
-            {ticket?.entryLabel || "SCAN AT ENTRY"}
+            {isPending ? "PENDING APPROVAL" : (ticket?.entryLabel || "SCAN AT ENTRY")}
           </span>
         </div>
 
-        {/* QR Code Container with High-Contrast White Background */}
-        <div className="relative p-0.5 sm:p-1 lg:p-1.5 bg-white rounded-md sm:rounded-lg lg:rounded-xl shadow-md flex items-center justify-center my-0.5 lg:my-1">
+        {/* QR Code Container with High-Contrast White Background (Click to Enlarge/Scan) */}
+        <div
+          onClick={(e) => {
+            if (typeof onQrClick === "function") {
+              e.stopPropagation();
+              onQrClick(ticket);
+            }
+          }}
+          title={onQrClick ? (isPending ? "Pending organiser approval" : "Click to scan and check in") : undefined}
+          className={`relative p-0.5 sm:p-1 lg:p-1.5 bg-white rounded-md sm:rounded-lg lg:rounded-xl shadow-md flex items-center justify-center my-0.5 lg:my-1 transition-all ${
+            onQrClick ? "cursor-pointer hover:scale-105 active:scale-95" : ""
+          } ${isPending ? "opacity-85" : ""}`}
+        >
           {ticket?.qrCode && !ticket.qrCode.includes("<svg") && !ticket.qrCode.includes("TICKETLELO") ? (
             <img
               src={ticket.qrCode}
               alt="QR Code"
-              className="w-11 h-11 xs:w-13 xs:h-13 sm:w-16 sm:h-16 md:w-[68px] md:h-[68px] lg:w-[88px] lg:h-[88px] xl:w-[104px] xl:h-[104px] object-contain"
+              className="w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] object-contain"
             />
           ) : (
-            <div className="w-11 h-11 xs:w-13 xs:h-13 sm:w-16 sm:h-16 md:w-[68px] md:h-[68px] lg:w-[88px] lg:h-[88px] xl:w-[104px] xl:h-[104px] bg-white flex items-center justify-center">
+            <div className="w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] bg-white flex items-center justify-center">
               <svg viewBox="0 0 33 33" className="w-full h-full fill-black">
                 <rect x="2" y="2" width="9" height="9" fill="#000" />
                 <rect x="4" y="4" width="5" height="5" fill="#fff" />
@@ -520,6 +541,15 @@ export function TicketGraphic({
                 <rect x="14" y="24" width="4" height="2" />
                 <rect x="16" y="27" width="2" height="4" />
               </svg>
+            </div>
+          )}
+
+          {/* Pending Stamp overlay */}
+          {isPending && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/35 rounded-md sm:rounded-lg lg:rounded-xl backdrop-blur-[1px]">
+              <div className="transform -rotate-12 border border-amber-400 bg-amber-500/90 text-[#131517] font-mono font-black text-[6.5px] xs:text-[7.5px] sm:text-[9px] px-1 py-0.5 rounded shadow uppercase tracking-wider">
+                PENDING
+              </div>
             </div>
           )}
         </div>

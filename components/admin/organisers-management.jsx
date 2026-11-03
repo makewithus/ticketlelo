@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 
 const AVATAR_COLORS = [
   "bg-[#FE760B]", // Orange (like TO in Image 1)
@@ -47,6 +47,39 @@ function formatApprovedDate(dateVal) {
   }
 }
 
+function renderEventStatusBadge(eventStatus) {
+  if (eventStatus === "Live") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
+        Live
+      </span>
+    );
+  }
+  if (eventStatus === "Ended") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#9B9EA4] border border-[#2A2D31]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+        Ended
+      </span>
+    );
+  }
+  if (eventStatus === "Draft") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#9B9EA4] border border-[#2A2D31]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+        Draft
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30">
+      <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+      Published
+    </span>
+  );
+}
+
 export function OrganisersManagement() {
   const [organisers, setOrganisers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,8 +107,16 @@ export function OrganisersManagement() {
 
     async function loadData() {
       try {
+        let headers = {};
+        try {
+          if (auth?.currentUser) {
+            const token = await auth.currentUser.getIdToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (_) {}
+
         // 1. Try server-side aggregator API
-        const res = await fetch("/api/superadmin/organisers", { cache: "no-store" });
+        const res = await fetch("/api/superadmin/organisers", { headers, cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.organisers)) {
@@ -158,7 +199,7 @@ export function OrganisersManagement() {
       } catch (err) {
         console.error("Failed to load approved organisers:", err);
         if (isSubscribed) {
-          toast.error("Failed to load organisers from database");
+          toast.error("Failed to load organisers");
         }
       } finally {
         if (isSubscribed) {
@@ -220,9 +261,17 @@ export function OrganisersManagement() {
     }
     const toastId = toast.loading(`Generating password reset link for ${targetEmail}...`);
     try {
+      let headers = { "Content-Type": "application/json" };
+      try {
+        if (auth?.currentUser) {
+          const token = await auth.currentUser.getIdToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (_) {}
+
       const res = await fetch("/api/superadmin/reset-organiser-login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           email: targetEmail,
           name: item.name,
@@ -283,7 +332,7 @@ export function OrganisersManagement() {
     return (
       <div className="flex flex-col items-center justify-center p-20 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-        <p className="text-xs text-[#9B9EA4]">Loading organisers from database...</p>
+        <p className="text-xs text-[#9B9EA4]">Loading...</p>
       </div>
     );
   }
@@ -323,7 +372,7 @@ export function OrganisersManagement() {
         </div>
 
         {/* Filter Pills matching Image 1 */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 touch-pan-x">
           {[
             { id: "all", label: "All" },
             { id: "paid", label: "Paid" },
@@ -340,7 +389,7 @@ export function OrganisersManagement() {
                   setActiveFilter(pill.id);
                   setPage(1);
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                   isActive
                     ? "bg-white text-[#131517] shadow-sm"
                     : "bg-[#1A1C1F] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
@@ -353,9 +402,10 @@ export function OrganisersManagement() {
         </div>
       </div>
 
-      {/* High-Density Data Table Container matching Image 1 */}
+      {/* High-Density Data Table / Mobile Card Container */}
       <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        {/* Desktop Table View (Hidden on mobile < md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#2A2D31] text-[11px] font-semibold text-[#71767B] uppercase tracking-wider select-none">
@@ -379,37 +429,7 @@ export function OrganisersManagement() {
                 paginatedOrganisers.map((item, idx) => {
                   const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
                   const initials = getInitials(item.name);
-
-                  // Status Badge Styling matching Image 1
-                  let statusBadge = (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-                      Published
-                    </span>
-                  );
-
-                  if (item.eventStatus === "Live") {
-                    statusBadge = (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
-                        Live
-                      </span>
-                    );
-                  } else if (item.eventStatus === "Ended") {
-                    statusBadge = (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#9B9EA4] border border-[#2A2D31]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
-                        Ended
-                      </span>
-                    );
-                  } else if (item.eventStatus === "Draft") {
-                    statusBadge = (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#9B9EA4] border border-[#2A2D31]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
-                        Draft
-                      </span>
-                    );
-                  }
+                  const statusBadge = renderEventStatusBadge(item.eventStatus);
 
                   return (
                     <tr
@@ -547,10 +567,152 @@ export function OrganisersManagement() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List (Visible only on mobile < md) */}
+        <div className="md:hidden divide-y divide-[#2A2D31]/60">
+          {paginatedOrganisers.length === 0 ? (
+            <div className="py-12 px-4 text-center text-[#9B9EA4] text-xs">
+              No approved organisers found matching your filters.
+            </div>
+          ) : (
+            paginatedOrganisers.map((item, idx) => {
+              const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+              const initials = getInitials(item.name);
+              const statusBadge = renderEventStatusBadge(item.eventStatus);
+
+              return (
+                <div key={item.id} className="p-4 space-y-3">
+                  {/* Top Row: Organiser avatar + name + Actions (···) */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-full ${avatarColor} flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-sm`}
+                      >
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-white truncate">
+                          {item.name}
+                        </div>
+                        <div className="text-[11px] text-[#71767B] truncate">
+                          [{item.college || "college"}]
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action popover menu button */}
+                    <div className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenActionId(openActionId === item.id ? null : item.id)
+                        }
+                        className="action-menu-trigger p-1.5 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                        title="Actions"
+                        aria-label="Actions"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+
+                      {openActionId === item.id && (
+                        <div className="action-menu-dropdown absolute right-0 top-10 min-w-[170px] rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-1.5 shadow-2xl z-30 text-left space-y-0.5 animate-scale-in">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              window.open(item.eventId ? `/admin/overview?eventId=${item.eventId}` : `/admin/dashboard`, "_blank");
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors cursor-pointer block"
+                          >
+                            Inspect portal →
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              window.open(item.eventId ? `/admin/registrations?eventId=${item.eventId}` : `/admin/registrations`, "_blank");
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                          >
+                            View guest list
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleResetLogin(item)}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                          >
+                            Reset login
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleViewEvent(item)}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                          >
+                            View event
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEmailOrganiser(item)}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                          >
+                            Email organiser
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Middle Box: Event details + Status badges */}
+                  <div className="bg-[#212327]/60 rounded-xl p-3 space-y-2 border border-[#2A2D31]/40">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-white break-words">
+                        {item.eventTitle || "Untitled Event"}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {statusBadge}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/5 border border-[#2A2D31] text-[#9B9EA4]">
+                          {item.isPaid ? "Paid" : "Free"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-[#9B9EA4] pt-1 border-t border-[#2A2D31]/40">
+                      <span className="font-mono text-white flex items-center gap-1">
+                        <span className="text-[#FE760B]">🎫</span> {Number(item.tickets || 0).toLocaleString()} tickets
+                      </span>
+                      <span className="text-[11px]">
+                        Approved: <span className="text-[#D0D0D1]">{formatApprovedDate(item.approvedAt)}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Row: Login email & Duplicate flag */}
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0 text-[#9B9EA4]">
+                      <span className="shrink-0 text-[11px]">Email:</span>
+                      <span className="font-mono text-[#D0D0D1] truncate text-[11px]">
+                        {item.loginEmail}
+                      </span>
+                    </div>
+                    {item.isDuplicate && (
+                      <span className="bg-[#FDE003]/15 text-[#FDE003] border border-[#FDE003]/30 text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0">
+                        Duplicate
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {/* Pagination Footer matching Image 1 */}
-      <div className="flex items-center justify-between pt-1">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
         {/* Left: Showing X of Y */}
         <div className="text-xs text-[#71767B]">
           Showing {paginatedOrganisers.length} of {filteredOrganisers.length}
@@ -562,7 +724,7 @@ export function OrganisersManagement() {
             type="button"
             onClick={() => setPage((prev) => Math.max(1, prev - 1))}
             disabled={currentPage <= 1}
-            className="px-3.5 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-3.5 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
           >
             Previous
           </button>
@@ -575,7 +737,7 @@ export function OrganisersManagement() {
             type="button"
             onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
             disabled={currentPage >= totalPages}
-            className="px-3.5 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-3.5 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
           >
             Next
           </button>

@@ -43,15 +43,34 @@ export const AuthProvider = ({ children }) => {
           freshUserData.isAdmin = true;
         } else if (freshUserData.role !== "organiser") {
           try {
-            const statusRes = await fetch(`/api/hosting-requests/status?email=${encodeURIComponent(normalizedEmail)}`);
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              if (statusData.isApproved) {
-                freshUserData.role = "organiser";
-                freshUserData.isAdmin = true;
-              }
+            const tokenResult = await fbUser.getIdTokenResult();
+            if (tokenResult.claims?.role === "organiser" || tokenResult.claims?.admin) {
+              freshUserData.role = "organiser";
+              freshUserData.isAdmin = true;
             }
           } catch (_) {}
+
+          if (freshUserData.role !== "organiser") {
+            try {
+              const statusRes = await fetch(`/api/hosting-requests/status?email=${encodeURIComponent(normalizedEmail)}`);
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                if (statusData.isApproved) {
+                  freshUserData.role = "organiser";
+                  freshUserData.isAdmin = true;
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        const googlePhoto =
+          fbUser.photoURL ||
+          fbUser.providerData?.find((p) => p?.photoURL)?.photoURL ||
+          freshUserData.photoURL ||
+          "";
+        if (googlePhoto) {
+          freshUserData.photoURL = googlePhoto;
         }
 
         freshUserData.role = isSuper ? "superAdmin" : freshUserData.role || "user";
@@ -64,7 +83,8 @@ export const AuthProvider = ({ children }) => {
             prev.isAdmin === freshUserData.isAdmin &&
             prev.fullName === freshUserData.fullName &&
             prev.email === freshUserData.email &&
-            prev.whatsappPhone === freshUserData.whatsappPhone
+            prev.whatsappPhone === freshUserData.whatsappPhone &&
+            prev.photoURL === freshUserData.photoURL
           ) {
             return prev;
           }
@@ -105,6 +125,10 @@ export const AuthProvider = ({ children }) => {
 
           // Initial fetch from Firestore
           let userData = await getCurrentUser(firebaseUser.uid);
+          if (userData) {
+            userData.id = firebaseUser.uid;
+            userData.uid = firebaseUser.uid;
+          }
 
           const normalizedEmail = (firebaseUser.email || "").toLowerCase().trim();
           const isSuper =
@@ -116,20 +140,39 @@ export const AuthProvider = ({ children }) => {
             userData.isAdmin = true;
           } else if (userData && userData.role !== "organiser") {
             try {
-              const statusRes = await fetch(`/api/hosting-requests/status?email=${encodeURIComponent(normalizedEmail)}`);
-              if (statusRes.ok) {
-                const statusData = await statusRes.json();
-                if (statusData.isApproved || statusData.isUserOrganiser) {
-                  userData.role = "organiser";
-                  userData.isAdmin = true;
-                }
+              const tokenResult = await firebaseUser.getIdTokenResult();
+              if (tokenResult.claims?.role === "organiser" || tokenResult.claims?.admin) {
+                userData.role = "organiser";
+                userData.isAdmin = true;
               }
             } catch (_) {}
+
+            if (userData.role !== "organiser") {
+              try {
+                const statusRes = await fetch(`/api/hosting-requests/status?email=${encodeURIComponent(normalizedEmail)}`);
+                if (statusRes.ok) {
+                  const statusData = await statusRes.json();
+                  if (statusData.isApproved || statusData.isUserOrganiser) {
+                    userData.role = "organiser";
+                    userData.isAdmin = true;
+                  }
+                }
+              } catch (_) {}
+            }
           }
+
+          const googlePhoto =
+            firebaseUser.photoURL ||
+            firebaseUser.providerData?.find((p) => p?.photoURL)?.photoURL ||
+            userData?.photoURL ||
+            "";
 
           if (userData) {
             userData.role = userData.role || "user";
             userData.isAdmin = isSuper || userData.role === "superAdmin" || userData.role === "organiser";
+            if (googlePhoto) {
+              userData.photoURL = googlePhoto;
+            }
           }
 
           // If no doc exists, create fallback profile
@@ -137,6 +180,7 @@ export const AuthProvider = ({ children }) => {
             const { doc: firestoreDoc, setDoc, Timestamp } = await import("firebase/firestore");
             userData = {
               id: firebaseUser.uid,
+              uid: firebaseUser.uid,
               email: firebaseUser.email || "",
               fullName:
                 firebaseUser.displayName ||
@@ -146,6 +190,7 @@ export const AuthProvider = ({ children }) => {
               createdAt: Timestamp.now(),
               isAdmin: isSuper,
               role: isSuper ? "superAdmin" : "user",
+              photoURL: googlePhoto,
             };
             await setDoc(firestoreDoc(db, "users", firebaseUser.uid), userData);
           }
@@ -207,10 +252,18 @@ export const AuthProvider = ({ children }) => {
                 ) {
                   return prev;
                 }
+                const googlePhoto =
+                  firebaseUser.photoURL ||
+                  firebaseUser.providerData?.find((p) => p?.photoURL)?.photoURL ||
+                  liveData.photoURL ||
+                  prev?.photoURL ||
+                  "";
                 return {
                   ...(prev || {}),
                   ...liveData,
+                  photoURL: googlePhoto,
                   id: firebaseUser.uid,
+                  uid: firebaseUser.uid,
                   role: liveRole,
                   isAdmin: liveIsAdmin,
                 };

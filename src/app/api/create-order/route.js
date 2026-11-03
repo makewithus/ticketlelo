@@ -7,6 +7,8 @@ import { reserveTicketCapacity, releaseCapacityReservation } from "@/lib/capacit
 import { validateCouponCode } from "@/lib/coupons";
 import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
+import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
+import { resolveCommissionRule, calculateCommissionBreakdown } from "@/lib/payments/commission-engine";
 
 /**
  * Server-Authoritative Razorpay Order Creation
@@ -110,6 +112,23 @@ export async function POST(request) {
       isTaxInclusive: true, // Default per PRAROHA specification
     });
 
+    // 4b. Marketplace Commission Engine & Organizer Gatekeeping
+    const organizerId = String(event.organizerId || event.creatorId || event.userId || "");
+    let marketplaceBreakdown = null;
+    let eligibility = null;
+
+    if (pricing.finalPayablePaise > 0) {
+      eligibility = await checkOrganizerEligibilityForPaidEvents(organizerId);
+      if (!eligibility.eligible && process.env.RAZORPAY_ROUTE_ENABLED === "true") {
+        return NextResponse.json(
+          { error: "Paid ticket sales for this event are temporarily unavailable until the organizer completes payment onboarding." },
+          { status: 403 }
+        );
+      }
+      const commissionRule = await resolveCommissionRule({ eventId, organizerId });
+      marketplaceBreakdown = calculateCommissionBreakdown(pricing.finalPayablePaise, commissionRule);
+    }
+
     // 5. Atomically Reserve Capacity (prevents overselling during payment attempt)
     let reservation = null;
     try {
@@ -146,9 +165,15 @@ export async function POST(request) {
     const orderRecord = {
       id: razorpayOrderId,
       eventId,
+      organizerId,
       ticketConfig,
       quantity: qty,
       pricing,
+      platformCommissionPaise: marketplaceBreakdown?.platformCommissionPaise ?? (pricing.platformFee * 100),
+      organizerSharePaise: marketplaceBreakdown?.organizerSharePaise ?? (pricing.organizerSettlement * 100),
+      commissionRuleSnapshot: marketplaceBreakdown?.ruleSnapshot || null,
+      isRouteTransfer: process.env.RAZORPAY_ROUTE_ENABLED === "true" && Boolean(eligibility?.account?.providerAccountId),
+      connectedAccountId: eligibility?.account?.providerAccountId || null,
       reservationId: reservation?.id || null,
       referralCode: referralCode || null,
       registrationData: {

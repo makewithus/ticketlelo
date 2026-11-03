@@ -17,17 +17,8 @@ export default function PricingPage() {
 
   const currentPlan = user?.plan || "free";
 
-  const userInitials = user?.fullName
-    ? user.fullName
-        .trim()
-        .split(/\s+/)
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
-    : user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "TO";
+  const userInitials = (user?.fullName || user?.email || "U").trim().charAt(0).toUpperCase();
+  const photoURL = user?.photoURL || "";
 
   // Load Razorpay checkout script
   useEffect(() => {
@@ -147,7 +138,15 @@ export default function PricingPage() {
             />
           </Link>
           <Link
-            href={user ? "/admin/dashboard" : "/"}
+            href={
+              user?.role === "superAdmin"
+                ? "/superadmin"
+                : user?.role === "organiser"
+                ? "/admin/dashboard"
+                : user
+                ? "/dashboard"
+                : "/"
+            }
             className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-[#D0D0D1] hover:text-white transition-colors"
           >
             <ArrowLeft size={14} className="shrink-0" />
@@ -157,13 +156,28 @@ export default function PricingPage() {
 
         <div className="flex items-center gap-2 sm:gap-3">
           <ThemeToggle inline />
-          {/* Profile Circle at Top Right matching Image 2 */}
+          {/* Profile Circle at Top Right */}
           <Link
-            href="/account"
-            title="Account profile"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-[#131517] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm hover:opacity-90 transition-opacity"
+            href={
+              user?.role === "superAdmin"
+                ? "/superadmin"
+                : user?.role === "organiser" || user?.isAdmin
+                ? "/admin/dashboard"
+                : "/dashboard"
+            }
+            title="Profile"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#22C55E] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs hover:opacity-90 transition-opacity overflow-hidden"
           >
-            {userInitials}
+            {photoURL ? (
+              <img
+                src={photoURL}
+                alt="Account"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              userInitials
+            )}
           </Link>
         </div>
       </header>

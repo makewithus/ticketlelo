@@ -12,6 +12,7 @@ import {
   Activity,
   User,
   Loader2,
+  Compass,
 } from "lucide-react";
 import { getPlan } from "@/lib/plans";
 import { getEventsByOrganiser } from "@/lib/firestore";
@@ -28,31 +29,47 @@ export default function AccountPage() {
   const currentPlanId = user?.plan || "free";
   const plan = getPlan(currentPlanId);
 
-  // Live local time formatted matching Image 3
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        router.replace("/login?redirect=/account");
+        return;
+      }
+    }
+  }, [user, authLoading, router]);
+
+  // Live IST clock strictly matching Image 1 (no GMT+5:30 text)
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-      const offsetMin = -now.getTimezoneOffset();
-      const sign = offsetMin >= 0 ? "+" : "-";
-      const hours = Math.floor(Math.abs(offsetMin) / 60);
-      const mins = Math.abs(offsetMin) % 60;
-      const gmt = `GMT${sign}${hours}${mins ? `:${mins.toString().padStart(2, "0")}` : ""}`;
-      setCurrentTime(`${timeStr} ${gmt}`);
+      try {
+        const now = new Date();
+        const time = now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        });
+        setCurrentTime(`${time.toLowerCase()} IST`);
+      } catch {
+        const now = new Date();
+        const time = now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        setCurrentTime(`${time.toLowerCase()} IST`);
+      }
     };
     updateTime();
-    const timer = setInterval(updateTime, 30000);
+    const timer = setInterval(updateTime, 15000);
     return () => clearInterval(timer);
   }, []);
 
   // Sync appearance with next-themes if available
   useEffect(() => {
     if (theme) {
-      setAppearance(theme);
+      const timer = setTimeout(() => setAppearance(theme), 0);
+      return () => clearTimeout(timer);
     }
   }, [theme]);
 
@@ -106,13 +123,8 @@ export default function AccountPage() {
 
   const displayName = user?.fullName || user?.name || "Test Organiser";
   const displayEmail = user?.email || "testorganiser@ticketlelo.com";
-  const userInitials = displayName
-    .trim()
-    .split(/\s+/)
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "TO";
+  const firstChar = (displayName || "U").trim().charAt(0).toUpperCase();
+  const photoURL = user?.photoURL || "";
 
   const eventsCount = events.length > 0 ? events.length : 2;
   const eventsLimit = currentPlanId === "starter" ? 3 : currentPlanId === "pro" ? 10 : 1;
@@ -127,9 +139,22 @@ export default function AccountPage() {
     }
   };
 
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-[#131517] flex items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+          <p className="text-sm text-[#9B9EA4]">
+            Loading account...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#131517] text-white selection:bg-[#FE760B] selection:text-white flex flex-col">
-      {/* ── Top Header Navigation Bar strictly matching Image 3 ── */}
+    <div className="min-h-screen bg-[#131517] text-white selection:bg-[#FE760B] selection:text-white flex flex-col w-full max-w-full overflow-x-clip">
+      {/* ── Top Header Navigation Bar strictly matching Image 1 ── */}
       <header className="relative z-20 w-full border-b border-[#2A2D31]/60 px-4 sm:px-6 lg:px-8 py-3">
         <div className="w-full flex items-center justify-between">
           {/* Left: Logo & Navigation Tabs */}
@@ -144,25 +169,18 @@ export default function AccountPage() {
 
             <nav className="flex items-center gap-4 sm:gap-6">
               <Link
-                href="/admin/dashboard"
+                href="/"
                 className="flex items-center gap-1.5 text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors"
               >
                 <Ticket className="w-3.5 h-3.5 text-[#9B9EA4]" />
                 <span>Events</span>
               </Link>
               <Link
-                href="/activity"
-                className="flex items-center gap-1.5 text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors"
-              >
-                <Activity className="w-3.5 h-3.5 text-[#9B9EA4]" />
-                <span>Activity</span>
-              </Link>
-              <Link
-                href="/account"
+                href="/discover"
                 className="flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
               >
-                <User className="w-3.5 h-3.5 text-white" />
-                <span>Account</span>
+                <Compass className="w-3.5 h-3.5 text-[#FE760B]" />
+                <span>Discover</span>
               </Link>
             </nav>
           </div>
@@ -193,12 +211,21 @@ export default function AccountPage() {
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#FE760B] border-2 border-[#131517]" />
             </Link>
 
-            {/* Profile Avatar Circle matching Image 3 */}
+            {/* Profile Avatar Circle */}
             <div
               title={displayName}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-[#131517] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden"
             >
-              {userInitials}
+              {photoURL ? (
+                <img
+                  src={photoURL}
+                  alt={displayName}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                firstChar
+              )}
             </div>
           </div>
         </div>
@@ -215,8 +242,17 @@ export default function AccountPage() {
         <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             {/* Orange circular avatar */}
-            <div className="w-12 h-12 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] font-bold text-sm shrink-0 shadow-sm">
-              {userInitials}
+            <div className="w-12 h-12 rounded-full bg-[#FE760B] flex items-center justify-center text-white font-bold text-base shrink-0 shadow-xs overflow-hidden">
+              {photoURL ? (
+                <img
+                  src={photoURL}
+                  alt={displayName}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                firstChar
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">

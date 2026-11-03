@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
   Download,
-  Sparkles,
+  Ticket,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { TicketGraphic } from "./ticket-graphic";
+import { QrCheckinModal } from "./qr-checkin-modal";
+import { TicketFullPreviewModal } from "./ticket-full-preview-modal";
 import { toast } from "sonner";
 import { CANONICAL_TICKETS } from "@/lib/canonical-tickets";
 import { formatTicketDate } from "@/lib/date-utils";
@@ -40,22 +42,28 @@ export function TicketDeckView({
   // ticketsOrder maintains the stacking from back (index 0) to front (last index)
   const ticketsOrder = reorderedIds || defaultOrder;
 
+  // Track active QR modal for checkin
+  const [selectedQrTicket, setSelectedQrTicket] = useState(null);
+  const [showFullModal, setShowFullModal] = useState(false);
+
   // Generous vertical spacing tuned for both mobile and desktop (Image 2)
-  const [spacing, setSpacing] = useState(84);
+  const [spacing, setSpacing] = useState(90);
 
   useEffect(() => {
     function updateSpacing() {
       if (typeof window === "undefined") return;
-      if (window.innerWidth < 480) {
-        setSpacing(82);
+      if (window.innerWidth < 360) {
+        setSpacing(92);
+      } else if (window.innerWidth < 480) {
+        setSpacing(102);
       } else if (window.innerWidth < 768) {
-        setSpacing(88);
+        setSpacing(114);
       } else if (window.innerWidth < 1024) {
-        setSpacing(98);
+        setSpacing(130);
       } else if (window.innerWidth < 1440) {
-        setSpacing(120);
+        setSpacing(152);
       } else {
-        setSpacing(135);
+        setSpacing(170);
       }
     }
     updateSpacing();
@@ -201,7 +209,7 @@ export function TicketDeckView({
 
   return (
     <div
-      className={`relative w-full max-w-[480px] sm:max-w-[560px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] mx-auto flex flex-col justify-between select-none transition-all duration-300 ${
+      className={`relative w-full max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] mx-auto flex flex-col justify-between select-none transition-all duration-300 ${
         standalone
           ? "min-h-screen py-4 px-3 lg:py-8 lg:px-6"
           : "py-2 px-2 sm:px-3 lg:py-4 lg:px-6"
@@ -251,7 +259,7 @@ export function TicketDeckView({
               ══════════════════════════════════════════════════ */
           ticketsWithQr.length === 0 ? (
             <div className="text-center p-8 my-auto">
-              <Sparkles className="w-8 h-8 text-[#FE760B] mx-auto mb-2" />
+              <Ticket className="w-8 h-8 text-[#FE760B] mx-auto mb-2" />
               <p className="text-sm font-semibold text-[#061A3F] dark:text-white">No passes found</p>
             </div>
           ) : (
@@ -296,7 +304,11 @@ export function TicketDeckView({
                       mass: 0.8,
                     }}
                   >
-                    <TicketGraphic ticket={ticket} horizontal={false} />
+                    <TicketGraphic
+                      ticket={ticket}
+                      horizontal={false}
+                      onQrClick={(t) => setSelectedQrTicket(t)}
+                    />
                   </motion.div>
                 );
               })}
@@ -308,7 +320,7 @@ export function TicketDeckView({
               ══════════════════════════════════════════════════ */
           activeTicket && (
             <div className="relative w-full flex-1 flex flex-col items-center justify-center py-2">
-              {/* Horizontal Ticket (0deg tilt, centered) */}
+              {/* Horizontal Ticket (0deg tilt, centered - Click to view full length) */}
               <motion.div
                 layoutId={`ticket-card-${activeTicket.id}`}
                 initial={{ rotate: -22, scale: 0.94, opacity: 0 }}
@@ -319,9 +331,15 @@ export function TicketDeckView({
                   stiffness: 320,
                   damping: 26,
                 }}
-                className="my-3 flex justify-center w-full"
+                onClick={() => setShowFullModal(true)}
+                className="my-3 flex justify-center w-full cursor-pointer hover:scale-[1.01] transition-transform"
+                title="Click to view full length ticket"
               >
-                <TicketGraphic ticket={activeTicket} horizontal={true} />
+                <TicketGraphic
+                  ticket={activeTicket}
+                  horizontal={true}
+                  onQrClick={(t) => setSelectedQrTicket(t)}
+                />
               </motion.div>
 
               {/* Ticket Details Card */}
@@ -381,6 +399,34 @@ export function TicketDeckView({
           )
         )}
       </main>
+
+      {/* Full Length Ticket Preview Modal */}
+      <TicketFullPreviewModal
+        isOpen={showFullModal}
+        onClose={() => setShowFullModal(false)}
+        ticket={activeTicket}
+        event={{
+          name: activeTicket?.title || activeTicket?.name,
+          title: activeTicket?.title || activeTicket?.name,
+          date: activeTicket?.date,
+          time: activeTicket?.time,
+          venue: activeTicket?.venue,
+          theme: activeTicket?.theme,
+          price: activeTicket?.price,
+          ticketDesign: activeTicket?.ticketDesign || "stub",
+        }}
+        design={activeTicket?.ticketDesign || "stub"}
+      />
+
+      {/* Enlarged QR Modal & Tactile Check-In Perforation Tear */}
+      <QrCheckinModal
+        isOpen={Boolean(selectedQrTicket)}
+        onClose={() => setSelectedQrTicket(null)}
+        ticket={selectedQrTicket}
+        onCheckIn={(ticketId) => {
+          toast.success("Ticket pass admitted and checked in!");
+        }}
+      />
     </div>
   );
 }

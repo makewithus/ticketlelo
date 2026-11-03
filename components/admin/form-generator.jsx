@@ -34,6 +34,7 @@ import {
   Code2,
   Globe,
   Sparkles,
+  Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getAllEvents, getEventsByOrganiser, updateEvent } from "@/lib/firestore";
@@ -894,8 +895,8 @@ export function FormGenerator() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5 text-xs text-[#9B9EA4] mb-1 font-medium">
-                  <span className="w-4 h-4 rounded bg-[#FE760B]/20 text-[#FE760B] flex items-center justify-center text-[10px] font-bold">
-                    🎟
+                  <span className="w-4 h-4 rounded bg-[#FE760B]/20 text-[#FE760B] flex items-center justify-center">
+                    <Ticket className="w-2.5 h-2.5" />
                   </span>
                   <span>Events</span>
                   <span>&gt;</span>

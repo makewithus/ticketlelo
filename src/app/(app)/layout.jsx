@@ -5,6 +5,8 @@ import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 
+import { ModalScrollLockProvider } from "@/components/ui/modal-scroll-lock-provider";
+
 export const metadata = {
   title: "TicketLelo - Event Ticketing Platform",
   description: "Professional event ticketing and management platform",
@@ -14,10 +16,16 @@ export const metadata = {
   },
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="antialiased font-sans bg-background text-foreground transition-colors duration-150">
+    <html lang="en" suppressHydrationWarning className="max-w-full overflow-x-clip">
+      <body className="antialiased font-sans bg-background text-foreground transition-colors duration-150 max-w-full overflow-x-clip">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -25,6 +33,7 @@ export default function RootLayout({ children }) {
           disableTransitionOnChange
         >
           <AuthProvider>{children}</AuthProvider>
+          <ModalScrollLockProvider />
           <ToastGuard />
           <Toaster 
             position="top-right" 

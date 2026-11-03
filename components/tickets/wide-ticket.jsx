@@ -8,7 +8,8 @@ import {
   Printer,
   RotateCcw,
   CheckCircle2,
-  Sparkles,
+  Award,
+  Scissors,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatTicketMeta } from "./stub-ticket";
@@ -273,6 +274,8 @@ export function WideTicket({
     leftVariant === "details" ||
     (leftVariant === "auto" && theme === "gaming" && !registration.forceQrLeft);
 
+  const ticketBgUrl = event.ticketBgUrl || registration.ticketBgUrl || "";
+
   // Format date day and month for Praroha style e.g. "07.11"
   const getDateDisplay = () => {
     try {
@@ -346,6 +349,41 @@ export function WideTicket({
     bottomBarText: "text-[#D0D0D1]",
     dateColor: "text-black",
   };
+
+  // Organiser layout and typography customizations
+  const yPos = typeof event.posterTextY === "number" ? event.posterTextY : 42;
+  const vAlignClass =
+    yPos <= 28
+      ? "justify-start pt-2"
+      : yPos >= 60
+      ? "justify-end pb-2"
+      : "justify-center";
+
+  const hAlign = event.posterAlign || event.ticketAlign || "left";
+  const textAlignClass =
+    hAlign === "center"
+      ? "text-center items-center mx-auto"
+      : hAlign === "right"
+      ? "text-right items-end ml-auto"
+      : "text-left items-start mr-auto";
+
+  const customFontSize = event.posterFontSize || event.ticketFontSize || null;
+  const fontSizeStyle = customFontSize
+    ? {
+        fontSize: `clamp(${Math.max(16, Math.round(customFontSize * 0.65))}px, ${customFontSize * 0.075}vw + 12px, ${customFontSize}px)`,
+        lineHeight: 1.08,
+      }
+    : undefined;
+
+  const backdrop = event.posterTextBg || event.ticketTextBg || "shadow";
+  const backdropClass =
+    backdrop === "badge"
+      ? "bg-black/40 backdrop-blur-md px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl border border-white/10 shadow-lg"
+      : backdrop === "solid"
+      ? "bg-black/90 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl shadow-xl"
+      : backdrop === "shadow"
+      ? "drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+      : "";
 
   return (
     <div className={`w-full max-w-[760px] mx-auto select-none print:max-w-none ${className}`}>
@@ -442,6 +480,18 @@ export function WideTicket({
           style={themeConfig.bodyBgStyle}
           className="relative flex-1 min-h-[160px] md:min-h-[190px] flex flex-col justify-between p-4 sm:p-5 overflow-hidden"
         >
+          {/* Custom Ticket Artwork / Background with auto-fit aspect ratio */}
+          {ticketBgUrl ? (
+            <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+              <img
+                src={ticketBgUrl}
+                alt="Ticket artwork"
+                className="w-full h-full object-cover object-center"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/45 to-black/85" />
+            </div>
+          ) : null}
+
           {/* THEME ARTWORKS */}
 
           {/* Theme 1: Tech Orange */}
@@ -560,18 +610,22 @@ export function WideTicket({
           )}
 
           {/* Center Content: Headline & Subtitle */}
-          <div className="relative z-10">
+          <div className={`relative z-10 my-auto flex flex-col ${textAlignClass} ${backdropClass}`}>
             <h2
-              className={`text-2xl sm:text-3xl lg:text-4xl font-black uppercase tracking-tight leading-none ${themeConfig.titleColor}`}
+              style={{ ...fontSizeStyle, ...themeConfig.titleStyle }}
+              className={`text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-tight leading-[1.08] break-words ${themeConfig.titleColor}`}
             >
               {titleInfo.line1 || "EVENT PASS"}
             </h2>
 
             {titleInfo.line2 ? (
-              <div
-                className={`text-lg sm:text-2xl font-black uppercase tracking-tight leading-none mt-1 ${themeConfig.titleColor}`}
-              >
-                {titleInfo.line2}
+              <div className="mt-0.5 sm:mt-1 w-full">
+                <span
+                  style={{ ...fontSizeStyle, ...themeConfig.titleStyle }}
+                  className={`text-base sm:text-xl font-black uppercase tracking-tight leading-[1.08] block break-words ${themeConfig.titleColor}`}
+                >
+                  {titleInfo.line2}
+                </span>
               </div>
             ) : null}
           </div>
@@ -604,6 +658,39 @@ export function WideTicket({
         >
           {/* Perforation line (dashed) on left */}
           <div className="hidden md:block absolute inset-y-0 left-0 w-0 border-r-2 border-dashed border-black/25 z-10" />
+
+          {/* Realistic Jagged Ripped Paper Edges when torn */}
+          {isTorn && (
+            <>
+              {/* Desktop vertical ripped paper edge */}
+              <div className="hidden md:block absolute -left-2 top-0 bottom-0 w-2 pointer-events-none z-20 overflow-hidden">
+                <svg
+                  viewBox="0 0 10 100"
+                  preserveAspectRatio="none"
+                  className="w-full h-full fill-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+                >
+                  <polygon points="10,0 2,5 9,10 1,16 8,22 3,28 10,34 2,40 8,46 1,52 9,58 3,64 10,70 2,76 8,82 1,88 9,94 10,100" />
+                </svg>
+              </div>
+              {/* Mobile horizontal ripped paper edge */}
+              <div className="block md:hidden absolute left-0 right-0 -top-2 h-2 pointer-events-none z-20 overflow-hidden">
+                <svg
+                  viewBox="0 0 100 10"
+                  preserveAspectRatio="none"
+                  className="w-full h-full fill-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+                >
+                  <polygon points="0,10 5,2 10,9 16,1 22,8 28,3 34,10 40,2 46,8 52,1 58,9 64,3 70,10 76,2 82,8 88,1 94,9 100,10" />
+                </svg>
+              </div>
+            </>
+          )}
+
+          {/* Floating tear hint when untorn */}
+          {!isTorn && interactive && (
+            <div className="hidden md:flex absolute -left-2.5 top-2 z-20 items-center justify-center w-5 h-5 rounded-full bg-[#FE760B] text-black shadow-md animate-bounce pointer-events-none">
+              <Scissors className="w-2.5 h-2.5 stroke-[2.5]" />
+            </div>
+          )}
 
           {/* Barcode & Ticket ID Container */}
           <div className="flex md:flex-col items-center justify-between gap-1.5 h-full w-full py-1">
@@ -638,9 +725,19 @@ export function WideTicket({
           <div className="flex items-center gap-2 text-xs text-[#061A3F] dark:text-[#9B9EA4]">
             <button
               onClick={handleStubClick}
-              className="text-xs text-[#FE760B] hover:underline font-semibold cursor-pointer"
+              className="text-xs text-[#FE760B] hover:underline font-semibold cursor-pointer flex items-center gap-1.5"
             >
-              {isTorn ? "Stub torn off (Click to reattach)" : "Click stub to tear off"}
+              {isTorn ? (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Stub torn off (Click to reattach)</span>
+                </>
+              ) : (
+                <>
+                  <Scissors className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Click stub to tear off</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -674,7 +771,7 @@ export function WideTicket({
                 variant="outline"
                 className="h-8 text-xs font-semibold bg-[#1A1C1F] border-[#2A2D31] text-[#061A3F] dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-[#212327] gap-1.5 rounded-xl cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#FE760B]" />
+                <Award className="w-3.5 h-3.5 text-[#FE760B]" />
                 <span>Certificate</span>
               </Button>
             )}

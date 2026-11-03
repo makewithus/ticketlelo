@@ -92,7 +92,12 @@ export default function AnalyticsInsightsPage() {
       try {
         setLoading(true);
         let list = [];
-        if (user.role === "superAdmin") {
+        const emailLower = (user?.email || "").toLowerCase().trim();
+        const isSuper =
+          user.role === "superAdmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+        if (isSuper) {
           list = await getAllEvents();
         } else {
           list = await getEventsByOrganiser(user.id);
@@ -222,10 +227,20 @@ export default function AnalyticsInsightsPage() {
     ).length;
   }, [scopedRegistrations]);
 
+  const parseSafeNumber = (val, fallback = 0) => {
+    if (val === null || val === undefined || val === "") return fallback;
+    if (typeof val === "number") return Number.isFinite(val) ? val : fallback;
+    const cleaned = String(val).replace(/[^0-9.-]/g, "").trim();
+    if (!cleaned) return fallback;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
   const checkedInPercent =
     totalRegistrations > 0
       ? Math.round((checkedInCount / totalRegistrations) * 100)
       : 0;
+  const safeCheckedInPercent = Number.isFinite(checkedInPercent) ? checkedInPercent : 0;
 
   const paidCount = useMemo(() => {
     return scopedRegistrations.filter(
@@ -252,13 +267,13 @@ export default function AnalyticsInsightsPage() {
 
   // Revenue calculation
   const totalRevenue = useMemo(() => {
-    const ticketPrice = Number(
-      event?.ticketPrice || event?.price || event?.pricing || 0
-    );
+    const rawTicketPrice = event?.ticketPrice ?? event?.price ?? event?.pricing ?? 0;
+    const ticketPrice = parseSafeNumber(rawTicketPrice, 0);
     let rev = 0;
     scopedRegistrations.forEach((r) => {
-      if (r.amount && Number(r.amount) > 0) {
-        rev += Number(r.amount);
+      const amountNum = parseSafeNumber(r.amount, 0);
+      if (amountNum > 0) {
+        rev += amountNum;
       } else if (
         (r.paymentStatus === "paid" || r.paymentStatus === "completed") &&
         ticketPrice > 0
@@ -266,14 +281,24 @@ export default function AnalyticsInsightsPage() {
         rev += ticketPrice;
       }
     });
-    return rev;
+    return Number.isFinite(rev) ? rev : 0;
   }, [scopedRegistrations, event]);
 
-  const capacity = parseInt(
-    event?.capacity || event?.totalTickets || 150,
-    10
-  );
-  const seatsLeft = Math.max(0, capacity - registrations.length);
+  const rawCap = event?.capacity ?? event?.totalTickets;
+  const rawCapStr = String(rawCap || "").trim();
+  const isExplicitOpenAccess =
+    rawCapStr === "Open Access" ||
+    rawCapStr === "Unlimited" ||
+    rawCapStr.toLowerCase().includes("open") ||
+    rawCapStr.toLowerCase().includes("unlimited");
+
+  const parsedCap = parseInt(rawCapStr, 10);
+  const isOpenAccess =
+    isExplicitOpenAccess || !Number.isFinite(parsedCap) || parsedCap <= 0;
+  const capacityDisplay = isOpenAccess ? "Open Access" : parsedCap;
+  const seatsLeftDisplay = isOpenAccess
+    ? "∞"
+    : Math.max(0, parsedCap - (registrations?.length || 0));
 
   // ── 24-Hour Stacked Hourly Distribution from Real DB ──
   // Image 4 shows 4 day layers: Mon, Tue, Wed, Today
@@ -372,7 +397,7 @@ export default function AnalyticsInsightsPage() {
   }
 
   return (
-    <div className="py-4 sm:py-6 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">
+    <div className="py-4 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">
       {/* ── Standard Navigation Header with Real Event & Switcher ── */}
       <EventControlHeader
         activeTab="Insights"
@@ -473,10 +498,10 @@ export default function AnalyticsInsightsPage() {
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight tabular-nums">
-            {totalRegistrations}
+            {String(totalRegistrations)}
           </p>
           <p className="text-[11px] text-[#FE760B] font-semibold mt-1">
-            +{todayCount} today
+            +{String(todayCount)} today
           </p>
         </div>
 
@@ -489,10 +514,10 @@ export default function AnalyticsInsightsPage() {
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight tabular-nums">
-            {checkedInCount}
+            {String(checkedInCount)}
           </p>
           <p className="text-[11px] text-[#9B9EA4] mt-1">
-            {checkedInPercent}% of guests
+            {String(safeCheckedInPercent)}% of guests
           </p>
         </div>
 
@@ -503,10 +528,10 @@ export default function AnalyticsInsightsPage() {
             <span className="text-xs text-[#9B9EA4] font-medium">Revenue</span>
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight tabular-nums">
-            ₹{totalRevenue.toLocaleString("en-IN")}
+            ₹{Number.isFinite(totalRevenue) ? totalRevenue.toLocaleString("en-IN") : "0"}
           </p>
           <p className="text-[11px] text-[#9B9EA4] mt-1">
-            {paidCount} paid ticket{paidCount === 1 ? "" : "s"}
+            {String(paidCount)} paid ticket{paidCount === 1 ? "" : "s"}
           </p>
         </div>
 
@@ -519,9 +544,11 @@ export default function AnalyticsInsightsPage() {
             </span>
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight tabular-nums">
-            {seatsLeft}
+            {String(seatsLeftDisplay)}
           </p>
-          <p className="text-[11px] text-[#9B9EA4] mt-1">of {capacity}</p>
+          <p className="text-[11px] text-[#9B9EA4] mt-1">
+            {isOpenAccess ? "Open Access" : `of ${String(capacityDisplay)}`}
+          </p>
         </div>
       </div>
 
@@ -649,7 +676,7 @@ export default function AnalyticsInsightsPage() {
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                   Paid
                 </span>
-                <span className="text-[#9B9EA4] tabular-nums">{paidCount}</span>
+                <span className="text-[#9B9EA4] tabular-nums">{String(paidCount)}</span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#2A2D31] overflow-hidden">
                 <div
@@ -673,7 +700,7 @@ export default function AnalyticsInsightsPage() {
                   Pending
                 </span>
                 <span className="text-[#9B9EA4] tabular-nums">
-                  {pendingCount}
+                  {String(pendingCount)}
                 </span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#2A2D31] overflow-hidden">
@@ -698,7 +725,7 @@ export default function AnalyticsInsightsPage() {
                   Used a coupon
                 </span>
                 <span className="text-[#9B9EA4] tabular-nums">
-                  {couponCount}
+                  {String(couponCount)}
                 </span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#2A2D31] overflow-hidden">
@@ -740,7 +767,7 @@ export default function AnalyticsInsightsPage() {
               const hasCoupon = Boolean(
                 guest.coupon || guest.couponCode || guest.promoCode
               );
-              const price = Number(guest.amount || event?.ticketPrice || event?.price || 0);
+              const price = parseSafeNumber(guest.amount || event?.ticketPrice || event?.price || 0, 0);
 
               let actionText = "registered";
               if (isCheckedIn) {

@@ -13,6 +13,11 @@ import {
   Search,
   Shield,
   Building2,
+  Compass,
+  Menu,
+  X,
+  Bell,
+  User,
 } from "lucide-react";
 import { TicketCard } from "@/components/dashboard/ticket-card";
 import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
@@ -33,12 +38,31 @@ export default function DashboardPage() {
   const [events, setEvents] = useState(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("All");
-  const [viewMode, setViewMode] = useState(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      return "deck";
+  const [viewMode, setViewMode] = useState("deck");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
-    return "grid";
-  });
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!authLoading) {
@@ -135,50 +159,95 @@ export default function DashboardPage() {
             <Ticket className="w-7 h-7 text-white" />
           </div>
           <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-          <p className="text-sm text-slate-500 dark:text-[#9B9EA4]">Loading your tickets...</p>
+          <p className="text-sm text-slate-500 dark:text-[#9B9EA4]">
+            Loading your tickets...
+          </p>
         </div>
       </main>
     );
   }
 
+  const pendingCount = registrations.filter(
+    (r) => r.status === "pending" || r.approvalStatus === "pending"
+  ).length;
+  const unusedCount = registrations.filter(
+    (r) =>
+      (r.status === "Unused" || r.status === "Going" || !r.status) &&
+      r.status !== "pending" &&
+      r.approvalStatus !== "pending"
+  ).length;
+  const usedCount = registrations.filter(
+    (r) => r.status === "Used" || r.status === "used"
+  ).length;
+
   const filteredRegistrations = registrations.filter((reg) => {
     if (filter === "All") return true;
+    if (filter === "pending") {
+      return reg.status === "pending" || reg.approvalStatus === "pending";
+    }
+    if (filter === "Unused") {
+      return (
+        (reg.status === "Unused" || reg.status === "Going" || !reg.status) &&
+        reg.status !== "pending" &&
+        reg.approvalStatus !== "pending"
+      );
+    }
+    if (filter === "Used") {
+      return reg.status === "Used" || reg.status === "used";
+    }
     return reg.status === filter;
   });
 
-  const unusedCount = registrations.filter((r) => r.status === "Unused").length;
-  const usedCount = registrations.filter((r) => r.status === "Used").length;
-
   return (
-    <main className="tl-system-theme min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white transition-colors">
+    <main className="tl-system-theme min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white transition-colors max-w-full overflow-x-clip">
       {/* Header */}
-      <header className="sticky top-0 inset-x-0 z-50 border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/95 dark:bg-[#131517]/95 backdrop-blur-md">
-        <nav className="max-w-7xl mx-auto px-3.5 xs:px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-2 group shrink-0">
-            <img src={LOGO_SRC} alt="TicketLelo" className="h-6 sm:h-[30px] w-auto object-contain" />
-          </Link>
+      <header className="sticky top-0 inset-x-0 z-50 border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/95 dark:bg-[#131517]/95 backdrop-blur-md overflow-hidden">
+        <nav className="max-w-7xl mx-auto px-3.5 xs:px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-6">
+            {/* Mobile Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="sm:hidden p-1.5 -ml-1 rounded-xl text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+              aria-label="Open navigation sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <Link href="/" className="flex items-center gap-2 group shrink-0">
+              <img src={LOGO_SRC} alt="TicketLelo" className="h-6 sm:h-[30px] w-auto object-contain" />
+            </Link>
+            <Link
+              href="/discover"
+              className="hidden sm:inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] dark:hover:text-white transition-colors"
+            >
+              <Compass className="w-3.5 h-3.5 text-[#FE760B]" />
+              <span>Discover</span>
+            </Link>
+
+            {/* Quick Multi-Portal Access for Super Admin / Organiser */}
+            {(user?.role === "superAdmin" ||
+              (user?.email || "").toLowerCase().trim() === "adil4ticketlelo@gmail.com" ||
+              (user?.email || "").toLowerCase().trim() === "superadmin@ticketlelo.com") ? (
+              <Link
+                href="/superadmin"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 hover:bg-[#FE760B]/20 border border-[#FE760B]/30 px-3 py-1.5 rounded-xl transition-colors"
+              >
+                <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
+                <span>Super Admin Suite</span>
+              </Link>
+            ) : (user?.role === "organiser" || user?.isAdmin) ? (
+              <Link
+                href="/admin/dashboard"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] bg-slate-100 dark:bg-[#1A1C1F] hover:bg-slate-200 dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] px-3 py-1.5 rounded-xl transition-colors"
+              >
+                <Building2 className="w-3.5 h-3.5 text-[#FE760B]" />
+                <span>Organiser Portal</span>
+              </Link>
+            ) : null}
+          </div>
 
           <div className="flex gap-2 sm:gap-3 items-center shrink-0">
-            {/* Quick Multi-Portal Access for Super Admin */}
-            {(user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
-              <div className="hidden md:flex items-center gap-1.5 p-1 rounded-full bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31]">
-                <Link
-                  href="/superadmin"
-                  className="px-2.5 py-1 rounded-full text-xs font-medium text-slate-700 dark:text-[#D0D0D1] bg-white dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] hover:bg-slate-200 dark:hover:bg-[#2A2D31] hover:border-[#FE760B]/40 hover:!text-[#FE760B] dark:hover:!text-white transition-all flex items-center gap-1.5 group"
-                >
-                  <Shield className="w-3 h-3 text-[#FE760B] group-hover:scale-105 transition-transform" />
-                  <span>Super Admin</span>
-                </Link>
-                <Link
-                  href="/admin/dashboard"
-                  className="px-2.5 py-1 rounded-full text-xs font-medium text-slate-700 dark:text-[#D0D0D1] hover:bg-slate-200 dark:hover:bg-[#212327] hover:border-slate-300 dark:hover:border-[#2A2D31] hover:!text-[#FE760B] dark:hover:!text-white transition-all flex items-center gap-1.5 group"
-                >
-                  <Building2 className="w-3 h-3 text-[#FE760B] group-hover:scale-105 transition-transform" />
-                  <span>Organiser</span>
-                </Link>
-              </div>
-            )}
-
             {/* THEME TOGGLE */}
             <ThemeToggle inline />
 
@@ -200,10 +269,143 @@ export default function DashboardPage() {
         </nav>
       </header>
 
+      {/* ── Mobile Sidebar Drawer & Backdrop ── */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 sm:hidden">
+          {/* Backdrop Overlay */}
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-fade-in"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Sidebar Drawer Panel */}
+          <aside className="fixed inset-y-0 left-0 w-[280px] max-w-[85vw] bg-white dark:bg-[#17191C] border-r border-slate-200 dark:border-[#2A2D31] flex flex-col justify-between shadow-2xl z-50 animate-slide-in-left overflow-y-auto">
+            {/* Top Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between">
+              <Link href="/" onClick={() => setMobileMenuOpen(false)}>
+                <img src={LOGO_SRC} alt="TicketLelo" className="h-6 w-auto object-contain" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 rounded-xl text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+                aria-label="Close navigation sidebar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="p-4 space-y-6 flex-1 overflow-y-auto">
+              <div>
+                <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
+                  My Hub
+                </p>
+                <nav className="space-y-1">
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
+                  >
+                    <Ticket className="w-4 h-4 text-[#FE760B] shrink-0" />
+                    <span>My Tickets</span>
+                  </Link>
+
+                  <Link
+                    href="/discover"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                  >
+                    <Compass className="w-4 h-4 text-[#FE760B] shrink-0" />
+                    <span>Discover Events</span>
+                  </Link>
+
+                  <Link
+                    href="/activity"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                  >
+                    <Bell className="w-4 h-4 text-[#9B9EA4] shrink-0" />
+                    <span>Activity Notifications</span>
+                  </Link>
+
+                  <Link
+                    href="/account"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                  >
+                    <User className="w-4 h-4 text-[#9B9EA4] shrink-0" />
+                    <span>Account Settings</span>
+                  </Link>
+                </nav>
+              </div>
+
+              {/* Organiser / Admin switches if applicable */}
+              {(user?.role === "organiser" || user?.isAdmin || user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
+                <div className="pt-4 border-t border-slate-200 dark:border-[#2A2D31]">
+                  <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
+                    Host Portals
+                  </p>
+                  <div className="space-y-1">
+                    <Link
+                      href="/admin/dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                    >
+                      <Building2 className="w-4 h-4 text-[#FE760B] shrink-0" />
+                      <span>Organiser Dashboard</span>
+                    </Link>
+
+                    {(user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
+                      <Link
+                        href="/superadmin"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 hover:bg-[#FE760B]/20 transition-colors"
+                      >
+                        <Shield className="w-4 h-4 text-[#FE760B] shrink-0" />
+                        <span>Super Admin Suite</span>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Section */}
+            <div className="p-4 border-t border-slate-200 dark:border-[#2A2D31] bg-slate-50 dark:bg-[#131517] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {user?.fullName || "Guest User"}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate">
+                    {user?.email}
+                  </p>
+                </div>
+                <ThemeToggle inline />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-[#FF6B6B] bg-rose-50 dark:bg-[#FF4D4D]/10 hover:bg-rose-100 dark:hover:bg-[#FF4D4D]/20 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
       <section className="pt-2 sm:pt-3 pb-3 sm:pb-4 px-3 xs:px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
-          {/* Welcome & Stats Command Center Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3 sm:mb-3.5 opacity-0 animate-fade-in-up">
+          {/* Welcome Header Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3 sm:mb-4 opacity-0 animate-fade-in-up">
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Welcome, <span className="text-[#FE760B]">{user.fullName || "Guest"}</span>
@@ -212,90 +414,37 @@ export default function DashboardPage() {
                 Your tickets control room — all event passes in one place.
               </p>
             </div>
-
-            {/* Compact, Sleek Metric Pills */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full md:w-auto">
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
-                <div className="min-w-0">
-                  <p className="text-[8px] xs:text-[9.5px] text-slate-500 dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Total</p>
-                  <p className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-none mt-0.5">{registrations.length}</p>
-                </div>
-                <div className="w-7 h-7 shrink-0 rounded-lg bg-[#FE760B]/10 text-[#FE760B] flex items-center justify-center border border-[#FE760B]/20">
-                  <Ticket className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
-                <div className="min-w-0">
-                  <p className="text-[8px] xs:text-[9.5px] text-slate-500 dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Upcoming</p>
-                  <p className="text-lg sm:text-xl font-bold text-emerald-600 dark:text-[#10B981] leading-none mt-0.5">{unusedCount}</p>
-                </div>
-                <div className="w-7 h-7 shrink-0 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-[#10B981] flex items-center justify-center border border-emerald-500/20">
-                  <CalendarDays className="w-3.5 h-3.5" />
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-2.5 xs:px-3 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2.5 shadow-sm">
-                <div className="min-w-0">
-                  <p className="text-[8px] xs:text-[9.5px] text-slate-500 dark:text-[#9B9EA4] font-bold uppercase tracking-wider whitespace-nowrap">Used</p>
-                  <p className="text-lg sm:text-xl font-bold text-slate-700 dark:text-[#D0D0D1] leading-none mt-0.5">{usedCount}</p>
-                </div>
-                <div className="w-7 h-7 shrink-0 rounded-lg bg-slate-100 dark:bg-[#212327] text-slate-600 dark:text-[#9B9EA4] flex items-center justify-center border border-slate-200 dark:border-[#2A2D31]">
-                  <TicketCheck className="w-3.5 h-3.5" />
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Filter Tabs & View Mode Switcher */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 mb-2 sm:mb-2.5 opacity-0 animate-fade-in-up stagger-2">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <Filter className="w-3.5 h-3.5 text-slate-500 dark:text-[#9B9EA4] mr-0.5" />
-              {[
-                { key: "All", label: `All (${registrations.length})` },
-                { key: "Unused", label: `Upcoming (${unusedCount})` },
-                { key: "Used", label: `Used (${usedCount})` },
-              ].map((f) => (
+          {/* View Mode Switcher (Filters removed per user request) */}
+          {registrations.length > 0 && (
+            <div className="flex items-center justify-end mb-2 sm:mb-2.5 opacity-0 animate-fade-in-up stagger-2">
+              <div className="flex items-center bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-0.5 rounded-lg shadow-sm">
                 <button
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  className={`px-3 py-1 sm:py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    filter === f.key
-                      ? "bg-[#FE760B] text-white dark:text-[#131517] shadow-none"
-                      : "bg-white dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] border border-slate-200 dark:border-[#2A2D31] hover:bg-slate-100 dark:hover:bg-[#212327] hover:text-slate-900 dark:hover:text-white"
+                  onClick={() => setViewMode("deck")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    viewMode === "deck"
+                      ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
-                  {f.label}
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Deck view</span>
                 </button>
-              ))}
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    viewMode === "grid"
+                      ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Grid view</span>
+                </button>
+              </div>
             </div>
-
-            {/* View Mode Switcher */}
-            <div className="flex items-center bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-0.5 rounded-lg shadow-sm">
-              <button
-                onClick={() => setViewMode("deck")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  viewMode === "deck"
-                    ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Deck view</span>
-              </button>
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                  viewMode === "grid"
-                    ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
-                    : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Grid view</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           {/* VIEW: DECK VIEW */}
           {viewMode === "deck" ? (
@@ -313,9 +462,9 @@ export default function DashboardPage() {
                     : `You have no tickets currently matching the "${filter}" filter.`}
                 </p>
                 {filter === "All" && (
-                  <Link href="/">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
-                      Browse events
+                  <Link href="/discover">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none cursor-pointer">
+                      Discover live events
                     </Button>
                   </Link>
                 )}
@@ -332,7 +481,10 @@ export default function DashboardPage() {
                     if (displayTitle === "PRAROHA") displayTitle = "PRARÖHA";
                     const subTitle = parsed.line2 ? parsed.line2.toUpperCase() : (reg.ticketTier || reg.ticketType || "PASS");
                     const year = parsed.year || getEventYear(rawEvent.date || reg.eventDate, "2026");
-                    const subBadge = reg.status === "Used"
+                    const isPending = reg.status === "pending" || reg.approvalStatus === "pending";
+                    const subBadge = isPending
+                      ? "PENDING"
+                      : reg.status === "Used"
                       ? "USED"
                       : (rawEvent.price === 0 || reg.amount === 0 ? "FREE" : reg.amount ? `₹${reg.amount}` : (reg.ticketTier || "PASS"));
 
@@ -347,7 +499,8 @@ export default function DashboardPage() {
                       guest: String(reg.attendeeName || reg.fullName || user.fullName || "Adil M"),
                       ticketId: String(reg.ticketId || `TKT-${reg.id?.slice(0, 8)}`),
                       qrCode: reg.qrCode,
-                      entryLabel: "SCAN AT ENTRY",
+                      entryLabel: isPending ? "PENDING APPROVAL" : "SCAN AT ENTRY",
+                      isPending: isPending,
                       subBadge: subBadge,
                       price: rawEvent.price !== undefined ? rawEvent.price : reg.amount !== undefined ? reg.amount : null,
                     };
@@ -372,9 +525,9 @@ export default function DashboardPage() {
                     : `You have no tickets currently matching the "${filter}" filter.`}
                 </p>
                 {filter === "All" && (
-                  <Link href="/">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none">
-                      Browse events
+                  <Link href="/discover">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none cursor-pointer">
+                      Discover live events
                     </Button>
                   </Link>
                 )}

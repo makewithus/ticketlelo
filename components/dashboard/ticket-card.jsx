@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { WideTicket } from "@/components/tickets/wide-ticket";
+import { TicketFullPreviewModal } from "@/components/tickets/ticket-full-preview-modal";
 import { toast } from "sonner";
 import { Layers } from "lucide-react";
 
 export function TicketCard({ registration, event }) {
   const [certLoading, setCertLoading] = useState(false);
+  const [showFullPreview, setShowFullPreview] = useState(false);
 
   const handleDownload = () => {
     const downloadUrl = `/api/generate-ticket/${registration.ticketId}`;
@@ -54,25 +56,39 @@ export function TicketCard({ registration, event }) {
 
   return (
     <div className="w-full flex flex-col">
-      {isWide ? (
-        <WideTicket
-          registration={registration}
-          event={event}
-          interactive={true}
-          showActions={true}
-          onDownload={handleDownload}
-          onCertificate={isUsed ? handleGetCertificate : null}
-        />
-      ) : (
-        <StubTicket
-          registration={registration}
-          event={event}
-          interactive={true}
-          showActions={true}
-          onDownload={handleDownload}
-          onCertificate={isUsed ? handleGetCertificate : null}
-        />
-      )}
+      <div
+        onClick={() => setShowFullPreview(true)}
+        className="cursor-pointer group/card transition-transform hover:scale-[1.005]"
+        title="Click to view full length ticket"
+      >
+        {isWide ? (
+          <WideTicket
+            registration={registration}
+            event={event}
+            interactive={true}
+            showActions={true}
+            onDownload={handleDownload}
+            onCertificate={isUsed ? handleGetCertificate : null}
+          />
+        ) : (
+          <StubTicket
+            registration={registration}
+            event={event}
+            interactive={true}
+            showActions={true}
+            onDownload={handleDownload}
+            onCertificate={isUsed ? handleGetCertificate : null}
+          />
+        )}
+      </div>
+
+      <TicketFullPreviewModal
+        isOpen={showFullPreview}
+        onClose={() => setShowFullPreview(false)}
+        ticket={registration}
+        event={event}
+        design={isWide ? "wide" : "stub"}
+      />
 
       {/* Entitlements / Track snapshot if combo or fest pass */}
       {Array.isArray(registration.entitledTrackNames) &&

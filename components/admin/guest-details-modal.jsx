@@ -18,12 +18,14 @@ import {
   Send,
   MessageCircle,
   ShieldAlert,
+  Clock,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { toast } from "sonner";
 import { doc, getDoc, updateDoc, Timestamp, collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getCustomFormByEvent } from "@/lib/form-generator";
+import { approveRegistration, declineRegistration } from "@/lib/firestore";
 import Link from "next/link";
 
 /**
@@ -205,9 +207,62 @@ export function GuestDetailsModal({
   const [reportReason, setReportReason] = useState("");
   const [editingGuestId, setEditingGuestId] = useState(null);
 
+  // Approval state & actions matching Image 2 & 3
+  const [notifyGuest, setNotifyGuest] = useState(true);
+  const [customApprovalMessage, setCustomApprovalMessage] = useState("");
+  const [isProcessingApproval, setIsProcessingApproval] = useState(false);
+
   const actionMenuRef = useRef(null);
 
   const isEditing = editingGuestId === guest?.id;
+
+  const handleApprove = async () => {
+    if (!guest?.id) return;
+    setIsProcessingApproval(true);
+    try {
+      await approveRegistration(guest.id, customApprovalMessage, {
+        notifyGuest,
+      });
+      toast.success(`${guestName} approved successfully!`);
+      const updated = {
+        ...guest,
+        status: "Going",
+        approvalStatus: "approved",
+        approvedAt: new Date(),
+        approvalMessage: customApprovalMessage || null,
+      };
+      onGuestUpdated?.(updated);
+    } catch (err) {
+      console.error("Approve guest error:", err);
+      toast.error("Failed to approve guest");
+    } finally {
+      setIsProcessingApproval(false);
+    }
+  };
+
+  const handleDecline = async () => {
+    if (!guest?.id) return;
+    setIsProcessingApproval(true);
+    try {
+      await declineRegistration(guest.id, customApprovalMessage, {
+        notifyGuest,
+      });
+      toast.error(`${guestName} declined`);
+      const updated = {
+        ...guest,
+        status: "declined",
+        approvalStatus: "declined",
+        declinedAt: new Date(),
+        declineMessage: customApprovalMessage || null,
+      };
+      onGuestUpdated?.(updated);
+    } catch (err) {
+      console.error("Decline guest error:", err);
+      toast.error("Failed to decline guest");
+    } finally {
+      setIsProcessingApproval(false);
+    }
+  };
 
   // Derive QR Data URL directly from guest.qrCode if present, otherwise use generated QR
   const qrDataUrl = useMemo(() => {
@@ -404,13 +459,22 @@ export function GuestDetailsModal({
     guest?.status === "used" ||
     guest?.status === "checked-in" ||
     guest?.checkedIn === true;
-  const isPending = guest?.status === "pending" || guest?.paymentStatus === "pending";
-  const isCancelled = guest?.status === "Cancelled" || guest?.status === "cancelled";
+  const isDeclined =
+    guest?.status === "declined" ||
+    guest?.status === "Cancelled" ||
+    guest?.status === "cancelled" ||
+    guest?.approvalStatus === "declined";
+  const isPending =
+    !isCheckedIn &&
+    !isDeclined &&
+    (guest?.status === "pending" ||
+      guest?.approvalStatus === "pending" ||
+      guest?.paymentStatus === "pending");
 
   const statusLabel = isCheckedIn
     ? "Checked In"
-    : isCancelled
-    ? "Cancelled"
+    : isDeclined
+    ? "Declined"
     : isPending
     ? "Pending"
     : "Going";
@@ -418,7 +482,17 @@ export function GuestDetailsModal({
   // Build resolved questions & answers list (Dynamic per-event questions, NO Batch ID)
   const questionEntries = useMemo(() => {
     if (!guest) return [];
-    const formData = guest.formData || {};
+    const formData = {
+      ...(guest.formData || {}),
+      ...(guest.customFieldResponses || {}),
+      ...(guest.answers || {}),
+      ...(guest.responses || {}),
+    };
+    if (guest.teamName && formData.teamName === undefined) formData.teamName = guest.teamName;
+    if (guest.teamLeaderName && formData.teamLeaderName === undefined) formData.teamLeaderName = guest.teamLeaderName;
+    if (guest.department && formData.department === undefined) formData.department = guest.department;
+    if (guest.semester && formData.semester === undefined) formData.semester = guest.semester;
+    if (guest.college && formData.college === undefined) formData.college = guest.college;
     const result = [];
     const processedKeys = new Set();
 
@@ -811,17 +885,18 @@ export function GuestDetailsModal({
               {/* Right: Clean Static Status Badge Pill (No dropdown) */}
               <div className="shrink-0">
                 <span
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
                     isCheckedIn
                       ? "bg-[#10B981]/15 text-[#34D399] border-[#10B981]/30"
-                      : isCancelled
+                      : isDeclined
                       ? "bg-red-500/15 text-red-400 border-red-500/30"
                       : isPending
                       ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
                       : "bg-[#10B981]/15 text-[#34D399] border-[#10B981]/30"
                   }`}
                 >
-                  {statusLabel}
+                  <span>{statusLabel}</span>
+                  {isPending && <ExternalLink size={10} className="opacity-70" />}
                 </span>
               </div>
             </div>
@@ -852,6 +927,98 @@ export function GuestDetailsModal({
 
           {/* ── Scrollable Body Area ── */}
           <div className="overflow-y-auto px-5 py-5 space-y-6 flex-1 text-left overscroll-contain bg-[#1A1C1F]">
+            {/* ── Pending Approval Card & Actions (Matching Image 2 & 3) ── */}
+            {isPending && (
+              <div className="space-y-3">
+                {/* Amber status card */}
+                <div className="bg-[#2C2614] border border-[#FDE003]/30 rounded-xl p-3.5 flex items-center gap-2.5 text-[#FDE003]">
+                  <Clock size={16} className="shrink-0 text-[#FDE003]" />
+                  <p className="text-xs font-semibold">
+                    This guest is currently pending approval.
+                  </p>
+                </div>
+
+                {/* Form action box */}
+                <div className="bg-[#131517] border border-[#2A2D31] rounded-2xl p-4 space-y-3.5 shadow-sm">
+                  {/* Notify guest checkbox */}
+                  <label className="flex items-center gap-2.5 text-xs font-semibold text-white cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={notifyGuest}
+                      onChange={(e) => setNotifyGuest(e.target.checked)}
+                      className="w-4 h-4 rounded bg-[#212327] border-[#2A2D31] text-[#22C55E] focus:ring-0 cursor-pointer accent-[#22C55E]"
+                    />
+                    <span>Notify Guest</span>
+                  </label>
+
+                  {/* Optional custom message */}
+                  <div className="space-y-1">
+                    <textarea
+                      rows={2}
+                      placeholder="Add an optional, custom message..."
+                      value={customApprovalMessage}
+                      onChange={(e) => setCustomApprovalMessage(e.target.value)}
+                      className="w-full text-xs font-medium text-white bg-[#212327] border border-[#2A2D31] rounded-xl p-3 outline-none focus:border-[#FE760B] transition-colors placeholder-[#9B9EA4] resize-none"
+                    />
+                    <p className="text-[10px] text-[#9B9EA4] leading-tight">
+                      Any message you specified in the registration emails will always be included.
+                    </p>
+                  </div>
+
+                  {/* Big Approve & Decline Buttons */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      disabled={isProcessingApproval}
+                      onClick={handleApprove}
+                      className="w-full py-2.5 px-4 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {isProcessingApproval ? (
+                        <Loader2 size={14} className="animate-spin text-white" />
+                      ) : (
+                        <Check size={14} strokeWidth={3} />
+                      )}
+                      <span>Approve</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isProcessingApproval}
+                      onClick={handleDecline}
+                      className="w-full py-2.5 px-4 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {isProcessingApproval ? (
+                        <Loader2 size={14} className="animate-spin text-white" />
+                      ) : (
+                        <X size={14} strokeWidth={3} />
+                      )}
+                      <span>Decline</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* If previously declined */}
+            {isDeclined && (
+              <div className="bg-[#2B1414] border border-red-500/30 rounded-xl p-3.5 flex items-center justify-between gap-3 text-red-300">
+                <div className="flex items-center gap-2">
+                  <X size={16} className="text-red-400 shrink-0" />
+                  <p className="text-xs font-semibold">
+                    Registration was declined by the organiser.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isProcessingApproval}
+                  onClick={handleApprove}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#22C55E] hover:bg-[#16A34A] text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-50"
+                >
+                  Approve Now
+                </button>
+              </div>
+            )}
+
             {/* ── Section 1: Registration Questions (Dynamic per-event details) ── */}
             <div>
               <div className="flex items-center justify-between mb-4">

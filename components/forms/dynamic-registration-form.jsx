@@ -20,6 +20,8 @@ import {
 import { sendRegistrationConfirmation } from "@/lib/email";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
+import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
+import { useAuth } from "@/context/auth-context";
 import { getCustomFormByEvent } from "@/lib/form-generator";
 import {
   Loader2,
@@ -37,6 +39,7 @@ import {
   Building2,
   Tag,
   Ticket,
+  AlertCircle,
   ShieldCheck,
   Eye,
   EyeOff,
@@ -127,8 +130,64 @@ function sanitizeCustomFields(fields = []) {
     });
 }
 
-export function DynamicRegistrationForm({ eventId, event, initialForm, ...props }) {
+export function DynamicRegistrationForm({ eventId, event: initialEvent, initialForm, ...props }) {
   const router = useRouter();
+  const { user: authUser } = useAuth();
+  const effectiveUser = authUser || auth.currentUser;
+
+  // Real-time Event and Live Registrations listener
+  const [currentEvent, setCurrentEvent] = useState(initialEvent || props.event || null);
+  const [liveRegistrationsCount, setLiveRegistrationsCount] = useState(0);
+
+  useEffect(() => {
+    if (initialEvent || props.event) {
+      setCurrentEvent(initialEvent || props.event);
+    }
+  }, [initialEvent, props.event]);
+
+  useEffect(() => {
+    const targetId = eventId || initialEvent?.id || props.event?.id || currentEvent?.id;
+    if (!targetId || !db) return;
+
+    let unsubEvent = null;
+    let unsubRegs = null;
+
+    try {
+      unsubEvent = onSnapshot(
+        doc(db, "events", targetId),
+        (snap) => {
+          if (snap.exists()) {
+            const data = { id: snap.id, ...snap.data() };
+            setCurrentEvent((prev) => ({ ...(prev || {}), ...data }));
+          }
+        },
+        (err) => console.warn("Real-time event subscription warning:", err?.message)
+      );
+    } catch (err) {
+      console.warn("Could not bind real-time event listener:", err);
+    }
+
+    try {
+      const q = query(collection(db, "registrations"), where("eventId", "==", targetId));
+      unsubRegs = onSnapshot(
+        q,
+        (snap) => {
+          setLiveRegistrationsCount(snap.size);
+        },
+        (err) => console.warn("Real-time registrations subscription warning:", err?.message)
+      );
+    } catch (err) {
+      console.warn("Could not bind real-time registrations listener:", err);
+    }
+
+    return () => {
+      if (typeof unsubEvent === "function") unsubEvent();
+      if (typeof unsubRegs === "function") unsubRegs();
+    };
+  }, [eventId, initialEvent?.id, props.event?.id]);
+
+  const activeEvent = currentEvent || initialEvent || props.event || {};
+
   const [isLoading, setIsLoading] = useState(false);
   const [customForm, setCustomForm] = useState(null);
   const [formData, setFormData] = useState({});
@@ -138,9 +197,10 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
   const [tempFormData, setTempFormData] = useState(null);
   const [loginPassword, setLoginPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const themeColor = event?.themeColor || "#FE760B";
+  const themeColor = activeEvent?.themeColor || "#FE760B";
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [isPendingApproval, setIsPendingApproval] = useState(false);
   const [formLoadError, setFormLoadError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -149,6 +209,70 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponData, setCouponData] = useState(null);
   const [couponError, setCouponError] = useState("");
+
+  // Registration Closure & Capacity Controls (Computed authoritatively in real time)
+  const isEventCancelled = Boolean(
+    activeEvent?.status === "cancelled" || activeEvent?.isCancelled
+  );
+
+  const isEventEnded = Boolean(
+    activeEvent?.status === "ended" ||
+    activeEvent?.status === "completed" ||
+    activeEvent?.isEnded === true
+  );
+
+  // Authoritative explicit closure evaluation:
+  // If closeRegistrationEnabled is explicitly false, closure rule is disabled and registration is open.
+  let isRegistrationClosedExplicit = false;
+  if (activeEvent?.closeRegistrationEnabled === true) {
+    if (activeEvent?.closeRegistrationMode === "now" || activeEvent?.registrationClosed === true) {
+      isRegistrationClosedExplicit = true;
+    }
+  } else if (activeEvent?.closeRegistrationEnabled === false) {
+    isRegistrationClosedExplicit = false;
+  } else {
+    // Fallback for older event records before closeRegistrationEnabled field was introduced
+    isRegistrationClosedExplicit = Boolean(
+      (activeEvent?.registrationClosed === true && activeEvent?.registrationStatus !== "Open") ||
+      (activeEvent?.isRegistrationClosed === true && activeEvent?.registrationStatus !== "Open") ||
+      activeEvent?.registrationStatus === "Closed" ||
+      activeEvent?.registrationStatus === "closed" ||
+      activeEvent?.status === "closed"
+    );
+  }
+
+  const allocatedSeats = Math.max(
+    Number(activeEvent?.allocatedSeats || 0),
+    liveRegistrationsCount
+  );
+
+  const isCapacityClosed = Boolean(
+    activeEvent?.closeRegistrationEnabled === true &&
+    activeEvent?.closeRegistrationMode === "capacity" &&
+    typeof activeEvent?.closeRegistrationCapacity === "number" &&
+    Number(activeEvent.closeRegistrationCapacity) > 0 &&
+    allocatedSeats >= Number(activeEvent.closeRegistrationCapacity)
+  );
+
+  const totalSeats = Number(
+    activeEvent?.globalCapacity ||
+    activeEvent?.capacity ||
+    activeEvent?.maxCapacity ||
+    0
+  );
+
+  const isGlobalCapacityReached = Boolean(
+    Boolean(activeEvent?.limitCapacity) &&
+    totalSeats > 0 &&
+    allocatedSeats >= totalSeats
+  );
+
+  const isClosedForRegistration =
+    isEventCancelled ||
+    isEventEnded ||
+    isRegistrationClosedExplicit ||
+    isCapacityClosed ||
+    isGlobalCapacityReached;
 
   // Helper to build initial form values with user pre-population
   const buildInitialData = (fields) => {
@@ -162,12 +286,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
         initialData[field.name] = "";
       }
     });
-    const signedIn = auth.currentUser;
+    const signedIn = authUser || auth.currentUser;
     if (signedIn) {
       const emailF = fields.find((f) => {
         const t = String(f?.type || "").toLowerCase();
         const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-        return t === "email" || n.includes("email");
+        return t === "email" || n === "email" || n.includes("email");
       });
       const nameF = fields.find((f) => {
         const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
@@ -196,74 +320,76 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
         initialData[emailF.id] = signedIn.email;
         if (emailF.name) initialData[emailF.name] = signedIn.email;
       }
-      if (nameF && signedIn.displayName) {
-        initialData[nameF.id] = signedIn.displayName;
-        if (nameF.name) initialData[nameF.name] = signedIn.displayName;
+      if (nameF && (signedIn.displayName || signedIn.fullName)) {
+        const nVal = signedIn.displayName || signedIn.fullName;
+        initialData[nameF.id] = nVal;
+        if (nameF.name) initialData[nameF.name] = nVal;
       }
-      if (phoneF && signedIn.phoneNumber) {
-        initialData[phoneF.id] = signedIn.phoneNumber;
-        if (phoneF.name) initialData[phoneF.name] = signedIn.phoneNumber;
+      if (phoneF && (signedIn.phoneNumber || signedIn.whatsappPhone)) {
+        const pVal = signedIn.phoneNumber || signedIn.whatsappPhone;
+        initialData[phoneF.id] = pVal;
+        if (phoneF.name) initialData[phoneF.name] = pVal;
       }
     }
     return initialData;
   };
 
-  // Auto-fill logged-in attendee details when auth initializes
+  // Auto-fill and lock logged-in attendee details when auth initializes or changes
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user && customForm?.fields) {
-        setFormData((prev) => {
-          const next = { ...prev };
-          let updated = false;
-          const emailF = customForm.fields.find((f) => {
-            const t = String(f?.type || "").toLowerCase();
-            const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-            return t === "email" || n.includes("email");
-          });
-          const nameF = customForm.fields.find((f) => {
-            const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-            return (
-              n === "fullname" ||
-              n === "name" ||
-              (n.includes("name") &&
-                !n.includes("college") &&
-                !n.includes("school") &&
-                !n.includes("team") &&
-                !n.includes("company"))
-            );
-          });
-          const phoneF = customForm.fields.find((f) => {
-            const t = String(f?.type || "").toLowerCase();
-            const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-            return (
-              t === "tel" ||
-              n.includes("phone") ||
-              n.includes("mobile") ||
-              n.includes("whatsapp") ||
-              n.includes("contact")
-            );
-          });
-          if (emailF && !next[emailF.id] && user.email) {
-            next[emailF.id] = user.email;
-            if (emailF.name) next[emailF.name] = user.email;
-            updated = true;
-          }
-          if (nameF && !next[nameF.id] && user.displayName) {
-            next[nameF.id] = user.displayName;
-            if (nameF.name) next[nameF.name] = user.displayName;
-            updated = true;
-          }
-          if (phoneF && !next[phoneF.id] && user.phoneNumber) {
-            next[phoneF.id] = user.phoneNumber;
-            if (phoneF.name) next[phoneF.name] = user.phoneNumber;
-            updated = true;
-          }
-          return updated ? next : prev;
+    const userToSync = authUser || auth.currentUser;
+    if (userToSync && customForm?.fields) {
+      setFormData((prev) => {
+        const next = { ...prev };
+        let updated = false;
+        const emailF = customForm.fields.find((f) => {
+          const t = String(f?.type || "").toLowerCase();
+          const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+          return t === "email" || n === "email" || n.includes("email");
         });
-      }
-    });
-    return () => unsubscribe();
-  }, [customForm]);
+        const nameF = customForm.fields.find((f) => {
+          const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+          return (
+            n === "fullname" ||
+            n === "name" ||
+            (n.includes("name") &&
+              !n.includes("college") &&
+              !n.includes("school") &&
+              !n.includes("team") &&
+              !n.includes("company"))
+          );
+        });
+        const phoneF = customForm.fields.find((f) => {
+          const t = String(f?.type || "").toLowerCase();
+          const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+          return (
+            t === "tel" ||
+            n.includes("phone") ||
+            n.includes("mobile") ||
+            n.includes("whatsapp") ||
+            n.includes("contact")
+          );
+        });
+        if (emailF && userToSync.email && next[emailF.id] !== userToSync.email) {
+          next[emailF.id] = userToSync.email;
+          if (emailF.name) next[emailF.name] = userToSync.email;
+          updated = true;
+        }
+        if (nameF && !next[nameF.id] && (userToSync.displayName || userToSync.fullName)) {
+          const nVal = userToSync.displayName || userToSync.fullName;
+          next[nameF.id] = nVal;
+          if (nameF.name) next[nameF.name] = nVal;
+          updated = true;
+        }
+        if (phoneF && !next[phoneF.id] && (userToSync.phoneNumber || userToSync.whatsappPhone)) {
+          const pVal = userToSync.phoneNumber || userToSync.whatsappPhone;
+          next[phoneF.id] = pVal;
+          if (phoneF.name) next[phoneF.name] = pVal;
+          updated = true;
+        }
+        return updated ? next : prev;
+      });
+    }
+  }, [authUser, customForm]);
 
   // Fetch custom form structure with timeout and retry (only if not prefetched)
   useEffect(() => {
@@ -677,20 +803,26 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
-      const attendeeName = dataToSend.fullName || tempFormData?.fullName || user.fullName || user.email;
-      const emailSent = await sendRegistrationConfirmation(
-        user.email,
-        attendeeName,
-        event?.name || "Event",
-        result.ticketId
-      );
-      toast.success(
-        result.alreadyRegistered
-          ? "You are already registered for this event"
-          : "Registration successful"
-      );
-      if (!emailSent)
-        toast.info("Sign in to your attendee dashboard to view your ticket");
+      const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
+      setIsPendingApproval(requiresApproval);
+      if (requiresApproval) {
+        toast.info("Registration submitted! Organiser approval is required.");
+      } else {
+        const attendeeName = dataToSend.fullName || tempFormData?.fullName || user.fullName || user.email;
+        const emailSent = await sendRegistrationConfirmation(
+          user.email,
+          attendeeName,
+          event?.name || "Event",
+          result.ticketId
+        );
+        toast.success(
+          result.alreadyRegistered
+            ? "You are already registered for this event"
+            : "Registration successful"
+        );
+        if (!emailSent)
+          toast.info("Sign in to your attendee dashboard to view your ticket");
+      }
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Free registration failed:", error.message);
@@ -703,6 +835,11 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isClosedForRegistration) {
+      toast.error("Registration is closed for this event.");
+      return;
+    }
 
     if (!validateForm()) {
       toast.error("Please fill all required fields correctly");
@@ -750,11 +887,12 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
       });
 
       let email =
+        effectiveUser?.email ||
         (emailField ? (formData[emailField.id] || formData[emailField.name]) : "") ||
         formData.email ||
         auth.currentUser?.email ||
         "";
-      email = typeof email === "string" ? email.trim() : "";
+      email = typeof email === "string" ? email.trim().toLowerCase() : "";
 
       let phone =
         (phoneField ? (formData[phoneField.id] || formData[phoneField.name]) : "") ||
@@ -1112,17 +1250,23 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
-      const emailSent = await sendRegistrationConfirmation(
-        email,
-        user.fullName || fullName || email,
-        event?.name || "Event",
-        result.ticketId
-      );
-      toast.success(
-        emailSent
-          ? "Registration complete and ticket sent"
-          : "Registration complete. Sign in to view your ticket"
-      );
+      const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
+      setIsPendingApproval(requiresApproval);
+      if (requiresApproval) {
+        toast.info("Registration submitted! Organiser approval is required.");
+      } else {
+        const emailSent = await sendRegistrationConfirmation(
+          email,
+          user.fullName || fullName || email,
+          event?.name || "Event",
+          result.ticketId
+        );
+        toast.success(
+          emailSent
+            ? "Registration complete and ticket sent"
+            : "Registration complete. Sign in to view your ticket"
+        );
+      }
       setShowSuccessModal(true);
     } catch (error) {
       console.error("Free account registration failed:", error.message);
@@ -1189,9 +1333,20 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
       case "email":
       case "tel": {
         const isTel = field.type === "tel";
-        const isEmail = field.type === "email";
+        const isEmail =
+          field.type === "email" ||
+          String(field.name || field.label || field.id).toLowerCase() === "email" ||
+          String(field.name || field.label || field.id).toLowerCase().includes("email");
+        const isUserLoggedIn = Boolean(effectiveUser?.email);
+        const isEmailLocked = isEmail && isUserLoggedIn;
+        const fieldValue = isEmailLocked
+          ? effectiveUser.email
+          : (formData[field.id] !== undefined && formData[field.id] !== ""
+            ? formData[field.id]
+            : (field.name && formData[field.name] !== undefined ? formData[field.name] : ""));
 
         const handleInputChange = (e) => {
+          if (isEmailLocked) return;
           let val = e.target.value;
           if (isTel) {
             // Allow only numbers, +, -, and spaces
@@ -1231,13 +1386,20 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
 
         return (
           <div key={field.id} className="space-y-1.5 w-full">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
-              {field.label || field.name || "Field"}{" "}
-              {field.required && <span className="text-red-500">*</span>}
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+                {field.label || field.name || "Field"}{" "}
+                {field.required && <span className="text-red-500">*</span>}
+              </label>
+              {isEmailLocked && (
+                <span className="text-[10px] text-[#3DD68C] font-mono bg-[#3DD68C]/10 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold select-none">
+                  <CheckCircle className="w-2.5 h-2.5" /> Verified Account
+                </span>
+              )}
+            </div>
             <div className="relative">
               <input
-                type={field.type}
+                type={isEmail ? "email" : field.type}
                 inputMode={isTel ? "tel" : isEmail ? "email" : undefined}
                 maxLength={isTel ? 15 : undefined}
                 placeholder={
@@ -1246,18 +1408,29 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
                     ? "10-digit mobile number"
                     : `Your ${String(field.label || field.name || "value").toLowerCase()}`)
                 }
-                value={value}
+                value={fieldValue}
+                readOnly={isEmailLocked}
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 disabled={isLoading}
-                className={`w-full px-3.5 py-2.5 h-11 bg-slate-50 dark:bg-[#212327] border ${
-                  error
-                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                    : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
-                } rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm`}
+                className={`w-full px-3.5 py-2.5 h-11 border rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm ${
+                  isEmailLocked
+                    ? "bg-slate-100 dark:bg-[#1A1C1F] cursor-not-allowed opacity-90 border-slate-200 dark:border-[#2A2D31] select-none pr-10"
+                    : error
+                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-slate-50 dark:bg-[#212327]"
+                    : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-slate-50 dark:bg-[#212327]"
+                }`}
               />
+              {isEmailLocked && (
+                <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none select-none" />
+              )}
             </div>
-            {error && (
+            {isEmailLocked && (
+              <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] flex items-center gap-1">
+                <span>Email is locked to your account for security and consistency.</span>
+              </p>
+            )}
+            {error && !isEmailLocked && (
               <p className="text-[11px] text-red-500 dark:text-red-400 mt-1 font-medium">{error}</p>
             )}
           </div>
@@ -1471,29 +1644,40 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
               </div>
             )}
 
-          {/* High Contrast CTA Button */}
-          <button
-            type="submit"
-            disabled={isLoading || paymentProcessing}
-            className="w-full bg-[#131517] hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-[#131517] disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer"
-          >
-            {isLoading || paymentProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white dark:text-black" />
-                <span>{paymentProcessing ? "Processing Payment..." : "Registering..."}</span>
-              </>
-            ) : customForm?.isPaid && customForm?.amount > 0 ? (
-              <span>
-                {couponData ? (
-                  `Pay ₹${couponData.finalAmount} & register`
-                ) : (
-                  `Pay ₹${customForm.amount} & register`
-                )}
-              </span>
-            ) : (
-              <span>Register</span>
-            )}
-          </button>
+          {/* High Contrast CTA Button or Closed for Registration */}
+          {isClosedForRegistration ? (
+            <button
+              type="button"
+              disabled
+              className="w-full bg-slate-200 dark:bg-[#1E2024] text-slate-500 dark:text-[#9B9EA4] border border-slate-300 dark:border-[#2A2D31] cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 opacity-80 shadow-none select-none transition-all"
+            >
+              <AlertCircle className="w-4 h-4 text-[#FE760B]" />
+              <span>Registration Closed</span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isLoading || paymentProcessing}
+              className="w-full bg-[#131517] hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-[#131517] disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer"
+            >
+              {isLoading || paymentProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white dark:text-black" />
+                  <span>{paymentProcessing ? "Processing Payment..." : "Registering..."}</span>
+                </>
+              ) : customForm?.isPaid && customForm?.amount > 0 ? (
+                <span>
+                  {couponData ? (
+                    `Pay ₹${couponData.finalAmount} & register`
+                  ) : (
+                    `Pay ₹${customForm.amount} & register`
+                  )}
+                </span>
+              ) : (
+                <span>Register</span>
+              )}
+            </button>
+          )}
           <p className="text-center text-xs text-slate-500 dark:text-[#9B9EA4] mt-2">
             Secure payment via Razorpay
           </p>
@@ -1664,18 +1848,20 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{
-                    backgroundColor: `${themeColor}15`,
-                    borderColor: `${themeColor}35`,
-                    color: themeColor,
+                    backgroundColor: isPendingApproval ? "rgba(253,224,3,0.15)" : `${themeColor}15`,
+                    borderColor: isPendingApproval ? "rgba(253,224,3,0.35)" : `${themeColor}35`,
+                    color: isPendingApproval ? "#FDE003" : themeColor,
                   }}
                 >
                   <CheckCircle className="w-6 h-6" />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-white">
-                    Registration Complete
+                    {isPendingApproval ? "Registration Submitted" : "Registration Complete"}
                   </h3>
-                  <p className="text-xs text-[#9B9EA4]">Your ticket is ready</p>
+                  <p className="text-xs text-[#9B9EA4]">
+                    {isPendingApproval ? "Pending organiser review" : "Your ticket is ready"}
+                  </p>
                 </div>
               </div>
               <button
@@ -1692,18 +1878,26 @@ export function DynamicRegistrationForm({ eventId, event, initialForm, ...props 
               <div
                 className="rounded-xl p-4 border"
                 style={{
-                  backgroundColor: `${themeColor}12`,
-                  borderColor: `${themeColor}30`,
+                  backgroundColor: isPendingApproval ? "rgba(253,224,3,0.08)" : `${themeColor}12`,
+                  borderColor: isPendingApproval ? "rgba(253,224,3,0.25)" : `${themeColor}30`,
                 }}
               >
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: themeColor }} />
+                  <CheckCircle
+                    className="w-5 h-5 shrink-0 mt-0.5"
+                    style={{ color: isPendingApproval ? "#FDE003" : themeColor }}
+                  />
                   <div className="flex-1">
-                    <p className="font-bold text-sm mb-1" style={{ color: themeColor }}>
-                      Registration Confirmed
+                    <p
+                      className="font-bold text-sm mb-1"
+                      style={{ color: isPendingApproval ? "#FDE003" : themeColor }}
+                    >
+                      {isPendingApproval ? "Application Pending Organiser Approval" : "Registration Confirmed"}
                     </p>
                     <p className="text-xs text-[#D0D0D1]">
-                      Your pass has been generated. You can view or download it from your attendee dashboard.
+                      {isPendingApproval
+                        ? "This event requires approval from the organiser. You will be able to view and use your ticket once your application has been approved."
+                        : "Your pass has been generated. You can view or download it from your attendee dashboard."}
                     </p>
                   </div>
                 </div>

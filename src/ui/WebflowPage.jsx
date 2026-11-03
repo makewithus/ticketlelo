@@ -1,6 +1,8 @@
 import WebflowRuntime from "./WebflowRuntime";
 
 const NAVBAR_SPACING_FIXES = `
+  html, body { max-width: 100% !important; overflow-x: clip !important; width: 100% !important; }
+  .page-wrapper { max-width: 100% !important; overflow-x: clip !important; }
   .navbar .container.is--nav { display:flex; align-items:center; justify-content:flex-start; gap:clamp(.5rem, 1.2vw, 1.25rem); min-width:0; }
   .navbar .container.is--nav > .nav_logo-wrap { flex:0 0 auto; }
   .navbar .container.is--nav > .sale-style { flex:1 1 auto; min-width:0; }

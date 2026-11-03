@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { StyledDropdown } from "@/components/ui/styled-dropdown";
 import {
   Loader2,
   Plus,
@@ -43,6 +44,32 @@ const PRICING_MODES = [
   { value: "combo_only", label: "Combo-Only (Included in Bundles)" },
   { value: "pass_only", label: "Fest Pass-Only (VIP/Full Pass)" },
 ];
+
+export const TIME_OPTIONS = [
+  "12:00 AM", "12:30 AM", "01:00 AM", "01:30 AM", "02:00 AM", "02:30 AM",
+  "03:00 AM", "03:30 AM", "04:00 AM", "04:30 AM", "05:00 AM", "05:30 AM",
+  "06:00 AM", "06:30 AM", "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM",
+  "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
+  "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM",
+  "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM",
+  "09:00 PM", "09:30 PM", "10:00 PM", "10:30 PM", "11:00 PM", "11:30 PM",
+];
+
+export function parseTimeToMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== "string") return null;
+  const clean = timeStr.trim().toUpperCase();
+  const match = clean.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  const modifier = match[3];
+
+  if (modifier === "PM" && hours < 12) hours += 12;
+  if (modifier === "AM" && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+}
 
 export function SubEventModal({ event, isOpen, onClose }) {
   const [subEvents, setSubEvents] = useState([]);
@@ -93,6 +120,13 @@ export function SubEventModal({ event, isOpen, onClose }) {
     e.preventDefault();
     if (!formData.title.trim()) {
       toast.error("Sub-event title is required.");
+      return;
+    }
+
+    const startM = parseTimeToMinutes(formData.startTime);
+    const endM = parseTimeToMinutes(formData.endTime);
+    if (startM !== null && endM !== null && endM <= startM) {
+      toast.error("End time must be after start time");
       return;
     }
 
@@ -360,14 +394,13 @@ export function SubEventModal({ event, isOpen, onClose }) {
                 <h3 className="font-semibold text-sm text-slate-200">
                   {editingSubEvent ? "Edit Sub-Event Track" : "New Sub-Event Track"}
                 </h3>
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
                   onClick={resetForm}
-                  className="text-xs text-slate-400 hover:text-white"
+                  className="text-xs text-slate-400 hover:text-white hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-700 transition-colors cursor-pointer"
                 >
                   Cancel
-                </Button>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -384,15 +417,13 @@ export function SubEventModal({ event, isOpen, onClose }) {
 
                 <div>
                   <label className="text-xs font-medium text-slate-300 block mb-1">Track Category</label>
-                  <select
+                  <StyledDropdown
                     value={formData.trackType}
-                    onChange={(e) => setFormData({ ...formData, trackType: e.target.value })}
-                    className="w-full h-10 px-3 rounded-md bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    {TRACK_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
+                    options={TRACK_TYPES}
+                    onChange={(val) => setFormData({ ...formData, trackType: val })}
+                    className="w-full"
+                    buttonClassName="h-10 px-3 rounded-md bg-slate-900 border-slate-700 text-sm text-white"
+                  />
                 </div>
               </div>
 
@@ -409,31 +440,56 @@ export function SubEventModal({ event, isOpen, onClose }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs font-medium text-slate-300 block mb-1">Session Date</label>
-                  <Input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="bg-slate-900 border-slate-700 text-sm"
-                  />
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      className="w-full h-10 px-3 pr-9 rounded-md bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 [color-scheme:dark]"
+                    />
+                    <Calendar className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
+
                 <div>
                   <label className="text-xs font-medium text-slate-300 block mb-1">Start Time</label>
-                  <Input
+                  <StyledDropdown
+                    icon={Clock}
                     value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    placeholder="10:00 AM"
-                    className="bg-slate-900 border-slate-700 text-sm"
+                    options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+                    onChange={(val) => setFormData({ ...formData, startTime: val })}
+                    className="w-full"
+                    buttonClassName="h-10 px-3 rounded-md bg-slate-900 border-slate-700 text-sm text-white"
                   />
                 </div>
+
                 <div>
                   <label className="text-xs font-medium text-slate-300 block mb-1">End Time</label>
-                  <Input
+                  <StyledDropdown
+                    icon={Clock}
                     value={formData.endTime}
-                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    placeholder="01:00 PM"
-                    className="bg-slate-900 border-slate-700 text-sm"
+                    options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+                    onChange={(val) => setFormData({ ...formData, endTime: val })}
+                    className="w-full"
+                    buttonClassName={`h-10 px-3 rounded-md bg-slate-900 text-sm ${
+                      parseTimeToMinutes(formData.endTime) !== null &&
+                      parseTimeToMinutes(formData.startTime) !== null &&
+                      parseTimeToMinutes(formData.endTime) <= parseTimeToMinutes(formData.startTime)
+                        ? "border-amber-500 text-amber-200"
+                        : "border-slate-700 text-white"
+                    }`}
                   />
                 </div>
+
+                {parseTimeToMinutes(formData.endTime) !== null &&
+                  parseTimeToMinutes(formData.startTime) !== null &&
+                  parseTimeToMinutes(formData.endTime) <= parseTimeToMinutes(formData.startTime) && (
+                    <div className="md:col-span-3 -mt-1">
+                      <p className="text-[11px] text-amber-400 font-medium flex items-center gap-1.5">
+                        <span>⚠️ End time must be after start time ({formData.startTime}).</span>
+                      </p>
+                    </div>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -471,15 +527,13 @@ export function SubEventModal({ event, isOpen, onClose }) {
 
               <div>
                 <label className="text-xs font-medium text-slate-300 block mb-1">Ticketing / Pricing Mode</label>
-                <select
+                <StyledDropdown
                   value={formData.pricingMode}
-                  onChange={(e) => setFormData({ ...formData, pricingMode: e.target.value })}
-                  className="w-full h-10 px-3 rounded-md bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none"
-                >
-                  {PRICING_MODES.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                  options={PRICING_MODES}
+                  onChange={(val) => setFormData({ ...formData, pricingMode: val })}
+                  className="w-full"
+                  buttonClassName="h-10 px-3 rounded-md bg-slate-900 border-slate-700 text-sm text-white"
+                />
               </div>
 
               {/* Virtual / Hybrid Webinar Section */}
@@ -520,14 +574,13 @@ export function SubEventModal({ event, isOpen, onClose }) {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <Button
+                <button
                   type="button"
-                  variant="outline"
                   onClick={resetForm}
-                  className="border-slate-700 text-xs text-slate-300"
+                  className="border border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
-                </Button>
+                </button>
                 <Button
                   type="submit"
                   disabled={isLoading}

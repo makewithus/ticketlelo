@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import {
   ArrowLeft,
   Loader2,
@@ -17,7 +18,18 @@ import {
   ExternalLink,
   Users,
   AlertCircle,
+  Globe,
 } from "lucide-react";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  onSnapshot,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { getMajorEventBySlug, getMajorEvent } from "@/lib/events-engine";
 import { getSubEventsForEvent } from "@/lib/sub-events";
 import { getCombosForEvent } from "@/lib/combos";
@@ -28,6 +40,7 @@ import { getThemeLook } from "@/lib/theme-utils";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { AnimatedRadialBackground } from "@/components/effects/AnimatedRadialBackground";
+import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
 
 export default function PublicEventBySlugPage() {
   const { user } = useAuth();
@@ -38,10 +51,13 @@ export default function PublicEventBySlugPage() {
   const referralCode = searchParams?.get("ref") || "";
 
   const [event, setEvent] = useState(null);
+  const [organizerUser, setOrganizerUser] = useState(null);
+  const [registrations, setRegistrations] = useState([]);
   const [subEvents, setSubEvents] = useState([]);
   const [combos, setCombos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [showExternalModal, setShowExternalModal] = useState(false);
   const [currentTime, setCurrentTime] = useState("1:04 PM GMT+5:30");
   const [mounted, setMounted] = useState(false);
 
@@ -90,49 +106,7 @@ export default function PublicEventBySlugPage() {
           eventData = await getMajorEvent(slug);
         }
 
-        // Demo fallback for Tech Fest 2026 if slug matches
-        if (!eventData && (slug.toLowerCase().includes("tech") || slug.toLowerCase().includes("fest"))) {
-          eventData = {
-            id: "tech-fest-2026",
-            title: "Tech Fest 2026",
-            slug: "tech-fest-2026",
-            description: "[Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event.]",
-            venue: "Main Auditorium",
-            city: "School of Engineering",
-            locationUrl: "https://maps.google.com/?q=Main+Auditorium",
-            startDate: "2026-10-29T12:00:00Z",
-            endDate: "2026-10-29T17:00:00Z",
-            globalCapacity: 150,
-            allocatedSeats: 86,
-            price: 199,
-            isPaid: true,
-            isPublished: true,
-            visibility: "public",
-            organizerName: "School of Engineering",
-          };
-        } else if (!eventData && (slug.toLowerCase().includes("quiz") || slug.toLowerCase().includes("bis") || slug.toLowerCase().includes("code"))) {
-          eventData = {
-            id: "is-code-quiz-challenge",
-            title: "IS Code Quiz Challenge | BIS CED CUSAT",
-            slug: "is-code-quiz-challenge",
-            description: "BIS CED CUSAT is conducting a quiz based on IS 456:2000 (Plain and Reinforced Concrete Code).\n\nWhy participate?\n• Test your knowledge of IS 456:2000\n• Compete with students from different departments\n• Experience fun and engaging quiz rounds\n• Enjoy free refreshments\n\nEvent Details\n📅 Date: Monday, 9 March 2026",
-            venue: "School of Engineering, CUSAT",
-            city: "Kochi, Kerala",
-            locationUrl: "https://maps.google.com/?q=School+of+Engineering+CUSAT",
-            startDate: "2026-11-09T16:00:00Z",
-            endDate: "2026-11-09T17:30:00Z",
-            globalCapacity: 100,
-            allocatedSeats: 99,
-            price: 0,
-            isPaid: false,
-            isPublished: true,
-            visibility: "public",
-            organizerName: "Adil M",
-            themeColor: "#FE760B",
-          };
-        }
-
-        if (!eventData || (!eventData.isPublished && eventData.visibility !== "public")) {
+        if (!eventData) {
           if (isMounted) {
             setNotFound(true);
             setIsLoading(false);
@@ -140,17 +114,69 @@ export default function PublicEventBySlugPage() {
           return;
         }
 
-        if (!subEventsData || !combosData) {
-          const [fetchedSubs, fetchedCombos] = await Promise.all([
-            getSubEventsForEvent(eventData.id).catch(() => []),
-            getCombosForEvent(eventData.id).catch(() => []),
-          ]);
-          subEventsData = fetchedSubs;
-          combosData = fetchedCombos;
+        const [fetchedSubs, fetchedCombos] = await Promise.all([
+          getSubEventsForEvent(eventData.id).catch(() => []),
+          getCombosForEvent(eventData.id).catch(() => []),
+        ]);
+        subEventsData = fetchedSubs;
+        combosData = fetchedCombos;
+
+        // Fetch organizer doc from users collection
+        let organizerDocData = null;
+        const organizerUid = eventData.createdBy || eventData.organizerId || eventData.userId;
+        if (organizerUid) {
+          try {
+            const uSnap = await getDoc(doc(db, "users", organizerUid));
+            if (uSnap.exists()) {
+              organizerDocData = uSnap.data();
+            }
+          } catch (err) {
+            console.warn("Could not fetch organizer document:", err);
+          }
+        }
+
+        // Fetch real registrations for this event to get actual attendees and Google profile pics
+        let enrichedRegistrations = [];
+        try {
+          const regQ = query(
+            collection(db, "registrations"),
+            where("eventId", "==", eventData.id)
+          );
+          const regSnap = await getDocs(regQ);
+          const rawRegs = regSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+          const attendeeUserIds = [...new Set(rawRegs.map((r) => r.userId).filter(Boolean))];
+          const attendeeUserMap = {};
+          if (attendeeUserIds.length > 0) {
+            await Promise.all(
+              attendeeUserIds.map(async (uid) => {
+                try {
+                  const aDoc = await getDoc(doc(db, "users", uid));
+                  if (aDoc.exists()) {
+                    attendeeUserMap[uid] = aDoc.data();
+                  }
+                } catch {}
+              })
+            );
+          }
+
+          enrichedRegistrations = rawRegs.map((r) => {
+            const uData = r.userId ? attendeeUserMap[r.userId] : null;
+            return {
+              ...r,
+              photoURL: r.photoURL || uData?.photoURL || "",
+              fullName: r.fullName || r.name || uData?.fullName || "Guest Attendee",
+              email: r.email || uData?.email || "",
+            };
+          });
+        } catch (regErr) {
+          console.warn("Could not fetch registrations:", regErr);
         }
 
         if (isMounted) {
           setEvent(eventData);
+          setOrganizerUser(organizerDocData);
+          setRegistrations(enrichedRegistrations);
           setSubEvents(subEventsData || []);
           setCombos(combosData || []);
           setIsLoading(false);
@@ -169,12 +195,61 @@ export default function PublicEventBySlugPage() {
     };
   }, [slug]);
 
+  // Real-time synchronization for event status and registrations
+  useEffect(() => {
+    if (!event?.id || !db) return;
+
+    let unsubEvent = null;
+    let unsubRegs = null;
+
+    try {
+      unsubEvent = onSnapshot(
+        doc(db, "events", event.id),
+        (snap) => {
+          if (snap.exists()) {
+            const data = { id: snap.id, ...snap.data() };
+            setEvent((prev) => ({ ...(prev || {}), ...data }));
+          }
+        },
+        (err) => console.warn("Real-time event sync warning:", err?.message)
+      );
+    } catch (err) {
+      console.warn("Could not bind real-time event listener:", err);
+    }
+
+    try {
+      const q = query(
+        collection(db, "registrations"),
+        where("eventId", "==", event.id)
+      );
+      unsubRegs = onSnapshot(
+        q,
+        (snap) => {
+          const freshRegs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setRegistrations((prev) => {
+            if (prev.length === freshRegs.length) return prev;
+            return freshRegs;
+          });
+        },
+        (err) => console.warn("Real-time registrations sync warning:", err?.message)
+      );
+    } catch (err) {
+      console.warn("Could not bind real-time registrations listener:", err);
+    }
+
+    return () => {
+      if (typeof unsubEvent === "function") unsubEvent();
+      if (typeof unsubRegs === "function") unsubRegs();
+    };
+  }, [event?.id]);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#131517] text-white flex flex-col items-center justify-center p-6 space-y-4">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-        <p className="text-xs text-[#9B9EA4]">Loading event...</p>
-      </div>
+      <BrandLoader
+        message="Loading event"
+        subMessage="TicketLelo Verified Experience"
+        fullScreen
+      />
     );
   }
 
@@ -199,38 +274,129 @@ export default function PublicEventBySlugPage() {
   }
 
   // Date parsing
-  const eventDateObj = event.startDate ? new Date(event.startDate) : (event.date ? new Date(event.date) : new Date(2026, 9, 29));
+  const eventDateObj = event.startDate ? new Date(event.startDate) : (event.date ? new Date(event.date) : new Date());
   const monthShort = eventDateObj.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
   const dayNum = eventDateObj.getDate();
   const weekdayDate = eventDateObj.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
 
-  const totalSeats = event.globalCapacity || 150;
-  const takenSeats = event.allocatedSeats || 86;
-  const seatsLeft = Math.max(0, totalSeats - takenSeats);
-  const priceDisplay = event.price !== undefined ? `₹${event.price}` : "₹199";
+  const formattedTimeRange = event.startTime
+    ? `${event.startTime}${event.endTime ? ` – ${event.endTime}` : ""} GMT+5:30`
+    : event.time
+    ? `${event.time} GMT+5:30`
+    : "10:00 AM – 5:00 PM GMT+5:30";
+
+  const totalSeats = Number(event.globalCapacity || event.capacity || event.maxCapacity || 0);
+  const hasCapacityLimit = totalSeats > 0;
+  const takenSeats = Math.max(Number(event.allocatedSeats || 0), registrations.length);
+  const seatsLeft = hasCapacityLimit ? Math.max(0, totalSeats - takenSeats) : null;
+
+  const isEventCancelled = Boolean(
+    event.status === "cancelled" || event.isCancelled
+  );
+  const isEventEnded = Boolean(
+    event.status === "ended" || event.status === "completed" || event.isEnded === true
+  );
+
+  // Authoritative explicit closure evaluation:
+  // If closeRegistrationEnabled is explicitly false, closure rule is disabled and registration is open.
+  let isRegistrationClosedExplicit = false;
+  if (event.closeRegistrationEnabled === true) {
+    if (event.closeRegistrationMode === "now" || event.registrationClosed === true) {
+      isRegistrationClosedExplicit = true;
+    }
+  } else if (event.closeRegistrationEnabled === false) {
+    isRegistrationClosedExplicit = false;
+  } else {
+    // Fallback for older event records before closeRegistrationEnabled field was introduced
+    isRegistrationClosedExplicit = Boolean(
+      (event.registrationClosed === true && event.registrationStatus !== "Open") ||
+      (event.isRegistrationClosed === true && event.registrationStatus !== "Open") ||
+      event.registrationStatus === "Closed" ||
+      event.registrationStatus === "closed" ||
+      event.status === "closed"
+    );
+  }
+
+  const isCapacityClosed = Boolean(
+    event.closeRegistrationEnabled === true &&
+    event.closeRegistrationMode === "capacity" &&
+    typeof event.closeRegistrationCapacity === "number" &&
+    Number(event.closeRegistrationCapacity) > 0 &&
+    takenSeats >= Number(event.closeRegistrationCapacity)
+  );
+  const isGlobalCapacityReached = Boolean(
+    hasCapacityLimit && seatsLeft !== null && seatsLeft <= 0
+  );
+  const isClosedForRegistration =
+    isEventCancelled ||
+    isEventEnded ||
+    isRegistrationClosedExplicit ||
+    isCapacityClosed ||
+    isGlobalCapacityReached;
+
+  const priceDisplay = event.price !== undefined && event.price !== "" ? (event.price.toString().startsWith("₹") ? event.price : `₹${event.price}`) : "Free";
 
   const themeLook = getThemeLook(event.themeColor || event.theme || "#FE760B");
-  const posterLines = getPosterLines(event.title || event.name || "Tech Fest '26");
+  const posterLines = getPosterLines(event.title || event.name || "Event");
+
+  const organizerName =
+    organizerUser?.fullName ||
+    organizerUser?.displayName ||
+    event.organizerName ||
+    "School of Engineering";
+  const organizerEmail =
+    organizerUser?.email ||
+    event.organizerEmail ||
+    event.contactEmail ||
+    event.email ||
+    "support@ticketlelo.com";
+  const organizerPhoto =
+    organizerUser?.photoURL ||
+    event.organizerPhotoUrl ||
+    event.hostPhotoUrl ||
+    null;
+
+  const AVATAR_COLORS = [
+    "bg-blue-600",
+    "bg-purple-600",
+    "bg-emerald-600",
+    "bg-amber-600",
+    "bg-pink-600",
+    "bg-indigo-600",
+    "bg-teal-600",
+  ];
+
+  const attendeeCount = registrations.length;
+  let attendeeSummaryText = "";
+  if (attendeeCount === 1) {
+    attendeeSummaryText = registrations[0].fullName;
+  } else if (attendeeCount === 2) {
+    attendeeSummaryText = `${registrations[0].fullName} and ${registrations[1].fullName}`;
+  } else if (attendeeCount > 2) {
+    attendeeSummaryText = `${registrations[0].fullName}, ${registrations[1].fullName} and ${attendeeCount - 2} ${
+      attendeeCount - 2 === 1 ? "other" : "others"
+    }`;
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors overflow-x-clip w-full max-w-full">
       {/* ── Animated Futuristic RGB Radial Light-Streak Background ── */}
       <AnimatedRadialBackground />
 
-      {/* Top Navigation matching reference screenshot */}
-      <header className="sticky top-0 z-40 bg-white/70 dark:bg-[#08090B]/60 backdrop-blur-md border-b border-slate-200/50 dark:border-white/10 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 transition-colors">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+      {/* Top Navigation - Transparent & seamless without harsh dividing line */}
+      <header className="sticky top-0 z-40 bg-transparent border-b border-transparent px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 transition-colors max-w-full overflow-hidden">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           {/* Left: Brand Icon + Navigation Links */}
-          <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-6 shrink-0">
             <Link href="/" className="inline-flex items-center gap-2 group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo/ticketlelo-logo-nav.png"
                 alt="TicketLelo"
-                className="h-6 sm:h-7 w-auto object-contain"
+                className="h-5 sm:h-7 w-auto object-contain"
               />
             </Link>
-            <nav className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-medium">
+            <nav className="flex items-center gap-2.5 sm:gap-5 text-xs sm:text-sm font-medium">
               <Link
                 href="/"
                 className="text-slate-900 dark:text-white font-semibold transition-colors"
@@ -238,14 +404,8 @@ export default function PublicEventBySlugPage() {
                 Events
               </Link>
               <Link
-                href="/"
-                className="hidden sm:inline-block text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                Calendars
-              </Link>
-              <Link
-                href="/"
-                className="hidden sm:inline-block text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
+                href="/discover"
+                className="text-slate-500 dark:text-[#9B9EA4] hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
               >
                 Discover
               </Link>
@@ -275,9 +435,18 @@ export default function PublicEventBySlugPage() {
                 <Link
                   href="/dashboard"
                   aria-label="Dashboard"
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-[#131517] font-bold text-xs flex items-center justify-center hover:opacity-90 transition-opacity shrink-0 shadow-sm"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center hover:opacity-90 transition-opacity shrink-0 shadow-xs overflow-hidden"
                 >
-                  {(user.fullName || user.email || "U").charAt(0).toUpperCase()}
+                  {user?.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={user.fullName || user.email || "User"}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    (user.fullName || user.name || user.email || "U").trim().charAt(0).toUpperCase()
+                  )}
                 </Link>
               </div>
             ) : (
@@ -294,13 +463,41 @@ export default function PublicEventBySlugPage() {
 
       {/* Main Content Layout */}
       <main className="relative z-10 flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 lg:gap-8 items-start">
+        {/* Event Status Notification: Cancelled or Postponed */}
+        {event.status === "cancelled" || event.isCancelled ? (
+          <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-500 dark:text-red-400">
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold">Event Cancelled</h3>
+              <p className="text-xs text-red-600/90 dark:text-red-300/80 mt-0.5 leading-relaxed">
+                This event has been cancelled by the organiser. Registrations are closed and no further registrations will be accepted.
+              </p>
+            </div>
+          </div>
+        ) : event.status === "postponed" || event.isPostponed ? (
+          <div className="mb-6 p-4 rounded-2xl bg-[#FE760B]/10 border border-[#FE760B]/30 flex items-start gap-3 text-[#FE760B]">
+            <Clock className="w-5 h-5 shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-bold">Event Postponed — Updated Dates Announced</h3>
+              <p className="text-xs text-[#D0D0D1] mt-0.5 leading-relaxed">
+                The organiser has postponed this event to new dates. Please review the updated schedule below.
+                {event.postponedNote && (
+                  <span className="block mt-1 font-medium text-white italic">
+                    &ldquo;{event.postponedNote}&rdquo;
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr] gap-6 lg:gap-8 items-start">
           
-          {/* Left Column: Poster, Host, Attendees */}
-          <div className="w-full max-w-sm sm:max-w-md md:max-w-[220px] space-y-4 mx-auto md:mx-0">
-            {/* Poster Card */}
+          {/* Left Column: Square Poster, Host, Attendees, About Event, Tags */}
+          <div className="w-full max-w-sm sm:max-w-md md:max-w-[300px] space-y-5 mx-auto md:mx-0 md:pt-8 lg:pt-10">
+            {/* Poster Card (Perfect Square 1:1) */}
             <div
-              className="w-full max-w-[260px] xs:max-w-[280px] sm:max-w-[320px] md:max-w-[220px] mx-auto md:mx-0 aspect-[3/4] rounded-2xl overflow-hidden p-4 sm:p-5 flex flex-col justify-between relative shadow-xl border border-slate-200 dark:border-[#2A2D31] transition-all"
+              className="w-full aspect-square rounded-2xl overflow-hidden p-5 flex flex-col justify-between relative shadow-xl border border-slate-200 dark:border-[#2A2D31] transition-all"
               style={{
                 background: event.bannerUrl ? "transparent" : themeLook.gradientCss,
               }}
@@ -351,59 +548,101 @@ export default function PublicEventBySlugPage() {
               )}
             </div>
 
-            {/* HOSTED BY Section */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
+            {/* HOSTED BY Section with Google Profile Pic & Email */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
                 HOSTED BY
               </p>
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full bg-[#FE760B] text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
-                  SE
+                {organizerPhoto ? (
+                  <img
+                    src={organizerPhoto}
+                    alt={organizerName}
+                    referrerPolicy="no-referrer"
+                    className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/20 shadow-xs shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FE760B] to-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+                    {organizerName.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                    {organizerName}
+                  </span>
+                  {organizerEmail && (
+                    <a
+                      href={`mailto:${organizerEmail}`}
+                      className="text-[11px] text-[#FE760B] hover:underline truncate block font-medium"
+                    >
+                      {organizerEmail}
+                    </a>
+                  )}
                 </div>
-                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {event.organizerName || "School of Engineering"}
-                </span>
               </div>
             </div>
 
-            {/* Attendees Section */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
-                {takenSeats} GOING
+            {/* Attendees Section with Real Google Profile Pics & Count */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
+                {attendeeCount} GOING
               </p>
-              <div className="flex items-center">
-                {/* Stacked avatar circles */}
-                <div className="flex items-center -space-x-1 shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-blue-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
-                    AK
+              {attendeeCount > 0 ? (
+                <div className="flex items-center">
+                  <div className="flex items-center -space-x-1.5 shrink-0">
+                    {registrations.slice(0, 5).map((reg, idx) => (
+                      reg.photoURL ? (
+                        <img
+                          key={reg.id || idx}
+                          src={reg.photoURL}
+                          alt={reg.fullName}
+                          referrerPolicy="no-referrer"
+                          title={reg.fullName}
+                          className="w-6 h-6 rounded-full object-cover border border-white dark:border-[#131517] shadow-xs"
+                        />
+                      ) : (
+                        <div
+                          key={reg.id || idx}
+                          title={reg.fullName}
+                          className={`w-6 h-6 rounded-full border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white shadow-xs ${
+                            AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                          }`}
+                        >
+                          {reg.fullName.charAt(0).toUpperCase()}
+                        </div>
+                      )
+                    ))}
                   </div>
-                  <div className="w-5 h-5 rounded-full bg-purple-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
-                    PS
-                  </div>
-                  <div className="w-5 h-5 rounded-full bg-teal-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
-                    RM
-                  </div>
-                  <div className="w-5 h-5 rounded-full bg-amber-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
-                    SN
-                  </div>
-                  <div className="w-5 h-5 rounded-full bg-pink-600 border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white">
-                    VS
-                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] ml-2.5 truncate">
+                    {attendeeSummaryText}
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] ml-2.5 truncate">
-                  Abel Saj mathews, Ahammed Najah and {Math.max(1, takenSeats - 2)} others
-                </p>
-              </div>
+              ) : (
+                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span>Be the first to claim a pass and join!</span>
+                </div>
+              )}
             </div>
 
-            {/* Contact Host / Report Links (Desktop Only - on mobile these appear at the footer) */}
-            <div className="pt-1 space-y-1.5 hidden md:block">
+            {/* ABOUT EVENT Section (Desktop Left Column) */}
+            <div className="hidden md:block pt-1 space-y-1.5 border-t border-slate-200/60 dark:border-[#2A2D31]/60">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
+                ABOUT EVENT
+              </p>
+              <p className="text-xs text-slate-700 dark:text-[#D0D0D1] leading-relaxed whitespace-pre-line">
+                {event.description || "Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event."}
+              </p>
+            </div>
+
+            {/* Contact Host / Report Links & Category Tags */}
+            <div className="pt-1 space-y-1.5 hidden md:block border-t border-slate-200/60 dark:border-[#2A2D31]/60">
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = `mailto:support@ticketlelo.com?subject=Inquiry about ${encodeURIComponent(event.title)}`;
+                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(event.title)}`;
                 }}
-                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left"
+                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left cursor-pointer"
               >
                 Contact the host
               </button>
@@ -412,19 +651,28 @@ export default function PublicEventBySlugPage() {
                 onClick={() => {
                   window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title)}`;
                 }}
-                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left"
+                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left cursor-pointer"
               >
                 Report event
               </button>
-              <div className="pt-1">
+              <div className="pt-1 flex flex-wrap gap-1.5">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-[11px] font-medium text-slate-600 dark:text-[#9B9EA4]">
-                  # Tech
+                  #{event.category || "Tech"}
                 </span>
+                {event.isPaid ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 text-[11px] font-semibold text-[#FE760B]">
+                    {priceDisplay}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-semibold text-emerald-500">
+                    Free Entry
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right Column: Headline, Logistics, Registration Card, About, Location */}
+          {/* Right Column: Headline, Logistics, Registration Card, Mobile About, Location */}
           <div className="space-y-4">
             
             {/* Status Pill: Happening now */}
@@ -453,7 +701,7 @@ export default function PublicEventBySlugPage() {
                   {weekdayDate}
                 </p>
                 <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] truncate">
-                  12:00 PM – 5:00 PM GMT+5:30
+                  {formattedTimeRange}
                 </p>
               </div>
             </div>
@@ -465,21 +713,21 @@ export default function PublicEventBySlugPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <a
-                  href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || "") + " " + (event.city || ""))}`}
+                  href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || event.location || "") + " " + (event.city || ""))}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors inline-flex items-center gap-1 leading-snug group"
                 >
-                  <span className="truncate">{event.venue || "Main Stadium Ground & Central Innovation Complex"}</span>
+                  <span className="truncate">{event.venue || event.location || "Main Stadium Ground & Central Innovation Complex"}</span>
                   <span className="text-[10px] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">↗</span>
                 </a>
                 <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] truncate">
-                  {event.city || "Kochi, Kerala"}
+                  {event.city || "Campus Venue"}
                 </p>
               </div>
             </div>
 
-            {/* Registration Card strictly matching reference screenshot */}
+            {/* Registration Card */}
             <div className="bg-white/95 dark:bg-[#1A1C1F]/90 backdrop-blur-md border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-2xl transition-colors">
               {/* Header row */}
               <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-[#2A2D31]">
@@ -487,22 +735,42 @@ export default function PublicEventBySlugPage() {
                   Registration
                 </span>
                 <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-[#9B9EA4]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
-                  <span>{seatsLeft} of {totalSeats} seats left</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isClosedForRegistration ? "bg-red-500" : "bg-[#FE760B] animate-pulse"}`} />
+                  <span>
+                    {isClosedForRegistration
+                      ? "Registration Closed"
+                      : hasCapacityLimit
+                      ? `${seatsLeft} of ${totalSeats} spots left`
+                      : "Registrations Open"}
+                  </span>
                 </div>
               </div>
 
-              {/* Urgency Spot Banner matching reference screenshot */}
+              {/* Spot Availability Banner */}
               <div className="bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3 flex items-start gap-3 my-3">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center shrink-0">
                   <Clock size={16} className="text-[#9B9EA4]" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-                    {seatsLeft === 1 ? "One Spot Remaining" : seatsLeft <= 10 ? `${seatsLeft} Spots Remaining` : "Limited Spots Available"}
+                    {isClosedForRegistration
+                      ? "Registration Closed"
+                      : hasCapacityLimit
+                      ? seatsLeft === 0
+                        ? "Event Sold Out / Fully Booked"
+                        : seatsLeft === 1
+                        ? "Only 1 Spot Remaining!"
+                        : seatsLeft <= 10
+                        ? `Only ${seatsLeft} Spots Remaining`
+                        : `${seatsLeft} Spots Available`
+                      : "Spots Available — Open Access"}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-0.5">
-                    Hurry up and register before the event fills up!
+                    {isClosedForRegistration
+                      ? "Registrations for this event have closed."
+                      : hasCapacityLimit && seatsLeft === 0
+                      ? "Registrations for this event have reached maximum capacity."
+                      : "Hurry up and register before the event fills up!"}
                   </p>
                 </div>
               </div>
@@ -525,6 +793,32 @@ export default function PublicEventBySlugPage() {
                 </div>
               )}
 
+              {/* College / Team External Form Embed Banner if configured */}
+              {event?.embedRegistrationMode === "custom_iframe" && event?.customFormEmbedUrl && (
+                <div className="mb-3 p-3 rounded-xl bg-orange-500/10 border border-orange-500/25 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Globe size={13} className="text-[#FE760B]" />
+                      College / Team Portal Form Available
+                    </span>
+                    <span className="text-[10px] text-[#FE760B] font-semibold bg-[#FE760B]/15 px-2 py-0.5 rounded-full">
+                      Integrated
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4]">
+                    The host has embedded their official college event form. You can register via their interactive portal or through TicketLelo below.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowExternalModal(true)}
+                    className="w-full py-2 px-3 rounded-xl bg-[#FE760B] hover:bg-[#FE760B]/90 text-black text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Globe size={13} />
+                    <span>Open College Form Portal (Modal)</span>
+                  </button>
+                </div>
+              )}
+
               {/* Dynamic Registration Form */}
               <div className="mt-1">
                 <DynamicRegistrationForm
@@ -537,41 +831,14 @@ export default function PublicEventBySlugPage() {
               </div>
             </div>
 
-            {/* ABOUT EVENT Section */}
-            <div className="pt-3">
+            {/* Mobile About Event Section */}
+            <div className="pt-3 md:hidden">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
                 ABOUT EVENT
               </p>
               <p className="text-xs sm:text-sm text-slate-700 dark:text-[#D0D0D1] leading-relaxed whitespace-pre-line">
-                {event.description || "[Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event.]"}
+                {event.description || "Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event."}
               </p>
-            </div>
-
-            {/* LOCATION Section */}
-            <div className="pt-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
-                LOCATION
-              </p>
-              <div className="p-3.5 sm:p-4 rounded-xl bg-slate-100/70 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
-                    {event.venue || "Main Auditorium"}
-                  </p>
-                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">
-                    {event.city || "School of Engineering"}
-                  </p>
-                </div>
-                <a
-                  href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || "") + " " + (event.city || ""))}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white text-xs font-semibold transition-colors shrink-0 shadow-sm self-start sm:self-auto"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>Get Directions</span>
-                  <span className="text-[10px]">↗</span>
-                </a>
-              </div>
             </div>
 
             {/* Mobile Footer Links */}
@@ -579,7 +846,7 @@ export default function PublicEventBySlugPage() {
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = `mailto:support@ticketlelo.com?subject=Inquiry about ${encodeURIComponent(event.title)}`;
+                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(event.title)}`;
                 }}
                 className="hover:text-slate-900 dark:hover:text-white transition-colors"
               >
@@ -600,6 +867,15 @@ export default function PublicEventBySlugPage() {
           </div>
         </div>
       </main>
+
+      {/* External College / Team Form Modal */}
+      {event && (
+        <EmbedRegistrationModal
+          isOpen={showExternalModal}
+          onClose={() => setShowExternalModal(false)}
+          event={event}
+        />
+      )}
     </div>
   );
 }

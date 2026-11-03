@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -20,22 +21,52 @@ import {
   Navigation,
   Share2,
   Users,
+  Compass,
 } from "lucide-react";
-import Header from "@/components/Header";
+import { useAuth } from "@/context/auth-context";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getEvent } from "@/lib/firestore";
 import { getSubEventsForEvent } from "@/lib/sub-events";
 import { getCombosForEvent } from "@/lib/combos";
 import { VenueMap } from "@/components/common/venue-map";
 import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration-form";
 import { formatEventDate } from "@/lib/date-utils";
-import { AnimatedRadialBackground } from "@/components/effects/AnimatedRadialBackground";
 
 export default function RegisterPage() {
   const { eventId } = useParams();
+  const { user } = useAuth();
   const [event, setEvent] = useState(null);
   const [subEvents, setSubEvents] = useState([]);
   const [combos, setCombos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeStr, setTimeStr] = useState("");
+
+  // Live IST Clock matching Image 1
+  useEffect(() => {
+    function updateClock() {
+      try {
+        const now = new Date();
+        const time = now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        });
+        setTimeStr(`${time.toLowerCase()} IST`);
+      } catch {
+        const now = new Date();
+        const time = now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        setTimeStr(`${time.toLowerCase()} IST`);
+      }
+    }
+    updateClock();
+    const interval = setInterval(updateClock, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!eventId) return;
@@ -63,13 +94,81 @@ export default function RegisterPage() {
   const priceDisplay = isPaid ? `₹${event?.price || event?.amount}` : "Free Pass";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-white relative selection:bg-[#FE760B] selection:text-white overflow-x-hidden transition-colors">
-      {/* ── Animated Futuristic RGB Radial Light-Streak Background ── */}
-      <AnimatedRadialBackground />
+    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white relative selection:bg-[#FE760B] selection:text-white overflow-x-hidden transition-colors">
+      {/* ── Seamless Integrated Header matching Image 1 (Flush with background, not detached) ── */}
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-[#2A2D31]/80 bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md transition-colors">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          {/* Left: Brand Logo + Nav Links */}
+          <div className="flex items-center gap-6 sm:gap-8">
+            <Link href="/" prefetch={false} className="shrink-0 flex items-center group py-0.5">
+              <Image
+                src="/logo/ticketlelo-logo-nav.png"
+                alt="TicketLelo"
+                width={88}
+                height={28}
+                className="h-6 sm:h-7 w-auto object-contain transition-transform group-hover:scale-105"
+                priority
+              />
+            </Link>
+            <nav className="hidden sm:flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-medium">
+              <Link
+                href="/#events"
+                className="text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Events
+              </Link>
+              <Link
+                href="/discover"
+                className="inline-flex items-center gap-1.5 text-slate-700 dark:text-white font-semibold hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+              >
+                <Compass className="w-3.5 h-3.5 text-[#FE760B]" />
+                <span>Discover</span>
+              </Link>
+            </nav>
+          </div>
 
-      <Header />
+          {/* Right: Live Clock + Theme Toggle + User Avatar / Sign In */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            {timeStr && (
+              <span
+                className="text-[12px] sm:text-[13px] font-sans font-medium text-[#9B9EA4] tracking-normal tabular-nums select-none hidden md:inline-block"
+                suppressHydrationWarning
+              >
+                {timeStr}
+              </span>
+            )}
+            <ThemeToggle inline />
+            {user ? (
+              <Link
+                href={
+                  user.role === "superAdmin"
+                    ? "/superadmin"
+                    : user.role === "organiser" || user.isAdmin
+                    ? "/admin/dashboard"
+                    : "/dashboard"
+                }
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#22C55E] text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden"
+                title={user.displayName || user.email}
+              >
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  (user.displayName || user.email || "U").charAt(0).toUpperCase()
+                )}
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="px-3.5 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#212327] transition-all shadow-sm"
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
 
-      <main className="relative z-10 pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <main className="relative z-10 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-20">
             <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/14 border border-[#FE760B]/30 flex items-center justify-center mb-4">
@@ -334,39 +433,11 @@ export default function RegisterPage() {
                   <VenueMap
                     venueName={event.location || event.venue || event.name}
                     subVenue={event.subVenue || event.room}
-                    address={event.venueAddress || event.location}
+                    address={event.address || event.venueAddress || event.location}
+                    city={event.city || ""}
+                    latitude={event.latitude || event.lat || null}
+                    longitude={event.longitude || event.lng || null}
                   />
-                </div>
-
-                {/* Trust Badges */}
-                <div className="p-6 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] grid grid-cols-1 sm:grid-cols-3 gap-4 text-center shadow-sm">
-                  <div className="space-y-1.5">
-                    <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-600 dark:text-[#7AA2FF] mx-auto flex items-center justify-center">
-                      <CheckCircle2 className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Guaranteed entry</p>
-                    <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] leading-normal">
-                      Scan-ready QR pass delivered directly to your inbox.
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] mx-auto flex items-center justify-center">
-                      <ShieldCheck className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Secure registration</p>
-                    <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] leading-normal">
-                      Encrypted connection with authenticated credentials.
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="w-8 h-8 rounded-full bg-[#FE760B]/10 text-[#FE760B] mx-auto flex items-center justify-center">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">Digital certificate</p>
-                    <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] leading-normal">
-                      Verified attendance certificate unlocked upon check-in.
-                    </p>
-                  </div>
                 </div>
               </div>
 

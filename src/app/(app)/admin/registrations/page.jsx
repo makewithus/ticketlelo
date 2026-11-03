@@ -13,6 +13,12 @@ import {
   Ticket,
   Loader2,
   Users,
+  Mail,
+  UserPlus,
+  Table,
+  SlidersHorizontal,
+  Check,
+  X,
 } from "lucide-react";
 import { EventControlHeader } from "@/components/admin/event-control-header";
 import { useAuth } from "@/context/auth-context";
@@ -21,9 +27,12 @@ import {
   getAllEvents,
   subscribeToEvent,
   subscribeToEventRegistrations,
+  approveRegistration,
+  declineRegistration,
 } from "@/lib/firestore";
 import * as XLSX from "xlsx";
 import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
+import { WebScannerModal } from "@/components/admin/web-scanner-modal";
 
 function formatRelativeTime(ts) {
   if (!ts) return "recently";
@@ -86,6 +95,8 @@ export default function RegistrationsGuestsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedGuestIndex, setSelectedGuestIndex] = useState(null);
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [targetScannerGuest, setTargetScannerGuest] = useState(null);
   const pageSize = 15;
 
   // 1. Initial Load: Fetch events from Firestore
@@ -96,7 +107,12 @@ export default function RegistrationsGuestsPage() {
       try {
         setLoading(true);
         let list = [];
-        if (user.role === "superAdmin") {
+        const emailLower = (user?.email || "").toLowerCase().trim();
+        const isSuper =
+          user.role === "superAdmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+        if (isSuper) {
           list = await getAllEvents();
         } else {
           list = await getEventsByOrganiser(user.id);
@@ -196,13 +212,26 @@ export default function RegistrationsGuestsPage() {
     ).length;
   }, [registrations]);
 
-  const pendingCount = useMemo(() => {
+  const declinedCount = useMemo(() => {
     return registrations.filter(
-      (r) => r.status === "pending" || r.paymentStatus === "pending"
+      (r) =>
+        r.status === "declined" ||
+        r.status === "Cancelled" ||
+        r.status === "cancelled" ||
+        r.approvalStatus === "declined"
     ).length;
   }, [registrations]);
 
-  const goingCount = Math.max(0, totalGuests - checkedInCount - pendingCount);
+  const pendingCount = useMemo(() => {
+    return registrations.filter(
+      (r) =>
+        r.status === "pending" ||
+        r.approvalStatus === "pending" ||
+        r.paymentStatus === "pending"
+    ).length;
+  }, [registrations]);
+
+  const goingCount = Math.max(0, totalGuests - checkedInCount - pendingCount - declinedCount);
 
   // Filtered registrations
   const filteredGuests = useMemo(() => {
@@ -212,12 +241,23 @@ export default function RegistrationsGuestsPage() {
         guest.status === "used" ||
         guest.status === "checked-in" ||
         guest.checkedIn === true;
-      const isPending = guest.status === "pending" || guest.paymentStatus === "pending";
-      const isGoing = !isCheckedIn && !isPending;
+      const isDeclined =
+        guest.status === "declined" ||
+        guest.status === "Cancelled" ||
+        guest.status === "cancelled" ||
+        guest.approvalStatus === "declined";
+      const isPending =
+        !isCheckedIn &&
+        !isDeclined &&
+        (guest.status === "pending" ||
+          guest.approvalStatus === "pending" ||
+          guest.paymentStatus === "pending");
+      const isGoing = !isCheckedIn && !isDeclined && !isPending;
 
       if (statusFilter === "going" && !isGoing) return false;
       if (statusFilter === "checked-in" && !isCheckedIn) return false;
       if (statusFilter === "pending" && !isPending) return false;
+      if (statusFilter === "declined" && !isDeclined) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -265,7 +305,7 @@ export default function RegistrationsGuestsPage() {
   };
 
   return (
-    <div className="py-4 sm:py-6 px-3 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">
+    <div className="py-4 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">
       {/* ── Standard Navigation Header ── */}
       <EventControlHeader
         activeTab="Guests"
@@ -323,39 +363,90 @@ export default function RegistrationsGuestsPage() {
         </div>
       </div>
 
-      {/* ── 2 Action Cards matching Image 2 ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-8">
-        {/* Check in guests */}
+      {/* ── 3 Action Cards matching Image 3 with glowing hover effects ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-8">
+        {/* Invite Guests */}
         <Link
-          href={`/admin/scanner?eventId=${event?.id || ""}`}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm group"
+          href={`/admin/overview?eventId=${event?.id || ""}`}
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#2B59FF]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm hover:shadow-[0_0_28px_rgba(43,89,255,0.4)] hover:scale-[1.01] group cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#212327] group-hover:bg-[#2A2D31] border border-[#2A2D31] flex items-center justify-center text-[#3DD68C] transition-colors">
-            <QrCode size={19} />
+          <div className="w-11 h-11 rounded-2xl bg-[#2B59FF] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+            <Mail size={19} className="text-white fill-white/20" />
           </div>
-          <span className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
-            Check in guests
-          </span>
+          <div>
+            <span className="text-sm font-bold text-white group-hover:text-[#2B59FF] transition-colors block">
+              Invite Guests
+            </span>
+            <span className="text-[11px] text-[#9B9EA4]">Share link or email</span>
+          </div>
         </Link>
 
-        {/* Export to Excel */}
+        {/* Check In Guests - Opens Web Scanner */}
         <button
           type="button"
-          onClick={handleExportExcel}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#3A3D42] rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm group text-left cursor-pointer"
+          onClick={() => {
+            setTargetScannerGuest(null);
+            setShowScannerModal(true);
+          }}
+          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#22C55E]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm hover:shadow-[0_0_28px_rgba(34,197,94,0.4)] hover:scale-[1.01] group text-left cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#212327] group-hover:bg-[#2A2D31] border border-[#2A2D31] flex items-center justify-center text-[#7AA2FF] transition-colors">
-            <Download size={19} />
+          <div className="w-11 h-11 rounded-2xl bg-[#22C55E] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+            <QrCode size={19} className="text-white" />
           </div>
-          <span className="text-sm font-bold text-white group-hover:text-[#FE760B] transition-colors">
-            Export to Excel
-          </span>
+          <div>
+            <span className="text-sm font-bold text-white group-hover:text-[#22C55E] transition-colors block">
+              Check In Guests
+            </span>
+            <span className="text-[11px] text-[#9B9EA4]">Web &amp; mobile camera</span>
+          </div>
         </button>
+
+        {/* Guest List */}
+        <div className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#EAB308]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm hover:shadow-[0_0_28px_rgba(234,179,8,0.4)] hover:scale-[1.01] group cursor-pointer">
+          <div className="w-11 h-11 rounded-2xl bg-[#EAB308] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+            <Users size={19} className="text-white fill-white/20" />
+          </div>
+          <div>
+            <span className="text-sm font-bold text-white group-hover:text-[#EAB308] transition-colors block">
+              Guest List
+            </span>
+            <span className="text-[11px] text-[#9B9EA4]">Shown to guests</span>
+          </div>
+        </div>
       </div>
 
-      {/* ── Guest List Section matching Image 2 ── */}
+      {/* ── Guest List Section matching Image 3 ── */}
       <div>
-        <h2 className="text-base font-bold text-white mb-3">Guest list</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-white">Guest List</h2>
+
+          {/* Quick Header Actions matching Image 3 (UserPlus, Columns, Download) */}
+          <div className="flex items-center gap-1.5 text-[#9B9EA4]">
+            <Link
+              href={`/admin/overview?eventId=${event?.id || ""}`}
+              className="p-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors"
+              title="Invite or Add Guest"
+            >
+              <UserPlus size={16} />
+            </Link>
+            <button
+              type="button"
+              onClick={() => toast.info("Displaying full column view")}
+              className="p-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              title="Table Columns"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="p-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              title="Export to Excel"
+            >
+              <Download size={16} />
+            </button>
+          </div>
+        </div>
 
         {/* Search & Filter bar matching Image 2 */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
@@ -383,7 +474,8 @@ export default function RegistrationsGuestsPage() {
               { id: "all", label: "All" },
               { id: "going", label: "Going" },
               { id: "checked-in", label: "Checked in" },
-              { id: "pending", label: "Pending" },
+              { id: "pending", label: `Pending${pendingCount > 0 ? ` (${pendingCount})` : ""}` },
+              { id: "declined", label: "Declined" },
             ].map((pill) => {
               const isActive = statusFilter === pill.id;
               return (
@@ -415,10 +507,15 @@ export default function RegistrationsGuestsPage() {
               <span>Loading guests in real time...</span>
             </div>
           ) : paginatedGuests.length === 0 ? (
-            <div className="p-8 text-center text-xs text-[#9B9EA4]">
-              {registrations.length === 0
-                ? "No guests registered for this event yet."
-                : "No guests found matching your filter/search criteria."}
+            /* Empty State matching Image 3 */
+            <div className="py-16 px-4 text-center flex flex-col items-center justify-center space-y-3">
+              <div className="w-14 h-14 rounded-full bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#9B9EA4]/70 mb-1">
+                <Users size={28} />
+              </div>
+              <h3 className="text-base font-bold text-white">No Guests Yet</h3>
+              <p className="text-xs text-[#9B9EA4] max-w-xs">
+                Share the event or invite people to get started!
+              </p>
             </div>
           ) : (
             paginatedGuests.map((guest, idx) => {
@@ -429,7 +526,17 @@ export default function RegistrationsGuestsPage() {
                 guest.status === "used" ||
                 guest.status === "checked-in" ||
                 guest.checkedIn === true;
-              const isPending = guest.status === "pending" || guest.paymentStatus === "pending";
+              const isDeclined =
+                guest.status === "declined" ||
+                guest.status === "Cancelled" ||
+                guest.status === "cancelled" ||
+                guest.approvalStatus === "declined";
+              const isPending =
+                !isCheckedIn &&
+                !isDeclined &&
+                (guest.status === "pending" ||
+                  guest.approvalStatus === "pending" ||
+                  guest.paymentStatus === "pending");
               const initials = getInitials(guestName);
               const avatarBg = getAvatarColor(guestName);
               const timeDisplay = formatRelativeTime(guest.createdAt);
@@ -468,29 +575,92 @@ export default function RegistrationsGuestsPage() {
                     </div>
                   </div>
 
-                  {/* Right: Ticket Code + Status Pill + Time */}
+                  {/* Right: Ticket Code + Status Pill / Actions + Time */}
                   <div className="flex items-center gap-3 sm:gap-5 shrink-0">
                     <span className="text-[11px] font-mono text-[#9B9EA4] hidden md:inline-block">
                       {ticketCode}
                     </span>
 
-                    {/* Status Badge */}
+                    {/* Status Badge / Inline Action Buttons matching Image 1 */}
                     {isCheckedIn ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#183124] text-[#3DD68C] border border-[#3DD68C]/30 text-[11px] font-semibold">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-                        Checked in
+                        Checked In
+                      </span>
+                    ) : isDeclined ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2B1414] text-red-400 border border-red-500/30 text-[11px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                        Declined
                       </span>
                     ) : isPending ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2C2614] text-[#FDE003] border border-[#FDE003]/30 text-[11px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FDE003]" />
-                        Payment pending
-                      </span>
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setRegistrations((prev) =>
+                                prev.map((g) =>
+                                  g.id === guest.id
+                                    ? { ...g, status: "Going", approvalStatus: "approved" }
+                                    : g
+                                )
+                              );
+                              await approveRegistration(guest.id);
+                              toast.success(`${guestName} approved!`);
+                            } catch (err) {
+                              toast.error("Failed to approve guest");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#3DD68C] hover:text-[#52e89f] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#3DD68C]/10"
+                        >
+                          <Check size={13} strokeWidth={2.5} />
+                          <span>Approve</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setRegistrations((prev) =>
+                                prev.map((g) =>
+                                  g.id === guest.id
+                                    ? { ...g, status: "declined", approvalStatus: "declined" }
+                                    : g
+                                )
+                              );
+                              await declineRegistration(guest.id);
+                              toast.error(`${guestName} declined`);
+                            } catch (err) {
+                              toast.error("Failed to decline guest");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#EF4444] hover:text-[#f87171] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#EF4444]/10"
+                        >
+                          <X size={13} strokeWidth={2.5} />
+                          <span>Decline</span>
+                        </button>
+                      </div>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#192738] text-[#7AA2FF] border border-[#7AA2FF]/30 text-[11px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#7AA2FF]" />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#183124] text-[#3DD68C] border border-[#3DD68C]/30 text-[11px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                         Going
                       </span>
                     )}
+
+                    {/* Quick Identity Verify Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTargetScannerGuest(guest);
+                        setShowScannerModal(true);
+                      }}
+                      className="p-1.5 rounded-lg bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-[#3DD68C] transition-colors cursor-pointer"
+                      title="Verify identity & check in"
+                    >
+                      <QrCode size={13} />
+                    </button>
 
                     {/* Relative Timestamp */}
                     <span className="text-[11px] text-[#9B9EA4] font-mono w-8 text-right">
@@ -555,6 +725,22 @@ export default function RegistrationsGuestsPage() {
           }}
         />
       )}
+
+      {/* ── Web QR Scanner Modal (verifies identity on web/mobile) ── */}
+      <WebScannerModal
+        isOpen={showScannerModal}
+        onClose={() => {
+          setShowScannerModal(false);
+          setTargetScannerGuest(null);
+        }}
+        event={event}
+        targetGuest={targetScannerGuest}
+        onGuestVerified={(verified) => {
+          setRegistrations((prev) =>
+            prev.map((g) => (g.id === verified.id ? { ...g, ...verified } : g))
+          );
+        }}
+      />
     </div>
   );
 }

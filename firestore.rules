@@ -10,27 +10,44 @@ service cloud.firestore {
     }
     
     function isSuperAdmin() {
-      return isAuthenticated() && 
-             ((request.auth.token.role == "superAdmin") ||
-              (request.auth.token.admin == true) ||
-              (request.auth.token.email == "adil4ticketlelo@gmail.com") ||
-              (request.auth.token.email == "superadmin@ticketlelo.com") ||
-              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "superAdmin"));
+      return isAuthenticated() && (
+        (request.auth.token.role == "superAdmin") ||
+        (request.auth.token.admin == true) ||
+        ('isAdmin' in request.auth.token && request.auth.token.isAdmin == true) ||
+        ('email' in request.auth.token && request.auth.token.email != null && (
+          request.auth.token.email.lower() == "adil4ticketlelo@gmail.com" ||
+          request.auth.token.email.lower() == "superadmin@ticketlelo.com" ||
+          request.auth.token.email.matches("(?i)^(adil4ticketlelo@gmail\\.com|superadmin@ticketlelo\\.com)$")
+        )) ||
+        (request.auth.token.email == "adil4ticketlelo@gmail.com") ||
+        (request.auth.token.email == "superadmin@ticketlelo.com") ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == "superAdmin"
+        ))
+      );
     }
     
     function isOrganiser() {
-      return isAuthenticated() && 
-             (isSuperAdmin() ||
-              (request.auth.token.role == "organiser") ||
-              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "organiser"));
+      return isAuthenticated() && (
+        isSuperAdmin() ||
+        (request.auth.token.role == "organiser") ||
+        (request.auth.token.role == "organizer") ||
+        (request.auth.token.role == "superAdmin") ||
+        (request.auth.token.admin == true) ||
+        ('isAdmin' in request.auth.token && request.auth.token.isAdmin == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == "organiser" ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == "organizer" ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == "superAdmin" ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
+        ))
+      );
     }
 
     function isAmbassador() {
       return isAuthenticated() &&
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ambassador");
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == "ambassador");
     }
 
     function isOwner(userId) {
@@ -41,13 +58,31 @@ service cloud.firestore {
       return isAuthenticated() &&
              (isSuperAdmin() ||
               (exists(/databases/$(database)/documents/organizations/$(orgId)) &&
-               request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)).data.members));
+               request.auth.uid in get(/databases/$(database)/documents/organizations/$(orgId)).data.get('members', [])));
     }
 
     function managesEventData(data) {
-      return isSuperAdmin() || (isOrganiser() &&
-        (data.get('createdBy', '') == request.auth.uid ||
-         (data.get('organizationId', '') != '' && isOrgMember(data.organizationId))));
+      return isSuperAdmin() || 
+             (isAuthenticated() && (
+               (data.get('createdBy', '') == request.auth.uid) ||
+               (data.get('userId', '') == request.auth.uid) ||
+               (data.get('organiserId', '') == request.auth.uid) ||
+               (data.get('organizerId', '') == request.auth.uid) ||
+               (data.get('creatorId', '') == request.auth.uid) ||
+               (isOrganiser() && (
+                 (data.get('createdBy', '') == request.auth.uid) ||
+                 (data.get('userId', '') == request.auth.uid) ||
+                 (data.get('organiserId', '') == request.auth.uid) ||
+                 (data.get('organizerId', '') == request.auth.uid) ||
+                 (data.get('creatorId', '') == request.auth.uid) ||
+                 (data.get('organizationId', '') != '' && isOrgMember(data.organizationId)) ||
+                 ('email' in request.auth.token && request.auth.token.email != null && (
+                   (data.get('organiserEmail', '') != '' && data.organiserEmail.lower() == request.auth.token.email.lower()) ||
+                   (data.get('organizerEmail', '') != '' && data.organizerEmail.lower() == request.auth.token.email.lower()) ||
+                   (data.get('email', '') != '' && data.email.lower() == request.auth.token.email.lower())
+                 ))
+               ))
+             ));
     }
 
     // ===== Users Collection =====
@@ -60,11 +95,11 @@ service cloud.firestore {
       allow create: if isOwner(userId) && 
                        (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == "user") &&
                        (!request.resource.data.keys().hasAny(['isAdmin']) || request.resource.data.isAdmin == false) &&
-                       !request.resource.data.keys().hasAny(['eventsAllowed', 'eventsCreated', 'organizationId']);
+                       !request.resource.data.keys().hasAny(['eventsAllowed', 'organizationId']);
       
       // User can update their own profile, but cannot tamper with role, admin privileges, or organization
       allow update: if (isOwner(userId) && 
-                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'eventsAllowed', 'eventsCreated', 'organizationId'])) ||
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'eventsAllowed', 'organizationId'])) ||
                        isSuperAdmin();
       
       // Only SuperAdmin can delete user records
@@ -87,11 +122,38 @@ service cloud.firestore {
     match /events/{eventId} {
       // Anyone can read events (attendees viewing tickets, public festival listings)
       allow read: if true;
-      // Organisers and Super Admins can create and manage events
-      allow create: if managesEventData(request.resource.data);
-      allow update: if managesEventData(resource.data) &&
-        (isSuperAdmin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdBy', 'organizationId']));
-      allow delete: if managesEventData(resource.data);
+      // Organisers, Super Admins, and authenticated creators can create and manage events
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isOrganiser() ||
+        request.resource.data.get('createdBy', '') == request.auth.uid ||
+        request.resource.data.get('userId', '') == request.auth.uid ||
+        request.resource.data.get('organiserId', '') == request.auth.uid ||
+        request.resource.data.get('organizerId', '') == request.auth.uid ||
+        request.resource.data.get('creatorId', '') == request.auth.uid
+      );
+      allow update: if (
+        isSuperAdmin() ||
+        managesEventData(resource.data) ||
+        (isAuthenticated() && (
+          resource.data.get('createdBy', '') == request.auth.uid ||
+          resource.data.get('userId', '') == request.auth.uid ||
+          resource.data.get('organiserId', '') == request.auth.uid ||
+          resource.data.get('organizerId', '') == request.auth.uid ||
+          resource.data.get('creatorId', '') == request.auth.uid
+        ))
+      ) && (
+        isSuperAdmin() ||
+        // Ensure ownership cannot be reassigned to a different user on update
+        (request.resource.data.get('createdBy', resource.data.get('createdBy', '')) in [resource.data.get('createdBy', ''), request.auth.uid])
+      );
+      allow delete: if isSuperAdmin() || managesEventData(resource.data) || (isAuthenticated() && (
+        resource.data.get('createdBy', '') == request.auth.uid ||
+        resource.data.get('userId', '') == request.auth.uid ||
+        resource.data.get('organiserId', '') == request.auth.uid ||
+        resource.data.get('organizerId', '') == request.auth.uid ||
+        resource.data.get('creatorId', '') == request.auth.uid
+      ));
     }
 
     // ===== Sub-Events Collection =====
@@ -114,9 +176,11 @@ service cloud.firestore {
     match /registrations/{registrationId} {
       // Attendees can read their own registrations; Organisers and Super Admins can read registrations for their events
       allow read: if isAuthenticated() && 
-                     (request.auth.uid == resource.data.userId || 
-                      request.auth.token.email == resource.data.email ||
-                      request.auth.token.email == resource.data.buyerEmail ||
+                     (request.auth.uid == resource.data.get('userId', '') || 
+                      ('email' in request.auth.token && (
+                        request.auth.token.email == resource.data.get('email', '') ||
+                        request.auth.token.email == resource.data.get('buyerEmail', '')
+                      )) ||
                       isOrganiser() || 
                       isSuperAdmin());
       
@@ -134,19 +198,19 @@ service cloud.firestore {
                        ));
       
       // Updates are restricted to organisers or SuperAdmin, or attendee updating their own
-      allow update: if isOrganiser() || isSuperAdmin() || (isAuthenticated() && request.auth.uid == resource.data.userId);
+      allow update: if isOrganiser() || isSuperAdmin() || (isAuthenticated() && request.auth.uid == resource.data.get('userId', ''));
       allow delete: if isOrganiser() || isSuperAdmin();
     }
 
     // ===== Reservations Collection =====
     match /reservations/{reservationId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isOrganiser() || isSuperAdmin());
       allow write: if isSuperAdmin();
     }
 
     // ===== Orders Collection =====
     match /orders/{orderId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isOrganiser() || isSuperAdmin());
       allow write: if isSuperAdmin();
     }
 
@@ -154,8 +218,8 @@ service cloud.firestore {
     match /tickets/{ticketId} {
       // Attendees can read their own tickets; Organisers and SuperAdmin can read tickets for gate operations
       allow read: if isAuthenticated() && 
-                     (request.auth.uid == resource.data.userId || 
-                      request.auth.token.email == resource.data.buyerEmail ||
+                     (request.auth.uid == resource.data.get('userId', '') || 
+                      ('email' in request.auth.token && request.auth.token.email == resource.data.get('buyerEmail', '')) ||
                       isOrganiser() || 
                       isSuperAdmin());
       // Tickets are issued and updated exclusively via trusted server-side Admin SDK
@@ -166,7 +230,7 @@ service cloud.firestore {
     match /payments/{paymentId} {
       // User can read their own payment records; Organisers and SuperAdmin can review payments
       allow read: if isAuthenticated() && 
-                     (request.auth.uid == resource.data.userId || isOrganiser() || isSuperAdmin());
+                     (request.auth.uid == resource.data.get('userId', '') || isOrganiser() || isSuperAdmin());
       // Payments must be created and updated via trusted server-side API (Admin SDK)
       allow write: if isSuperAdmin();
     }
@@ -189,7 +253,7 @@ service cloud.firestore {
     match /commissions/{commissionId} {
       // Ambassador can read their own commission ledger entries
       allow read: if isAuthenticated() && 
-                     (request.auth.uid == resource.data.ambassadorId || isOrganiser() || isSuperAdmin());
+                     (request.auth.uid == resource.data.get('ambassadorId', '') || isOrganiser() || isSuperAdmin());
       // Only server-side or SuperAdmin can write ledger entries (immutable accounting)
       allow write: if isSuperAdmin();
     }
@@ -204,7 +268,7 @@ service cloud.firestore {
       // but private personal details (buyerEmail, attendeeEmail, phone) are restricted to owner attendee, organiser, or superAdmin.
       allow read: if (isAuthenticated() && (
                        (resource.data.keys().hasAny(['userId']) && request.auth.uid == resource.data.userId) ||
-                       (resource.data.keys().hasAny(['buyerEmail']) && request.auth.token.email == resource.data.buyerEmail) ||
+                       (resource.data.keys().hasAny(['buyerEmail']) && 'email' in request.auth.token && request.auth.token.email == resource.data.buyerEmail) ||
                        isOrganiser() ||
                        isSuperAdmin()
                      )) ||
@@ -221,8 +285,18 @@ service cloud.firestore {
 
     // ===== Hosting Requests =====
     match /hostingRequests/{requestId} {
-      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']);
-      allow read: if isSuperAdmin() || isOrganiser() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email));
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'phone', 'eventTitle', 'status', 'createdAt']) || isAuthenticated();
+      allow read: if isSuperAdmin() || isOrganiser() || (isAuthenticated() && (
+        resource.data.get('userId', '') == request.auth.uid ||
+        resource.data.get('organiserId', '') == request.auth.uid ||
+        resource.data.get('createdBy', '') == request.auth.uid ||
+        ('email' in request.auth.token && request.auth.token.email != null && (
+          (resource.data.get('email', '') != '' && resource.data.email.lower() == request.auth.token.email.lower()) ||
+          (resource.data.get('userAccountEmail', '') != '' && resource.data.userAccountEmail.lower() == request.auth.token.email.lower()) ||
+          resource.data.get('email', '') == request.auth.token.email ||
+          resource.data.get('userAccountEmail', '') == request.auth.token.email
+        ))
+      ));
       allow update, delete: if isSuperAdmin() || isOrganiser();
     }
     

@@ -1,8 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import HostingRequestsPage from "./hosting-requests/page";
-
-export default function SuperAdminDashboard() {
-  return <HostingRequestsPage />;
+export default function SuperAdminPage() {
+  redirect("/superadmin/hosting-requests");
 }
-

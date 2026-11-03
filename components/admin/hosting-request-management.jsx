@@ -1,8 +1,10 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { StyledDropdown } from "@/components/ui/styled-dropdown";
 import {
   Loader2,
   Check,
@@ -23,6 +25,10 @@ import {
   ShieldCheck,
   Phone,
   MessageSquare,
+  ArrowUpDown,
+  Clock,
+  RotateCcw,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,7 +39,33 @@ import {
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-const REQUESTS_PAGE_SIZE = 10;
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest First" },
+  { value: "oldest", label: "Oldest First" },
+  { value: "urgent", label: "Urgent / Pending First" },
+  { value: "title", label: "Event Title (A-Z)" },
+  { value: "tickets", label: "Capacity / Tickets" },
+];
+
+const PERIOD_OPTIONS = [
+  { value: "all", label: "All Time" },
+  { value: "today", label: "Past 24 Hours" },
+  { value: "week", label: "Past 7 Days" },
+  { value: "month", label: "Past 30 Days" },
+];
+
+function getPaginationRange(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
 
 function formatRequestDate(ts) {
   if (!ts) return "Recently";
@@ -71,6 +103,11 @@ export function HostingRequestManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'pending' | 'approved' | 'rejected'
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [sortBy, setSortBy] = useState("newest");
+  const [timeRange, setTimeRange] = useState("all");
+  const [currentTime, setCurrentTime] = useState(0);
+
   const [selectedDetailRequest, setSelectedDetailRequest] = useState(null);
 
   // Modal states
@@ -281,7 +318,7 @@ export function HostingRequestManagement() {
 
   const filteredRequests = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return requests.filter((req) => {
+    const list = requests.filter((req) => {
       const matchesStatus =
         statusFilter === "all" ? true : req.status === statusFilter;
       const searchable = [
@@ -295,16 +332,69 @@ export function HostingRequestManagement() {
         .join(" ")
         .toLowerCase();
       const matchesSearch = !term || searchable.includes(term);
+
+      if (timeRange !== "all" && currentTime > 0) {
+        const d = req.createdAt?.toDate
+          ? req.createdAt.toDate()
+          : new Date(req.createdAt || 0);
+        const time = d.getTime();
+        const diff = currentTime - time;
+        if (timeRange === "today" && diff > 24 * 60 * 60 * 1000) return false;
+        if (timeRange === "week" && diff > 7 * 24 * 60 * 60 * 1000) return false;
+        if (timeRange === "month" && diff > 30 * 24 * 60 * 60 * 1000) return false;
+      }
+
       return matchesStatus && matchesSearch;
     });
-  }, [requests, statusFilter, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PAGE_SIZE));
+    list.sort((a, b) => {
+      const ta = a.createdAt?.toDate
+        ? a.createdAt.toDate().getTime()
+        : new Date(a.createdAt || 0).getTime();
+      const tb = b.createdAt?.toDate
+        ? b.createdAt.toDate().getTime()
+        : new Date(b.createdAt || 0).getTime();
+
+      if (sortBy === "oldest") return ta - tb;
+      if (sortBy === "urgent") {
+        if (a.status === "pending" && b.status !== "pending") return -1;
+        if (b.status === "pending" && a.status !== "pending") return 1;
+        return tb - ta;
+      }
+      if (sortBy === "title") {
+        return (a.eventTitle || "").localeCompare(b.eventTitle || "");
+      }
+      if (sortBy === "tickets") {
+        const tA = Number(a.numberOfTickets || a.expectedAttendees || 0);
+        const tB = Number(b.numberOfTickets || b.expectedAttendees || 0);
+        return tB - tA;
+      }
+      return tb - ta;
+    });
+
+    return list;
+  }, [requests, statusFilter, searchTerm, timeRange, sortBy, currentTime]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / pageSize));
   const activePage = Math.min(currentPage, totalPages);
-  const paginatedRequests = filteredRequests.slice(
-    (activePage - 1) * REQUESTS_PAGE_SIZE,
-    activePage * REQUESTS_PAGE_SIZE,
-  );
+  const startIndex = (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredRequests.length);
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    Boolean(searchTerm.trim()) ||
+    sortBy !== "newest" ||
+    timeRange !== "all";
+
+  const resetAllFilters = () => {
+    setStatusFilter("all");
+    setSearchTerm("");
+    setSortBy("newest");
+    setTimeRange("all");
+    setCurrentPage(1);
+    setCurrentTime(Date.now());
+  };
 
   const handleApprove = async (requestId, requestData) => {
     setProcessingId(requestId);
@@ -450,110 +540,161 @@ export function HostingRequestManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Search & Status Summary Row (Matching Image 5) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9EA4]" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder="Search event, name or college"
-            className="w-full h-11 pl-10 pr-4 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl text-sm text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-colors"
-          />
-        </div>
-
-        {/* Top-Right Status Summary Badges & Real-time Live indicator */}
-        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
-          {/* Live indicator & Refresh button */}
-          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs">
-            <span className="relative flex h-2 w-2">
-              <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  isLiveConnected ? "bg-emerald-400" : "bg-amber-400"
-                }`}
-              />
-              <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${
-                  isLiveConnected ? "bg-emerald-500" : "bg-amber-500"
-                }`}
-              />
-            </span>
-            <span
-              className={`text-[11px] font-semibold ${
-                isLiveConnected ? "text-emerald-400" : "text-[#9B9EA4]"
-              }`}
-            >
-              {isLiveConnected ? "Live sync" : "Syncing"}
-            </span>
-            <button
-              onClick={handleManualRefresh}
-              disabled={isRefreshing}
-              title="Refresh requests"
-              className="p-0.5 text-[#9B9EA4] hover:text-white rounded transition-colors ml-0.5"
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${
-                  isRefreshing ? "animate-spin text-[#FE760B]" : ""
-                }`}
-              />
-            </button>
+      {/* Search & Filter Toolbar */}
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Spacious Search Bar */}
+          <div className="relative flex-1 min-w-[260px]">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9EA4]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search by event title, organizer name, college, email..."
+              className="w-full h-10 pl-10 pr-4 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl text-xs sm:text-sm text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-colors"
+            />
           </div>
 
-          <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1 max-w-full overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => {
-              setStatusFilter(statusFilter === "pending" ? "all" : "pending");
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
-              statusFilter === "pending"
-                ? "bg-[#212327] text-white shadow-sm"
-                : "text-[#D0D0D1] hover:text-white"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-[#FDE003]" />
-            Pending · {counts.pending}
-          </button>
-          <button
-            onClick={() => {
-              setStatusFilter(statusFilter === "approved" ? "all" : "approved");
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
-              statusFilter === "approved"
-                ? "bg-[#212327] text-white shadow-sm"
-                : "text-[#D0D0D1] hover:text-white"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
-            Approved · {counts.approved}
-          </button>
-          <button
-            onClick={() => {
-              setStatusFilter(statusFilter === "rejected" ? "all" : "rejected");
-              setCurrentPage(1);
-            }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
-              statusFilter === "rejected"
-                ? "bg-[#212327] text-white shadow-sm"
-                : "text-[#D0D0D1] hover:text-white"
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-[#FF6B6B]" />
-            Rejected · {counts.rejected}
-          </button>
+          {/* Status Filter Badges & Live Status */}
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {/* Real-time Status Indicator (No manual refresh button) */}
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs">
+              <span className="relative flex h-2 w-2">
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                    isLiveConnected ? "bg-emerald-400" : "bg-amber-400"
+                  }`}
+                />
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    isLiveConnected ? "bg-emerald-500" : "bg-amber-500"
+                  }`}
+                />
+              </span>
+              <span
+                className={`text-[11px] font-semibold ${
+                  isLiveConnected ? "text-emerald-400" : "text-[#9B9EA4]"
+                }`}
+              >
+                {isLiveConnected ? "Live" : "Syncing"}
+              </span>
+            </div>
+
+            {/* Status Segmented Buttons */}
+            <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1">
+              <button
+                onClick={() => {
+                  setStatusFilter("all");
+                  setCurrentPage(1);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  statusFilter === "all"
+                    ? "bg-[#212327] text-white shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white"
+                }`}
+              >
+                All ({counts.total})
+              </button>
+              <button
+                onClick={() => {
+                  setStatusFilter(statusFilter === "pending" ? "all" : "pending");
+                  setCurrentPage(1);
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  statusFilter === "pending"
+                    ? "bg-[#212327] text-white shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FDE003]" />
+                Pending ({counts.pending})
+              </button>
+              <button
+                onClick={() => {
+                  setStatusFilter(statusFilter === "approved" ? "all" : "approved");
+                  setCurrentPage(1);
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  statusFilter === "approved"
+                    ? "bg-[#212327] text-white shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                Approved ({counts.approved})
+              </button>
+              <button
+                onClick={() => {
+                  setStatusFilter(statusFilter === "rejected" ? "all" : "rejected");
+                  setCurrentPage(1);
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                  statusFilter === "rejected"
+                    ? "bg-[#212327] text-white shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white"
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
+                Rejected ({counts.rejected})
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Secondary Filter Controls (Sort & Time Period) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-[#9B9EA4]">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Custom Styled Sort Dropdown */}
+            <StyledDropdown
+              icon={ArrowUpDown}
+              label="Sort"
+              value={sortBy}
+              options={SORT_OPTIONS}
+              onChange={(val) => {
+                setSortBy(val);
+                setCurrentPage(1);
+              }}
+              align="left"
+              dropDirection="down"
+              menuClassName="w-56"
+            />
+
+            {/* Custom Styled Time Range Dropdown */}
+            <StyledDropdown
+              icon={Clock}
+              label="Period"
+              value={timeRange}
+              options={PERIOD_OPTIONS}
+              onChange={(val) => {
+                setTimeRange(val);
+                setCurrentTime(Date.now());
+                setCurrentPage(1);
+              }}
+              align="left"
+              dropDirection="down"
+              menuClassName="w-48"
+            />
+
+            {hasActiveFilters && (
+              <button
+                onClick={resetAllFilters}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-[#FE760B] hover:bg-amber-500/10 transition-colors cursor-pointer"
+              >
+                <RotateCcw size={12} />
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
 
-      {/* Requests Table Container (Matching Image 5) */}
+      {/* Requests Table Container */}
       <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left border-collapse">
+          <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#2A2D31] bg-[#131517]/50">
                 <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[220px]">
@@ -562,21 +703,24 @@ export function HostingRequestManagement() {
                 <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[200px]">
                   REQUESTED BY
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap">
+                <th className="py-3 px-4 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
                   TYPE
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap">
+                <th className="py-3 px-4 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
                   TICKETS
                 </th>
+                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
+                  STATUS
+                </th>
                 <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-right whitespace-nowrap">
-                  DECISION
+                  ACTIONS
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2A2D31]">
               {paginatedRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-[#9B9EA4] text-sm">
+                  <td colSpan={6} className="py-12 text-center text-[#9B9EA4] text-sm">
                     No hosting requests found matching your filter.
                   </td>
                 </tr>
@@ -621,70 +765,74 @@ export function HostingRequestManagement() {
 
                       {/* Requested By Column */}
                       <td className="py-3.5 px-5 min-w-[200px]">
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div>
                           <span className="text-sm font-medium text-white">
                             {request.name}
                           </span>
-                          {request.userId ? (
-                            <span
-                              title={`Verified TicketLelo account: ${request.userAccountEmail || request.email} (${request.userId})`}
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                            >
-                              <Check className="w-2.5 h-2.5" />
-                              <span>Verified</span>
-                            </span>
-                          ) : (
-                            <span
-                              title="User submitted before account registration; will be provisioned on approval"
-                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#2A2D31] text-[#9B9EA4]"
-                            >
-                              Guest
-                            </span>
-                          )}
                         </div>
                         <div className="text-xs text-[#9B9EA4] mt-0.5 truncate max-w-[220px]">
-                          {request.college || "College"} · {request.email}
+                          {request.college || "Independent Organiser"} · {request.email}
                         </div>
                       </td>
 
                       {/* Type Column */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         {request.isPaid ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#FE760B]/14 text-[#FF9A4D]">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FE760B]/15 text-[#FF9A4D] border border-[#FE760B]/30">
                             Paid
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/10 text-slate-300">
                             Free
                           </span>
                         )}
                       </td>
 
                       {/* Tickets Column */}
-                      <td className="py-3.5 px-5 whitespace-nowrap">
-                        <span className="text-sm text-white font-mono tabular-nums">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <span className="text-sm text-white font-mono font-semibold tabular-nums">
                           {request.numberOfTickets || "—"}
                         </span>
                       </td>
 
-                      {/* Decision Column (Matching Image 5) */}
+                      {/* Status Column */}
+                      <td className="py-3.5 px-5 text-center whitespace-nowrap">
+                        {isPending ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            Pending
+                          </span>
+                        ) : isApproved ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Approved
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                            Rejected
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions Column */}
                       <td
                         className="py-3.5 px-5 text-right whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {isPending ? (
-                          <div className="inline-flex items-center gap-2">
+                          <div className="inline-flex items-center justify-end gap-2">
                             <button
                               onClick={() => openRejectModal(request)}
                               disabled={processingId === request.id}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#FF9A9A] hover:bg-[#FF6B6B]/15 transition-colors disabled:opacity-50"
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all disabled:opacity-50 cursor-pointer"
                             >
                               Reject
                             </button>
                             <button
                               onClick={() => handleApprove(request.id, request)}
                               disabled={processingId === request.id}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[#3DD68C] bg-[#3DD68C]/12 hover:bg-[#3DD68C]/20 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-all disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
                             >
                               {processingId === request.id ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -693,26 +841,19 @@ export function HostingRequestManagement() {
                             </button>
                           </div>
                         ) : isApproved ? (
-                          <div className="inline-flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#3DD68C]/12 text-[#3DD68C]">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-                              Approved
-                            </span>
+                          <div className="inline-flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleResendApprovalEmail(request)}
                               disabled={processingId === request.id}
                               title={`Resend approval email to ${request.email}`}
-                              className="px-2 py-1 rounded-lg text-xs font-medium text-[#9B9EA4] hover:text-[#FE760B] hover:bg-[#212327] transition-colors border border-transparent hover:border-[#2A2D31] inline-flex items-center gap-1 disabled:opacity-50"
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#9B9EA4] hover:text-white bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                             >
-                              <Mail className="w-3 h-3" />
-                              <span className="hidden sm:inline">Resend</span>
+                              <Mail className="w-3.5 h-3.5 text-[#FE760B]" />
+                              <span>Resend</span>
                             </button>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#FF6B6B]/12 text-[#FF9A9A]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
-                            Rejected
-                          </span>
+                          <span className="text-xs text-[#9B9EA4] italic">—</span>
                         )}
                       </td>
                     </tr>
@@ -724,14 +865,18 @@ export function HostingRequestManagement() {
         </div>
 
         {/* Pagination Controls */}
-        {totalPages > 1 && (
+        {filteredRequests.length > 0 && (
           <div className="p-4 border-t border-[#2A2D31] flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#131517]/40 text-xs text-[#9B9EA4] text-center sm:text-left">
             <div>
-              Showing {(activePage - 1) * REQUESTS_PAGE_SIZE + 1} to{" "}
-              {Math.min(activePage * REQUESTS_PAGE_SIZE, filteredRequests.length)}{" "}
-              of {filteredRequests.length} requests
+              Showing <span className="font-semibold text-white">{startIndex + 1}</span> to{" "}
+              <span className="font-semibold text-white">{endIndex}</span> of{" "}
+              <span className="font-semibold text-white">{filteredRequests.length}</span> requests
+              {filteredRequests.length !== requests.length && (
+                <span className="ml-1 opacity-70">({requests.length} total)</span>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
@@ -740,10 +885,35 @@ export function HostingRequestManagement() {
                 className="h-8 border-[#2A2D31] bg-[#1A1C1F] text-white hover:bg-[#212327]"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline ml-1">Prev</span>
               </Button>
-              <span className="text-white font-medium px-2">
-                {activePage} / {totalPages}
-              </span>
+
+              <div className="flex items-center gap-1">
+                {getPaginationRange(activePage, totalPages).map((item, idx) => {
+                  if (item === "...") {
+                    return (
+                      <span key={`dots-${idx}`} className="px-2 py-1 text-[#9B9EA4]">
+                        …
+                      </span>
+                    );
+                  }
+                  const isCurrent = activePage === item;
+                  return (
+                    <button
+                      key={`page-${item}`}
+                      onClick={() => setCurrentPage(item)}
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all ${
+                        isCurrent
+                          ? "bg-[#FE760B] text-[#131517] font-bold shadow-sm"
+                          : "bg-[#1A1C1F] text-[#D0D0D1] hover:bg-[#212327] border border-[#2A2D31]"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -751,9 +921,29 @@ export function HostingRequestManagement() {
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 className="h-8 border-[#2A2D31] bg-[#1A1C1F] text-white hover:bg-[#212327]"
               >
+                <span className="hidden sm:inline mr-1">Next</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Button>
             </div>
+
+            <StyledDropdown
+              label="Rows"
+              value={pageSize}
+              options={[
+                { value: 5, label: "5 / page" },
+                { value: 10, label: "10 / page" },
+                { value: 20, label: "20 / page" },
+                { value: 50, label: "50 / page" },
+              ]}
+              onChange={(val) => {
+                setPageSize(Number(val));
+                setCurrentPage(1);
+              }}
+              dropDirection="up"
+              align="right"
+              buttonClassName="h-8 px-2.5 rounded-xl border-[#2A2D31] bg-[#1A1C1F] text-white"
+              menuClassName="w-32"
+            />
           </div>
         )}
       </div>

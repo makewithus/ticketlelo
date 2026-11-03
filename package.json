@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint lib src components context scripts tests middleware.js next.config.mjs",
+    "lint": "eslint lib src components context scripts tests src/middleware.js next.config.mjs",
     "test": "node --require ./tests/qa-environment.cjs --test --test-isolation=none 'tests/**/*.test.js'",
     "email:worker": "node scripts/email-worker.mjs"
   },

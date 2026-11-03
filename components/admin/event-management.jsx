@@ -1,6 +1,7 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,11 @@ import {
   MapPin,
   Zap,
   Layers,
+  QrCode,
+  Users,
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -23,7 +29,6 @@ import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
-import { EventPoster } from "@/components/admin/event-poster";
 import { EventCreateStudio } from "@/components/admin/event-create-studio";
 
 export function EventManagement() {
@@ -37,16 +42,21 @@ export function EventManagement() {
   const [canCreateEvent, setCanCreateEvent] = useState(true);
   const [planLimitInfo, setPlanLimitInfo] = useState(null);
   const [eventTab, setEventTab] = useState("upcoming");
+  const [currentPage, setCurrentPage] = useState(1);
+  const EVENTS_PER_PAGE = 5;
 
 
-  const checkEventCreationEligibility = async () => {
-    if (!user) return;
-    if (user.role === "superAdmin") {
+  const userId = user?.id;
+  const userRole = user?.role;
+
+  const checkEventCreationEligibility = useCallback(async () => {
+    if (!userId) return;
+    if (userRole === "superAdmin") {
       setCanCreateEvent(true);
       return;
     }
 
-    if (user.role === "organiser") {
+    if (userRole === "organiser") {
       try {
         let headers = {};
         try {
@@ -57,7 +67,7 @@ export function EventManagement() {
         } catch (_) {}
 
         const res = await fetch(
-          `/api/plans/check?userId=${encodeURIComponent(user.id)}&action=createEvent`,
+          `/api/plans/check?userId=${encodeURIComponent(userId)}&action=createEvent`,
           {
             headers,
             cache: "no-store",
@@ -82,18 +92,18 @@ export function EventManagement() {
         setCanCreateEvent(true);
       }
     }
-  };
+  }, [userId, userRole]);
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       let allEvents;
 
       // SuperAdmin sees all events
-      if (user.role === "superAdmin") {
+      if (userRole === "superAdmin") {
         allEvents = await getAllEvents();
-      } else if (user.role === "organiser") {
+      } else if (userRole === "organiser" && userId) {
         // Organisers only see their own events
-        allEvents = await getEventsByOrganiser(user.id);
+        allEvents = await getEventsByOrganiser(userId);
       } else {
         allEvents = [];
       }
@@ -114,17 +124,17 @@ export function EventManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId, userRole]);
 
   useEffect(() => {
-    if (user) {
+    if (userId) {
       const timer = setTimeout(() => {
         loadEvents();
         checkEventCreationEligibility();
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [user]);
+  }, [userId, loadEvents, checkEventCreationEligibility]);
 
   const handleEdit = (event) => {
     setEditingEvent(event);
@@ -148,6 +158,34 @@ export function EventManagement() {
     setEditingEvent(null);
     setIsCreating(false);
   };
+
+  const [now] = useState(() => Date.now());
+
+  const realUpcoming = useMemo(() => {
+    const cutoff = new Date(now - 24 * 60 * 60 * 1000);
+    return events.filter((e) => {
+      if (!e.date) return true;
+      try {
+        const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+        return d >= cutoff;
+      } catch {
+        return true;
+      }
+    });
+  }, [events, now]);
+
+  const realPast = useMemo(() => {
+    const cutoff = new Date(now - 24 * 60 * 60 * 1000);
+    return events.filter((e) => {
+      if (!e.date) return false;
+      try {
+        const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+        return d < cutoff;
+      } catch {
+        return false;
+      }
+    });
+  }, [events, now]);
 
   if (isCreating) {
     return (
@@ -180,43 +218,38 @@ export function EventManagement() {
             Events
           </h2>
         </div>
-        <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-          {/* Upcoming / Past Tab Pill */}
-          <div className="flex items-center rounded-xl bg-[#1A1C1F] border border-[#2A2D31] p-1">
+        <div className="flex items-center gap-2">
+          {/* Upcoming / Past Tab Switcher */}
+          <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1">
             <button
               type="button"
-              onClick={() => setEventTab("upcoming")}
-              className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              onClick={() => {
+                setEventTab("upcoming");
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 eventTab === "upcoming"
-                  ? "bg-[#212327] text-white shadow-sm"
+                  ? "bg-[#212327] text-white shadow-sm font-bold border border-[#2A2D31]"
                   : "text-[#9B9EA4] hover:text-white"
               }`}
             >
-              Upcoming
+              Upcoming ({realUpcoming.length})
             </button>
             <button
               type="button"
-              onClick={() => setEventTab("past")}
-              className={`px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              onClick={() => {
+                setEventTab("past");
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 eventTab === "past"
-                  ? "bg-[#212327] text-white shadow-sm"
+                  ? "bg-[#212327] text-white shadow-sm font-bold border border-[#2A2D31]"
                   : "text-[#9B9EA4] hover:text-white"
               }`}
             >
-              Past
+              Past ({realPast.length})
             </button>
           </div>
-
-          {!isCreating && (
-            <Button
-              onClick={() => setIsCreating(true)}
-              disabled={!canCreateEvent}
-              className="gap-2 h-10 bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-xs sm:text-sm px-4 rounded-xl shadow-none transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4 text-[#131517]" />
-              {canCreateEvent ? "Create event" : "Event limit reached"}
-            </Button>
-          )}
         </div>
       </div>
 
@@ -255,29 +288,8 @@ export function EventManagement() {
         </div>
       )}
 
-      {/* Timeline View matching Images 1 and 2 */}
+      {/* Events List View */}
       {!isCreating && (() => {
-        // Partition real events
-        const realUpcoming = events.filter((e) => {
-          if (!e.date) return true;
-          try {
-            const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-            return d >= new Date(Date.now() - 24 * 60 * 60 * 1000);
-          } catch {
-            return true;
-          }
-        });
-
-        const realPast = events.filter((e) => {
-          if (!e.date) return false;
-          try {
-            const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-            return d < new Date(Date.now() - 24 * 60 * 60 * 1000);
-          } catch {
-            return false;
-          }
-        });
-
         const activeList = eventTab === "upcoming" ? realUpcoming : realPast;
 
         if (activeList.length === 0) {
@@ -308,284 +320,291 @@ export function EventManagement() {
           );
         }
 
+        const totalItems = activeList.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / EVENTS_PER_PAGE));
+        const safePage = Math.min(Math.max(1, currentPage), totalPages);
+        const paginatedList = activeList.slice(
+          (safePage - 1) * EVENTS_PER_PAGE,
+          safePage * EVENTS_PER_PAGE
+        );
+        const startItem = (safePage - 1) * EVENTS_PER_PAGE + 1;
+        const endItem = Math.min(safePage * EVENTS_PER_PAGE, totalItems);
+
         return (
           <div className="space-y-6">
-            {activeList.map((event, idx) => {
-              // Calculate date parts
-              let datePart = event.dateDisplay;
-              let dayPart = event.dayDisplay;
-              let timePart = event.timeDisplay || "12:00 PM";
+            <div className="space-y-4">
+              {paginatedList.map((event, idx) => {
+                // Calculate date parts
+                let datePart = event.dateDisplay;
+                let dayPart = event.dayDisplay;
+                let timePart = event.timeDisplay || "12:00 PM";
 
-              if (!datePart && event.date) {
-                try {
-                  const d = event.date?.toDate
-                    ? event.date.toDate()
-                    : new Date(event.date);
-                  const isToday =
-                    d.toDateString() === new Date().toDateString();
-                  datePart = isToday
-                    ? "Today"
-                    : d.toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                      });
-                  dayPart = d.toLocaleDateString("en-IN", { weekday: "long" });
-                  timePart = d.toLocaleTimeString("en-IN", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  });
-                } catch {
-                  datePart = "Upcoming";
-                  dayPart = "";
+                if (!datePart && event.date) {
+                  try {
+                    const d = event.date?.toDate
+                      ? event.date.toDate()
+                      : new Date(event.date);
+                    const isToday =
+                      d.toDateString() === new Date().toDateString();
+                    datePart = isToday
+                      ? "Today"
+                      : d.toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        });
+                    dayPart = d.toLocaleDateString("en-IN", { weekday: "long" });
+                    timePart = d.toLocaleTimeString("en-IN", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
+                  } catch {
+                    datePart = "Upcoming";
+                    dayPart = "";
+                  }
                 }
-              }
 
-              // Status badge
-              const isLive = event.status === "live";
-              const isDraft = event.status === "draft";
-              const isEnded = eventTab === "past" || event.status === "ended";
-              const isPublished =
-                event.status === "published" || (!isLive && !isDraft && !isEnded);
+                // Mutually exclusive status badge
+                const isLive = event.status === "live";
+                const isEnded = eventTab === "past" || event.status === "ended";
+                const isDraft = event.status === "draft";
+                const isPublished = !isLive && !isEnded && !isDraft;
 
-              return (
-                <div
-                  key={`mgmt-event-${event.id || idx}`}
-                  className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-4 items-start relative group"
-                >
-                  {/* Left Column: Date & Day Timeline */}
-                  <div className="relative flex md:flex-col items-center md:items-end justify-between md:justify-start pr-4 text-left md:text-right pt-3">
-                    <div>
-                      <div className="text-base font-bold text-white leading-tight">
-                        {datePart || "Upcoming"}
+                return (
+                  <div
+                    key={`mgmt-event-${event.id || idx}`}
+                    className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] hover:border-[#3A3D42] p-4 sm:p-5 shadow-sm transition-all group"
+                  >
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                      {/* Left: Date Badge + Details */}
+                      <div className="flex items-start gap-3.5 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
+                        {/* Clean Date Tile */}
+                        <div className="w-16 sm:w-20 shrink-0 flex flex-col items-center justify-center py-2.5 px-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-center">
+                          <span className="text-xs sm:text-sm font-black text-[#FE760B] uppercase">
+                            {datePart || "Upcoming"}
+                          </span>
+                          <span className="text-[11px] text-[#9B9EA4] font-medium mt-0.5 truncate max-w-full">
+                            {dayPart || timePart}
+                          </span>
+                        </div>
+
+                        {/* Event Details */}
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          {/* Meta Line: Status + Price + Time */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {isLive && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FE760B]/14 text-[#FE760B] border border-[#FE760B]/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
+                                LIVE
+                              </span>
+                            )}
+                            {isPublished && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/25">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                                Published
+                              </span>
+                            )}
+                            {isDraft && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white/7 text-[#D0D0D1] border border-[#2A2D31]">
+                                Draft
+                              </span>
+                            )}
+                            {isEnded && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white/7 text-[#9B9EA4] border border-[#2A2D31]">
+                                Ended
+                              </span>
+                            )}
+
+                            {(event.price || event.totalTickets) && (
+                              <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-[11px] font-mono text-[#D0D0D1]">
+                                {event.price || (event.isPaid ? "Paid" : "Free")}
+                              </span>
+                            )}
+
+                            <span className="text-xs text-[#9B9EA4] font-mono">
+                              {timePart}
+                            </span>
+                          </div>
+
+                          {/* Event Title */}
+                          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#FE760B] transition-colors truncate">
+                            {event.name}
+                          </h3>
+
+                          {/* Venue / Location */}
+                          {event.location && (
+                            <div className="flex items-center gap-1.5 text-xs text-[#9B9EA4] truncate">
+                              <MapPin className="w-3.5 h-3.5 text-[#9B9EA4] shrink-0" />
+                              <span className="truncate">{event.location}</span>
+                            </div>
+                          )}
+
+                          {/* Guests / Capacity */}
+                          <div className="flex items-center gap-2 text-xs text-[#9B9EA4]">
+                            <Users className="w-3.5 h-3.5 text-[#9B9EA4] shrink-0" />
+                            <span>
+                              {event.attendeeDisplay || `${event.totalTickets || 100} guests capacity`}
+                              {event.checkedInDisplay && (
+                                <>
+                                  {" · "}
+                                  <span className="text-[#3DD68C] font-semibold">
+                                    {event.checkedInDisplay}
+                                  </span>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-[#9B9EA4] mt-0.5">
-                        {dayPart || ""}
-                      </div>
-                    </div>
 
-                    {/* Timeline dot & vertical connector (Desktop) */}
-                    <div className="hidden md:block absolute right-[-5px] top-4 w-2 h-2 rounded-full bg-[#3A3D42] border border-[#131517] z-10" />
-                    {idx < activeList.length - 1 && (
-                      <div className="hidden md:block absolute right-[-1px] top-6 bottom-[-24px] w-px border-r border-dotted border-[#2A2D31]" />
-                    )}
-                  </div>
-
-                  {/* Right Event Card (Surface 1) */}
-                  <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] p-3.5 xs:p-4 sm:p-6 shadow-sm hover:border-[#3A3D42] transition-colors flex flex-col md:flex-row items-start justify-between gap-4 sm:gap-5">
-                    {/* Event Details Left */}
-                    <div className="flex-1 min-w-0 space-y-3">
-                      {/* Meta Top Line: Time + Status Badge + Price */}
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="text-xs font-medium text-[#9B9EA4] font-mono">
-                          {timePart}
-                        </span>
-
-                        {isLive && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FE760B]/14 text-[#FE760B] border border-[#FE760B]/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
-                            LIVE
-                          </span>
-                        )}
-
-                        {isPublished && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/12 text-[#3DD68C] border border-[#3DD68C]/25">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-                            Published
-                          </span>
-                        )}
-
-                        {isDraft && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/7 text-[#D0D0D1] border border-[#2A2D31]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#D0D0D1]" />
-                            Draft
-                          </span>
-                        )}
-
-                        {isEnded && (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/7 text-[#9B9EA4] border border-[#2A2D31]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
-                            Ended
-                          </span>
-                        )}
-
-                        {/* Price badge */}
-                        {(event.price || event.totalTickets) && !isEnded && (
-                          <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-xs font-mono text-[#D0D0D1]">
-                            {event.price || (event.isPaid ? "Paid" : "Free")}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Event Title */}
-                      <h3 className="text-xl font-bold text-white tracking-tight">
-                        {event.name}
-                      </h3>
-
-                      {/* Venue / Location */}
-                      {event.location && (
-                        <div className="flex items-center gap-1.5 text-xs sm:text-sm text-[#9B9EA4]">
-                          <MapPin className="w-3.5 h-3.5 text-[#9B9EA4] shrink-0" />
-                          <span className="truncate">{event.location}</span>
+                      {/* Right: Artwork thumbnail if available */}
+                      {(event.coverImage || event.coverUrl || event.image) && (
+                        <div className="hidden sm:block w-28 h-20 rounded-xl overflow-hidden shrink-0 border border-[#2A2D31] bg-[#212327]">
+                          <img
+                            src={event.coverImage || event.coverUrl || event.image}
+                            alt={event.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       )}
-
-                      {/* Guests / Attendees line */}
-                      <div className="flex items-center gap-2 pt-0.5 text-xs sm:text-sm text-[#9B9EA4]">
-                        {event.avatars && event.avatars.length > 0 && (
-                          <div className="flex -space-x-1.5 overflow-hidden">
-                            {event.avatars.map((av, avIdx) => (
-                              <div
-                                key={avIdx}
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-2 ring-[#1A1C1F] ${av.bg}`}
-                              >
-                                {av.text}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <span>
-                          {event.attendeeDisplay ||
-                            `${event.totalTickets || 100} guests capacity`}
-                          {event.checkedInDisplay && (
-                            <>
-                              {" · "}
-                              <span className="text-[#3DD68C] font-semibold">
-                                {event.checkedInDisplay}
-                              </span>
-                            </>
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Actions line */}
-                      {/* Actions line */}
-                      <div className="flex items-center gap-2.5 pt-2 flex-wrap">
-                        {isLive && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
-                                router.push(`/admin/scanner?eventId=${event.id}`);
-                              }}
-                              className="px-4 py-2 rounded-lg bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-xs sm:text-sm transition-colors shadow-sm cursor-pointer"
-                            >
-                              Check In
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
-                                router.push(`/admin/overview?eventId=${event.id}`);
-                              }}
-                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors cursor-pointer"
-                            >
-                              Manage Event →
-                            </button>
-                          </>
-                        )}
-
-                        {isPublished && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
-                                router.push(`/admin/registrations?eventId=${event.id}`);
-                              }}
-                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors cursor-pointer"
-                            >
-                              Guests
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
-                                router.push(`/admin/overview?eventId=${event.id}`);
-                              }}
-                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors cursor-pointer"
-                            >
-                              Manage Event →
-                            </button>
-                          </>
-                        )}
-
-                        {isDraft && (
-                          <>
-                            <div className="h-8 w-24 rounded-lg bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-xs text-[#9B9EA4]">
-                              Preview
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                toast.success(`Publishing ${event.name}`);
-                              }}
-                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors"
-                            >
-                              Publish
-                            </button>
-                          </>
-                        )}
-
-                        {isEnded && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => router.push("/admin/analytics")}
-                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors"
-                            >
-                              View insights
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => router.push("/admin/registrations")}
-                              className="px-4 py-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-white text-xs sm:text-sm font-medium border border-[#2A2D31] transition-colors"
-                            >
-                              Guest list
-                            </button>
-                          </>
-                        )}
-
-                        {/* Optional quick edit/delete buttons for real events */}
-                        <div className="flex items-center gap-1.5 ml-auto">
-                          <button
-                            type="button"
-                            onClick={() => setSubEventModalTarget(event)}
-                            title="Manage tracks"
-                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
-                          >
-                            <Layers className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(event)}
-                            title="Edit"
-                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(event.id)}
-                            title="Delete"
-                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#FF6B6B]/10 text-[#9B9EA4] hover:text-[#FF6B6B] border border-[#2A2D31]"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
                     </div>
 
-                    {/* Right Artwork Poster */}
-                    <EventPoster
-                      event={event}
-                      className="w-28 h-28 sm:w-32 sm:h-32 self-center md:self-start"
-                    />
+                    {/* Bottom Action Bar */}
+                    <div className="flex items-center justify-between gap-2 pt-3.5 mt-3.5 border-t border-[#2A2D31] flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {isLive ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                              router.push(`/admin/scanner?eventId=${event.id}`);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Check In</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                              router.push(`/admin/overview?eventId=${event.id}`);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white text-xs font-semibold border border-[#2A2D31] hover:border-[#FE760B]/40 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Manage Event</span>
+                            <span>→</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                            router.push(`/admin/registrations?eventId=${event.id}`);
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white text-xs font-semibold border border-[#2A2D31] hover:border-[#3DD68C]/40 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Users className="w-3.5 h-3.5 text-[#3DD68C]" />
+                          <span>Guests</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                            router.push(`/admin/analytics?eventId=${event.id}`);
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] hover:border-[#2B59FF]/40 transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <BarChart3 className="w-3.5 h-3.5 text-[#2B59FF]" />
+                          <span>Insights</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSubEventModalTarget(event)}
+                          title="Manage tracks / sub-events"
+                          className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] hover:border-[#FE760B]/30 transition-colors cursor-pointer"
+                        >
+                          <Layers className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(event)}
+                          title="Edit event"
+                          className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] hover:border-[#FE760B]/30 transition-colors cursor-pointer"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(event.id)}
+                          title="Delete event"
+                          className="p-2 rounded-lg bg-[#212327] hover:bg-rose-950/40 text-[#9B9EA4] hover:text-rose-400 border border-[#2A2D31] hover:border-rose-500/30 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls — Exactly 5 per page */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-[#2A2D31] text-xs">
+                <span className="text-[#9B9EA4] font-medium">
+                  Showing <strong className="text-white">{startItem}</strong> to{" "}
+                  <strong className="text-white">{endItem}</strong> of{" "}
+                  <strong className="text-white">{totalItems}</strong> events
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={safePage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="px-2.5 py-1.5 rounded-lg border border-[#2A2D31] bg-[#1A1C1F] text-slate-300 hover:text-white hover:bg-[#212327] disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Previous</span>
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                    const isActive = pageNum === safePage;
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-[#FE760B] text-white shadow-sm"
+                            : "bg-[#1A1C1F] border border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#212327]"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    disabled={safePage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="px-2.5 py-1.5 rounded-lg border border-[#2A2D31] bg-[#1A1C1F] text-slate-300 hover:text-white hover:bg-[#212327] disabled:opacity-40 disabled:pointer-events-none transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         );
       })()}

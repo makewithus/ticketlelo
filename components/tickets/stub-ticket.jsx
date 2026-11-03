@@ -6,13 +6,16 @@ import {
   Download,
   Award,
   RotateCcw,
+  Scissors,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { parseFirestoreDate, formatTicketMeta } from "@/lib/date-utils";
 import {
   resolveTicketTheme,
   parseTicketTitle as parseTicketTitleUniversal,
 } from "@/lib/ticket-theme";
+import { QrCheckinModal } from "./qr-checkin-modal";
 
 export { parseTicketTitleUniversal as parseTicketTitle, formatTicketMeta };
 
@@ -36,6 +39,7 @@ export function StubTicket({
   theme: explicitTheme,
   interactive = true,
   showActions = true,
+  onCheckIn,
   onDownload,
   onAddToCalendar,
   onInvoice,
@@ -44,9 +48,23 @@ export function StubTicket({
   onGoogleWallet,
   className = "",
 }) {
-  const [isTorn, setIsTorn] = useState(
-    registration.status === "Used" || registration.status === "used"
-  );
+  const isPending =
+    registration.status === "pending" ||
+    registration.approvalStatus === "pending";
+
+  const isCheckedInInitially =
+    registration.status === "Used" ||
+    registration.status === "used" ||
+    registration.status === "CheckedIn" ||
+    registration.status === "checked_in" ||
+    registration.checkedIn === true;
+
+  const [isTornLocally, setIsTornLocally] = useState(false);
+  const isTorn = isCheckedInInitially || isTornLocally;
+  const setIsTorn = (val) => {
+    setIsTornLocally(typeof val === "function" ? val(isTorn) : val);
+  };
+  const [showQrModal, setShowQrModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(() => {
     const raw = registration.qrCode;
     if (
@@ -60,6 +78,13 @@ export function StubTicket({
     }
     return "";
   });
+
+  const ticketBgUrl =
+    event.ticketBgUrl ||
+    event.ticketBackground ||
+    registration.ticketBgUrl ||
+    registration.ticketBackground ||
+    null;
 
   // Determine full theme configuration based on organiser selections
   const themeConfig = resolveTicketTheme(event, explicitTheme);
@@ -137,48 +162,91 @@ export function StubTicket({
     };
   }, [registration.qrCode, registration.qrPayload, registration.ticketId, ticketId]);
 
-  // Audio effect for tearing ticket
+  // Audio effect for realistic paper tear sound
   const playTearSound = () => {
     try {
       if (typeof window === "undefined") return;
-      const AudioContext =
-        window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
-      const bufferSize = Math.floor(ctx.sampleRate * 0.12);
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const bufferSize = Math.floor(ctx.sampleRate * 0.16);
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
-        const decay = Math.exp(-i / (bufferSize * 0.25));
+        const decay = Math.exp(-i / (bufferSize * 0.28));
         data[i] = (Math.random() * 2 - 1) * decay;
       }
       const noise = ctx.createBufferSource();
       noise.buffer = buffer;
       const filter = ctx.createBiquadFilter();
       filter.type = "bandpass";
-      filter.frequency.value = 1900;
-      filter.Q.value = 1.4;
+      filter.frequency.setValueAtTime(2200, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(700, ctx.currentTime + 0.15);
+      filter.Q.value = 1.6;
       noise.connect(filter);
       filter.connect(ctx.destination);
       noise.start();
+
       if (navigator.vibrate) {
-        navigator.vibrate(18);
+        navigator.vibrate([22, 40, 28]);
       }
     } catch {
       // Audio autoplay policy or not supported, ignore silently
     }
   };
 
-  const handleStubClick = () => {
+  const handleStubClick = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     if (!interactive) return;
+    if (isPending) {
+      toast.info("Registration pending organiser approval. Access will unlock once approved.");
+      return;
+    }
     playTearSound();
-    setIsTorn((prev) => !prev);
+    setIsTorn(true);
+    toast.success("Ticket stub torn · Check-in confirmed!");
+    if (onCheckIn) {
+      onCheckIn(registration.ticketId || ticketId);
+    }
   };
 
+  // Organiser layout and typography customizations
+  const yPos = typeof event.posterTextY === "number" ? event.posterTextY : 42;
+  const vAlignClass =
+    yPos <= 28
+      ? "justify-start pt-3 sm:pt-4"
+      : yPos >= 60
+      ? "justify-end pb-3 sm:pb-4"
+      : "justify-center";
 
+  const hAlign = event.posterAlign || event.ticketAlign || "left";
+  const textAlignClass =
+    hAlign === "center"
+      ? "text-center items-center mx-auto"
+      : hAlign === "right"
+      ? "text-right items-end ml-auto"
+      : "text-left items-start mr-auto";
+
+  const customFontSize = event.posterFontSize || event.ticketFontSize || null;
+  const fontSizeStyle = customFontSize
+    ? {
+        fontSize: `clamp(${Math.max(16, Math.round(customFontSize * 0.65))}px, ${customFontSize * 0.075}vw + 12px, ${customFontSize}px)`,
+        lineHeight: 1.08,
+      }
+    : undefined;
+
+  const backdrop = event.posterTextBg || event.ticketTextBg || "shadow";
+  const backdropClass =
+    backdrop === "badge"
+      ? "bg-black/40 backdrop-blur-md px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border border-white/10 shadow-lg"
+      : backdrop === "solid"
+      ? "bg-black/90 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl shadow-xl"
+      : backdrop === "shadow"
+      ? "drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+      : "";
 
   return (
-    <div className={`w-full max-w-4xl mx-auto overflow-visible ${className}`}>
+    <div className={`w-full max-w-4xl mx-auto overflow-hidden sm:overflow-visible ${className}`}>
       {/* ── Main Ticket Container (Responsive Horizontal Stub Ticket) ── */}
       <div
         data-ticket="true"
@@ -192,21 +260,40 @@ export function StubTicket({
             style={themeConfig.bodyBgStyle}
             className="relative flex-1 min-w-0 rounded-l-xl sm:rounded-l-2xl overflow-hidden flex flex-col justify-between min-h-[140px] xs:min-h-[165px] sm:min-h-[200px] md:min-h-[220px] shadow-lg transition-transform duration-300"
           >
+            {/* Optional Custom Background Image with Auto-fit Aspect Ratio */}
+            {ticketBgUrl && (
+              <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                <img
+                  src={ticketBgUrl}
+                  alt="Ticket Background"
+                  className="w-full h-full object-cover object-center pointer-events-none transition-transform duration-700 group-hover:scale-105"
+                />
+                {/* Contrast overlay / scrim */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/35 backdrop-blur-[0.5px]" />
+              </div>
+            )}
+
             {/* Top Graphics & Title Area */}
-            <div className="relative p-3 xs:p-4 sm:p-7 flex-1 flex flex-col justify-center overflow-hidden">
-              {/* Main Typography Header (Matching Card 1 of reference: bold, clean, solid) */}
-              <div className="relative z-10 max-w-[85%] sm:max-w-[80%] my-auto">
+            <div
+              className={`relative px-4 xs:px-5 sm:px-7 md:px-8 py-3 sm:py-5 flex-1 flex flex-col ${vAlignClass} overflow-hidden`}
+            >
+              {/* Main Typography Header (Matching bold, clean, solid) */}
+              <div
+                className={`relative z-10 max-w-[80%] sm:max-w-[76%] flex flex-col ${textAlignClass} ${backdropClass}`}
+              >
                 <h2
-                  className={`text-base xs:text-xl sm:text-3xl md:text-[38px] font-black uppercase tracking-tight leading-none ${themeConfig.titleColor}`}
+                  style={{ ...fontSizeStyle, ...themeConfig.titleStyle }}
+                  className={`text-base xs:text-xl sm:text-2xl md:text-[34px] font-black uppercase tracking-tight leading-[1.08] break-words ${themeConfig.titleColor}`}
                 >
                   {titleInfo.line1}
                 </h2>
 
                 {/* Subtitle / Second Line in matching bold solid color */}
                 {titleInfo.line2 && (
-                  <div className="mt-1 sm:mt-1.5">
+                  <div className="mt-0.5 sm:mt-1 w-full">
                     <span
-                      className={`text-base xs:text-xl sm:text-3xl md:text-[38px] font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor}`}
+                      style={{ ...fontSizeStyle, ...themeConfig.titleStyle }}
+                      className={`text-base xs:text-xl sm:text-2xl md:text-[34px] font-black uppercase tracking-tight leading-[1.08] block break-words ${themeConfig.titleColor}`}
                     >
                       {titleInfo.line2}
                     </span>
@@ -238,6 +325,17 @@ export function StubTicket({
                 )}
               </div>
             </div>
+
+            {/* Jagged Ripped Edge on Ticket Body when Torn */}
+            {isTorn && (
+              <svg
+                className="absolute -right-2 top-0 bottom-0 h-full w-4 overflow-visible pointer-events-none fill-current text-black/35 dark:text-black/60 z-20"
+                preserveAspectRatio="none"
+                viewBox="0 0 10 100"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 L 10 15 L 0 20 L 10 25 L 0 30 L 10 35 L 0 40 L 10 45 L 0 50 L 10 55 L 0 60 L 10 65 L 0 70 L 10 75 L 0 80 L 10 85 L 0 90 L 10 95 L 0 100 Z" />
+              </svg>
+            )}
           </div>
 
           {/* ══════════════════════════════════════════════════
@@ -249,8 +347,8 @@ export function StubTicket({
             title={
               interactive
                 ? isTorn
-                  ? "Click to re-attach stub"
-                  : "Click to tear off stub at check-in"
+                  ? "Ticket stub torn · User checked in"
+                  : "Click or tap to tear off ticket stub & check in"
                 : undefined
             }
             style={{
@@ -261,11 +359,11 @@ export function StubTicket({
               interactive ? "cursor-pointer group/stub" : ""
             } ${
               isTorn
-                ? "translate-x-2 sm:translate-x-4 translate-y-0.5 sm:translate-y-2 rotate-2 sm:rotate-3 shadow-2xl opacity-95 ring-1 ring-white/10"
+                ? "translate-x-3.5 sm:translate-x-6 translate-y-1.5 sm:translate-y-3.5 rotate-[3.8deg] shadow-2xl opacity-95 ring-1 ring-emerald-500/30"
                 : "hover:brightness-105"
             }`}
           >
-            {/* Top Cutout Notch (Circles matching background canvas on ALL screen sizes and themes) */}
+            {/* Top Cutout Notch */}
             <div className="ticket-notch absolute -top-2 sm:-top-3 -left-2 sm:-left-3 w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
 
             {/* Bottom Cutout Notch */}
@@ -274,21 +372,70 @@ export function StubTicket({
             {/* Vertical Perforation Line / Torn Edge */}
             <div
               className={`absolute top-2 sm:top-3 bottom-2 sm:bottom-3 -left-[1px] border-l sm:border-l-2 border-dashed ${
-                isTorn ? "border-[#FE760B]/60" : themeConfig.perforationBorder
+                isTorn ? "border-emerald-500/60" : themeConfig.perforationBorder
               } z-10`}
             />
 
-            {/* Stub Header: "SCAN AT ENTRY" */}
+            {/* Jagged Ripped Paper SVG Edge on Stub when Torn */}
+            {isTorn && (
+              <svg
+                className="absolute -left-2 top-0 bottom-0 h-full w-4 overflow-visible pointer-events-none fill-current text-white/20 dark:text-black/40 z-20"
+                preserveAspectRatio="none"
+                viewBox="0 0 10 100"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 L 10 15 L 0 20 L 10 25 L 0 30 L 10 35 L 0 40 L 10 45 L 0 50 L 10 55 L 0 60 L 10 65 L 0 70 L 10 75 L 0 80 L 10 85 L 0 90 L 10 95 L 0 100 Z" />
+              </svg>
+            )}
+
+            {/* Floating Scissors Tear Cue when Untorn */}
+            {interactive && !isTorn && !isPending && (
+              <div className="absolute -left-3.5 top-1/2 -translate-y-1/2 z-30 opacity-80 group-hover/stub:opacity-100 transition-all pointer-events-none">
+                <div className="bg-[#FE760B] text-black text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1 border border-white/20 whitespace-nowrap animate-bounce">
+                  <Scissors className="w-2.5 h-2.5 stroke-[2.5]" />
+                  <span className="hidden sm:inline">Tear</span>
+                </div>
+              </div>
+            )}
+
+            {/* Stub Header: "SCAN AT ENTRY", "PENDING APPROVAL", or "CHECKED IN" */}
             <div className="w-full text-center mb-1 sm:mb-2">
               <span
-                className={`text-[8px] xs:text-[9.5px] sm:text-xs font-black tracking-widest uppercase block ${themeConfig.scanColor}`}
+                className={`text-[8px] xs:text-[9.5px] sm:text-xs font-black tracking-widest uppercase block ${
+                  isPending
+                    ? "text-amber-400"
+                    : isTorn
+                    ? "text-emerald-400 font-extrabold flex items-center justify-center gap-1"
+                    : themeConfig.scanColor
+                }`}
               >
-                SCAN AT ENTRY
+                {isPending ? (
+                  "PENDING APPROVAL"
+                ) : isTorn ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>CHECKED IN</span>
+                  </>
+                ) : (
+                  "SCAN AT ENTRY"
+                )}
               </span>
             </div>
 
-            {/* QR Code Container with High-Contrast White Background */}
-            <div className="relative p-1 sm:p-2 bg-white rounded-lg sm:rounded-xl shadow-md flex items-center justify-center my-0.5 sm:my-1">
+            {/* QR Code Container with High-Contrast White Background (Click to Enlarge & Check-in) */}
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isPending) {
+                  toast.info("Registration pending organiser approval. Access will unlock once approved.");
+                  return;
+                }
+                setShowQrModal(true);
+              }}
+              title={isPending ? "Pending organiser approval" : "Click to view QR & check in"}
+              className={`relative p-1 sm:p-2 bg-white rounded-lg sm:rounded-xl shadow-md flex items-center justify-center my-0.5 sm:my-1 transition-transform ${
+                isPending ? "cursor-default opacity-85" : "cursor-pointer hover:scale-105 active:scale-95"
+              }`}
+            >
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
@@ -302,10 +449,19 @@ export function StubTicket({
               )}
 
               {/* Verified "CHECKED IN / ADMITTED" Stamp overlay when stub is torn off */}
-              {isTorn && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="transform -rotate-12 border sm:border-2 border-[#EF4444] bg-[#EF4444]/95 text-white font-mono font-black text-[7px] xs:text-[8.5px] sm:text-xs px-1 xs:px-1.5 sm:px-2 py-0.5 rounded shadow-lg uppercase tracking-wider backdrop-blur-sm animate-scale-in">
-                    CHECKED IN
+              {isTorn && !isPending && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                  <div className="transform -rotate-12 border sm:border-2 border-emerald-500 bg-emerald-600/95 text-white font-mono font-black text-[7px] xs:text-[8.5px] sm:text-xs px-1.5 xs:px-2 sm:px-2.5 py-0.5 rounded shadow-xl uppercase tracking-wider backdrop-blur-xs ring-2 ring-emerald-500/40 animate-scale-in">
+                    ✓ CHECKED IN
+                  </div>
+                </div>
+              )}
+
+              {/* "PENDING" Stamp overlay when registration requires approval */}
+              {isPending && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/35 rounded-lg sm:rounded-xl backdrop-blur-[1px]">
+                  <div className="transform -rotate-12 border border-amber-400 bg-amber-500/90 text-[#131517] font-mono font-black text-[7px] xs:text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded shadow-lg uppercase tracking-wider">
+                    PENDING
                   </div>
                 </div>
               )}
@@ -321,14 +477,12 @@ export function StubTicket({
               <p className="text-[8px] xs:text-[9.5px] sm:text-xs text-[#D0D0D1] font-medium truncate max-w-[95px] xs:max-w-[115px] sm:max-w-[170px] mx-auto">
                 {attendeeName}
               </p>
+              {isTorn && !isPending && (
+                <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[7px] xs:text-[8px] sm:text-[9px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  Entry Admitted
+                </span>
+              )}
             </div>
-
-            {/* Tear Hint Pill */}
-            {interactive && (
-              <div className="hidden sm:block mt-2 text-[10px] text-[#9B9EA4] opacity-0 group-hover/stub:opacity-100 transition-opacity text-center">
-                {isTorn ? "Click to re-attach" : "Click to tear off"}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -336,30 +490,8 @@ export function StubTicket({
       {/* ══════════════════════════════════════════════════
           OPTIONAL ACTIONS DRAWER & CONTROLS
           ══════════════════════════════════════════════════ */}
-      {showActions && (
-        <div className="ticket-actions-bar mt-2.5 sm:mt-3 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-2.5 sm:p-3 flex flex-wrap items-center justify-between gap-2 shadow-sm">
-          {/* Status Indicator: Dot + Word */}
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#212327] border border-[#2A2D31] text-[#061A3F] dark:text-[#D0D0D1]">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isTorn ? "bg-[#3DD68C]" : "bg-[#FE760B]"
-                }`}
-              />
-              {isTorn ? "Stub Torn • Checked In" : registration.status || "Valid Pass"}
-            </span>
-
-            {/* Reset button if torn */}
-            {isTorn && (
-              <button
-                onClick={() => setIsTorn(false)}
-                className="text-xs text-[#061A3F] dark:text-[#9B9EA4] hover:text-[#FE760B] flex items-center gap-1 transition-colors ml-1 font-medium cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" /> Reattach
-              </button>
-            )}
-          </div>
-
+      {showActions && (onDownload || (isTorn && onCertificate)) && (
+        <div className="ticket-actions-bar mt-2.5 sm:mt-3 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-2.5 sm:p-3 flex flex-wrap items-center justify-end gap-2 shadow-sm">
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {onDownload && (
@@ -384,6 +516,27 @@ export function StubTicket({
           </div>
         </div>
       )}
+
+      {/* Interactive QR Check-In Modal with Perforation Tear Animation */}
+      <QrCheckinModal
+        isOpen={showQrModal}
+        onClose={() => setShowQrModal(false)}
+        ticket={{
+          ...registration,
+          ticketId,
+          guest: attendeeName,
+          title: titleInfo.line1 + (titleInfo.line2 ? ` ${titleInfo.line2}` : ""),
+          date: meta.dateStr,
+          time: meta.timeStr,
+          venue: meta.venueStr,
+          ticketType: meta.tierStr,
+          qrCode: qrDataUrl,
+          status: isTorn ? "Used" : (registration.status || "Unused"),
+        }}
+        onCheckIn={() => {
+          setIsTorn(true);
+        }}
+      />
     </div>
   );
 }

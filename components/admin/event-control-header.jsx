@@ -16,29 +16,53 @@ export function EventControlHeader({
   extraActions = null,
 }) {
   const searchParams = useSearchParams();
-  const currentEventId = eventId || searchParams.get("eventId");
-
-  const [resolvedTitle, setResolvedTitle] = useState(eventTitle);
-  const [resolvedSlug, setResolvedSlug] = useState(eventSlug);
+  const urlEventId = searchParams ? searchParams.get("eventId") : null;
+  const [storedEventId, setStoredEventId] = useState(null);
 
   useEffect(() => {
-    setResolvedTitle(eventTitle);
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("admin_selected_event_id");
+      if (stored) setStoredEventId(stored);
+    }
+  }, []);
+
+  const currentEventId = eventId || urlEventId || storedEventId;
+
+  const [resolvedTitle, setResolvedTitle] = useState(eventTitle);
+  const [resolvedSlug, setResolvedSlug] = useState(
+    eventSlug !== "tech-fest-2026" ? eventSlug : ""
+  );
+
+  useEffect(() => {
+    if (eventTitle && eventTitle !== "Tech Fest 2026") {
+      setResolvedTitle(eventTitle);
+    }
   }, [eventTitle]);
 
   useEffect(() => {
-    setResolvedSlug(eventSlug);
+    if (eventSlug && eventSlug !== "tech-fest-2026") {
+      setResolvedSlug(eventSlug);
+    }
   }, [eventSlug]);
 
   useEffect(() => {
-    if (currentEventId && (!eventTitle || eventTitle === "Tech Fest 2026")) {
+    if (currentEventId) {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("admin_selected_event_id", currentEventId);
+        } catch {}
+      }
       getEvent(currentEventId)
         .then((ev) => {
-          if (ev?.name) setResolvedTitle(ev.name);
-          if (ev?.slug) setResolvedSlug(ev.slug);
+          if (ev) {
+            if (ev.name || ev.title) setResolvedTitle(ev.name || ev.title);
+            if (ev.slug) setResolvedSlug(ev.slug);
+            else setResolvedSlug(ev.id);
+          }
         })
         .catch(() => {});
     }
-  }, [currentEventId, eventTitle]);
+  }, [currentEventId]);
 
   const getHref = (base) => {
     if (currentEventId) return `${base}?eventId=${currentEventId}`;
@@ -48,10 +72,10 @@ export function EventControlHeader({
   const navTabs = [
     { name: "Overview", href: getHref("/admin/overview") },
     { name: "Guests", href: getHref("/admin/registrations") },
-    { name: "Check-In", href: getHref("/admin/scanner") },
     { name: "Registration", href: getHref("/admin/form-generator") },
     { name: "Blasts", href: getHref("/admin/messages") },
     { name: "Insights", href: getHref("/admin/analytics") },
+    { name: "Payouts", href: getHref("/admin/payments") },
     { name: "More", href: getHref("/admin/customize") },
   ];
 
@@ -87,7 +111,7 @@ export function EventControlHeader({
 
             {/* Event Page Link button */}
             <Link
-              href={`/e/${resolvedSlug}`}
+              href={`/e/${resolvedSlug || currentEventId || ""}`}
               target="_blank"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#1A1C1F] hover:bg-slate-100 dark:hover:bg-[#212327] border border-[#D9DBE0] dark:border-[#2A2D31] text-xs font-semibold text-[#1E293B] dark:text-[#D0D0D1] hover:text-[#061A3F] dark:hover:text-white transition-colors shadow-sm"
             >
