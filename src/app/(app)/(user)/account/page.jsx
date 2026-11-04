@@ -288,12 +288,12 @@ export default function AccountPage() {
               <div className="h-1.5 w-full bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
                 <div
                   className={`h-full rounded-full ${
-                    isOverLimit ? "bg-[#EF4444] w-full" : "bg-[#10B981] w-[60%]"
+                    isOverLimit ? "bg-[#FF6B6B] w-full" : "bg-[#3DD68C] w-[60%]"
                   }`}
                 />
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#EF4444] font-normal">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" />
+              <div className="flex items-center gap-1.5 text-xs text-[#FF6B6B] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
                 <span>Over limit — upgrade to create more events</span>
               </div>
             </div>
@@ -308,10 +308,10 @@ export default function AccountPage() {
               </div>
               {/* Progress bar */}
               <div className="h-1.5 w-full bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
-                <div className="h-full rounded-full bg-[#10B981] w-[29%]" />
+                <div className="h-full rounded-full bg-[#3DD68C] w-[29%]" />
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-normal">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+              <div className="flex items-center gap-1.5 text-xs text-[#3DD68C] font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                 <span>Largest event: 86 guests</span>
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function AccountPage() {
             </h2>
             <Link
               href="/admin/dashboard"
-              className="text-xs text-[#9B9EA4] hover:text-white transition-colors flex items-center gap-1 font-normal"
+              className="text-xs text-[#9B9EA4] hover:text-white transition-colors flex items-center gap-1 font-semibold"
             >
               Manage →
             </Link>
@@ -377,17 +377,17 @@ export default function AccountPage() {
                   {/* Status pill on right */}
                   <div className="shrink-0">
                     {isLive ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#2A1D13] border border-[#FE760B]/30 text-[#FE760B] text-xs font-normal">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FE760B]/15 border border-[#FE760B]/30 text-[#FE760B] text-xs font-bold">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
                         <span>Live</span>
                       </span>
                     ) : isPublished ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#132A1F] border border-[#10B981]/30 text-[#10B981] text-xs font-normal">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#3DD68C]/15 border border-[#3DD68C]/30 text-[#3DD68C] text-xs font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                         <span>Published</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] text-xs font-normal">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] text-xs font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
                         <span>Draft</span>
                       </span>
@@ -422,7 +422,7 @@ export default function AccountPage() {
                 }}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   appearance === "dark"
-                    ? "bg-[#2A2D31] text-white font-medium shadow-sm"
+                    ? "bg-[#2A2D31] text-white font-semibold shadow-sm"
                     : "text-[#9B9EA4] hover:text-white font-normal"
                 }`}
               >
@@ -436,7 +436,7 @@ export default function AccountPage() {
                 }}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   appearance === "light"
-                    ? "bg-[#2A2D31] text-white font-medium shadow-sm"
+                    ? "bg-[#2A2D31] text-white font-semibold shadow-sm"
                     : "text-[#9B9EA4] hover:text-white font-normal"
                 }`}
               >
@@ -450,7 +450,7 @@ export default function AccountPage() {
                 }}
                 className={`px-3 py-1.5 rounded-lg transition-all ${
                   appearance === "system"
-                    ? "bg-[#2A2D31] text-white font-medium shadow-sm"
+                    ? "bg-[#2A2D31] text-white font-semibold shadow-sm"
                     : "text-[#9B9EA4] hover:text-white font-normal"
                 }`}
               >
@@ -500,26 +500,26 @@ export default function AccountPage() {
                   <tr>
                     <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Payments & coupons</td>
                     <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Yes</td>
                   </tr>
                   <tr>
                     <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Branding & custom URL</td>
                     <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Yes</td>
                   </tr>
                   <tr>
                     <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Insights & blasts</td>
                     <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Advanced</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Advanced</td>
                   </tr>
                   <tr>
                     <td className="px-4 sm:px-5 py-3 text-[#D0D0D1] font-normal">Priority support</td>
                     <td className="px-4 py-3 text-center text-[#9B9EA4] bg-[#2A1D13]/30 font-normal">—</td>
                     <td className="px-4 py-3 text-center text-[#9B9EA4] font-normal">—</td>
-                    <td className="px-4 py-3 text-center text-[#10B981] font-medium">Yes</td>
+                    <td className="px-4 py-3 text-center text-[#3DD68C] font-bold">Yes</td>
                   </tr>
                 </tbody>
               </table>

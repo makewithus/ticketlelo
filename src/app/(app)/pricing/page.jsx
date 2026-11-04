@@ -229,19 +229,19 @@ export default function PricingPage() {
               {/* Features List with refined font-medium weight */}
               <ul className="space-y-3 text-xs text-[#D0D0D1]">
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">1 event</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">300 guests per event</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Basic registration form</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">QR tickets & email delivery</span>
                 </li>
                 <li className="flex items-center gap-2.5 text-[#9B9EA4]">
@@ -257,7 +257,7 @@ export default function PricingPage() {
                 type="button"
                 disabled={currentPlan === "free" || upgrading}
                 onClick={() => handleUpgrade("free")}
-                className="w-full py-2.5 sm:py-3 rounded-xl font-medium text-xs sm:text-sm bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default text-center transition-colors"
+                className="w-full py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default text-center transition-colors"
               >
                 {currentPlan === "free" ? "Your current plan" : "Select Free"}
               </button>
@@ -271,14 +271,14 @@ export default function PricingPage() {
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <h2 className="text-base sm:text-lg font-bold text-white">Starter</h2>
-                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#2A1D13] text-[#FE760B] border border-[#FE760B]/30 text-[10px] sm:text-[11px] font-semibold">
+                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30 text-[10px] sm:text-[11px] font-bold">
                   Popular
                 </div>
               </div>
 
               {/* Price */}
               <div className="flex items-baseline gap-1 mb-5 sm:mb-6">
-                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   ₹999
                 </span>
                 <span className="text-xs text-[#9B9EA4] font-normal">/ month</span>
@@ -287,27 +287,27 @@ export default function PricingPage() {
               {/* Features List with refined font-medium weight */}
               <ul className="space-y-3 text-xs text-[#D0D0D1]">
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">3 events</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">1,000 guests per event</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Razorpay payments & coupons</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Custom branding, banner & URL</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Insights & blasts</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Email support</span>
                 </li>
               </ul>
@@ -319,15 +319,15 @@ export default function PricingPage() {
                 type="button"
                 disabled={currentPlan === "starter" || upgrading}
                 onClick={() => handleUpgrade("starter")}
-                className={`w-full py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                className={`w-full py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   currentPlan === "starter"
                     ? "bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default"
-                    : "bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] shadow-lg shadow-[#FE760B]/20"
+                    : "bg-[#FE760B] hover:bg-[#FF8A2B] text-white shadow-lg shadow-[#FE760B]/20"
                 }`}
               >
                 {upgrading === "starter" ? (
                   <>
-                    <Loader2 size={16} className="animate-spin text-[#131517]" />
+                    <Loader2 size={16} className="animate-spin text-white" />
                     <span>Processing...</span>
                   </>
                 ) : currentPlan === "starter" ? (
@@ -346,14 +346,14 @@ export default function PricingPage() {
             <div>
               <div className="flex items-center justify-between mb-3.5">
                 <h2 className="text-base sm:text-lg font-bold text-white">Pro</h2>
-                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#2B2816] text-[#FDE003] border border-[#FDE003]/30 text-[10px] sm:text-[11px] font-semibold">
+                <div className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#FDE003]/15 text-[#FDE003] border border-[#FDE003]/30 text-[10px] sm:text-[11px] font-bold">
                   Best value
                 </div>
               </div>
 
               {/* Price */}
               <div className="flex items-baseline gap-1 mb-5 sm:mb-6">
-                <span className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   ₹2,499
                 </span>
                 <span className="text-xs text-[#9B9EA4] font-normal">/ month</span>
@@ -362,23 +362,23 @@ export default function PricingPage() {
               {/* Features List with refined font-medium weight */}
               <ul className="space-y-3 text-xs text-[#D0D0D1]">
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">10 events</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Unlimited guests</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Everything in Starter</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Advanced insights</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#10B981] font-semibold shrink-0">✓</span>
+                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
                   <span className="font-medium text-[#D0D0D1]">Priority support & early access</span>
                 </li>
               </ul>
@@ -390,15 +390,15 @@ export default function PricingPage() {
                 type="button"
                 disabled={currentPlan === "pro" || upgrading}
                 onClick={() => handleUpgrade("pro")}
-                className={`w-full py-2.5 sm:py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
+                className={`w-full py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   currentPlan === "pro"
                     ? "bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] cursor-default"
-                    : "bg-white hover:bg-slate-100 text-[#131517] shadow-md"
+                    : "bg-white hover:bg-slate-100 text-black shadow-md"
                 }`}
               >
                 {upgrading === "pro" ? (
                   <>
-                    <Loader2 size={16} className="animate-spin text-[#131517]" />
+                    <Loader2 size={16} className="animate-spin text-black" />
                     <span>Processing...</span>
                   </>
                 ) : currentPlan === "pro" ? (

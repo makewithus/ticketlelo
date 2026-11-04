@@ -205,7 +205,11 @@ export default function RegistrationsGuestsPage() {
 
   // Real Stats
   const totalGuests = registrations.length;
-  const totalCapacity = parseInt(event?.capacity || event?.totalTickets || 150, 10);
+  const rawCap = event?.capacity ?? event?.totalTickets ?? 150;
+  const isUnlimited = typeof rawCap === "string" && (rawCap.toLowerCase().includes("unlimited") || rawCap.toLowerCase().includes("open"));
+  const digits = String(rawCap || "").replace(/[^\d]/g, "");
+  const parsedCap = digits ? parseInt(digits, 10) : 150;
+  const totalCapacity = !isUnlimited && Number.isFinite(parsedCap) && parsedCap > 0 ? parsedCap : 150;
 
   const checkedInCount = useMemo(() => {
     return registrations.filter(
@@ -332,7 +336,7 @@ export default function RegistrationsGuestsPage() {
             <span className="text-xs font-semibold text-[#9B9EA4]">guests</span>
           </p>
           <span className="text-xs text-[#9B9EA4] font-medium font-mono">
-            cap {totalCapacity}
+            {isUnlimited ? "cap ∞" : `cap ${totalCapacity}`}
           </span>
         </div>
 

@@ -162,7 +162,10 @@ export async function GET(request) {
       else if (isLive) liveEventsCount++;
       else draftEventsCount++;
 
-      const capacity = Number(d.capacity || d.totalSeats || d.expectedAttendees || 200);
+      const rawCap = d.capacity || d.totalSeats || d.expectedAttendees || d.maxCapacity || 200;
+      const digits = String(rawCap).replace(/[^\d]/g, "");
+      const parsedCap = digits ? parseInt(digits, 10) : 200;
+      const capacity = Number.isFinite(parsedCap) && parsedCap > 0 ? parsedCap : 200;
       overallCapacity += capacity;
 
       const ticketsSold = Number(d.ticketsSold || d.registrationsCount || 0);

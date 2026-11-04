@@ -259,7 +259,11 @@ export default function RegisterPage() {
                       {event.totalTickets && (
                         <p className="flex items-center gap-1 text-xs text-slate-600 dark:text-[#9B9EA4]">
                           <Users className="w-3.5 h-3.5 text-slate-400 dark:text-[#5C6066]" />
-                          <span>{event.totalTickets} Total capacity</span>
+                          <span>
+                            {String(event.capacity || event.totalTickets).toLowerCase().includes("unlimited") || Number(event.totalTickets) >= 9999
+                              ? "Unlimited capacity"
+                              : `${event.totalTickets} Total capacity`}
+                          </span>
                         </p>
                       )}
                     </div>

@@ -1,0 +1,1035 @@
+[
+  {
+    "id": "1VLZqfZWw6aMO26bryIB",
+    "name": "Test Event",
+    "description": "",
+    "date": {
+      "_seconds": 1793577600,
+      "_nanoseconds": 0
+    },
+    "timezone": "GMT+05:30",
+    "timezoneCity": "Kolkata",
+    "location": "KIET Group of Institutions (Deemed to be University), Delhi-NCR, Meerut Road, NH-58, Muradnagar, Ghaziabad, Uttar Pradesh 201206",
+    "locationVenue": "KIET Group of Institutions (Deemed to be University)",
+    "locationAddress": "Delhi-NCR, Meerut Road, NH-58, Muradnagar, Ghaziabad, Uttar Pradesh 201206",
+    "latitude": 28.7533,
+    "longitude": 77.4975,
+    "locationPin": {
+      "lat": 28.7533,
+      "lng": 77.4975,
+      "landmark": "Venue Pin"
+    },
+    "locationType": "in-person",
+    "virtualLink": "",
+    "totalTickets": 9999,
+    "capacity": "Unlimited",
+    "requireApproval": true,
+    "limitCapacity": false,
+    "maxCapacity": 50,
+    "waitlist": true,
+    "theme": "minimal",
+    "themeColor": "#2E7D32",
+    "themeHex": "#2E7D32",
+    "themeName": "Minimal",
+    "ticketBgColor": "#2E7D32",
+    "visibility": "public",
+    "isPaid": true,
+    "price": "₹199",
+    "ticketDesign": "stub",
+    "posterTextMode": "auto",
+    "posterLine1": "",
+    "posterLine2": "",
+    "posterFontSize": 34,
+    "posterAlign": "left",
+    "posterTextColor": "auto",
+    "posterTextX": 6,
+    "posterTextY": 68,
+    "showPosterText": true,
+    "posterTextBg": "shadow",
+    "ticketBgUrl": "",
+    "isActive": true,
+    "published": true,
+    "status": "published",
+    "createdBy": "Z2hVVbHOLeda687jryUul4RbSGm2",
+    "createdAt": {
+      "_seconds": 1793721640,
+      "_nanoseconds": 155000000
+    },
+    "registrationStatus": "Open",
+    "customQuestions": [
+      {
+        "id": "q_college_name",
+        "label": "College / University Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. CUSAT, Kochi",
+        "options": []
+      },
+      {
+        "id": "q_year_of_study",
+        "label": "Year of Study",
+        "type": "select",
+        "required": true,
+        "placeholder": "Select year",
+        "options": [
+          "1st Year",
+          "2nd Year",
+          "3rd Year",
+          "4th Year",
+          "Postgraduate"
+        ]
+      },
+      {
+        "id": "q_team_name",
+        "label": "Team Name (if participating in team event)",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. CodeNinjas",
+        "options": []
+      }
+    ],
+    "groupRegistration": false,
+    "personalInfoConfig": {
+      "nameMode": "Full Name",
+      "emailRequired": true,
+      "phoneMode": "Required"
+    },
+    "updatedAt": {
+      "_seconds": 1793733105,
+      "_nanoseconds": 699000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-04",
+    "coverImage": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "11:59 PM",
+    "startDate": "2026-11-04"
+  },
+  {
+    "id": "4Nvq16WVWm0Q1SobVz2H",
+    "date": {
+      "_seconds": 1771977600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1771180360,
+      "_nanoseconds": 993000000
+    },
+    "name": "Hitesh Choudhary Meetup",
+    "description": "Meet the tech wizard , your journey setter ,One and Only Chai Aur Code.",
+    "totalTickets": 100,
+    "location": "Kiet Deemed To be University  E-Block",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1771180360,
+      "_nanoseconds": 993000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-15",
+    "coverImage": "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "02:00 PM",
+    "endTime": "06:00 PM",
+    "startDate": "2026-11-15"
+  },
+  {
+    "id": "4TgI5WkgX3EiLJZ9OPx1",
+    "date": {
+      "_seconds": 1772236800,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1771519939,
+      "_nanoseconds": 198000000
+    },
+    "name": "Developers Meetup",
+    "description": "All tech   developers reunion.",
+    "totalTickets": 250,
+    "location": "Delhi , india",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1771519955,
+      "_nanoseconds": 72000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-18",
+    "coverImage": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "05:00 PM",
+    "startDate": "2026-11-18"
+  },
+  {
+    "id": "7yJ4rPFXNGVZcWzjzWYQ",
+    "date": {
+      "_seconds": 1793232000,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1793126329,
+      "_nanoseconds": 306000000
+    },
+    "createdBy": "hHvxyCcMBpOo6KntAPV3UiQpBxh2",
+    "name": "Huh",
+    "description": "bjb",
+    "totalTickets": 20,
+    "location": "School of engineering ",
+    "isActive": false,
+    "updatedAt": {
+      "_seconds": 1793126329,
+      "_nanoseconds": 306000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-10-28",
+    "startTime": "06:00 PM",
+    "endTime": "09:00 PM",
+    "startDate": "2026-10-28"
+  },
+  {
+    "id": "8k84DRq4emlqeO2a2NV8",
+    "name": "Inaugration of MAC Lab",
+    "slug": "inaugration-of-mac-lab",
+    "customDomain": "",
+    "description": "",
+    "date": {
+      "_seconds": 1793577600,
+      "_nanoseconds": 0
+    },
+    "startDate": "2026-11-02",
+    "endDate": "2026-11-03",
+    "timezone": "GMT+05:30",
+    "timezoneCity": "Kolkata",
+    "location": "kiet, Custom venue entered by organiser",
+    "locationVenue": "kiet",
+    "locationAddress": "Custom venue entered by organiser",
+    "latitude": 28.7533,
+    "longitude": 77.4975,
+    "locationPin": {
+      "lat": 28.7533,
+      "lng": 77.4975,
+      "landmark": "Venue Pin"
+    },
+    "locationType": "in-person",
+    "virtualLink": "",
+    "totalTickets": 9999,
+    "capacity": "Unlimited",
+    "requireApproval": false,
+    "limitCapacity": false,
+    "maxCapacity": 50,
+    "waitlist": true,
+    "theme": "custom",
+    "themeColor": "#FE760B",
+    "themeHex": "#FE760B",
+    "themeName": "Custom (#FE760B)",
+    "ticketBgColor": "#FE760B",
+    "visibility": "public",
+    "isPaid": false,
+    "price": "Free",
+    "ticketDesign": "wide",
+    "posterTextMode": "auto",
+    "posterLine1": "",
+    "posterLine2": "",
+    "posterFontSize": 34,
+    "posterAlign": "left",
+    "posterTextColor": "auto",
+    "posterTextX": 6,
+    "posterTextY": 68,
+    "showPosterText": true,
+    "posterTextBg": "shadow",
+    "ticketBgUrl": "",
+    "isActive": true,
+    "published": true,
+    "status": "published",
+    "createdBy": "r5yGdSSjXMThbtSz11UWGyJRtk33",
+    "userId": "r5yGdSSjXMThbtSz11UWGyJRtk33",
+    "organiserId": "r5yGdSSjXMThbtSz11UWGyJRtk33",
+    "organizerId": "r5yGdSSjXMThbtSz11UWGyJRtk33",
+    "createdAt": {
+      "_seconds": 1793740282,
+      "_nanoseconds": 678000000
+    },
+    "updatedAt": {
+      "_seconds": 1793740282,
+      "_nanoseconds": 678000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1200&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "11:30 PM",
+    "endTime": "12:30 AM"
+  },
+  {
+    "id": "9jucyhuJCt32SsSK4cwQ",
+    "date": {
+      "_seconds": 1776729600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776577370,
+      "_nanoseconds": 688000000
+    },
+    "createdBy": "Pt5vgMv7mcOVnBWqMy8NL6GpaXa2",
+    "name": "test meet event",
+    "description": "test event",
+    "totalTickets": 150,
+    "location": "Mumbai",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776577370,
+      "_nanoseconds": 688000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-10-29",
+    "startTime": "04:00 PM",
+    "endTime": "07:00 PM",
+    "startDate": "2026-10-29"
+  },
+  {
+    "id": "EmmpZGuApFghEaXyv6Te",
+    "date": {
+      "_seconds": 1776729600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776582236,
+      "_nanoseconds": 983000000
+    },
+    "createdBy": "kqQEb8SIXHfejQHhUylJmRtzkuJ3",
+    "name": "test for plan",
+    "description": "test for the plan.",
+    "totalTickets": 100,
+    "location": "Pune",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776582236,
+      "_nanoseconds": 983000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-10-30",
+    "startTime": "11:00 AM",
+    "endTime": "02:00 PM",
+    "startDate": "2026-10-30"
+  },
+  {
+    "id": "G9zCMQiDJjQTm8xjD1O8",
+    "date": {
+      "_seconds": 1776038400,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1775911459,
+      "_nanoseconds": 518000000
+    },
+    "createdBy": "ATnlV7YMYWhsMuM1q5jvglBOGWU2",
+    "name": "Tech Sprint 4.0",
+    "description": "For the new tech genes.",
+    "totalTickets": 200,
+    "location": "Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1775911459,
+      "_nanoseconds": 518000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-25",
+    "coverImage": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:00 AM",
+    "endTime": "06:00 PM",
+    "startDate": "2026-12-24"
+  },
+  {
+    "id": "HJUAqegHQbplJypfgWYf",
+    "name": "TECH WORKSHOP",
+    "description": "BLABH BLAH",
+    "date": {
+      "_seconds": 1793664000,
+      "_nanoseconds": 0
+    },
+    "timezone": "GMT+05:30",
+    "timezoneCity": "Kolkata",
+    "location": "COCHIN UNIVERSITY OF SCIENCE AND TECHNOLOGY",
+    "locationType": "in-person",
+    "virtualLink": "",
+    "totalTickets": 150,
+    "capacity": 150,
+    "theme": "electric",
+    "themeColor": "#2B59FF",
+    "themeName": "Electric",
+    "visibility": "public",
+    "isPaid": true,
+    "price": "₹199",
+    "ticketDesign": "stub",
+    "posterTextMode": "auto",
+    "posterLine1": "",
+    "posterLine2": "",
+    "posterFontSize": 34,
+    "posterAlign": "left",
+    "posterTextColor": "auto",
+    "posterTextX": 6,
+    "posterTextY": 68,
+    "showPosterText": true,
+    "posterTextBg": "shadow",
+    "isActive": true,
+    "published": true,
+    "status": "published",
+    "createdBy": "VTYUUsBttGNOWLxf3ikbINBUgp62",
+    "createdAt": {
+      "_seconds": 1793636281,
+      "_nanoseconds": 674000000
+    },
+    "closeRegistrationMode": "now",
+    "closeRegistrationCapacity": null,
+    "registrationStatus": "Open",
+    "registrationClosed": false,
+    "closeRegistrationEnabled": false,
+    "isRegistrationClosed": false,
+    "updatedAt": {
+      "_seconds": 1793765158,
+      "_nanoseconds": 845000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-04",
+    "coverImage": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:00 AM",
+    "endTime": "11:59 PM",
+    "startDate": "2026-11-04"
+  },
+  {
+    "id": "HkRMY0KPnDeJRi8YjZeh",
+    "date": {
+      "_seconds": 1775865600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1775929688,
+      "_nanoseconds": 912000000
+    },
+    "createdBy": "S2bRVFkPULcPqF0cGuRCg7oQTXI2",
+    "name": "BootCamp for AWS",
+    "description": "vcdjjcvdsjbcjdbdj",
+    "totalTickets": 100,
+    "location": "delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1775929688,
+      "_nanoseconds": 912000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-02",
+    "coverImage": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "04:00 PM",
+    "startDate": "2026-12-02"
+  },
+  {
+    "id": "J3efypDAxnHpqi9XVwSm",
+    "date": {
+      "_seconds": 1772236800,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1772089246,
+      "_nanoseconds": 177000000
+    },
+    "name": "Honey Singh Concert",
+    "description": "Kiet mein aaya honey singh",
+    "totalTickets": 500,
+    "location": "Ghaziabad",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1772089246,
+      "_nanoseconds": 177000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-21",
+    "coverImage": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "07:00 PM",
+    "endTime": "11:00 PM",
+    "startDate": "2026-11-21"
+  },
+  {
+    "id": "JZDL95qMR7uBj27rcCMk",
+    "date": {
+      "_seconds": 1772928000,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1772696164,
+      "_nanoseconds": 264000000
+    },
+    "createdBy": "OGUoUWpa2dd5vPrir6PdmIDglOg1",
+    "name": "Bootcamp for Devops",
+    "description": "Be the ahead of the time.Learn Devops.",
+    "totalTickets": 200,
+    "location": "NIT Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1772696164,
+      "_nanoseconds": 264000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-05",
+    "coverImage": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "04:00 PM",
+    "startDate": "2026-12-05"
+  },
+  {
+    "id": "KJjEmxVHTGwDJPxiFPnH",
+    "publishedAt": "2026-10-28T11:15:10.814Z",
+    "published": true,
+    "isActive": true,
+    "createdAt": {
+      "_seconds": 1793124715,
+      "_nanoseconds": 649000000
+    },
+    "createdBy": "hHvxyCcMBpOo6KntAPV3UiQpBxh2",
+    "totalTickets": 50,
+    "shareUrl": "https://ticketlelo.in/e/praroha-gaming-KJjEmx",
+    "slug": "praroha-gaming-KJjEmx",
+    "status": "published",
+    "date": {
+      "_seconds": 1794025800,
+      "_nanoseconds": 0
+    },
+    "venue": "School of Engineering",
+    "isPublished": true,
+    "price": 0,
+    "name": "PRAROHA GAMING",
+    "description": "Annual collegiate gaming tournament and esports arena.",
+    "location": "School of Engineering",
+    "theme": "gaming",
+    "time": "10:00 AM",
+    "title": "PRAROHA GAMING",
+    "category": "gaming",
+    "updatedAt": {
+      "_seconds": 1793459110,
+      "_nanoseconds": 54000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-07",
+    "coverImage": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "11:00 AM",
+    "endTime": "08:00 PM",
+    "startDate": "2026-11-07"
+  },
+  {
+    "id": "event_techfest_2026",
+    "date": {
+      "_seconds": 1793255400,
+      "_nanoseconds": 0
+    },
+    "venue": "Main Auditorium",
+    "isPublished": true,
+    "description": "Annual Tech Festival with Hackathons, Workshops and Keynotes.",
+    "published": true,
+    "isActive": true,
+    "title": "TECH FEST 2026",
+    "price": 199,
+    "name": "TECH FEST 2026",
+    "totalTickets": 200,
+    "location": "Main Auditorium",
+    "theme": "tech",
+    "time": "12:00 PM",
+    "category": "technology",
+    "status": "published",
+    "updatedAt": {
+      "_seconds": 1793459110,
+      "_nanoseconds": 15000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-17",
+    "coverImage": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:00 AM",
+    "endTime": "06:00 PM",
+    "startDate": "2026-12-15"
+  },
+  {
+    "id": "Lr47ULOvhsISkk7vBZP8",
+    "date": {
+      "_seconds": 1772496000,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1772264766,
+      "_nanoseconds": 536000000
+    },
+    "name": "RCB Players Interaction Event",
+    "description": "Meet the champions in reality.",
+    "totalTickets": 200,
+    "location": "Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1772264766,
+      "_nanoseconds": 536000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1531415074868-036b1c57e3b0?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-25",
+    "coverImage": "https://images.unsplash.com/photo-1531415074868-036b1c57e3b0?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1531415074868-036b1c57e3b0?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "04:00 PM",
+    "endTime": "08:00 PM",
+    "startDate": "2026-11-25"
+  },
+  {
+    "id": "event_techfest_2026",
+    "createdAt": {
+      "_seconds": 1776015963,
+      "_nanoseconds": 262000000
+    },
+    "createdBy": "gEJnaQ9KTSVd3MH9tqvL6iGPsMf1",
+    "totalTickets": 200,
+    "isActive": true,
+    "date": {
+      "_seconds": 1793255400,
+      "_nanoseconds": 0
+    },
+    "venue": "Main Auditorium",
+    "isPublished": true,
+    "description": "Annual Tech Festival with Hackathons, Workshops and Keynotes.",
+    "published": true,
+    "title": "TECH FEST 2026",
+    "price": 199,
+    "name": "TECH FEST 2026",
+    "location": "Main Auditorium",
+    "theme": "tech",
+    "time": "12:00 PM",
+    "category": "technology",
+    "status": "published",
+    "updatedAt": {
+      "_seconds": 1793459109,
+      "_nanoseconds": 954000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-17",
+    "coverImage": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:00 AM",
+    "endTime": "06:00 PM",
+    "startDate": "2026-12-15"
+  },
+  {
+    "id": "OAhUdsrwOs9bGt72bBEV",
+    "date": {
+      "_seconds": 1776729600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776582307,
+      "_nanoseconds": 67000000
+    },
+    "createdBy": "kqQEb8SIXHfejQHhUylJmRtzkuJ3",
+    "name": "test for plan 2",
+    "description": "checking th plan config/",
+    "totalTickets": 100,
+    "location": "Kerala",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776582307,
+      "_nanoseconds": 67000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-10-31",
+    "startTime": "03:00 PM",
+    "endTime": "05:00 PM",
+    "startDate": "2026-10-31"
+  },
+  {
+    "id": "OpFemDLOib3gRpdYrf5B",
+    "name": "TECH WORKSHOP",
+    "description": "BLABH BLAH",
+    "date": {
+      "_seconds": 1793664000,
+      "_nanoseconds": 0
+    },
+    "timezone": "GMT+05:30",
+    "timezoneCity": "Kolkata",
+    "location": "COCHIN UNIVERSITY OF SCIENCE AND TECHNOLOGY",
+    "locationType": "in-person",
+    "virtualLink": "",
+    "totalTickets": 150,
+    "capacity": 150,
+    "theme": "electric",
+    "themeColor": "#2B59FF",
+    "themeName": "Electric",
+    "visibility": "public",
+    "isPaid": true,
+    "price": "₹199",
+    "ticketDesign": "stub",
+    "posterTextMode": "auto",
+    "posterLine1": "",
+    "posterLine2": "",
+    "posterFontSize": 34,
+    "posterAlign": "left",
+    "posterTextColor": "auto",
+    "posterTextX": 6,
+    "posterTextY": 68,
+    "showPosterText": true,
+    "posterTextBg": "shadow",
+    "isActive": true,
+    "published": true,
+    "status": "published",
+    "createdBy": "VTYUUsBttGNOWLxf3ikbINBUgp62",
+    "createdAt": {
+      "_seconds": 1793636271,
+      "_nanoseconds": 410000000
+    },
+    "updatedAt": {
+      "_seconds": 1793636271,
+      "_nanoseconds": 410000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-04",
+    "coverImage": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:00 AM",
+    "endTime": "11:59 PM",
+    "startDate": "2026-11-04"
+  },
+  {
+    "id": "X3PHZHYYDgztjRGUSeip",
+    "name": "Kapil Sharma Meetup",
+    "slug": "kapil-sharma-meetup",
+    "customDomain": "",
+    "description": "",
+    "date": {
+      "_seconds": 1793577600,
+      "_nanoseconds": 0
+    },
+    "startDate": "2026-11-02",
+    "endDate": "2026-11-03",
+    "timezone": "GMT+05:30",
+    "timezoneCity": "Kolkata",
+    "location": "KIET Group of Institutions (Deemed to be University), Delhi-NCR, Meerut Road, NH-58, Muradnagar, Ghaziabad, Uttar Pradesh 201206",
+    "locationVenue": "KIET Group of Institutions (Deemed to be University)",
+    "locationAddress": "Delhi-NCR, Meerut Road, NH-58, Muradnagar, Ghaziabad, Uttar Pradesh 201206",
+    "latitude": 28.7533,
+    "longitude": 77.4975,
+    "locationPin": {
+      "lat": 28.7533,
+      "lng": 77.4975,
+      "landmark": "Venue Pin"
+    },
+    "locationType": "in-person",
+    "virtualLink": "",
+    "totalTickets": 9999,
+    "capacity": "Unlimited",
+    "requireApproval": false,
+    "limitCapacity": false,
+    "maxCapacity": 50,
+    "waitlist": true,
+    "theme": "minimal",
+    "themeColor": "#2E7D32",
+    "themeHex": "#2E7D32",
+    "themeName": "Minimal",
+    "ticketBgColor": "#2E7D32",
+    "visibility": "public",
+    "isPaid": false,
+    "price": "Free",
+    "ticketDesign": "stub",
+    "posterTextMode": "auto",
+    "posterLine1": "",
+    "posterLine2": "",
+    "posterFontSize": 34,
+    "posterAlign": "left",
+    "posterTextColor": "auto",
+    "posterTextX": 6,
+    "posterTextY": 68,
+    "showPosterText": true,
+    "posterTextBg": "shadow",
+    "ticketBgUrl": "",
+    "isActive": true,
+    "published": true,
+    "status": "published",
+    "createdBy": "Z2hVVbHOLeda687jryUul4RbSGm2",
+    "userId": "Z2hVVbHOLeda687jryUul4RbSGm2",
+    "organiserId": "Z2hVVbHOLeda687jryUul4RbSGm2",
+    "organizerId": "Z2hVVbHOLeda687jryUul4RbSGm2",
+    "createdAt": {
+      "_seconds": 1793739830,
+      "_nanoseconds": 143000000
+    },
+    "updatedAt": {
+      "_seconds": 1793739830,
+      "_nanoseconds": 143000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=1200&q=80",
+    "coverImage": "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "11:30 PM",
+    "endTime": "12:30 AM"
+  },
+  {
+    "id": "ZkUVJYEl8GgvMebysVnG",
+    "date": {
+      "_seconds": 1776124800,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776081765,
+      "_nanoseconds": 672000000
+    },
+    "createdBy": "FtfC4F65zig5fxcqSPGHEjxtJao1",
+    "name": "test",
+    "description": "test",
+    "totalTickets": 99,
+    "location": "tvm",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776081765,
+      "_nanoseconds": 672000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-04",
+    "coverImage": "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "11:59 PM",
+    "startDate": "2026-11-04"
+  },
+  {
+    "id": "event_open_mic_night",
+    "date": {
+      "_seconds": 1793194200,
+      "_nanoseconds": 0
+    },
+    "venue": "Amphitheatre",
+    "isPublished": true,
+    "description": "Live standup comedy, music, and poetry under the open stars.",
+    "published": true,
+    "isActive": true,
+    "title": "OPEN MIC NIGHT",
+    "price": 0,
+    "name": "OPEN MIC NIGHT",
+    "totalTickets": 100,
+    "location": "Amphitheatre",
+    "theme": "mic",
+    "time": "7:00 PM",
+    "category": "standup",
+    "status": "published",
+    "updatedAt": {
+      "_seconds": 1793459110,
+      "_nanoseconds": 452000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-20",
+    "coverImage": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "07:00 PM",
+    "endTime": "10:00 PM",
+    "startDate": "2026-12-20"
+  },
+  {
+    "id": "event_techfest_2026",
+    "date": {
+      "_seconds": 1793255400,
+      "_nanoseconds": 0
+    },
+    "venue": "Main Auditorium",
+    "isPublished": true,
+    "description": "Annual Tech Festival with Hackathons, Workshops and Keynotes.",
+    "published": true,
+    "isActive": true,
+    "title": "TECH FEST 2026",
+    "price": 199,
+    "name": "TECH FEST 2026",
+    "totalTickets": 200,
+    "location": "Main Auditorium",
+    "theme": "tech",
+    "time": "12:00 PM",
+    "category": "technology",
+    "status": "published",
+    "updatedAt": {
+      "_seconds": 1793459109,
+      "_nanoseconds": 818000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-17",
+    "coverImage": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:00 AM",
+    "endTime": "06:00 PM",
+    "startDate": "2026-12-15"
+  },
+  {
+    "id": "fl0FGotZ0AiuxhauEdwM",
+    "date": {
+      "_seconds": 1772668800,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1772260668,
+      "_nanoseconds": 544000000
+    },
+    "name": "Narendra Modi Expo Inaugartion",
+    "description": "Grand Inaugration by the Prime Minister of India.",
+    "totalTickets": 100,
+    "location": "Ghaziabad",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1772260668,
+      "_nanoseconds": 544000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-28",
+    "coverImage": "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "02:00 PM",
+    "startDate": "2026-11-28"
+  },
+  {
+    "id": "mPUvkORqc2zGQyMkEjnm",
+    "date": {
+      "_seconds": 1776384000,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776264345,
+      "_nanoseconds": 190000000
+    },
+    "createdBy": "ATnlV7YMYWhsMuM1q5jvglBOGWU2",
+    "name": "ANN Lab Inaugration",
+    "description": "ML Lab for the new generation.",
+    "totalTickets": 200,
+    "location": "Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776264345,
+      "_nanoseconds": 191000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-01",
+    "coverImage": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "01:00 PM",
+    "startDate": "2026-11-01"
+  },
+  {
+    "id": "ovW020bL4ltX7o9JOsGO",
+    "date": {
+      "_seconds": 1771459200,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1771139236,
+      "_nanoseconds": 865000000
+    },
+    "name": "Tech Conference 2026",
+    "description": "Annual technology conference",
+    "totalTickets": 150,
+    "location": "Convention Center",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1771179523,
+      "_nanoseconds": 288000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-11-13",
+    "coverImage": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "09:30 AM",
+    "endTime": "06:00 PM",
+    "startDate": "2026-11-12"
+  },
+  {
+    "id": "pWoh91LuObNGBH4v9tDx",
+    "date": {
+      "_seconds": 1776384000,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776360041,
+      "_nanoseconds": 674000000
+    },
+    "createdBy": "D2H1ZZXi02TDcl2FEGzDZCrysLX2",
+    "name": "Bootcamp for Web Dev ",
+    "description": "Journey is started from Zero to Advanced.",
+    "totalTickets": 200,
+    "location": "IIT Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776360041,
+      "_nanoseconds": 674000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-08",
+    "coverImage": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "04:00 PM",
+    "startDate": "2026-12-08"
+  },
+  {
+    "id": "xGQeQGdwQWlzWT1z6NbL",
+    "date": {
+      "_seconds": 1776297600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1776153603,
+      "_nanoseconds": 628000000
+    },
+    "createdBy": "ATnlV7YMYWhsMuM1q5jvglBOGWU2",
+    "name": "Blood Disease Awareness",
+    "description": "Blood Disease correct i now or regret later.",
+    "totalTickets": 100,
+    "location": "IIT Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1776153603,
+      "_nanoseconds": 628000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-28",
+    "coverImage": "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "02:00 PM",
+    "startDate": "2026-12-28"
+  },
+  {
+    "id": "xGYeAXqt8Fp4yHsfowlj",
+    "date": {
+      "_seconds": 1772841600,
+      "_nanoseconds": 0
+    },
+    "createdAt": {
+      "_seconds": 1772692456,
+      "_nanoseconds": 173000000
+    },
+    "name": "BootCamp for Cyber Security",
+    "description": "Gain the insights of the things going behind the scenes.",
+    "totalTickets": 300,
+    "location": "NIT Delhi",
+    "isActive": true,
+    "updatedAt": {
+      "_seconds": 1772692456,
+      "_nanoseconds": 173000000
+    },
+    "posterUrl": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+    "endDate": "2026-12-12",
+    "coverImage": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+    "bannerUrl": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80",
+    "startTime": "10:00 AM",
+    "endTime": "04:00 PM",
+    "startDate": "2026-12-12"
+  }
+]

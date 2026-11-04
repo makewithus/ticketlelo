@@ -156,6 +156,23 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {isSuperAdmin && (
+            <Link
+              href="/superadmin"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#FE760B]/60 text-[#FE760B] hover:bg-[#FE760B]/10 text-xs font-semibold transition-all"
+            >
+              <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
+              <span>Super Admin Suite</span>
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={() => loadData(true)}
+            title="Refresh metrics"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          </button>
         </div>
       </div>
 

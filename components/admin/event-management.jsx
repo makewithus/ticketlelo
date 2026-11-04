@@ -278,6 +278,17 @@ export function EventManagement() {
               Past ({realPast.length})
             </button>
           </div>
+
+          {/* + Create event button matching Events section design */}
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            disabled={!canCreateEvent}
+            className="px-3.5 py-1.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-xs font-bold text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Create event</span>
+          </button>
         </div>
       </div>
 

@@ -394,7 +394,7 @@ export default function DashboardPage() {
       <section className="pt-2 sm:pt-3 pb-3 sm:pb-4 px-3 xs:px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
           {/* Welcome Header Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3 sm:mb-4 opacity-0 animate-fade-in-up">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4 opacity-0 animate-fade-in-up">
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Welcome, <span className="text-[#FE760B]">{user.fullName || "Guest"}</span>
@@ -403,12 +403,10 @@ export default function DashboardPage() {
                 Your tickets control room — all event passes in one place.
               </p>
             </div>
-          </div>
 
-          {/* View Mode Switcher (Filters removed per user request) */}
-          {registrations.length > 0 && (
-            <div className="flex items-center justify-end mb-2 sm:mb-2.5 opacity-0 animate-fade-in-up stagger-2">
-              <div className="flex items-center bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-0.5 rounded-lg shadow-sm">
+            {/* View Mode Switcher */}
+            {registrations.length > 0 && (
+              <div className="flex items-center self-start sm:self-auto bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-0.5 rounded-lg shadow-sm shrink-0">
                 <button
                   onClick={() => setViewMode("deck")}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
@@ -432,8 +430,8 @@ export default function DashboardPage() {
                   <span>Grid view</span>
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* VIEW: DECK VIEW */}
           {viewMode === "deck" ? (
@@ -452,7 +450,7 @@ export default function DashboardPage() {
                 </p>
                 {filter === "All" && (
                   <Link href="/discover">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none cursor-pointer">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold h-10 px-5 rounded-xl text-sm transition-all shadow-sm cursor-pointer border-none">
                       Discover live events
                     </Button>
                   </Link>
@@ -515,7 +513,7 @@ export default function DashboardPage() {
                 </p>
                 {filter === "All" && (
                   <Link href="/discover">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white dark:text-[#131517] font-semibold h-10 px-5 rounded-xl text-sm transition-colors border-none shadow-none cursor-pointer">
+                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold h-10 px-5 rounded-xl text-sm transition-all shadow-sm cursor-pointer border-none">
                       Discover live events
                     </Button>
                   </Link>

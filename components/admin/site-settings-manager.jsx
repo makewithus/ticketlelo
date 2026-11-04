@@ -220,16 +220,16 @@ export function SiteSettingsManager() {
             type="button"
             onClick={handleSave}
             disabled={saving || loading || isAllSaved}
-            className="px-4 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold text-xs transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#131517]" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
                 <span>Saving...</span>
               </>
             ) : (
               <>
-                <Save className="w-3.5 h-3.5 text-[#131517]" />
+                <Save className="w-3.5 h-3.5 text-white" />
                 <span>Save settings</span>
               </>
             )}

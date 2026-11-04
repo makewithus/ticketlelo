@@ -221,8 +221,14 @@ export default function DiscoverEventsPage() {
                   startTime: ev.startTime || null,
                   endDate: ev.endDate || null,
                   endTime: ev.endTime || null,
-                  totalTickets: Number(ev.totalTickets ?? ev.capacity ?? 150),
-                  capacity: ev.capacity || ev.maxCapacity || 150,
+                  totalTickets: (() => {
+                    const raw = ev.totalTickets ?? ev.capacity ?? ev.maxCapacity ?? 150;
+                    if (typeof raw === "number" && !isNaN(raw)) return raw;
+                    const d = String(raw || "").replace(/[^\d]/g, "");
+                    const p = d ? parseInt(d, 10) : 150;
+                    return !isNaN(p) && p > 0 ? p : 150;
+                  })(),
+                  capacity: ev.capacity || ev.maxCapacity || ev.totalTickets || 150,
                   coverImage: ev.coverImage || ev.bannerUrl || ev.posterUrl || ev.image || ev.imageUrl || "",
                   bannerUrl: ev.bannerUrl || ev.coverImage || ev.posterUrl || ev.image || ev.imageUrl || "",
                   posterUrl: ev.posterUrl || ev.bannerUrl || ev.coverImage || "",
@@ -393,7 +399,16 @@ export default function DiscoverEventsPage() {
     } else if (sortBy === "name-asc") {
       list.sort((a, b) => (a.title || a.name || "").localeCompare(b.title || b.name || ""));
     } else if (sortBy === "capacity-desc") {
-      list.sort((a, b) => (Number(b.capacity) || 0) - (Number(a.capacity) || 0));
+      list.sort((a, b) => {
+        const getCapNum = (item) => {
+          const raw = item?.capacity ?? item?.totalTickets ?? item?.maxCapacity;
+          if (typeof raw === "string" && raw.toLowerCase().includes("unlimited")) return 999999;
+          const digits = String(raw || "").replace(/[^\d]/g, "");
+          const parsed = digits ? parseInt(digits, 10) : 0;
+          return Number.isFinite(parsed) ? parsed : 0;
+        };
+        return getCapNum(b) - getCapNum(a);
+      });
     } else if (sortBy === "price-asc") {
       list.sort((a, b) => (a.isPaid ? 1 : 0) - (b.isPaid ? 1 : 0));
     }
@@ -783,8 +798,44 @@ export default function DiscoverEventsPage() {
                 const timing = getEventLiveStatus(ev);
                 const isPaid = ev.isPaid || (ev.price && String(ev.price).toLowerCase() !== "free" && ev.price !== 0 && ev.price !== "0");
                 const priceLabel = isPaid ? (typeof ev.price === "number" ? `₹${ev.price}` : String(ev.price).startsWith("₹") ? ev.price : `₹${ev.price}`) : "Free";
-                const capacity = Number(ev.capacity || ev.totalTickets || 100);
                 const hasBanner = Boolean(ev.bannerUrl || ev.coverImage);
+
+                // Robust capacity calculation - eliminates any possible NaN
+                const rawCap = ev.capacity ?? ev.totalTickets ?? ev.maxCapacity;
+                const rawCapStr = String(rawCap ?? "").trim().toLowerCase();
+                const isExplicitUnlimited =
+                  rawCapStr === "unlimited" ||
+                  rawCapStr === "open" ||
+                  rawCapStr === "open access" ||
+                  ev.isUnlimitedCapacity === true;
+
+                let capacityLabel = "150 Total Capacity";
+                let progressPercent = 65;
+
+                if (isExplicitUnlimited) {
+                  capacityLabel = "Unlimited Capacity";
+                  progressPercent = 100;
+                } else {
+                  const digits = String(rawCap ?? "").replace(/[^\d]/g, "");
+                  let num = digits ? parseInt(digits, 10) : NaN;
+                  if (isNaN(num) || num <= 0 || num >= 9999) {
+                    const fromTickets = String(ev.totalTickets || "").replace(/[^\d]/g, "");
+                    const tVal = fromTickets ? parseInt(fromTickets, 10) : NaN;
+                    if (!isNaN(tVal) && tVal > 0 && tVal < 9999) {
+                      num = tVal;
+                    } else {
+                      const fromMax = String(ev.maxCapacity || "").replace(/[^\d]/g, "");
+                      const mVal = fromMax ? parseInt(fromMax, 10) : NaN;
+                      if (!isNaN(mVal) && mVal > 0) {
+                        num = mVal;
+                      } else {
+                        num = 150;
+                      }
+                    }
+                  }
+                  capacityLabel = `${num} Total Capacity`;
+                  progressPercent = Math.min(100, Math.max(35, (num % 65) + 35));
+                }
 
                 return (
                   <motion.div
@@ -798,24 +849,21 @@ export default function DiscoverEventsPage() {
                     className="group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-[#FE760B]/10 flex flex-col overflow-hidden"
                   >
                     {/* ── Top Poster Graphic / Visual Banner ── */}
-                    <div className="relative h-48 w-full overflow-hidden bg-slate-900 select-none">
+                    <div className="relative h-52 sm:h-56 w-full overflow-hidden bg-slate-900 select-none">
                       <EventBanner
                         event={ev}
                         aspect="auto"
                         className="w-full h-full rounded-none border-none shadow-none"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#131517]/80 via-transparent to-black/30 pointer-events-none" />
 
                       {/* Badge Bar inside graphic */}
                       <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${palette.badge} border ${palette.border}`}
-                        >
-                          {ev.category || "Official"}
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-transparent border border-amber-500/40 text-amber-500 backdrop-blur-xs">
+                          {ev.isPopular || ev.featured ? "POPULAR" : ev.category || "POPULAR"}
                         </span>
 
                         {timing.isLive ? (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[11px] font-bold shadow-md shadow-emerald-950/40">
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[10px] font-bold shadow-md shadow-emerald-950/40">
                             <span className="relative flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
@@ -823,12 +871,12 @@ export default function DiscoverEventsPage() {
                             <span>LIVE</span>
                           </div>
                         ) : timing.isEnded ? (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-400 text-[11px] font-semibold">
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-400 text-[10px] font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                             <span>ENDED</span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-sky-400/30 text-sky-200 text-[11px] font-semibold">
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
                             <span>UPCOMING</span>
                           </div>
@@ -838,10 +886,10 @@ export default function DiscoverEventsPage() {
                       {/* Price Pill Overlay */}
                       <div className="absolute bottom-3 right-3 z-20 pointer-events-none">
                         <span
-                          className={`px-3 py-1 rounded-xl text-xs font-black shadow-md backdrop-blur-md border ${
+                          className={`px-3 py-1 rounded-full text-xs font-black shadow-lg ${
                             isPaid
-                              ? "bg-[#FE760B] text-white border-[#FE760B]"
-                              : "bg-emerald-500/90 text-white border-emerald-400"
+                              ? "bg-[#FE760B] text-white"
+                              : "bg-[#10B981] text-[#131517]"
                           }`}
                         >
                           {priceLabel}
@@ -855,7 +903,7 @@ export default function DiscoverEventsPage() {
                           setPreviewEvent(ev);
                         }}
                         title="Interactive Ticket Preview & Tear"
-                        className="absolute top-3 right-3 z-20 p-2 rounded-xl bg-black/60 hover:bg-[#FE760B] text-white border border-white/15 transition-all shadow-md backdrop-blur-md"
+                        className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/10 flex items-center justify-center transition-all shadow-md backdrop-blur-md cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
@@ -901,7 +949,7 @@ export default function DiscoverEventsPage() {
                           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] mb-1">
                             <span className="flex items-center gap-1">
                               <Users className="w-3 h-3 text-[#FE760B]" />
-                              {capacity} Total Capacity
+                              <span>{capacityLabel}</span>
                             </span>
                             {timing.isEnded ? (
                               <span className="text-zinc-500 font-bold">Closed</span>
@@ -911,8 +959,8 @@ export default function DiscoverEventsPage() {
                           </div>
                           <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full"
-                              style={{ width: `${Math.min(100, Math.max(35, (capacity % 65) + 35))}%` }}
+                              className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full transition-all duration-300"
+                              style={{ width: `${progressPercent}%` }}
                             />
                           </div>
                         </div>

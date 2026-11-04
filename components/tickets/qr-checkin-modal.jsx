@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -9,66 +10,13 @@ import {
   Calendar,
   MapPin,
   Clock,
-  ShieldCheck,
   Check,
-  RotateCcw,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTicketDate } from "@/lib/date-utils";
-
-// Web Audio synthesizer for tactile perforation tear & check-in stamp
-function playTearAndStampSound() {
-  try {
-    if (typeof window === "undefined") return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-
-    // 1. Paper tear sound (filtered pink noise burst)
-    const bufferSize = Math.floor(ctx.sampleRate * 0.18);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      const decay = Math.exp(-i / (bufferSize * 0.3));
-      data[i] = (Math.random() * 2 - 1) * decay;
-    }
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.setValueAtTime(1800, ctx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.16);
-    filter.Q.value = 1.8;
-
-    noise.connect(filter);
-    filter.connect(ctx.destination);
-    noise.start(ctx.currentTime);
-
-    // 2. Rubber stamp thud sound (low frequency thump 120ms later)
-    setTimeout(() => {
-      try {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(140, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(45, ctx.currentTime + 0.12);
-
-        gain.gain.setValueAtTime(0.5, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.12);
-      } catch {}
-    }, 110);
-
-    if (navigator.vibrate) {
-      navigator.vibrate([25, 40, 35]);
-    }
-  } catch {}
-}
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 
 export function QrCheckinModal({
   isOpen,
@@ -76,6 +24,8 @@ export function QrCheckinModal({
   ticket,
   onCheckIn,
 }) {
+  const [mounted, setMounted] = useState(false);
+
   const isAlreadyUsed =
     ticket?.status === "Used" ||
     ticket?.status === "used" ||
@@ -87,48 +37,151 @@ export function QrCheckinModal({
     ticket?.approvalStatus === "pending" ||
     ticket?.isPending === true;
 
-  const [isTorn, setIsTorn] = useState(isAlreadyUsed);
   const [isCheckedIn, setIsCheckedIn] = useState(isAlreadyUsed);
-  const [isScanning, setIsScanning] = useState(false);
   const [checkinTimestamp, setCheckinTimestamp] = useState(
-    isAlreadyUsed ? "Verified Earlier" : null
+    isAlreadyUsed ? "Verified" : null
   );
 
-  if (!isOpen || !ticket) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const handleScanAndCheckin = async () => {
-    if (isPending) {
-      toast.info("Registration pending organiser approval. Access will unlock once approved.");
-      return;
+  // Synchronize state when ticket prop changes
+  useEffect(() => {
+    if (ticket) {
+      const used =
+        ticket.status === "Used" ||
+        ticket.status === "used" ||
+        ticket.checkedIn === true;
+      setIsCheckedIn(used);
+      setCheckinTimestamp(used ? "Verified" : null);
     }
-    if (isCheckedIn) return;
-    setIsScanning(true);
+  }, [ticket]);
 
-    // Simulate snappy laser/scanner beam for 650ms
-    setTimeout(() => {
-      playTearAndStampSound();
-      setIsScanning(false);
-      setIsTorn(true);
-      setIsCheckedIn(true);
-      const timeStr = new Date().toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      });
-      setCheckinTimestamp(timeStr);
-      toast.success("Pass verified & checked in successfully!");
+  // Real-Time Firestore Listener for live gate admission updates
+  useEffect(() => {
+    if (!isOpen || !ticket) return;
 
-      if (typeof onCheckIn === "function") {
-        onCheckIn(ticket.ticketId || ticket.id);
+    let unsubscribe = null;
+    try {
+      const regId = ticket.registrationId || ticket.id;
+      const tktCode = ticket.ticketId;
+
+      if (
+        db &&
+        regId &&
+        typeof regId === "string" &&
+        !regId.startsWith("canonical-") &&
+        !regId.startsWith("tkt-demo")
+      ) {
+        const docRef = doc(db, "registrations", regId);
+        unsubscribe = onSnapshot(
+          docRef,
+          (snap) => {
+            if (snap.exists()) {
+              const data = snap.data();
+              const used =
+                data.status === "Used" ||
+                data.status === "used" ||
+                data.checkedIn === true ||
+                Boolean(data.checkIns && Object.keys(data.checkIns).length > 0);
+
+              if (used) {
+                setIsCheckedIn(true);
+                let timeStr = "Admitted at Gate";
+                const rawTime = data.usedAt || data.checkedInAt;
+                if (rawTime?.toDate) {
+                  timeStr = rawTime.toDate().toLocaleTimeString("en-IN", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                } else if (typeof rawTime === "string") {
+                  timeStr = rawTime;
+                }
+                setCheckinTimestamp(timeStr);
+                if (typeof onCheckIn === "function") {
+                  onCheckIn(ticket.ticketId || ticket.id);
+                }
+              }
+            }
+          },
+          (err) => {
+            console.warn("[QrCheckinModal] Realtime registration listener notice:", err.message);
+          }
+        );
+      } else if (db && tktCode && typeof tktCode === "string") {
+        const q = query(collection(db, "registrations"), where("ticketId", "==", tktCode));
+        unsubscribe = onSnapshot(
+          q,
+          (snap) => {
+            if (!snap.empty) {
+              const data = snap.docs[0].data();
+              const used =
+                data.status === "Used" ||
+                data.status === "used" ||
+                data.checkedIn === true ||
+                Boolean(data.checkIns && Object.keys(data.checkIns).length > 0);
+
+              if (used) {
+                setIsCheckedIn(true);
+                let timeStr = "Admitted at Gate";
+                const rawTime = data.usedAt || data.checkedInAt;
+                if (rawTime?.toDate) {
+                  timeStr = rawTime.toDate().toLocaleTimeString("en-IN", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
+                }
+                setCheckinTimestamp(timeStr);
+                if (typeof onCheckIn === "function") {
+                  onCheckIn(ticket.ticketId || ticket.id);
+                }
+              }
+            }
+          },
+          (err) => {
+            console.warn("[QrCheckinModal] Realtime query listener notice:", err.message);
+          }
+        );
       }
-    }, 700);
-  };
+    } catch (err) {
+      console.warn("[QrCheckinModal] Realtime listener error:", err);
+    }
 
-  const handleResetCheckin = () => {
-    setIsTorn(false);
-    setIsCheckedIn(false);
-    setCheckinTimestamp(null);
+    return () => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [isOpen, ticket, onCheckIn]);
+
+  // Lock body scroll and handle Escape key while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose?.();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !ticket || !mounted || typeof document === "undefined") return null;
+
+  const handleDownloadPdf = () => {
+    if (!ticket?.ticketId) return;
+    window.open(`/api/generate-ticket/${ticket.ticketId}`, "_blank");
+    toast.success("Downloading verified PDF pass...");
   };
 
   const rawQr = ticket.qrCode;
@@ -139,14 +192,20 @@ export function QrCheckinModal({
     !rawQr.includes("TICKETLELO") &&
     (rawQr.startsWith("data:image/") || rawQr.startsWith("http"));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none">
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in select-none"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Gate Pass QR Verification"
+    >
       <div
-        className="relative w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-lg bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#2A2D31]/80 bg-[#131517]/80">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#2A2D31]/80 bg-[#131517]/80 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B]">
               <QrCodeIcon className="w-4 h-4" />
@@ -156,20 +215,25 @@ export function QrCheckinModal({
                 Gate Pass QR Verification
               </h3>
               <p className="text-[11px] text-[#9B9EA4]">
-                {isCheckedIn ? "Pass Checked In & Verified" : "Scan QR code for admission"}
+                {isCheckedIn
+                  ? "Pass Checked In & Verified"
+                  : isPending
+                  ? "Pending Organiser Approval"
+                  : "Official entry pass for gate admission"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close modal"
             className="w-8 h-8 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white flex items-center justify-center transition-colors cursor-pointer border border-[#2A2D31]"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Body: Ticket Pass with Tear Effect */}
-        <div className="p-5 sm:p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+        {/* Modal Body: Ticket Pass */}
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 overscroll-contain">
           {/* Main Visual Ticket Card */}
           <div className="relative bg-[#212327] border border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-lg overflow-hidden">
             {/* Ambient Warm Gradient */}
@@ -190,60 +254,41 @@ export function QrCheckinModal({
               <div
                 className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shrink-0 ${
                   isCheckedIn
-                    ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : isPending
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
                     : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                 }`}
               >
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    isCheckedIn ? "bg-rose-500" : "bg-emerald-500 animate-pulse"
+                    isCheckedIn
+                      ? "bg-emerald-500"
+                      : isPending
+                      ? "bg-amber-500"
+                      : "bg-emerald-500 animate-pulse"
                   }`}
                 />
-                <span>{isCheckedIn ? "Checked In" : "Valid Pass"}</span>
+                <span>
+                  {isCheckedIn
+                    ? "Checked In"
+                    : isPending
+                    ? "Pending Approval"
+                    : "Valid Pass"}
+                </span>
               </div>
             </div>
 
-            {/* The Tearable Ticket Stub Area */}
+            {/* Official QR Pass Container */}
             <div className="relative flex flex-col items-center justify-center py-2">
-              <motion.div
-                layout
-                animate={{
-                  x: isTorn ? 14 : 0,
-                  y: isTorn ? 6 : 0,
-                  rotate: isTorn ? 3.5 : 0,
-                  scale: isTorn ? 0.98 : 1,
-                }}
-                transition={{ type: "spring", stiffness: 360, damping: 22 }}
+              <div
                 className={`relative bg-white rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col items-center justify-center border-2 transition-all ${
-                  isTorn
-                    ? "border-rose-500/60 ring-2 ring-rose-500/20 shadow-rose-950/40"
+                  isCheckedIn
+                    ? "border-emerald-500/50 ring-2 ring-emerald-500/20"
                     : "border-slate-200"
                 }`}
                 style={{ width: "240px", minHeight: "240px" }}
               >
-                {/* Laser Scanning Line Animation */}
-                {isScanning && (
-                  <motion.div
-                    initial={{ top: "4%" }}
-                    animate={{ top: "92%" }}
-                    transition={{
-                      repeat: Infinity,
-                      repeatType: "reverse",
-                      duration: 0.65,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute inset-x-3 h-1 bg-gradient-to-r from-transparent via-[#FE760B] to-transparent rounded shadow-[0_0_12px_#FE760B] z-30 pointer-events-none"
-                  />
-                )}
-
-                {/* Perforation Indicator Top & Bottom Notches */}
-                <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#212327] border border-[#2A2D31] z-10" />
-
-                {/* Dashed Tear Line */}
-                {isTorn && (
-                  <div className="absolute left-0 inset-y-0 w-0 border-l-2 border-dashed border-rose-500/80 z-20" />
-                )}
-
                 {/* Enlarged Crisp QR Code */}
                 <div className="relative w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center bg-white rounded-xl">
                   {hasValidQrImg ? (
@@ -261,11 +306,11 @@ export function QrCheckinModal({
                     </div>
                   )}
 
-                  {/* Tactile CHECKED IN Rubber Stamp Overlay */}
+                  {/* Real-Time CHECKED IN Stamp Overlay */}
                   <AnimatePresence>
                     {isCheckedIn && (
                       <motion.div
-                        initial={{ scale: 2.2, opacity: 0, rotate: -30 }}
+                        initial={{ scale: 2, opacity: 0, rotate: -25 }}
                         animate={{ scale: 1, opacity: 1, rotate: -12 }}
                         exit={{ scale: 0.8, opacity: 0 }}
                         transition={{
@@ -276,12 +321,12 @@ export function QrCheckinModal({
                         }}
                         className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-30"
                       >
-                        <div className="border-4 border-rose-600 bg-rose-600/95 text-white font-mono font-black text-sm sm:text-base px-3.5 py-1.5 rounded-lg shadow-2xl uppercase tracking-widest backdrop-blur-sm flex items-center gap-1.5">
+                        <div className="border-4 border-emerald-600 bg-emerald-600/95 text-white font-mono font-black text-sm sm:text-base px-3.5 py-1.5 rounded-lg shadow-2xl uppercase tracking-widest backdrop-blur-sm flex items-center gap-1.5">
                           <Check className="w-5 h-5 stroke-[3]" />
                           <span>CHECKED IN</span>
                         </div>
                         {checkinTimestamp && (
-                          <span className="text-[10px] font-mono font-bold text-rose-700 bg-white/90 px-2 py-0.5 rounded shadow mt-1">
+                          <span className="text-[10px] font-mono font-bold text-emerald-800 bg-white/95 px-2 py-0.5 rounded shadow mt-1">
                             {checkinTimestamp}
                           </span>
                         )}
@@ -299,7 +344,7 @@ export function QrCheckinModal({
                     {ticket.guest || ticket.attendeeName || "Attendee Pass"}
                   </p>
                 </div>
-              </motion.div>
+              </div>
             </div>
 
             {/* Event Quick Details */}
@@ -319,58 +364,60 @@ export function QrCheckinModal({
             </div>
           </div>
 
-          {/* Action Button: Scan to Check In or Verified message */}
+          {/* Real-Time Admission Status & Actions */}
           <div className="space-y-2.5">
             {isPending ? (
-              <div className="w-full h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
-                <Clock className="w-4 h-4 text-amber-400" />
-                <span>Pending Organiser Approval</span>
-              </div>
-            ) : !isCheckedIn ? (
-              <button
-                onClick={handleScanAndCheckin}
-                disabled={isScanning}
-                className="w-full h-12 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.99] cursor-pointer disabled:opacity-75"
-              >
-                {isScanning ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-[#131517] border-t-transparent rounded-full animate-spin" />
-                    <span>Scanning & Verifying Pass...</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Simulate Gate Scan & Tear Pass</span>
-                  </>
-                )}
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Verified & Admitted at Entry Gate</span>
+              <div className="w-full rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 sm:p-3.5 text-center space-y-1">
+                <div className="flex items-center justify-center gap-2 text-xs font-bold text-amber-400">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <span>Pending Organiser Approval</span>
                 </div>
-                <button
-                  onClick={handleResetCheckin}
-                  title="Reset status for testing"
-                  className="h-12 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Reset</span>
-                </button>
+                <p className="text-[11px] text-[#9B9EA4]">
+                  Your registration is awaiting organiser review. Entry pass QR activates immediately once approved.
+                </p>
+              </div>
+            ) : isCheckedIn ? (
+              <div className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 sm:p-3.5 text-center space-y-1">
+                <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Admitted & Verified at Entry Gate</span>
+                </div>
+                <p className="text-[11px] text-[#9B9EA4]">
+                  {checkinTimestamp && checkinTimestamp !== "Verified"
+                    ? `Officially admitted at ${checkinTimestamp}. Enjoy the event!`
+                    : "This pass has been officially admitted and verified at the venue gate."}
+                </p>
+              </div>
+            ) : (
+              <div className="w-full rounded-xl bg-[#131517] border border-[#2A2D31] p-3 sm:p-3.5 text-center space-y-1">
+                <div className="flex items-center justify-center gap-2 text-xs font-semibold text-[#3DD68C]">
+                  <span className="w-2 h-2 rounded-full bg-[#3DD68C] animate-pulse" />
+                  <span>Live Entry Pass • Ready for Gate Admission</span>
+                </div>
+                <p className="text-[11px] text-[#9B9EA4]">
+                  Present this official QR code at the entrance gate. Organisers scan it with their camera for instant admission.
+                </p>
               </div>
             )}
 
-            <p className="text-[11px] text-center text-[#9B9EA4]">
-              {isPending
-                ? "This ticket is awaiting organiser review. Access will unlock upon approval."
-                : isCheckedIn
-                ? "This ticket has been officially redeemed and perforated for entry."
-                : "Organisers can scan this high-resolution QR with their scanner camera at entry."}
-            </p>
+            {/* Save PDF Pass to Device Button */}
+            {ticket.ticketId && (
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                className="w-full h-11 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download PDF Pass</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
+
+export default QrCheckinModal;

@@ -754,7 +754,7 @@ export function HostingRequestForm() {
                         onBlur={handleBlur}
                         placeholder="John Doe"
                         autoComplete="name"
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-sm text-white placeholder-[#9B9EA4] focus:outline-none transition-colors ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#131517] border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors ${
                           errors.name && touched.name
                             ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                             : "border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
@@ -789,10 +789,10 @@ export function HostingRequestForm() {
                         onBlur={handleBlur}
                         placeholder="john@example.com"
                         autoComplete="email"
-                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-white placeholder-[#9B9EA4] focus:outline-none transition-colors ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors ${
                           user?.email
-                            ? "opacity-85 cursor-not-allowed bg-[#1A1C1F] border-[#2A2D31]"
-                            : "bg-[#212327] border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
+                            ? "opacity-85 cursor-not-allowed bg-[#16181B] border-[#2A2D31]"
+                            : "bg-[#131517] border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                         } ${
                           errors.email && touched.email
                             ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
@@ -813,7 +813,7 @@ export function HostingRequestForm() {
                         Phone number <span className="text-[#FE760B]">*</span>
                       </label>
                       <div
-                        className={`flex rounded-xl bg-[#212327] border overflow-hidden transition-colors ${
+                        className={`flex rounded-xl bg-[#131517] border overflow-hidden transition-colors ${
                           errors.phone && touched.phone
                             ? "border-red-500 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500"
                             : "border-[#2A2D31] focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B]"
@@ -832,7 +832,7 @@ export function HostingRequestForm() {
                           placeholder="9876543210"
                           maxLength={10}
                           autoComplete="tel-national"
-                          className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#9B9EA4] focus:outline-none"
+                          className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#5E626B] focus:outline-none"
                         />
                       </div>
                       {errors.phone && touched.phone && (
@@ -854,7 +854,7 @@ export function HostingRequestForm() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         placeholder="ABC University"
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-sm text-white placeholder-[#9B9EA4] focus:outline-none transition-colors ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#131517] border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors ${
                           errors.college && touched.college
                             ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                             : "border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
@@ -887,7 +887,7 @@ export function HostingRequestForm() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         placeholder="Tech Fest 2026"
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-sm text-white placeholder-[#9B9EA4] focus:outline-none transition-colors ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#131517] border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors ${
                           errors.eventTitle && touched.eventTitle
                             ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                             : "border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
@@ -913,7 +913,7 @@ export function HostingRequestForm() {
                         onBlur={handleBlur}
                         placeholder="What's the event about? Who is it for?"
                         rows={3}
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-sm text-white placeholder-[#9B9EA4] focus:outline-none transition-colors resize-none ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-[#131517] border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors resize-none ${
                           errors.description && touched.description
                             ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                             : "border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
@@ -941,7 +941,7 @@ export function HostingRequestForm() {
                           onBlur={handleBlur}
                           placeholder="100"
                           min="1"
-                          className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-sm text-white placeholder-[#9B9EA4] focus:outline-none transition-colors ${
+                          className={`w-full px-3.5 py-2.5 rounded-xl bg-[#131517] border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors ${
                             errors.numberOfTickets && touched.numberOfTickets
                               ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                               : "border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
@@ -955,7 +955,7 @@ export function HostingRequestForm() {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] h-[42px]">
+                      <div className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-[#131517] border border-[#2A2D31] h-[42px]">
                         <span className="text-xs font-medium text-[#D0D0D1]">
                           Paid event
                         </span>
@@ -1001,7 +1001,7 @@ export function HostingRequestForm() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="px-5 py-2.5 rounded-lg bg-white hover:bg-slate-100 text-black font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                    className="px-6 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-black font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                   >
                     {isLoading ? (
                       <>

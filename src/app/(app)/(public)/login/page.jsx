@@ -965,7 +965,7 @@ function UnifiedLoginContent() {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                      className="w-full px-4 py-2.5 bg-[#131517] border border-[#2A2D31] rounded-xl text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
                       placeholder="John Doe"
                       autoComplete="name"
                       required
@@ -986,7 +986,7 @@ function UnifiedLoginContent() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                    className="w-full px-4 py-2.5 bg-[#131517] border border-[#2A2D31] rounded-xl text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
                     placeholder="your.email@example.com"
                     autoComplete="email"
                     required
@@ -1002,7 +1002,7 @@ function UnifiedLoginContent() {
                     >
                       Phone number (optional)
                     </label>
-                    <div className="flex rounded-xl bg-[#212327] border border-[#2A2D31] overflow-hidden focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B]">
+                    <div className="flex rounded-xl bg-[#131517] border border-[#2A2D31] overflow-hidden focus-within:border-[#FE760B] focus-within:ring-1 focus-within:ring-[#FE760B]">
                       <span className="inline-flex items-center px-3 text-xs font-semibold text-[#9B9EA4] bg-[#1A1C1F] border-r border-[#2A2D31] select-none">
                         +91
                       </span>
@@ -1012,7 +1012,7 @@ function UnifiedLoginContent() {
                         inputMode="numeric"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                        className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#9B9EA4] focus:outline-none"
+                        className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#5E626B] focus:outline-none"
                         placeholder="9876543210"
                         maxLength={10}
                       />
@@ -1033,7 +1033,7 @@ function UnifiedLoginContent() {
                       <button
                         type="button"
                         onClick={handleOpenForgotPassword}
-                        className="text-xs text-[#9B9EA4] hover:text-[#FE760B] hover:underline transition-colors"
+                        className="text-xs text-[#9B9EA4] hover:text-[#FE760B] hover:underline transition-colors cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -1045,7 +1045,7 @@ function UnifiedLoginContent() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-4 pr-11 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                      className="w-full pl-4 pr-11 py-2.5 bg-[#131517] border border-[#2A2D31] rounded-xl text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
                       placeholder="••••••••"
                       autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                       required

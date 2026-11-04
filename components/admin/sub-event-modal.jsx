@@ -254,31 +254,31 @@ export function SubEventModal({ event, isOpen, onClose }) {
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto overscroll-contain"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="bg-[#0b132b] text-white rounded-xl border border-slate-700 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden overscroll-contain"
+        className="bg-[#1A1C1F] text-white rounded-2xl border border-[#2A2D31] w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-5 border-b border-slate-700 flex items-center justify-between bg-slate-900/50 shrink-0">
+        <div className="p-5 border-b border-[#2A2D31] flex items-center justify-between bg-[#1A1C1F] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30">
+            <div className="p-2 rounded-xl bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Sub-Events &amp; Room Tracks</h2>
-              <p className="text-xs text-slate-400">
-                Major Event: <span className="text-blue-400 font-medium">{event.name || event.title}</span> (Total Capacity: {event.totalTickets || event.globalCapacity || "N/A"})
+              <h2 className="text-lg font-bold text-white tracking-tight">Sub-Events &amp; Room Tracks</h2>
+              <p className="text-xs text-[#9B9EA4]">
+                Major Event: <span className="text-[#FE760B] font-semibold">{event.name || event.title}</span> (Total Capacity: {String(event.totalTickets || event.globalCapacity || "N/A")})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition cursor-pointer"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -291,16 +291,16 @@ export function SubEventModal({ event, isOpen, onClose }) {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-semibold text-sm text-slate-200">
+                  <h3 className="font-bold text-sm text-white">
                     Configured Tracks ({subEvents.length})
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#9B9EA4]">
                     Each sub-event has independent capacity, scheduling, and optional standalone tickets.
                   </p>
                 </div>
                 <Button
                   onClick={() => setIsCreating(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-xs flex items-center gap-1.5"
+                  className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold text-xs flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
                 >
                   <Plus className="w-4 h-4" /> Add Sub-Event
                 </Button>
@@ -308,19 +308,19 @@ export function SubEventModal({ event, isOpen, onClose }) {
 
               {isLoading ? (
                 <div className="py-12 flex justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
                 </div>
               ) : subEvents.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-slate-700 rounded-lg bg-slate-900/30">
-                  <Layers className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-                  <p className="text-sm text-slate-300 font-medium">No sub-events configured yet.</p>
-                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                <div className="p-8 text-center border border-dashed border-[#2A2D31] rounded-2xl bg-[#131517]/50">
+                  <Layers className="w-10 h-10 text-[#5E626B] mx-auto mb-2" />
+                  <p className="text-sm text-white font-semibold">No sub-events configured yet.</p>
+                  <p className="text-xs text-[#9B9EA4] mt-1 max-w-sm mx-auto">
                     Add individual activities, workshops, concerts, or hackathons to this festival.
                   </p>
                   <Button
                     onClick={() => setIsCreating(true)}
                     variant="outline"
-                    className="mt-4 border-slate-700 text-xs"
+                    className="mt-4 border-[#2A2D31] bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white rounded-xl"
                   >
                     <Plus className="w-3.5 h-3.5 mr-1" /> Create First Sub-Event
                   </Button>
@@ -332,11 +332,11 @@ export function SubEventModal({ event, isOpen, onClose }) {
                     return (
                       <div
                         key={sub.id}
-                        className="p-4 rounded-lg border border-slate-800 bg-slate-900/60 hover:border-slate-700 transition space-y-3"
+                        className="p-4 rounded-xl border border-[#2A2D31] bg-[#131517] hover:border-[#FE760B]/40 transition space-y-3"
                       >
                         <div className="flex items-start justify-between">
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-950/60 border border-blue-800/40 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#FE760B] bg-[#FE760B]/15 border border-[#FE760B]/30 px-2 py-0.5 rounded-full">
                               {sub.trackType.replace("_", " ")}
                             </span>
                             <h4 className="font-bold text-sm text-white mt-1.5">{sub.title}</h4>
@@ -344,32 +344,32 @@ export function SubEventModal({ event, isOpen, onClose }) {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => startEdit(sub)}
-                              className="text-xs text-slate-400 hover:text-blue-400 px-2 py-1 rounded bg-slate-800/50"
+                              className="text-xs text-[#9B9EA4] hover:text-white px-2.5 py-1 rounded-lg bg-[#212327] border border-[#2A2D31] transition-colors"
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => handleDelete(sub.id)}
-                              className="text-xs text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-950/40"
+                              className="text-xs text-[#FF6B6B] hover:text-white p-1 rounded-lg hover:bg-[#FF6B6B]/20 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 pt-1 border-t border-slate-800/60">
+                        <div className="grid grid-cols-2 gap-2 text-xs text-[#9B9EA4] pt-1 border-t border-[#2A2D31]">
                           <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-500" />
+                            <Clock className="w-3.5 h-3.5 text-[#5E626B]" />
                             <span>{sub.startTime} – {sub.endTime}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                            <MapPin className="w-3.5 h-3.5 text-[#5E626B]" />
                             <span className="truncate">{sub.venue || "Main Venue"}</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/60">
-                          <span className="font-semibold text-emerald-400">
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-[#2A2D31]">
+                          <span className="font-bold text-[#3DD68C]">
                             {sub.pricingMode === "free"
                               ? "Free"
                               : sub.pricingMode === "combo_only"
@@ -378,8 +378,8 @@ export function SubEventModal({ event, isOpen, onClose }) {
                               ? "Fest Pass Only"
                               : `₹${sub.standalonePrice}`}
                           </span>
-                          <span className="text-slate-400">
-                            Capacity: <strong className="text-white">{sub.capacity}</strong> ({remaining} left)
+                          <span className="text-[#9B9EA4]">
+                            Capacity: <strong className="text-white font-mono">{sub.capacity}</strong> ({remaining} left)
                           </span>
                         </div>
                       </div>
@@ -390,14 +390,14 @@ export function SubEventModal({ event, isOpen, onClose }) {
             </div>
           ) : (
             <form onSubmit={handleCreateOrUpdate} className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <h3 className="font-semibold text-sm text-slate-200">
+              <div className="flex items-center justify-between pb-3 border-b border-[#2A2D31]">
+                <h3 className="font-bold text-sm text-white">
                   {editingSubEvent ? "Edit Sub-Event Track" : "New Sub-Event Track"}
                 </h3>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="text-xs text-slate-400 hover:text-white hover:bg-slate-800 px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-700 transition-colors cursor-pointer"
+                  className="text-xs text-[#9B9EA4] hover:text-white bg-[#212327] hover:bg-[#2A2D31] px-3 py-1.5 rounded-xl border border-[#2A2D31] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -405,78 +405,78 @@ export function SubEventModal({ event, isOpen, onClose }) {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Track Title *</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Track Title <span className="text-[#FE760B]">*</span></label>
                   <Input
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g. AI & ML Hands-on Workshop"
-                    className="bg-slate-900 border-slate-700 text-sm"
+                    className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Track Category</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Track Category</label>
                   <StyledDropdown
                     value={formData.trackType}
                     options={TRACK_TYPES}
                     onChange={(val) => setFormData({ ...formData, trackType: val })}
                     className="w-full"
-                    buttonClassName="h-10 px-3 rounded-md bg-slate-900 border-slate-700 text-sm text-white"
+                    buttonClassName="h-10 px-3 rounded-xl bg-[#131517] border-[#2A2D31] text-sm text-white hover:border-[#FE760B]/40"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">Description</label>
+                <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Description</label>
                 <Textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Outline topics covered, prerequisites, or session highlights."
-                  className="bg-slate-900 border-slate-700 text-sm h-20"
+                  className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl h-20 focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Session Date</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Session Date</label>
                   <div className="relative">
                     <input
                       type="date"
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                      className="w-full h-10 px-3 pr-9 rounded-md bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500 [color-scheme:dark]"
+                      className="w-full h-10 px-3 pr-9 rounded-xl bg-[#131517] border border-[#2A2D31] text-sm text-white focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] [color-scheme:dark]"
                     />
-                    <Calendar className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Calendar className="w-4 h-4 text-[#9B9EA4] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Start Time</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Start Time</label>
                   <StyledDropdown
                     icon={Clock}
                     value={formData.startTime}
                     options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
                     onChange={(val) => setFormData({ ...formData, startTime: val })}
                     className="w-full"
-                    buttonClassName="h-10 px-3 rounded-md bg-slate-900 border-slate-700 text-sm text-white"
+                    buttonClassName="h-10 px-3 rounded-xl bg-[#131517] border-[#2A2D31] text-sm text-white hover:border-[#FE760B]/40"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">End Time</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">End Time</label>
                   <StyledDropdown
                     icon={Clock}
                     value={formData.endTime}
                     options={TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
                     onChange={(val) => setFormData({ ...formData, endTime: val })}
                     className="w-full"
-                    buttonClassName={`h-10 px-3 rounded-md bg-slate-900 text-sm ${
+                    buttonClassName={`h-10 px-3 rounded-xl bg-[#131517] text-sm ${
                       parseTimeToMinutes(formData.endTime) !== null &&
                       parseTimeToMinutes(formData.startTime) !== null &&
                       parseTimeToMinutes(formData.endTime) <= parseTimeToMinutes(formData.startTime)
-                        ? "border-amber-500 text-amber-200"
-                        : "border-slate-700 text-white"
+                        ? "border-[#FE760B] text-[#FE760B]"
+                        : "border-[#2A2D31] text-white hover:border-[#FE760B]/40"
                     }`}
                   />
                 </div>
@@ -494,56 +494,56 @@ export function SubEventModal({ event, isOpen, onClose }) {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Venue / Room</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Venue / Room</label>
                   <Input
                     value={formData.venue}
                     onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
                     placeholder="e.g. Hall A - Tech Block"
-                    className="bg-slate-900 border-slate-700 text-sm"
+                    className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Room Capacity *</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Room Capacity <span className="text-[#FE760B]">*</span></label>
                   <Input
                     type="number"
                     min="1"
                     required
                     value={formData.capacity}
                     onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                    className="bg-slate-900 border-slate-700 text-sm"
+                    className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-300 block mb-1">Standalone Price (₹)</label>
+                  <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Standalone Price (₹)</label>
                   <Input
                     type="number"
                     min="0"
                     value={formData.standalonePrice}
                     onChange={(e) => setFormData({ ...formData, standalonePrice: e.target.value })}
-                    className="bg-slate-900 border-slate-700 text-sm"
+                    className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-300 block mb-1">Ticketing / Pricing Mode</label>
+                <label className="text-xs font-semibold text-[#D0D0D1] block mb-1">Ticketing / Pricing Mode</label>
                 <StyledDropdown
                   value={formData.pricingMode}
                   options={PRICING_MODES}
                   onChange={(val) => setFormData({ ...formData, pricingMode: val })}
                   className="w-full"
-                  buttonClassName="h-10 px-3 rounded-md bg-slate-900 border-slate-700 text-sm text-white"
+                  buttonClassName="h-10 px-3 rounded-xl bg-[#131517] border-[#2A2D31] text-sm text-white hover:border-[#FE760B]/40"
                 />
               </div>
 
               {/* Virtual / Hybrid Webinar Section */}
-              <div className="p-4 rounded-lg border border-slate-800 bg-slate-900/40 space-y-3">
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-200 cursor-pointer">
+              <div className="p-4 rounded-xl border border-[#2A2D31] bg-[#131517] space-y-3">
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#D0D0D1] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.isVirtual}
                     onChange={(e) => setFormData({ ...formData, isVirtual: e.target.checked })}
-                    className="rounded border-slate-700 text-blue-600 focus:ring-0"
+                    className="rounded border-[#2A2D31] bg-[#212327] accent-[#FE760B] focus:ring-0 cursor-pointer"
                   />
                   <span>Virtual / Online Session (Gated Meeting Link)</span>
                 </label>
@@ -551,42 +551,42 @@ export function SubEventModal({ event, isOpen, onClose }) {
                 {formData.isVirtual && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">Meeting URL (Google Meet / Zoom)</label>
+                      <label className="text-xs font-semibold text-[#9B9EA4] block mb-1">Meeting URL (Google Meet / Zoom)</label>
                       <Input
                         type="url"
                         value={formData.virtualMeetingUrl}
                         onChange={(e) => setFormData({ ...formData, virtualMeetingUrl: e.target.value })}
                         placeholder="https://meet.google.com/xyz"
-                        className="bg-slate-900 border-slate-700 text-xs"
+                        className="bg-[#1A1C1F] border-[#2A2D31] text-xs text-white placeholder-[#5E626B] rounded-xl"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-slate-400 block mb-1">Passcode (optional)</label>
+                      <label className="text-xs font-semibold text-[#9B9EA4] block mb-1">Passcode (optional)</label>
                       <Input
                         value={formData.virtualMeetingPasscode}
                         onChange={(e) => setFormData({ ...formData, virtualMeetingPasscode: e.target.value })}
                         placeholder="e.g. TECH2027"
-                        className="bg-slate-900 border-slate-700 text-xs"
+                        className="bg-[#1A1C1F] border-[#2A2D31] text-xs text-white placeholder-[#5E626B] rounded-xl"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#2A2D31]">
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="border border-slate-700 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                  className="border border-[#2A2D31] bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#D0D0D1] hover:text-white px-4 py-2.5 rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-xs font-semibold"
+                  className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold text-xs rounded-xl px-5 py-2.5 shadow-sm transition-all cursor-pointer"
                 >
-                  {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
+                  {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
                   {editingSubEvent ? "Update Sub-Event" : "Save Sub-Event"}
                 </Button>
               </div>

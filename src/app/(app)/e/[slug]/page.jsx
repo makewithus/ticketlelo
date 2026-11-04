@@ -285,7 +285,15 @@ export default function PublicEventBySlugPage() {
     ? `${event.time} GMT+5:30`
     : "10:00 AM – 5:00 PM GMT+5:30";
 
-  const totalSeats = Number(event.globalCapacity || event.capacity || event.maxCapacity || 0);
+  const rawSeats = event.globalCapacity ?? event.capacity ?? event.maxCapacity;
+  const isUnlimitedCapacity =
+    typeof rawSeats === "string"
+      ? rawSeats.toLowerCase().includes("unlimited") || rawSeats.toLowerCase().includes("open")
+      : event.isUnlimitedCapacity === true || event.limitCapacity === false;
+
+  const digits = String(rawSeats || "").replace(/[^\d]/g, "");
+  const parsedCap = digits ? parseInt(digits, 10) : 0;
+  const totalSeats = !isUnlimitedCapacity && !isNaN(parsedCap) && parsedCap > 0 ? parsedCap : 0;
   const hasCapacityLimit = totalSeats > 0;
   const takenSeats = Math.max(Number(event.allocatedSeats || 0), registrations.length);
   const seatsLeft = hasCapacityLimit ? Math.max(0, totalSeats - takenSeats) : null;

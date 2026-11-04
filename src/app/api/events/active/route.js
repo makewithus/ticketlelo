@@ -38,8 +38,14 @@ function serializePublicEvent(id, data) {
     startTime: data.startTime || null,
     endDate: data.endDate || null,
     endTime: data.endTime || null,
-    totalTickets: Number(data.totalTickets ?? data.capacity ?? 150),
-    capacity: data.capacity || data.maxCapacity || 150,
+    totalTickets: (() => {
+      const raw = data.totalTickets ?? data.capacity ?? data.maxCapacity ?? 150;
+      if (typeof raw === "number" && !isNaN(raw)) return raw;
+      const digits = String(raw || "").replace(/[^\d]/g, "");
+      const parsed = digits ? parseInt(digits, 10) : 150;
+      return !isNaN(parsed) && parsed > 0 ? parsed : 150;
+    })(),
+    capacity: data.capacity || data.maxCapacity || data.totalTickets || 150,
     coverImage: data.coverImage || data.bannerUrl || data.posterUrl || data.image || data.imageUrl || "",
     bannerUrl: data.bannerUrl || data.coverImage || data.posterUrl || data.image || data.imageUrl || "",
     posterUrl: data.posterUrl || data.bannerUrl || data.coverImage || "",

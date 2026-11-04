@@ -38,7 +38,12 @@ export function EventBanner({
     setImageError(false);
   }, [rawImage]);
 
-  const validImage = typeof rawImage === "string" && rawImage.trim().length > 5 && !imageError;
+  // Ensure Unsplash images are never used per user instruction
+  const isUnsplash =
+    typeof rawImage === "string" &&
+    (rawImage.includes("unsplash.com") || rawImage.includes("images.unsplash"));
+
+  const validImage = !isUnsplash && typeof rawImage === "string" && rawImage.trim().length > 5 && !imageError;
 
   // Derive visual theme look with diverse fallback if not explicitly set
   const resolveFallbackTheme = () => {
@@ -108,29 +113,29 @@ export function EventBanner({
         </>
       ) : (
         <>
-          {/* Dynamic Theme Poster (Identical to Public Registration Event Page) */}
-          {/* Glowing sun circle graphic in upper right matching theme */}
+          {/* Dynamic Theme Poster (Canonical Graphic Grid & Sun Sphere Aesthetic) */}
+          {/* Glowing sun circle sphere in upper right */}
           <div
-            className="w-36 h-36 rounded-full absolute -top-8 -right-8 pointer-events-none opacity-90 transition-colors blur-xs"
+            className="w-40 h-40 rounded-full absolute -top-8 -right-8 pointer-events-none opacity-95 transition-colors"
             style={{ backgroundColor: themeLook.sun }}
           />
 
-          {/* Subtle Grid overlay */}
+          {/* High-definition Grid Texture overlay */}
           <div
-            className="absolute inset-0 pointer-events-none opacity-20"
+            className="absolute inset-0 pointer-events-none opacity-25"
             style={{
               backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
-              backgroundSize: "20px 20px",
+              backgroundSize: "22px 22px",
             }}
           />
 
           {/* Top area spacer */}
           <div className="relative z-10" />
 
-          {/* Bottom bold typographic block */}
-          <div className="relative z-10 p-4 sm:p-5">
+          {/* Bottom bold typographic block with padding avoiding right price pill */}
+          <div className="relative z-10 p-4 sm:p-5 pr-16 sm:pr-20">
             <h2
-              className="text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase select-none drop-shadow-sm"
+              className="text-2xl sm:text-3xl font-black tracking-tight leading-[1.06] uppercase select-none drop-shadow-sm"
               style={{ color: themeLook.textColor || "#FFFFFF" }}
             >
               {posterLines.line1}
