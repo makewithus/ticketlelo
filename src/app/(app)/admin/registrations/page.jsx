@@ -33,6 +33,7 @@ import {
 import * as XLSX from "xlsx";
 import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
 import { WebScannerModal } from "@/components/admin/web-scanner-modal";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 function formatRelativeTime(ts) {
   if (!ts) return "recently";
@@ -151,6 +152,10 @@ export default function RegistrationsGuestsPage() {
           try {
             localStorage.setItem("admin_selected_event_id", initialId);
           } catch {}
+          const matched = uniqueList.find((e) => e.id === initialId) || uniqueList[0] || null;
+          if (matched) {
+            setEvent(matched);
+          }
         }
       } catch (err) {
         console.error("Failed to load events for registrations:", err);
@@ -303,6 +308,10 @@ export default function RegistrationsGuestsPage() {
       toast.error("Failed to export Excel");
     }
   };
+
+  if (loading && !event) {
+    return <BrandLoader message="Loading..." fullScreen />;
+  }
 
   return (
     <div className="py-4 sm:py-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full text-white selection:bg-[#FE760B] selection:text-white pb-16">

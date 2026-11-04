@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { StyledDropdown } from "@/components/ui/styled-dropdown";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import {
   Loader2,
   Check,
@@ -532,8 +533,8 @@ export function HostingRequestManagement() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
+      <div className="flex items-center justify-center min-h-[65vh] w-full">
+        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
       </div>
     );
   }

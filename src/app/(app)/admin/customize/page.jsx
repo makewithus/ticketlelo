@@ -117,49 +117,83 @@ export default function MoreEventSettingsPage() {
       unsub = onSnapshot(
         doc(db, "events", eventId),
         (snap) => {
-          if (snap.exists()) {
-            const ev = { id: snap.id, ...snap.data() };
-            setCurrentEvent(ev);
+          try {
+            if (snap.exists()) {
+              const ev = { id: snap.id, ...snap.data() };
+              setCurrentEvent(ev);
 
-            if (isFirstLoad) {
-              isFirstLoad = false;
-              if (ev.slug) setCustomSlug(ev.slug);
-              if (ev.customDomain) setCustomDomain(ev.customDomain);
-              if (ev.bannerUrl) setBannerPreview(ev.bannerUrl);
-              if (ev.published !== undefined) setIsPublished(ev.published);
-              if (ev.embedRegistrationMode) setRegistrationMode(ev.embedRegistrationMode);
-              if (ev.customFormEmbedUrl) setCustomFormUrl(ev.customFormEmbedUrl);
-              if (ev.ticketBgUrl) setTicketBgPreview(ev.ticketBgUrl);
-              else if (ev.ticketBackground) setTicketBgPreview(ev.ticketBackground);
+              if (isFirstLoad) {
+                isFirstLoad = false;
+                if (ev.slug) setCustomSlug(ev.slug);
+                if (ev.customDomain) setCustomDomain(ev.customDomain);
+                if (ev.bannerUrl) setBannerPreview(ev.bannerUrl);
+                if (ev.published !== undefined) setIsPublished(ev.published);
+                if (ev.embedRegistrationMode) setRegistrationMode(ev.embedRegistrationMode);
+                if (ev.customFormEmbedUrl) setCustomFormUrl(ev.customFormEmbedUrl);
+                if (ev.ticketBgUrl) setTicketBgPreview(ev.ticketBgUrl);
+                else if (ev.ticketBackground) setTicketBgPreview(ev.ticketBackground);
 
-              // Close registration state
-              if (ev.closeRegistrationEnabled !== undefined) {
-                setCloseRegEnabled(Boolean(ev.closeRegistrationEnabled));
-              } else if (ev.registrationStatus === "Closed" || ev.registrationClosed) {
-                setCloseRegEnabled(true);
-              }
-              if (ev.closeRegistrationMode) setCloseRegMode(ev.closeRegistrationMode);
-              if (ev.closeRegistrationCapacity) setCloseRegCapacity(Number(ev.closeRegistrationCapacity));
+                // Close registration state
+                if (ev.closeRegistrationEnabled !== undefined) {
+                  setCloseRegEnabled(Boolean(ev.closeRegistrationEnabled));
+                } else if (ev.registrationStatus === "Closed" || ev.registrationClosed) {
+                  setCloseRegEnabled(true);
+                }
+                if (ev.closeRegistrationMode) setCloseRegMode(ev.closeRegistrationMode);
+                if (ev.closeRegistrationCapacity) setCloseRegCapacity(Number(ev.closeRegistrationCapacity));
 
-              // Postpone form prefill
-              setPostponeForm({
-                startDate: ev.startDate || (ev.date ? new Date(ev.date).toISOString().slice(0, 10) : ""),
-                startTime: ev.startTime || "10:00 AM",
-                endDate: ev.endDate || ev.startDate || "",
-                endTime: ev.endTime || "05:00 PM",
-                note: ev.postponedNote || "",
-              });
+                // Postpone form prefill with safe date extraction (prevents RangeError: Invalid time value)
+                let safeStartDate = "";
+                try {
+                  if (ev.startDate && typeof ev.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ev.startDate.trim())) {
+                    safeStartDate = ev.startDate.trim();
+                  } else if (ev.startDate) {
+                    const d = new Date(ev.startDate);
+                    if (!isNaN(d.getTime())) safeStartDate = d.toISOString().slice(0, 10);
+                  } else if (ev.date) {
+                    const d = new Date(ev.date);
+                    if (!isNaN(d.getTime())) safeStartDate = d.toISOString().slice(0, 10);
+                  }
+                } catch (dateErr) {
+                  console.warn("Could not parse start date for postpone form:", dateErr);
+                }
 
-              if (ev.themeColor) {
-                const matched = getThemeLook(ev.themeColor);
-                setSelectedColor(matched);
-              } else if (ev.theme) {
-                const matched = getThemeLook(ev.theme);
-                setSelectedColor(matched);
+                let safeEndDate = "";
+                try {
+                  if (ev.endDate && typeof ev.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ev.endDate.trim())) {
+                    safeEndDate = ev.endDate.trim();
+                  } else if (ev.endDate) {
+                    const d = new Date(ev.endDate);
+                    if (!isNaN(d.getTime())) safeEndDate = d.toISOString().slice(0, 10);
+                  } else if (safeStartDate) {
+                    safeEndDate = safeStartDate;
+                  }
+                } catch (dateErr) {
+                  console.warn("Could not parse end date for postpone form:", dateErr);
+                }
+
+                setPostponeForm({
+                  startDate: safeStartDate,
+                  startTime: ev.startTime || "10:00 AM",
+                  endDate: safeEndDate,
+                  endTime: ev.endTime || "05:00 PM",
+                  note: ev.postponedNote || "",
+                });
+
+                if (ev.themeColor) {
+                  const matched = getThemeLook(ev.themeColor);
+                  setSelectedColor(matched);
+                } else if (ev.theme) {
+                  const matched = getThemeLook(ev.theme);
+                  setSelectedColor(matched);
+                }
               }
             }
+          } catch (e) {
+            console.error("Error processing event snapshot in customize:", e);
+          } finally {
+            setLoadingEvent(false);
           }
-          setLoadingEvent(false);
         },
         (err) => {
           console.warn("Real-time event listener warning in customize:", err);
@@ -599,8 +633,7 @@ export default function MoreEventSettingsPage() {
   if (loadingEvent) {
     return (
       <BrandLoader
-        message="Loading event settings"
-        subMessage="TicketLelo Control Room"
+        message="Loading..."
         fullScreen
       />
     );

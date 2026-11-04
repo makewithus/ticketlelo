@@ -40,8 +40,9 @@ function serializePublicEvent(id, data) {
     endTime: data.endTime || null,
     totalTickets: Number(data.totalTickets ?? data.capacity ?? 150),
     capacity: data.capacity || data.maxCapacity || 150,
-    coverImage: data.coverImage || data.image || data.bannerUrl || "",
-    bannerUrl: data.bannerUrl || data.coverImage || data.image || "",
+    coverImage: data.coverImage || data.bannerUrl || data.posterUrl || data.image || data.imageUrl || "",
+    bannerUrl: data.bannerUrl || data.coverImage || data.posterUrl || data.image || data.imageUrl || "",
+    posterUrl: data.posterUrl || data.bannerUrl || data.coverImage || "",
     ticketBgUrl: data.ticketBgUrl || "",
     theme: data.theme || "minimal",
     themeColor: data.themeColor || data.themeHex || "#FE760B",
@@ -62,7 +63,7 @@ export async function GET() {
 
     const snapshot = await adminDb.collection("events").get();
 
-    const events = snapshot.docs
+    const serializedEvents = snapshot.docs
       .map((doc) => ({ id: doc.id, data: doc.data() }))
       .filter(({ data }) => {
         // Exclude drafts and explicitly deactivated events
@@ -84,6 +85,28 @@ export async function GET() {
         );
       })
       .map(({ id, data }) => serializePublicEvent(id, data));
+
+    const seen = new Set();
+    const events = [];
+    for (const ev of serializedEvents) {
+      const evId = ev.id;
+      const evSlug = ev.slug ? String(ev.slug).toLowerCase().trim() : null;
+      const normTitle = (ev.name || ev.title || "").trim().toLowerCase();
+      const dateVal = ev.date ? String(ev.date).slice(0, 10) : "";
+      const compKey = normTitle && dateVal ? `${normTitle}__${dateVal}` : null;
+
+      const isDuplicate =
+        (evId && seen.has(`id:${evId}`)) ||
+        (evSlug && seen.has(`slug:${evSlug}`)) ||
+        (compKey && seen.has(`comp:${compKey}`));
+
+      if (!isDuplicate) {
+        if (evId) seen.add(`id:${evId}`);
+        if (evSlug) seen.add(`slug:${evSlug}`);
+        if (compKey) seen.add(`comp:${compKey}`);
+        events.push(ev);
+      }
+    }
 
     return NextResponse.json(
       { success: true, events },

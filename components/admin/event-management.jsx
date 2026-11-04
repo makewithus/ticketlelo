@@ -28,6 +28,8 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
+import { BrandLoader } from "@/components/ui/brand-loader";
+import { EventBanner } from "@/components/events/event-banner";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
 import { EventCreateStudio } from "@/components/admin/event-create-studio";
 
@@ -109,10 +111,36 @@ export function EventManagement() {
       }
 
       const uniqueEvents = [];
-      const seenIds = new Set();
+      const seen = new Set();
       for (const ev of (allEvents || [])) {
-        if (ev && ev.id && !seenIds.has(ev.id)) {
-          seenIds.add(ev.id);
+        if (!ev) continue;
+        const evId = ev.id || ev._id;
+        const evSlug = ev.slug ? String(ev.slug).toLowerCase().trim() : null;
+        const normTitle = (ev.title || ev.name || "").trim().toLowerCase();
+        let dateVal = "";
+        try {
+          const d = ev.date?.toDate
+            ? ev.date.toDate()
+            : ev.date?.seconds
+            ? new Date(ev.date.seconds * 1000)
+            : ev.date
+            ? new Date(ev.date)
+            : null;
+          if (d && !isNaN(d.getTime())) {
+            dateVal = d.toISOString().slice(0, 10);
+          }
+        } catch {}
+        const compositeKey = normTitle && dateVal ? `${normTitle}__${dateVal}` : null;
+
+        const isDuplicate =
+          (evId && seen.has(`id:${evId}`)) ||
+          (evSlug && seen.has(`slug:${evSlug}`)) ||
+          (compositeKey && seen.has(`comp:${compositeKey}`));
+
+        if (!isDuplicate) {
+          if (evId) seen.add(`id:${evId}`);
+          if (evSlug) seen.add(`slug:${evSlug}`);
+          if (compositeKey) seen.add(`comp:${compositeKey}`);
           uniqueEvents.push(ev);
         }
       }
@@ -203,8 +231,8 @@ export function EventManagement() {
 
   if (isLoading && events.length === 0) {
     return (
-      <div className="flex items-center justify-center p-20">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      <div className="flex items-center justify-center min-h-[65vh] w-full">
+        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
       </div>
     );
   }
@@ -457,16 +485,14 @@ export function EventManagement() {
                         </div>
                       </div>
 
-                      {/* Right: Artwork thumbnail if available */}
-                      {(event.coverImage || event.coverUrl || event.image) && (
-                        <div className="hidden sm:block w-28 h-20 rounded-xl overflow-hidden shrink-0 border border-[#2A2D31] bg-[#212327]">
-                          <img
-                            src={event.coverImage || event.coverUrl || event.image}
-                            alt={event.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
+                      {/* Right: Event banner / poster thumbnail */}
+                      <div className="hidden sm:block w-24 h-24 rounded-xl overflow-hidden shrink-0 border border-[#2A2D31] bg-[#212327]">
+                        <EventBanner
+                          event={event}
+                          aspect="square"
+                          className="w-full h-full rounded-xl border-none shadow-none"
+                        />
+                      </div>
                     </div>
 
                     {/* Bottom Action Bar */}

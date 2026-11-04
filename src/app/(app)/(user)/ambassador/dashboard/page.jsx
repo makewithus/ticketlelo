@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { getAmbassadorByUserId, submitAmbassadorApplication } from "@/lib/ambassadors";
 import { getAmbassadorCommissions } from "@/lib/commissions";
 import { getPublicBaseUrl } from "@/lib/app-url";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 export default function AmbassadorDashboardPage() {
   const { user } = useAuth();
@@ -144,11 +145,7 @@ export default function AmbassadorDashboardPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#131517] text-white flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   if (!ambassador) {

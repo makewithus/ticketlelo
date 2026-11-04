@@ -16,6 +16,7 @@ import {
   Users,
   Trash2,
 } from "lucide-react";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 const STATUS_BADGES = {
   draft: {
@@ -562,14 +563,8 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <Loader2
-              size={36}
-              className="animate-spin text-[#FE760B] mx-auto mb-4"
-            />
-            <p className="text-[#9B9EA4] text-sm">Loading messages…</p>
-          </div>
+        <div className="flex items-center justify-center min-h-[50vh] w-full">
+          <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[50vh]" />
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">

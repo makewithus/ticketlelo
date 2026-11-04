@@ -23,6 +23,7 @@ import {
   LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 // The 4 canonical tickets from the official reference design
 const CANONICAL_TICKETS = [
@@ -610,9 +611,8 @@ export default function ETicketsPage() {
             </div>
 
             {loadingUserTickets ? (
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-12 text-center">
-                <div className="w-6 h-6 border-2 border-[#FE760B] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm text-[#9B9EA4]">Loading your tickets...</p>
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-12 text-center min-h-[220px] flex items-center justify-center">
+                <BrandLoader message="Loading..." fullScreen={false} size="sm" />
               </div>
             ) : userRegistrations.length === 0 ? (
               <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-10 text-center">

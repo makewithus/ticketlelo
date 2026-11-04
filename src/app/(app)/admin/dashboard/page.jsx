@@ -79,8 +79,34 @@ export default function AdminDashboardPage() {
         const unique = [];
         const seen = new Set();
         for (const ev of evts || []) {
-          if (ev?.id && !seen.has(ev.id)) {
-            seen.add(ev.id);
+          if (!ev) continue;
+          const evId = ev.id || ev._id;
+          const evSlug = ev.slug ? String(ev.slug).toLowerCase().trim() : null;
+          const normTitle = (ev.title || ev.name || "").trim().toLowerCase();
+          let dateVal = "";
+          try {
+            const d = ev.date?.toDate
+              ? ev.date.toDate()
+              : ev.date?.seconds
+              ? new Date(ev.date.seconds * 1000)
+              : ev.date
+              ? new Date(ev.date)
+              : null;
+            if (d && !isNaN(d.getTime())) {
+              dateVal = d.toISOString().slice(0, 10);
+            }
+          } catch {}
+          const compositeKey = normTitle && dateVal ? `${normTitle}__${dateVal}` : null;
+
+          const isDuplicate =
+            (evId && seen.has(`id:${evId}`)) ||
+            (evSlug && seen.has(`slug:${evSlug}`)) ||
+            (compositeKey && seen.has(`comp:${compositeKey}`));
+
+          if (!isDuplicate) {
+            if (evId) seen.add(`id:${evId}`);
+            if (evSlug) seen.add(`slug:${evSlug}`);
+            if (compositeKey) seen.add(`comp:${compositeKey}`);
             unique.push(ev);
           }
         }

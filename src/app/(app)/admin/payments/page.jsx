@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { EventControlHeader } from "@/components/admin/event-control-header";
 import { OrganizerPaymentSection } from "@/components/admin/payments/organizer-payment-section";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 function PaymentContent({ searchParams }) {
   const eventId = searchParams?.eventId || null;
@@ -15,7 +16,7 @@ function PaymentContent({ searchParams }) {
 export default async function AdminPaymentsPage({ searchParams }) {
   const sp = await searchParams;
   return (
-    <Suspense fallback={<div className="p-8 text-center text-[#9E9E9F]">Loading payment management...</div>}>
+    <Suspense fallback={<BrandLoader message="Loading..." fullScreen />}>
       <PaymentContent searchParams={sp} />
     </Suspense>
   );

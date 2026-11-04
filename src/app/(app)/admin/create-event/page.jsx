@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { EventCreateStudio } from "@/components/admin/event-create-studio";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getEvent } from "@/lib/firestore";
-import { Loader2 } from "lucide-react";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -36,11 +36,7 @@ export default function CreateEventPage() {
   }, [eventId]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#131517] flex items-center justify-center text-white">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   return (

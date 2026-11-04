@@ -166,9 +166,9 @@ export default function PricingPage() {
                 : "/dashboard"
             }
             title="Profile"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#22C55E] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs hover:opacity-90 transition-opacity overflow-hidden"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs hover:opacity-90 transition-opacity overflow-hidden"
           >
-            {photoURL ? (
+            {photoURL && !photoURL.includes("googleusercontent.com/a/") ? (
               <img
                 src={photoURL}
                 alt="Account"

@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import { EventPoster } from "@/components/admin/event-poster";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { toast } from "sonner";
 import { OrganiserShell } from "@/components/layout/organiser-shell";
 import { collection, onSnapshot } from "firebase/firestore";
@@ -614,9 +615,8 @@ function ActivityContent() {
             {/* Notifications Card List */}
             <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] divide-y divide-[#2A2D31] overflow-hidden shadow-sm">
               {isLoading ? (
-                <div className="p-16 flex flex-col items-center justify-center gap-3 text-[#9B9EA4]">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-                  <p className="text-sm">Connecting to live activity stream...</p>
+                <div className="py-20 flex items-center justify-center min-h-[300px]">
+                  <BrandLoader message="Loading..." fullScreen={false} size="sm" />
                 </div>
               ) : hasNoEvents ? (
                 <div className="p-12 sm:p-16 text-center text-[#9B9EA4] text-sm space-y-3">
@@ -765,16 +765,7 @@ function ActivityContent() {
 
 export default function ActivityPage() {
   return (
-    <Suspense
-      fallback={
-        <OrganiserShell allowAnyUser={true}>
-          <div className="p-16 flex flex-col items-center justify-center gap-3 text-[#9B9EA4]">
-            <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-            <p className="text-sm">Loading activity...</p>
-          </div>
-        </OrganiserShell>
-      }
-    >
+    <Suspense fallback={<BrandLoader message="Loading..." fullScreen />}>
       <ActivityContent />
     </Suspense>
   );

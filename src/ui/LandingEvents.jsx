@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getActiveEvents } from "@/lib/firestore";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 /**
  * Live events list for the landing page.
@@ -92,8 +93,8 @@ function EventsSection({ events, loading, loadError, onRetry }) {
               <div className="events-future">
                 <div className="w-dyn-list">
                   {loading ? (
-                    <div className="w-dyn-empty">
-                      <div>Loading events...</div>
+                    <div className="w-dyn-empty py-8 flex items-center justify-center">
+                      <BrandLoader message="Loading..." fullScreen={false} size="sm" />
                     </div>
                   ) : loadError ? (
                     <div className="w-dyn-empty" role="alert">

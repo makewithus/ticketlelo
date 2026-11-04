@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { EventBanner } from "@/components/events/event-banner";
 import {
   ArrowLeft,
   Loader2,
@@ -246,8 +247,7 @@ export default function PublicEventBySlugPage() {
   if (isLoading) {
     return (
       <BrandLoader
-        message="Loading event"
-        subMessage="TicketLelo Verified Experience"
+        message="Loading..."
         fullScreen
       />
     );
@@ -495,58 +495,8 @@ export default function PublicEventBySlugPage() {
           
           {/* Left Column: Square Poster, Host, Attendees, About Event, Tags */}
           <div className="w-full max-w-sm sm:max-w-md md:max-w-[300px] space-y-5 mx-auto md:mx-0 md:pt-8 lg:pt-10">
-            {/* Poster Card (Perfect Square 1:1) */}
-            <div
-              className="w-full aspect-square rounded-2xl overflow-hidden p-5 flex flex-col justify-between relative shadow-xl border border-slate-200 dark:border-[#2A2D31] transition-all"
-              style={{
-                background: event.bannerUrl ? "transparent" : themeLook.gradientCss,
-              }}
-            >
-              {event.bannerUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={event.bannerUrl}
-                  alt={event.title}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              ) : (
-                <>
-                  {/* Glowing sun circle graphic in upper right matching theme */}
-                  <div
-                    className="w-36 h-36 rounded-full absolute -top-8 -right-8 pointer-events-none opacity-90 transition-colors"
-                    style={{ backgroundColor: themeLook.sun }}
-                  />
-                  
-                  {/* Subtle Grid overlay */}
-                  <div
-                    className="absolute inset-0 pointer-events-none opacity-20"
-                    style={{
-                      backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
-                      backgroundSize: "20px 20px",
-                    }}
-                  />
-
-                  {/* Top area spacer */}
-                  <div className="relative z-10" />
-
-                  {/* Bottom bold typographic block */}
-                  <div className="relative z-10">
-                    <h2
-                      className="text-2xl sm:text-3xl font-black tracking-tight leading-none uppercase select-none drop-shadow-sm"
-                      style={{ color: themeLook.textColor || "#FFFFFF" }}
-                    >
-                      {posterLines.line1}
-                      {posterLines.line2 && (
-                        <>
-                          <br />
-                          {posterLines.line2}
-                        </>
-                      )}
-                    </h2>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* Poster Card (Perfect Square 1:1, Canonical EventBanner) */}
+            <EventBanner event={event} aspect="square" priority className="shadow-xl" />
 
             {/* HOSTED BY Section with Google Profile Pic & Email */}
             <div className="space-y-1.5">

@@ -301,6 +301,12 @@ export const AuthProvider = ({ children }) => {
     try {
       await firebaseLogout();
       await fetch("/api/auth/session", { method: "DELETE" });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("ticketlelo_last_active");
+          sessionStorage.clear();
+        } catch (_) {}
+      }
       setUser(null);
       setError(null);
       prevRoleRef.current = null;

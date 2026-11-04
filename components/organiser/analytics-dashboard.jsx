@@ -27,6 +27,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 // TicketLelo Brand Palette & Chart Tokens
 const COLORS = {
@@ -157,9 +158,8 @@ export default function AnalyticsDashboard({ eventId, userId }) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 min-h-[400px]">
-        <Loader2 size={36} className="animate-spin text-[#FE760B] mb-4" />
-        <p className="text-[#9B9EA4] text-sm">Loading analytics…</p>
+      <div className="flex items-center justify-center min-h-[65vh] w-full">
+        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
       </div>
     );
   }

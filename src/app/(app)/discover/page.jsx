@@ -40,11 +40,15 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StubTicket } from "@/components/tickets/stub-ticket";
-import { formatEventDate } from "@/lib/date-utils";
+import { formatEventDate, getEventLiveStatus } from "@/lib/date-utils";
+import { BrandLoader } from "@/components/ui/brand-loader";
+import { EventBanner } from "@/components/events/event-banner";
 
 // Category definitions with icons and matching tag filters
 const CATEGORIES = [
   { id: "all", label: "All Events", icon: Compass },
+  { id: "live", label: "Live Now", icon: Radio },
+  { id: "upcoming", label: "Upcoming", icon: Calendar },
   { id: "popular", label: "Featured & Popular", icon: Flame },
   { id: "tech", label: "Tech & AI", icon: Laptop },
   { id: "dev", label: "Dev & Hackathons", icon: Sparkles },
@@ -219,8 +223,9 @@ export default function DiscoverEventsPage() {
                   endTime: ev.endTime || null,
                   totalTickets: Number(ev.totalTickets ?? ev.capacity ?? 150),
                   capacity: ev.capacity || ev.maxCapacity || 150,
-                  coverImage: ev.coverImage || ev.image || ev.bannerUrl || "",
-                  bannerUrl: ev.bannerUrl || ev.coverImage || ev.image || "",
+                  coverImage: ev.coverImage || ev.bannerUrl || ev.posterUrl || ev.image || ev.imageUrl || "",
+                  bannerUrl: ev.bannerUrl || ev.coverImage || ev.posterUrl || ev.image || ev.imageUrl || "",
+                  posterUrl: ev.posterUrl || ev.bannerUrl || ev.coverImage || "",
                   ticketBgUrl: ev.ticketBgUrl || "",
                   theme: ev.theme || "minimal",
                   themeColor: ev.themeColor || ev.themeHex || "#FE760B",
@@ -295,6 +300,14 @@ export default function DiscoverEventsPage() {
 
       // Category match
       if (selectedCategory === "all") return true;
+      if (selectedCategory === "live") {
+        const timing = getEventLiveStatus(ev);
+        return timing.isLive;
+      }
+      if (selectedCategory === "upcoming") {
+        const timing = getEventLiveStatus(ev);
+        return timing.isUpcoming;
+      }
       if (selectedCategory === "popular") {
         return cat.includes("popular") || cat.includes("featured");
       }
@@ -728,19 +741,8 @@ export default function DiscoverEventsPage() {
       {/* ── Main Events Grid in "Div Format" ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
         {isLoading ? (
-          /* Loading Skeletons */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-4 animate-pulse"
-              >
-                <div className="h-44 bg-slate-200 dark:bg-[#212327] rounded-xl" />
-                <div className="h-5 bg-slate-200 dark:bg-[#212327] rounded w-3/4" />
-                <div className="h-4 bg-slate-200 dark:bg-[#212327] rounded w-1/2" />
-                <div className="h-10 bg-slate-200 dark:bg-[#212327] rounded-xl" />
-              </div>
-            ))}
+          <div className="w-full min-h-[55vh] flex items-center justify-center">
+            <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[55vh]" />
           </div>
         ) : sortedEvents.length === 0 ? (
           /* Empty Search State */
@@ -778,6 +780,7 @@ export default function DiscoverEventsPage() {
               {sortedEvents.map((ev, index) => {
                 const palette = PROCEDURAL_PALETTES[index % PROCEDURAL_PALETTES.length];
                 const dateDisplay = formatEventDate(ev.startDate || ev.date);
+                const timing = getEventLiveStatus(ev);
                 const isPaid = ev.isPaid || (ev.price && String(ev.price).toLowerCase() !== "free" && ev.price !== 0 && ev.price !== "0");
                 const priceLabel = isPaid ? (typeof ev.price === "number" ? `₹${ev.price}` : String(ev.price).startsWith("₹") ? ev.price : `₹${ev.price}`) : "Free";
                 const capacity = Number(ev.capacity || ev.totalTickets || 100);
@@ -796,62 +799,44 @@ export default function DiscoverEventsPage() {
                   >
                     {/* ── Top Poster Graphic / Visual Banner ── */}
                     <div className="relative h-48 w-full overflow-hidden bg-slate-900 select-none">
-                      {hasBanner ? (
-                        <>
-                          <img
-                            src={ev.bannerUrl || ev.coverImage}
-                            alt={ev.title || ev.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#131517] via-transparent to-black/30" />
-                        </>
-                      ) : (
-                        <div
-                          className={`w-full h-full bg-gradient-to-br ${palette.bg} p-5 flex flex-col justify-between relative overflow-hidden`}
+                      <EventBanner
+                        event={ev}
+                        aspect="auto"
+                        className="w-full h-full rounded-none border-none shadow-none"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#131517]/80 via-transparent to-black/30 pointer-events-none" />
+
+                      {/* Badge Bar inside graphic */}
+                      <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${palette.badge} border ${palette.border}`}
                         >
-                          {/* Ambient geometric background lines */}
-                          <div className="absolute -right-8 -bottom-8 w-36 h-36 rounded-full border-8 border-white/5 pointer-events-none" />
-                          <div className="absolute right-10 top-4 w-20 h-20 rounded-full bg-white/5 blur-xl pointer-events-none" />
+                          {ev.category || "Official"}
+                        </span>
 
-                          {/* Decorative Category Watermark */}
-                          <div className="absolute right-3 bottom-2 text-5xl font-black text-white/5 uppercase tracking-tighter pointer-events-none">
-                            {ev.category || "EVENT"}
-                          </div>
-
-                          {/* Badge Bar inside graphic */}
-                          <div className="flex items-center justify-between z-10">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${palette.badge} border ${palette.border}`}
-                            >
-                              {ev.category || "Official"}
+                        {timing.isLive ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[11px] font-bold shadow-md shadow-emerald-950/40">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                             </span>
-
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-white text-[11px] font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                              <span>LIVE</span>
-                            </div>
+                            <span>LIVE</span>
                           </div>
-
-                          {/* Center Motif / Title Monogram */}
-                          <div className="z-10 mt-auto">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs text-white shadow-sm"
-                                style={{ backgroundColor: ev.themeColor || palette.accent }}
-                              >
-                                {(ev.title || ev.name || "E").charAt(0).toUpperCase()}
-                              </div>
-                              <span className="text-white/90 font-bold text-xs tracking-wide uppercase truncate max-w-[180px]">
-                                {ev.locationType === "online" ? "Virtual Summit" : "In-Person Event"}
-                              </span>
-                            </div>
+                        ) : timing.isEnded ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-400 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                            <span>ENDED</span>
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-sky-400/30 text-sky-200 text-[11px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                            <span>UPCOMING</span>
+                          </div>
+                        )}
+                      </div>
 
                       {/* Price Pill Overlay */}
-                      <div className="absolute bottom-3 right-3 z-20">
+                      <div className="absolute bottom-3 right-3 z-20 pointer-events-none">
                         <span
                           className={`px-3 py-1 rounded-xl text-xs font-black shadow-md backdrop-blur-md border ${
                             isPaid
@@ -918,7 +903,11 @@ export default function DiscoverEventsPage() {
                               <Users className="w-3 h-3 text-[#FE760B]" />
                               {capacity} Total Capacity
                             </span>
-                            <span className="text-emerald-500 font-bold">Passes Open</span>
+                            {timing.isEnded ? (
+                              <span className="text-zinc-500 font-bold">Closed</span>
+                            ) : (
+                              <span className="text-emerald-500 font-bold">Passes Open</span>
+                            )}
                           </div>
                           <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
                             <div
@@ -936,7 +925,7 @@ export default function DiscoverEventsPage() {
                           href={`/e/${ev.slug || ev.id}`}
                           className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#FE760B]/20 group/btn"
                         >
-                          <span>Participate Now</span>
+                          <span>{timing.isEnded ? "View Event" : "Participate Now"}</span>
                           <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
                         </Link>
 

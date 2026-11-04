@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, ExternalLink, ShieldCheck, Ticket, CheckCircle2, Globe, Loader2, Sparkles } from "lucide-react";
 import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration-form";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { createRegistration } from "@/lib/firestore";
 import { toast } from "sonner";
 
@@ -125,11 +126,8 @@ export function EmbedRegistrationModal({
               {/* Responsive Iframe showing the Organizer's own website/form */}
               <div className="relative w-full h-[460px] sm:h-[500px] rounded-xl overflow-hidden border border-[#D9DBE0] dark:border-[#2A2D31] bg-slate-50 dark:bg-[#131517]">
                 {iframeLoading && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#131517]/80 backdrop-blur-xs z-10">
-                    <Loader2 size={28} className="animate-spin text-[#FE760B] mb-2" />
-                    <p className="text-xs font-semibold text-[#061A3F] dark:text-white">
-                      Loading organizer&apos;s event website form...
-                    </p>
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-[#131517]/80 backdrop-blur-xs z-10">
+                    <BrandLoader message="Loading..." fullScreen={false} size="sm" />
                   </div>
                 )}
                 <iframe

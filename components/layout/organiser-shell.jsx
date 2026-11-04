@@ -138,8 +138,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
   if (loading) {
     return (
       <BrandLoader
-        message="Loading control room"
-        subMessage="TicketLelo Organiser Portal"
+        message="Loading..."
         fullScreen
       />
     );
@@ -173,8 +172,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
   return (
     <div className="tl-app-shell tl-system-theme bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white min-h-screen flex flex-col transition-colors selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-clip">
-      {/* ── Top Navigation Bar matching Image 2 & 3 (Centered Content Container) ── */}
-      <header className="sticky top-0 z-40 h-16 border-b border-slate-200 dark:border-[#2A2D31]/80 bg-white/90 dark:bg-[#131517]/90 backdrop-blur-md transition-colors">
+      {/* ── Top Navigation Bar matching Image 2 & 3 (Centered Content Container, border removed / transparent) ── */}
+      <header className="sticky top-0 z-40 h-16 border-b border-transparent bg-white/80 dark:bg-[#131517]/80 backdrop-blur-md transition-colors">
         <div className="max-w-6xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Left Side: Brand Logo + Events + Discover */}
           <div className="flex items-center gap-6 sm:gap-8">
@@ -243,24 +242,28 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
               <Bell className="w-4 h-4" />
             </Link>
 
-            {/* Create Event CTA (matching Image 1: + Create Event) */}
+            {/* Create Event CTA (clean transparent text link, no orange bg, no border, no plus icon) */}
             <Link
               href="/admin/create-event"
-              className="px-3 sm:px-3.5 py-1.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-xs font-bold text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+              prefetch={false}
+              className={`text-xs font-medium transition-colors cursor-pointer ${
+                pathname === "/admin/create-event"
+                  ? "text-white font-semibold"
+                  : "text-[#D0D0D1] hover:text-white"
+              }`}
             >
-              <Plus className="w-3.5 h-3.5" />
               <span>Create Event</span>
             </Link>
 
-            {/* User Profile Avatar with Dropdown (Only Sign Out for Organiser, green circle matching Image 1) */}
+            {/* User Profile Avatar with Dropdown (Brand Orange bg-[#FE760B] matching top bars) */}
             <div className="relative" data-profile-dropdown>
               <button
                 type="button"
                 onClick={() => setProfileDropdownOpen((prev) => !prev)}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#22C55E] text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer hover:ring-2 ring-emerald-500/40 transition-all overflow-hidden"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer hover:ring-2 ring-[#FE760B]/40 transition-all overflow-hidden select-none"
                 title={displayName}
               >
-                {photoURL && !avatarError ? (
+                {photoURL && !avatarError && !photoURL.includes("googleusercontent.com/a/") ? (
                   <img
                     src={photoURL}
                     alt={displayName}
@@ -322,7 +325,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
           <button
             type="button"
             onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="md:hidden p-2 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors"
+            className="md:hidden p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-[#2A2D31] bg-slate-100/80 dark:bg-[#1A1C1F]/80 text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] transition-colors"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -405,9 +408,12 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                   <Link
                     href="/admin/create-event"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#FE760B] hover:bg-[#FF8A2B] transition-colors shadow-sm"
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                      pathname === "/admin/create-event"
+                        ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
+                        : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327]"
+                    }`}
                   >
-                    <Plus className="w-4 h-4 shrink-0" />
                     <span>Create Event</span>
                   </Link>
 
@@ -459,8 +465,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
             <div className="p-4 border-t border-slate-200 dark:border-[#2A2D31] bg-slate-50 dark:bg-[#131517] space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#22C55E] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
-                    {photoURL && !avatarError ? (
+                  <div className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
+                    {photoURL && !avatarError && !photoURL.includes("googleusercontent.com/a/") ? (
                       <img src={photoURL} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       firstChar

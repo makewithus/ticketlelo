@@ -4,6 +4,7 @@ import { ToastGuard } from "@/components/ui/toast-guard";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { SessionTimeoutManager } from "@/components/auth/session-timeout-manager";
 
 import { ModalScrollLockProvider } from "@/components/ui/modal-scroll-lock-provider";
 
@@ -32,7 +33,10 @@ export default function RootLayout({ children }) {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <SessionTimeoutManager />
+          </AuthProvider>
           <ModalScrollLockProvider />
           <ToastGuard />
           <Toaster 

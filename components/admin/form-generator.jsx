@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import {
   Loader2,
   Plus,
@@ -840,8 +841,8 @@ export function FormGenerator() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
+      <div className="flex items-center justify-center min-h-[65vh] w-full">
+        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
       </div>
     );
   }

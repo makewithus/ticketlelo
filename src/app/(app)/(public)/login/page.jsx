@@ -28,6 +28,7 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -39,7 +40,9 @@ function UnifiedLoginContent() {
   const redirectParam = searchParams.get("redirect") || "";
   const initialEmail = searchParams.get("email") || "";
   const initialName = searchParams.get("name") || "";
-  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const reasonParam = searchParams.get("reason") || "";
+  const isSessionExpired = reasonParam === "session_expired";
+  const initialMode = isSessionExpired ? "signin" : searchParams.get("mode") === "signup" ? "signup" : "signin";
 
   const roleParam = searchParams.get("role") || "";
   const isOrganiserLogin = roleParam === "organiser" || redirectParam.includes("/admin");
@@ -1159,13 +1162,7 @@ function UnifiedLoginContent() {
 
 export default function UnifiedLoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#131517]">
-          <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-        </div>
-      }
-    >
+    <Suspense fallback={<BrandLoader message="Loading..." fullScreen />}>
       <UnifiedLoginContent />
     </Suspense>
   );

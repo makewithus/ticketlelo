@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 const AVATAR_COLORS = [
   "bg-[#FE760B]", // Orange (like TO in Image 1)
@@ -330,9 +331,9 @@ export function OrganisersManagement() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-        <p className="text-xs text-[#9B9EA4]">Loading...</p>
+      <div className="flex flex-col items-center justify-center min-h-[65vh] w-full">
+        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
+        <p className="sr-only">Loading...</p>
       </div>
     );
   }

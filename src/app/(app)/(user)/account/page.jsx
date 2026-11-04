@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { getPlan } from "@/lib/plans";
 import { getEventsByOrganiser } from "@/lib/firestore";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 export default function AccountPage() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -140,16 +141,7 @@ export default function AccountPage() {
   };
 
   if (authLoading || !user) {
-    return (
-      <div className="min-h-screen bg-[#131517] flex items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-          <p className="text-sm text-[#9B9EA4]">
-            Loading account...
-          </p>
-        </div>
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   return (
@@ -196,7 +188,7 @@ export default function AccountPage() {
 
             <Link
               href="/admin/dashboard"
-              className="px-3.5 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#212327] hover:border-[#3A3D42] transition-all"
+              className="text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors cursor-pointer"
             >
               Create Event
             </Link>

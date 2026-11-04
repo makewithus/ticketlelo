@@ -274,7 +274,12 @@ export function WideTicket({
     leftVariant === "details" ||
     (leftVariant === "auto" && theme === "gaming" && !registration.forceQrLeft);
 
-  const ticketBgUrl = event.ticketBgUrl || registration.ticketBgUrl || "";
+  const ticketBgUrl =
+    event.ticketBgUrl ||
+    event.ticketBackground ||
+    registration.ticketBgUrl ||
+    registration.ticketBackground ||
+    "";
 
   // Format date day and month for Praroha style e.g. "07.11"
   const getDateDisplay = () => {

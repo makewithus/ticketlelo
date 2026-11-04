@@ -7,13 +7,18 @@ import Image from "next/image";
  * Branded TicketLelo Animated Logo Loader
  * Uses the official TicketLelo logo with smooth branded breathing animation.
  * Strictly NO generic spinners, orbit rings, or dashed borders.
+ *
+ * Always perfectly centered vertically and horizontally in the middle of
+ * the screen or parent container.
  */
 export function BrandLoader({
   message = "Loading...",
   subMessage = "",
   fullScreen = false,
+  center = true,
   size = "default", // "sm" | "default" | "lg"
   className = "",
+  minHeight = "",
 }) {
   const sizeMap = {
     sm: {
@@ -36,7 +41,7 @@ export function BrandLoader({
   const currentSize = sizeMap[size] || sizeMap.default;
 
   const content = (
-    <div className={`flex flex-col items-center justify-center text-center p-4 select-none ${className}`}>
+    <div className="flex flex-col items-center justify-center text-center p-4 select-none">
       {/* TicketLelo Logo with Smooth Breathing / Pulse Animation */}
       <div className="relative flex items-center justify-center mb-3">
         {/* Subtle Warm Amber Glow Behind Logo */}
@@ -79,13 +84,29 @@ export function BrandLoader({
 
   if (fullScreen) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white flex items-center justify-center p-6 z-50 transition-colors">
+      <div
+        className={`fixed inset-0 z-50 bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white flex flex-col items-center justify-center p-6 transition-colors select-none ${className}`}
+      >
         {content}
       </div>
     );
   }
 
-  return content;
+  const heightClass = minHeight
+    ? minHeight
+    : !center
+    ? ""
+    : size === "sm"
+    ? "min-h-[160px]"
+    : "min-h-[70vh] sm:min-h-[75vh]";
+
+  return (
+    <div
+      className={`w-full flex-1 flex flex-col items-center justify-center text-center p-6 select-none ${heightClass} ${className}`}
+    >
+      {content}
+    </div>
+  );
 }
 
 export default BrandLoader;

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Calendar, Users, QrCode, FormInput } from "lucide-react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { useState, useEffect } from "react";
 
 export default function OrganiserLayout({ children }) {
@@ -52,14 +53,7 @@ export default function OrganiserLayout({ children }) {
   }, [loading, user, router, refreshUser]);
 
   if (loading || verifying) {
-    return (
-      <div className="tl-system-theme flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-[#3157ff]" />
-          <p className="text-[rgba(6,26,63,0.64)]">Loading organiser panel...</p>
-        </div>
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   const hasAdminAccess =

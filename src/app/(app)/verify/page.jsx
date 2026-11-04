@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getCertificate } from "@/lib/certificates";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 function VerifyContent() {
   const searchParams = useSearchParams();
@@ -130,9 +131,8 @@ function VerifyContent() {
 
         {/* Verification Result Area */}
         {loading && (
-          <div className="py-12 flex flex-col items-center justify-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-            <p className="text-xs text-[#9B9EA4]">Verifying credential against tamper-proof ledger...</p>
+          <div className="py-12 flex items-center justify-center">
+            <BrandLoader message="Loading..." fullScreen={false} />
           </div>
         )}
 
@@ -245,13 +245,7 @@ function VerifyContent() {
 
 export default function VerifyPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#131517] text-white flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-        </div>
-      }
-    >
+    <Suspense fallback={<BrandLoader message="Loading..." fullScreen />}>
       <VerifyContent />
     </Suspense>
   );

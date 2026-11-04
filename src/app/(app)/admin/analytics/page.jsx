@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { EventControlHeader } from "@/components/admin/event-control-header";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { useAuth } from "@/context/auth-context";
 import {
   getEventsByOrganiser,
@@ -136,6 +137,10 @@ export default function AnalyticsInsightsPage() {
           try {
             localStorage.setItem("admin_selected_event_id", initialId);
           } catch {}
+          const matched = uniqueList.find((e) => e.id === initialId) || uniqueList[0] || null;
+          if (matched) {
+            setEvent(matched);
+          }
         }
       } catch (err) {
         console.error("Failed to load events for insights:", err);
@@ -388,12 +393,7 @@ export default function AnalyticsInsightsPage() {
   const isLive = Boolean(event?.isActive !== false);
 
   if (loading && !event) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center text-center">
-        <Loader2 className="w-8 h-8 text-[#FE760B] animate-spin mb-3" />
-        <p className="text-sm text-[#9B9EA4]">Loading live insights...</p>
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   return (

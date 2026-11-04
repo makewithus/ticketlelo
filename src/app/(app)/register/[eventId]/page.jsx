@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BrandLoader } from "@/components/ui/brand-loader";
+import { EventBanner } from "@/components/events/event-banner";
 import { getEvent } from "@/lib/firestore";
 import { getSubEventsForEvent } from "@/lib/sub-events";
 import { getCombosForEvent } from "@/lib/combos";
@@ -93,6 +95,10 @@ export default function RegisterPage() {
   const isPaid = Boolean(event?.isPaid && (event?.price || event?.amount));
   const priceDisplay = isPaid ? `₹${event?.price || event?.amount}` : "Free Pass";
 
+  if (isLoading) {
+    return <BrandLoader message="Loading..." fullScreen />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white relative selection:bg-[#FE760B] selection:text-white overflow-x-hidden transition-colors">
       {/* ── Seamless Integrated Header matching Image 1 (Flush with background, not detached) ── */}
@@ -147,10 +153,10 @@ export default function RegisterPage() {
                     ? "/admin/dashboard"
                     : "/dashboard"
                 }
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#22C55E] text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden"
                 title={user.displayName || user.email}
               >
-                {user.photoURL ? (
+                {user.photoURL && !user.photoURL.includes("googleusercontent.com/a/") ? (
                   <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   (user.displayName || user.email || "U").charAt(0).toUpperCase()
@@ -170,12 +176,8 @@ export default function RegisterPage() {
 
       <main className="relative z-10 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] py-20">
-            <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/14 border border-[#FE760B]/30 flex items-center justify-center mb-4">
-              <Loader2 className="w-7 h-7 animate-spin text-[#FE760B]" />
-            </div>
-            <p className="text-base font-semibold text-slate-900 dark:text-white">Loading event details...</p>
-            <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1">Fetching registration fields and seat inventory</p>
+          <div className="py-24 flex items-center justify-center min-h-[60vh]">
+            <BrandLoader message="Loading..." fullScreen={false} />
           </div>
         ) : !event || event.isActive === false ? (
           <div className="text-center py-20 max-w-md mx-auto">
@@ -230,18 +232,9 @@ export default function RegisterPage() {
               <div className="lg:col-span-7 space-y-6">
                 {/* Event Hero Card */}
                 <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] p-6 sm:p-8 shadow-sm dark:shadow-xl">
-                  {event.imageUrl || event.bannerUrl ? (
-                    <div className="relative -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-6 h-60 sm:h-72 overflow-hidden">
-                      <img
-                        src={event.imageUrl || event.bannerUrl}
-                        alt={event.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-white dark:from-[#1A1C1F] via-white/40 dark:via-[#1A1C1F]/40 to-transparent" />
-                    </div>
-                  ) : (
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[#FE760B]/10 via-transparent to-transparent rounded-bl-full pointer-events-none" />
-                  )}
+                  <div className="-mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-6 overflow-hidden">
+                    <EventBanner event={event} aspect="video" priority className="rounded-none sm:rounded-t-2xl border-none max-h-72" />
+                  </div>
 
                   <div className="relative z-10 space-y-3">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/20 dark:border-[#FE760B]/30 text-[#FE760B] dark:text-[#FF9A4D] text-xs font-semibold uppercase tracking-wider">

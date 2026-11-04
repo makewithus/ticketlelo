@@ -42,6 +42,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { StyledDropdown } from "@/components/ui/styled-dropdown";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import {
   AreaChart,
   Area,
@@ -252,15 +253,8 @@ export function SuperAdminDashboardView() {
 
   if (loading && !data) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[65vh] space-y-4">
-        <div className="relative">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#FE760B] to-[#FF9037] flex items-center justify-center shadow-xl shadow-[#FE760B]/20 animate-pulse">
-            <LayoutDashboard className="w-6 h-6 text-white" />
-          </div>
-        </div>
-        <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] tracking-wider uppercase">
-          Loading platform dashboard...
-        </p>
+      <div className="flex items-center justify-center min-h-[75vh] w-full">
+        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[75vh]" />
       </div>
     );
   }

@@ -28,6 +28,7 @@ import { formatShortDate, formatTicketDate, getEventYear } from "@/lib/date-util
 import Link from "next/link";
 import { Layers, LayoutGrid } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 const LOGO_SRC = "/logo/ticketlelo-logo-nav.png";
 
@@ -152,19 +153,7 @@ export default function DashboardPage() {
   };
 
   if (authLoading || isLoading || !user) {
-    return (
-      <main className="tl-system-theme flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#131517] transition-colors">
-        <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="flex h-14 w-14 items-center justify-center bg-[#FE760B] rounded-2xl shadow-none">
-            <Ticket className="w-7 h-7 text-white" />
-          </div>
-          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-          <p className="text-sm text-slate-500 dark:text-[#9B9EA4]">
-            Loading your tickets...
-          </p>
-        </div>
-      </main>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   const pendingCount = registrations.filter(

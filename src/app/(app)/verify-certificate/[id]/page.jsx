@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getCertificate } from "@/lib/certificates";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 export default function VerifyCertificatePage() {
   const { id } = useParams();
@@ -62,9 +63,8 @@ export default function VerifyCertificatePage() {
 
       <div className="relative z-10 w-full max-w-xl bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 xs:p-6 sm:p-8 shadow-sm">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-[#FE760B]" />
-            <p className="text-sm text-[#9B9EA4]">Verifying credential against registry...</p>
+          <div className="py-12 flex items-center justify-center">
+            <BrandLoader message="Loading..." fullScreen={false} />
           </div>
         ) : error || !cert ? (
           <div className="text-center py-8">

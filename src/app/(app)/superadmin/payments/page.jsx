@@ -141,11 +141,7 @@ export default function SuperAdminPaymentsPage() {
         ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <BrandLoader message="Loading financial analytics..." />
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   return (

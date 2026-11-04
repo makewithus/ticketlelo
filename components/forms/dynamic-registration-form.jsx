@@ -23,6 +23,7 @@ import { db, auth } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 import { useAuth } from "@/context/auth-context";
 import { getCustomFormByEvent } from "@/lib/form-generator";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import {
   Loader2,
   Sparkles,
@@ -1562,11 +1563,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
   if (!customForm) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 px-4">
-        <Loader2 className="w-6 h-6 animate-spin text-[#FF6A00] mb-2" />
-        <p className="text-xs text-slate-500 dark:text-slate-400 animate-pulse">
-          Loading registration form...
-        </p>
+      <div className="flex items-center justify-center py-8 px-4">
+        <BrandLoader message="Loading..." fullScreen={false} size="sm" />
       </div>
     );
   }

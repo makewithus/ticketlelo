@@ -37,6 +37,8 @@ import {
   Palette,
   ExternalLink,
   Navigation,
+  ImageIcon,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createEvent, updateEvent } from "@/lib/firestore";
@@ -392,6 +394,7 @@ export function EventCreateStudio({
   const { user, logout } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef(null);
+  const ticketBgInputRef = useRef(null);
 
   // Live top-bar clock
   const [clockString, setClockString] = useState("1:04 PM");
@@ -487,7 +490,7 @@ export function EventCreateStudio({
     ),
     maxCapacity: editingEvent?.maxCapacity || editingEvent?.capacity || 50,
     waitlist: editingEvent?.waitlist !== undefined ? Boolean(editingEvent.waitlist) : true,
-    ticketBgUrl: editingEvent?.ticketBgUrl || "",
+    ticketBgUrl: editingEvent?.ticketBgUrl || editingEvent?.ticketBackground || "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -748,6 +751,37 @@ export function EventCreateStudio({
     toast.info("Custom banner removed; using procedural poster");
   };
 
+  const handleTicketBgUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Please upload a valid JPEG, PNG, or WebP image");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File size must be under 5 MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, ticketBgUrl: reader.result }));
+      toast.success("Ticket background image applied!");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeTicketBgImage = (e) => {
+    e?.stopPropagation?.();
+    if (ticketBgInputRef.current) {
+      ticketBgInputRef.current.value = "";
+    }
+    setFormData((prev) => ({ ...prev, ticketBgUrl: "" }));
+    toast.info("Ticket background image removed; using theme color");
+  };
+
   const handleLocationSave = () => {
     let venue = selectedLocationVenue;
 
@@ -872,6 +906,7 @@ export function EventCreateStudio({
         showPosterText: formData.showPosterText !== false,
         posterTextBg: formData.posterTextBg || "shadow",
         ticketBgUrl: formData.ticketBgUrl || "",
+        ticketBackground: formData.ticketBgUrl || "",
         isActive: formData.visibility !== "draft",
         published: formData.visibility === "public",
         status:
@@ -2438,6 +2473,92 @@ export function EventCreateStudio({
                     </div>
                   </div>
 
+                  {/* ── Ticket Background Image Upload ── */}
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5 text-[#FE760B]" />
+                        <span>Ticket Background Image</span>
+                        <span className="text-[10px] font-normal text-[#9B9EA4]">(Optional)</span>
+                      </label>
+                      {formData.ticketBgUrl && (
+                        <button
+                          type="button"
+                          onClick={removeTicketBgImage}
+                          className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Remove Image
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      ref={ticketBgInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleTicketBgUpload}
+                      className="hidden"
+                    />
+
+                    {formData.ticketBgUrl ? (
+                      <div className="relative rounded-xl border border-[#2A2D31] bg-[#212327] p-3 flex items-center justify-between gap-3 overflow-hidden">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative w-14 h-10 rounded-lg overflow-hidden shrink-0 border border-white/10 bg-black/40">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={formData.ticketBgUrl}
+                              alt="Ticket background artwork"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">
+                              Custom Artwork Applied
+                            </p>
+                            <p className="text-[11px] text-[#9B9EA4]">
+                              Shown in the ticket artwork zone behind details
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => ticketBgInputRef.current?.click()}
+                            className="px-3 py-1.5 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-xs font-semibold text-white border border-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
+                          >
+                            <Upload className="w-3 h-3 text-[#FE760B]" />
+                            Change
+                          </button>
+                          <button
+                            type="button"
+                            onClick={removeTicketBgImage}
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-colors cursor-pointer"
+                            title="Remove background image"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => ticketBgInputRef.current?.click()}
+                        className="group border border-dashed border-[#2A2D31] hover:border-[#FE760B]/60 rounded-xl bg-[#212327]/60 hover:bg-[#212327] p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-[#1A1C1F] group-hover:bg-[#FE760B]/10 flex items-center justify-center transition-colors">
+                          <Upload className="w-4 h-4 text-[#9B9EA4] group-hover:text-[#FE760B] transition-colors" />
+                        </div>
+                        <div className="text-xs font-semibold text-white">
+                          Click to upload custom ticket background image
+                        </div>
+                        <div className="text-[11px] text-[#9B9EA4]">
+                          PNG, JPG, or WebP up to 5MB (overlays on the green/theme card)
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* ── Live Ticket Preview Area ── */}
                   <div className="mt-5 rounded-2xl bg-[#141619] border border-[#2A2D31] p-4 sm:p-5 space-y-4 shadow-xl relative">
                     <div className="flex items-center justify-between flex-wrap gap-2.5">
@@ -2525,7 +2646,7 @@ export function EventCreateStudio({
                                   ticketBgColor: formData.ticketBgColor || selectedTheme.color,
                                   price: formData.isPaid ? formData.price : "Free",
                                   ticketDesign: "stub",
-                                  ticketBgUrl: "",
+                                  ticketBgUrl: formData.ticketBgUrl || "",
                                   posterLine1: formData.posterLine1,
                                   posterLine2: formData.posterLine2,
                                   posterTextMode: formData.posterTextMode,
@@ -2582,7 +2703,7 @@ export function EventCreateStudio({
                                   ticketBgColor: formData.ticketBgColor || selectedTheme.color,
                                   price: formData.isPaid ? formData.price : "Free",
                                   ticketDesign: "wide",
-                                  ticketBgUrl: "",
+                                  ticketBgUrl: formData.ticketBgUrl || "",
                                   posterLine1: formData.posterLine1,
                                   posterLine2: formData.posterLine2,
                                   posterTextMode: formData.posterTextMode,
@@ -3050,7 +3171,7 @@ export function EventCreateStudio({
           ticketBgColor: formData.ticketBgColor || selectedTheme.color,
           price: formData.isPaid ? formData.price : "Free",
           ticketDesign: modalPreviewDesign,
-          ticketBgUrl: "",
+          ticketBgUrl: formData.ticketBgUrl || "",
           posterLine1: formData.posterLine1,
           posterLine2: formData.posterLine2,
           posterTextMode: formData.posterTextMode,

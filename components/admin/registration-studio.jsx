@@ -396,8 +396,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
   if (loading && !event) {
     return (
       <BrandLoader
-        message="Loading form builder"
-        subMessage="TicketLelo Registration Studio"
+        message="Loading..."
       />
     );
   }

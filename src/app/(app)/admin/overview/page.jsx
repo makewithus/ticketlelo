@@ -46,6 +46,8 @@ import { getPublicEventUrl, getPublicEventDisplayUrl } from "@/lib/app-url";
 import { EditEventSlider } from "@/components/admin/edit-event-slider";
 import { SquarePhotoUploadModal } from "@/components/admin/square-photo-upload-modal";
 import { WebScannerModal } from "@/components/admin/web-scanner-modal";
+import { BrandLoader } from "@/components/ui/brand-loader";
+import { EventBanner } from "@/components/events/event-banner";
 
 const THEMES = [
   { id: "sunset", name: "Sunset", color: "#FE760B", bg: "#FE760B", sun: "#FB923C", text: "#131517" },
@@ -179,10 +181,10 @@ export default function EventOverviewPage() {
           try {
             cachedId = localStorage.getItem("admin_selected_event_id");
           } catch {}
-          if (cachedId && list.some((e) => e.id === cachedId)) {
+          if (cachedId && uniqueList.some((e) => e.id === cachedId)) {
             initialId = cachedId;
-          } else if (list.length > 0) {
-            initialId = list[0].id;
+          } else if (uniqueList.length > 0) {
+            initialId = uniqueList[0].id;
           }
         }
 
@@ -191,6 +193,11 @@ export default function EventOverviewPage() {
           try {
             localStorage.setItem("admin_selected_event_id", initialId);
           } catch {}
+          // Immediately hydrate event to prevent piecemeal rendering and flashing
+          const matchedEvt = uniqueList.find((e) => e.id === initialId) || uniqueList[0] || null;
+          if (matchedEvt) {
+            setEvent(matchedEvt);
+          }
         }
       } catch (err) {
         console.error("Failed to load events for overview:", err);
@@ -486,12 +493,7 @@ export default function EventOverviewPage() {
   }, [event]);
 
   if (loading && !event) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center text-white min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FE760B] mb-3" />
-        <p className="text-xs text-[#9B9EA4] font-medium">Loading event data in real time...</p>
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   // If no events found in database for this user
@@ -640,81 +642,9 @@ export default function EventOverviewPage() {
         {/* ── LEFT CARD: Event Preview Card ── */}
         <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 shadow-xl flex flex-col justify-between">
           <div>
-            {/* Event Poster / Banner Preview */}
-            <div className="w-full aspect-[16/9] rounded-xl overflow-hidden relative border border-[#2A2D31] mb-4 bg-[#131517]">
-              {event.coverImage || event.bannerUrl ? (
-                <div className="w-full h-full relative">
-                  <img
-                    src={event.coverImage || event.bannerUrl}
-                    alt={event.name}
-                    className="w-full h-full object-cover"
-                  />
-                  {event.showPosterText !== false && (event.posterLine1 || event.posterTextX !== undefined) && (
-                    <div
-                      className={`absolute z-10 max-w-[90%] pointer-events-none ${
-                        event.posterTextBg === "badge"
-                          ? "bg-black/75 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-white/20 shadow-md"
-                          : event.posterTextBg === "solid"
-                          ? "bg-[#131517] px-2.5 py-1.5 rounded-lg border border-[#2A2D31] shadow-md"
-                          : "p-1"
-                      }`}
-                      style={{
-                        left: `${event.posterTextX ?? 6}%`,
-                        top: `${event.posterTextY ?? 55}%`,
-                        textAlign: event.posterAlign || "left",
-                        textShadow: "0 2px 8px rgba(0,0,0,0.9)",
-                      }}
-                    >
-                      <span
-                        className="block font-black leading-tight tracking-tight uppercase break-words text-white"
-                        style={{
-                          fontSize: `${Math.max(12, Math.round((event.posterFontSize || 34) * 0.55))}px`,
-                        }}
-                      >
-                        {posterLines.line1}
-                      </span>
-                      {posterLines.line2 && (
-                        <span
-                          className="block font-black leading-tight tracking-tight uppercase break-words text-[#FE760B] mt-0.5"
-                          style={{
-                            fontSize: `${Math.max(10, Math.round((event.posterFontSize || 34) * 0.45))}px`,
-                          }}
-                        >
-                          {posterLines.line2}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="w-full h-full relative flex flex-col justify-between p-4 overflow-hidden"
-                  style={{
-                    background: selectedTheme.gradientCss || selectedTheme.bg,
-                  }}
-                >
-                  <div
-                    className="w-32 h-32 rounded-full absolute -top-8 -right-8 pointer-events-none opacity-90"
-                    style={{ backgroundColor: selectedTheme.sun }}
-                  />
-                  <div className="relative z-10 w-full" style={{ textAlign: event.posterAlign || "left" }}>
-                    <span
-                      className="block font-black leading-tight tracking-tight uppercase break-words"
-                      style={{
-                        color: event.posterTextColor === "dark" ? "#131517" : "#FFFFFF",
-                        fontSize: "20px",
-                      }}
-                    >
-                      {posterLines.line1}
-                    </span>
-                    {posterLines.line2 && (
-                      <span className="block font-black leading-tight tracking-tight uppercase text-sm mt-0.5 text-[#FDE003]">
-                        {posterLines.line2}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+            {/* Event Poster / Banner Preview (Consistent with Public Event Page) */}
+            <div className="mb-4">
+              <EventBanner event={event} aspect="square" className="shadow-lg" />
             </div>
 
             {/* Event Title */}

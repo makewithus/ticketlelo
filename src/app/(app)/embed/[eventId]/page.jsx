@@ -6,6 +6,7 @@ import { Loader2, Ticket, CheckCircle2, ShieldCheck, ArrowLeft } from "lucide-re
 import Link from "next/link";
 import { getEvent } from "@/lib/firestore";
 import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration-form";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 export default function EmbedRegistrationPage() {
   const { eventId } = useParams();
@@ -62,15 +63,7 @@ export default function EmbedRegistrationPage() {
   }, [event, loading]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#131517] text-white flex flex-col items-center justify-center p-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4 bg-[#FE760B] text-[#131517] shadow-sm">
-          <Loader2 className="w-8 h-8 animate-spin" />
-        </div>
-        <p className="text-base font-bold text-white">Loading registration...</p>
-        <p className="text-xs text-[#9B9EA4] mt-1">Securing your booking session</p>
-      </div>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   if (!event) {

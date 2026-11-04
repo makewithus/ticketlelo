@@ -21,6 +21,7 @@ import { generateICS } from "@/lib/calendar";
 import { parseFirestoreDate } from "@/lib/date-utils";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BrandLoader } from "@/components/ui/brand-loader";
 
 export default function TicketViewPage({ params }) {
   const unwrappedParams = use(params);
@@ -105,17 +106,7 @@ export default function TicketViewPage({ params }) {
   const isWide = eventData?.ticketDesign === "wide";
 
   if (loading) {
-    return (
-      <main className="min-h-screen bg-[#131517] text-white flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center">
-            <Ticket className="w-6 h-6 text-[#FE760B]" />
-          </div>
-          <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-          <p className="text-sm text-[#9B9EA4]">Loading digital entry pass...</p>
-        </div>
-      </main>
-    );
+    return <BrandLoader message="Loading..." fullScreen />;
   }
 
   if (error || !ticketData) {
