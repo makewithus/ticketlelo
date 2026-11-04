@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Clock, Check, LogOut, ShieldAlert, Loader2 } from "lucide-react";
+import { Clock, Check, LogOut, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   INACTIVITY_TIMEOUT_MS,
@@ -16,11 +16,14 @@ export { INACTIVITY_TIMEOUT_MS, COUNTDOWN_TOTAL_SECONDS };
 /**
  * SessionTimeoutManager
  *
- * Monitors user inactivity across the entire application for authenticated users.
- * When inactive for 10 minutes, presents an interactive modal: "Are you still working?"
- * with a 5-second countdown timer. If no confirmation is given within 5 seconds,
- * safely terminates the session, clears all auth tokens/cookies, and redirects
- * to the login screen requiring re-authentication.
+ * Enforces strict security constraints:
+ * 1. 10 minutes of idle inactivity -> triggers warning modal.
+ * 2. 5 seconds countdown while warning modal is open -> live visual timer.
+ * 3. If no confirmation response within 5 seconds -> automatically logs out,
+ *    destroys session/tokens/storage, and redirects to /login?reason=session_expired.
+ * 4. Never gets stuck on the modal: if user returns after the 5s window has elapsed,
+ *    or if the tab was backgrounded/asleep, immediately terminates session without
+ *    permitting session extension.
  */
 export function SessionTimeoutManager() {
   const { user, logout, loading: authLoading } = useAuth();
@@ -32,6 +35,7 @@ export function SessionTimeoutManager() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const lastActiveRef = useRef(0);
+  const warningStartTimeRef = useRef(0);
   const countdownIntervalRef = useRef(null);
   const isLoggingOutRef = useRef(false);
 
@@ -43,7 +47,15 @@ export function SessionTimeoutManager() {
     return INACTIVITY_TIMEOUT_MS;
   }, []);
 
-  // Safe logout handler
+  // Determine effective countdown duration (allow testing override via window.__TICKETLELO_COUNTDOWN_SECONDS__)
+  const getCountdownDuration = useCallback(() => {
+    if (typeof window !== "undefined" && window.__TICKETLELO_COUNTDOWN_SECONDS__) {
+      return Number(window.__TICKETLELO_COUNTDOWN_SECONDS__);
+    }
+    return COUNTDOWN_TOTAL_SECONDS;
+  }, []);
+
+  // Safe authoritative logout handler
   const performLogout = useCallback(
     async (reason = "timeout") => {
       if (isLoggingOutRef.current) return;
@@ -57,6 +69,7 @@ export function SessionTimeoutManager() {
       }
 
       setShowWarning(false);
+      warningStartTimeRef.current = 0;
 
       try {
         if (typeof window !== "undefined") {
@@ -90,6 +103,17 @@ export function SessionTimeoutManager() {
 
   // Extend session: user confirms they are still working
   const handleExtendSession = useCallback(() => {
+    if (isLoggingOutRef.current) return;
+
+    // Security Verification: If the warning window has already expired (e.g. user delayed clicking or tab woke up),
+    // strictly deny extension and log out immediately!
+    const countdownLimitMs = getCountdownDuration() * 1000;
+    const warningElapsed = warningStartTimeRef.current ? Date.now() - warningStartTimeRef.current : 0;
+    if (warningElapsed >= countdownLimitMs) {
+      performLogout("timeout");
+      return;
+    }
+
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
@@ -97,20 +121,21 @@ export function SessionTimeoutManager() {
 
     const now = Date.now();
     lastActiveRef.current = now;
+    warningStartTimeRef.current = 0;
     try {
       localStorage.setItem(STORAGE_KEY, String(now));
     } catch (_) {}
 
     setShowWarning(false);
-    setCountdown(COUNTDOWN_TOTAL_SECONDS);
+    setCountdown(getCountdownDuration());
     toast.success("Session extended. You remain securely logged in.", {
       duration: 3000,
     });
-  }, []);
+  }, [performLogout, getCountdownDuration]);
 
   // Update last active timestamp on user interaction (throttled to 1s)
   const recordActivity = useCallback(() => {
-    // When warning modal is currently shown, require explicit button click
+    // When warning modal is currently shown or logging out, do not reset automatically on passive mouse movements
     if (showWarning || isLoggingOutRef.current) return;
 
     const now = Date.now();
@@ -124,7 +149,6 @@ export function SessionTimeoutManager() {
 
   // Setup user interaction event listeners across the window
   useEffect(() => {
-    // Only monitor activity when user is authenticated
     if (!user || authLoading) return;
 
     const now = Date.now();
@@ -162,7 +186,8 @@ export function SessionTimeoutManager() {
               countdownIntervalRef.current = null;
             }
             setShowWarning(false);
-            setCountdown(COUNTDOWN_TOTAL_SECONDS);
+            warningStartTimeRef.current = 0;
+            setCountdown(getCountdownDuration());
           }
         }
       }
@@ -175,15 +200,60 @@ export function SessionTimeoutManager() {
       });
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [user, authLoading, recordActivity, showWarning]);
+  }, [user, authLoading, recordActivity, showWarning, getCountdownDuration]);
 
-  // Inactivity check (runs every 1 second)
+  // Active countdown timer effect when warning modal is displayed
   useEffect(() => {
-    // Only run if user is logged in
+    if (!showWarning || !user || isLoggingOutRef.current) {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const totalSeconds = getCountdownDuration();
+    const startTime = Date.now();
+    warningStartTimeRef.current = startTime;
+    setCountdown(totalSeconds);
+
+    countdownIntervalRef.current = setInterval(() => {
+      if (isLoggingOutRef.current) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        return;
+      }
+
+      const elapsedMs = Date.now() - warningStartTimeRef.current;
+      const secondsLeft = Math.max(0, Math.ceil((totalSeconds * 1000 - elapsedMs) / 1000));
+
+      setCountdown(secondsLeft);
+
+      // Auto-logout triggered: 5 seconds of inactivity on warning modal elapsed with no response!
+      if (secondsLeft <= 0 || elapsedMs >= totalSeconds * 1000) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        performLogout("timeout");
+      }
+    }, 250);
+
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+    };
+  }, [showWarning, user, performLogout, getCountdownDuration]);
+
+  // Primary Inactivity check (runs every 500ms)
+  useEffect(() => {
     if (!user || authLoading) {
       if (showWarning) {
-        const timer = setTimeout(() => setShowWarning(false), 0);
-        return () => clearTimeout(timer);
+        setShowWarning(false);
       }
       return;
     }
@@ -192,16 +262,25 @@ export function SessionTimeoutManager() {
       if (isLoggingOutRef.current) return;
 
       const timeout = getTimeoutDuration();
-      const elapsed = Date.now() - lastActiveRef.current;
+      const countdownMs = getCountdownDuration() * 1000;
+      const now = Date.now();
+      const elapsed = now - lastActiveRef.current;
 
-      // If elapsed time has exceeded 10 minutes and modal is not yet shown
+      // If user was away/asleep for longer than 10 mins + 5 seconds, do NOT leave modal open;
+      // immediately execute auto-logout so nobody can bypass by later clicking continue!
+      if (elapsed >= timeout + countdownMs) {
+        performLogout("timeout");
+        return;
+      }
+
+      // If elapsed has reached 10 minutes and warning modal is not yet active
       if (elapsed >= timeout && !showWarning) {
         setShowWarning(true);
       }
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(intervalId);
-  }, [user, authLoading, showWarning, getTimeoutDuration]);
+  }, [user, authLoading, showWarning, getTimeoutDuration, getCountdownDuration, performLogout]);
 
   // If user is not logged in or in login process, do not render modal
   if (!user || !showWarning) {
@@ -214,21 +293,21 @@ export function SessionTimeoutManager() {
       aria-modal="true"
       aria-labelledby="session-warning-title"
       aria-describedby="session-warning-description"
-      className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 select-none touch-none animate-fade-in"
+      className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none touch-none animate-fade-in"
     >
       <div className="w-full max-w-sm sm:max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-5 text-center relative overflow-hidden animate-scale-in">
         {/* Subtle Ambient Glow */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 bg-[#FE760B]/20 blur-2xl pointer-events-none rounded-full" />
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-48 h-24 bg-red-500/20 blur-2xl pointer-events-none rounded-full" />
 
         {/* Timer Icon Badge */}
-        <div className="mx-auto w-16 h-16 rounded-2xl bg-[#FE760B]/10 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] relative shadow-inner">
-          <Clock className="w-8 h-8 text-[#FE760B] relative z-10" />
+        <div className="mx-auto w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 relative shadow-inner">
+          <Clock className="w-8 h-8 text-red-400 relative z-10 animate-pulse" />
         </div>
 
         {/* Inactivity Pill */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FE760B]/10 border border-[#FE760B]/25 text-[#FE760B] text-xs font-bold tracking-wide">
-          <span className="w-2 h-2 rounded-full bg-[#FE760B] animate-pulse" />
-          <span>Inactive for 10+ minutes</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold tracking-wide">
+          <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+          <span>Session Inactivity Timeout</span>
         </div>
 
         {/* Modal Header & Message */}
@@ -237,14 +316,27 @@ export function SessionTimeoutManager() {
             id="session-warning-title"
             className="text-xl font-extrabold text-white tracking-tight"
           >
-            Are you still here?
+            Are you still working?
           </h3>
           <p
             id="session-warning-description"
             className="text-xs text-[#9B9EA4] leading-relaxed max-w-xs mx-auto"
           >
-            You have been inactive for <span className="text-white font-semibold">10 minutes or more</span>. Click below to continue your session, or log out.
+            You have been inactive for <span className="text-white font-semibold">10 minutes</span>. To protect your data, your session will automatically log out:
           </p>
+
+          {/* ── 5-Second Live Countdown Display ── */}
+          <div className="pt-2 pb-1">
+            <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-500/15 border border-red-500/40 text-red-400 shadow-md shadow-red-950/40">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+              </span>
+              <span className="text-sm font-black tracking-wider uppercase font-mono">
+                Auto-logging out in {countdown}s
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Actions */}
@@ -257,7 +349,7 @@ export function SessionTimeoutManager() {
             autoFocus
           >
             <Check size={16} className="shrink-0" />
-            <span>Continue Session</span>
+            <span>Continue Session ({countdown}s)</span>
           </button>
 
           <button
@@ -271,7 +363,7 @@ export function SessionTimeoutManager() {
             ) : (
               <LogOut size={14} />
             )}
-            <span>Log out</span>
+            <span>Log out now</span>
           </button>
         </div>
       </div>
