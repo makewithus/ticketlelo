@@ -21,6 +21,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Upload,
+  Eye,
+  Smartphone,
+  Monitor,
+  Calendar,
 } from "lucide-react";
 import {
   getEventsByOrganiser,
@@ -36,14 +40,14 @@ import {
 import { useAuth } from "@/context/auth-context";
 import { BrandLoader } from "@/components/ui/brand-loader";
 
-// Default registration questions for college/tech fest events
+// Default registration questions for college/tech fest events with privacy-safe genuine placeholders
 const DEFAULT_CUSTOM_QUESTIONS = [
   {
     id: "q_college_name",
     label: "College / University Name",
     type: "text",
     required: true,
-    placeholder: "e.g. CUSAT, Kochi",
+    placeholder: "Enter college or university name",
     options: [],
   },
   {
@@ -51,7 +55,7 @@ const DEFAULT_CUSTOM_QUESTIONS = [
     label: "Department / Branch",
     type: "select",
     required: false,
-    placeholder: "Select your department",
+    placeholder: "Select department",
     options: [
       "Computer Science & Engineering",
       "Information Technology",
@@ -67,7 +71,7 @@ const DEFAULT_CUSTOM_QUESTIONS = [
     label: "Year of Study",
     type: "select",
     required: true,
-    placeholder: "Select year",
+    placeholder: "Select year of study",
     options: ["1st Year", "2nd Year", "3rd Year", "4th Year", "Postgraduate"],
   },
   {
@@ -75,7 +79,7 @@ const DEFAULT_CUSTOM_QUESTIONS = [
     label: "Team Name (if participating in team event)",
     type: "text",
     required: false,
-    placeholder: "e.g. CodeNinjas",
+    placeholder: "Enter team name (if applicable)",
     options: [],
   },
 ];
@@ -101,6 +105,11 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
     phoneMode: "Required", // "Off" | "Optional" | "Required"
   });
 
+  // Modals for Personal Info Fields Configuration (clean & crisp matching Image 4)
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
   // Custom Questions List
   const [customQuestions, setCustomQuestions] = useState(DEFAULT_CUSTOM_QUESTIONS);
 
@@ -113,7 +122,12 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
     required: true,
     placeholder: "",
     optionsStr: "",
+    allowMultiple: false,
   });
+
+  // Modal: Form Preview as seen by Attendees
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState("mobile"); // "mobile" | "desktop"
 
   // 1. Load Organiser Events
   useEffect(() => {
@@ -122,11 +136,17 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
       if (!user) return;
       try {
         setLoading(true);
-        let list = [];
-        if (user.role === "superAdmin") {
-          list = await getAllEvents();
-        } else {
-          list = await getEventsByOrganiser(user.id);
+        const userId = user.uid || user.id;
+        let list = await getEventsByOrganiser(userId);
+        if (!list || list.length === 0) {
+          const all = await getAllEvents();
+          list = (all || []).filter(
+            (e) =>
+              e.createdBy === userId ||
+              e.userId === userId ||
+              e.organiserId === userId ||
+              e.organizerId === userId
+          );
         }
 
         if (!isMounted) return;
@@ -201,6 +221,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                 required: Boolean(f.required),
                 placeholder: f.placeholder || "",
                 options: Array.isArray(f.options) ? f.options : [],
+                allowMultiple: Boolean(f.allowMultiple || f.multiple),
               }));
             if (converted.length > 0) {
               setCustomQuestions(converted);
@@ -234,14 +255,14 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
           label: personalInfo.nameMode === "First and Last Name" ? "First & Last Name" : "Full Name",
           type: "text",
           required: true,
-          placeholder: "Your full name",
+          placeholder: "Enter full name",
         },
         {
           id: "email",
           label: "Email Address",
           type: "email",
           required: true,
-          placeholder: "you@example.com",
+          placeholder: "Enter email address",
         },
       ];
 
@@ -251,7 +272,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
           label: "Phone / WhatsApp",
           type: "tel",
           required: personalInfo.phoneMode === "Required",
-          placeholder: "+91 98765 43210",
+          placeholder: "Enter phone number",
         });
       }
 
@@ -264,8 +285,17 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
           required: Boolean(q.required),
           placeholder: q.placeholder || "",
           options: Array.isArray(q.options) ? q.options : [],
+          allowMultiple: Boolean(q.allowMultiple),
+          multiple: Boolean(q.allowMultiple),
         });
       });
+
+      // Check if event is paid
+      const isPaidEvent = Boolean(
+        event?.isPaid ||
+        (event?.price && event.price !== "Free" && Number(String(event.price).replace(/[^0-9]/g, "")) > 0)
+      );
+      const eventPrice = isPaidEvent ? Number(String(event?.price).replace(/[^0-9]/g, "")) || 0 : 0;
 
       // Update customForms collection
       const existing = await getCustomFormByEvent(selectedEventId);
@@ -273,8 +303,8 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
         title: `${event?.name || "Event"} Registration`,
         fields: compiledFields,
         status: "published",
-        isPaid: false,
-        amount: 0,
+        isPaid: isPaidEvent,
+        amount: eventPrice,
       };
 
       if (existing?.id) {
@@ -283,16 +313,22 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
         await createCustomForm(selectedEventId, formPayload, "event");
       }
 
-      // Update Event Document
+      // Update Event Document (paid events automatically disable requireApproval)
       await updateEvent(selectedEventId, {
         registrationStatus,
         isActive: registrationStatus === "Open",
         groupRegistration,
         personalInfoConfig: personalInfo,
         customQuestions,
+        ...(isPaidEvent ? { requireApproval: false } : {}),
       });
 
-      toast.success("Registration form questions updated successfully!");
+      toast.success("Registration form questions saved successfully!", {
+        action: {
+          label: "Preview Form",
+          onClick: () => setShowPreviewModal(true),
+        },
+      });
     } catch (err) {
       console.error("Failed to save registration form:", err);
       toast.error("Failed to save registration settings");
@@ -310,6 +346,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
       required: true,
       placeholder: "",
       optionsStr: "",
+      allowMultiple: false,
     });
     setShowQuestionModal(true);
   };
@@ -324,6 +361,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
       required: q.required,
       placeholder: q.placeholder || "",
       optionsStr: Array.isArray(q.options) ? q.options.join("\n") : "",
+      allowMultiple: Boolean(q.allowMultiple),
     });
     setShowQuestionModal(true);
   };
@@ -354,6 +392,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
       required: questionForm.required,
       placeholder: questionForm.placeholder.trim(),
       options,
+      allowMultiple: questionForm.type === "file" ? Boolean(questionForm.allowMultiple) : false,
     };
 
     if (editingQuestionIndex !== null) {
@@ -442,8 +481,18 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
           </button>
         </div>
 
-        {/* Save Button */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        {/* Action Buttons: Preview Form & Save */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowPreviewModal(true)}
+            className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] hover:border-[#3A3D42] font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
+            title="Preview how attendees experience this registration form"
+          >
+            <Eye className="w-4 h-4 text-[#FE760B]" />
+            <span>Preview Form</span>
+          </button>
+
           <button
             type="button"
             onClick={handleSaveAll}
@@ -481,51 +530,72 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* Field: Name */}
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm">
-                <div className="flex items-center gap-2 min-w-0">
-                  <User size={14} className="text-[#9B9EA4] shrink-0" />
-                  <span className="text-xs font-bold text-white truncate">Name</span>
+              <div
+                onClick={() => setShowNameModal(true)}
+                className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#383C42] rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-sm transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[#9B9EA4] group-hover:text-white group-hover:bg-[#FE760B]/10 group-hover:border-[#FE760B]/30 transition-colors shrink-0">
+                    <User size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">Name</span>
+                    <span className="text-[11px] text-[#9B9EA4] block truncate">
+                      {personalInfo.nameMode === "First and Last Name" ? "First & Last Name" : "Full Name"}
+                    </span>
+                  </div>
                 </div>
-                <select
-                  value={personalInfo.nameMode}
-                  onChange={(e) =>
-                    setPersonalInfo((prev) => ({ ...prev, nameMode: e.target.value }))
-                  }
-                  className="bg-[#212327] border border-[#2A2D31] rounded-lg px-2.5 py-1 text-xs text-white font-medium outline-none cursor-pointer"
-                >
-                  <option value="Full Name">Full Name</option>
-                  <option value="First and Last Name">First and Last Name</option>
-                </select>
+                <span className="px-2.5 py-1 rounded-lg bg-[#212327] group-hover:bg-[#2A2D31] border border-[#2A2D31] text-[11px] font-semibold text-[#FE760B] flex items-center gap-1 shrink-0 transition-colors">
+                  <span>Edit</span>
+                  <ChevronDown size={12} className="text-[#9B9EA4]" />
+                </span>
               </div>
 
               {/* Field: Email */}
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Mail size={14} className="text-[#9B9EA4] shrink-0" />
-                  <span className="text-xs font-bold text-white truncate">Email</span>
+              <div
+                onClick={() => setShowEmailModal(true)}
+                className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#383C42] rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-sm transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[#9B9EA4] group-hover:text-white group-hover:bg-[#FE760B]/10 group-hover:border-[#FE760B]/30 transition-colors shrink-0">
+                    <Mail size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">Email</span>
+                    <span className="text-[11px] text-[#9B9EA4] block truncate">Required for passes</span>
+                  </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-lg bg-[#212327] border border-[#2A2D31] text-[11px] font-semibold text-[#9B9EA4]">
-                  Required
+                <span className="px-2.5 py-1 rounded-lg bg-[#212327] border border-[#2A2D31] text-[11px] font-semibold text-[#3DD68C] shrink-0">
+                  Mandatory
                 </span>
               </div>
 
               {/* Field: Phone */}
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-3 flex items-center justify-between gap-2 shadow-sm">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Phone size={14} className="text-[#9B9EA4] shrink-0" />
-                  <span className="text-xs font-bold text-white truncate">Phone</span>
+              <div
+                onClick={() => setShowPhoneModal(true)}
+                className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#383C42] rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-sm transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[#9B9EA4] group-hover:text-white group-hover:bg-[#FE760B]/10 group-hover:border-[#FE760B]/30 transition-colors shrink-0">
+                    <Phone size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">Phone</span>
+                    <span className="text-[11px] text-[#9B9EA4] block truncate">
+                      {personalInfo.phoneMode === "Off" ? "Hidden / Off" : personalInfo.phoneMode}
+                    </span>
+                  </div>
                 </div>
-                <select
-                  value={personalInfo.phoneMode}
-                  onChange={(e) =>
-                    setPersonalInfo((prev) => ({ ...prev, phoneMode: e.target.value }))
-                  }
-                  className="bg-[#212327] border border-[#2A2D31] rounded-lg px-2.5 py-1 text-xs text-white font-medium outline-none cursor-pointer"
-                >
-                  <option value="Off">Off</option>
-                  <option value="Optional">Optional</option>
-                  <option value="Required">Required</option>
-                </select>
+                <span className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 shrink-0 transition-colors ${
+                  personalInfo.phoneMode === "Required"
+                    ? "bg-[#FE760B]/10 border-[#FE760B]/30 text-[#FE760B]"
+                    : personalInfo.phoneMode === "Optional"
+                    ? "bg-[#212327] group-hover:bg-[#2A2D31] border-[#2A2D31] text-gray-300"
+                    : "bg-[#212327] border-[#2A2D31] text-[#9B9EA4]"
+                }`}>
+                  <span>{personalInfo.phoneMode}</span>
+                  <ChevronDown size={12} className="text-[#9B9EA4]" />
+                </span>
               </div>
             </div>
           </div>
@@ -566,8 +636,12 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                     ? "Radio Buttons"
                     : q.type === "textarea"
                     ? "Long Paragraph"
+                    : q.type === "date"
+                    ? "Date / DOB (Calendar)"
                     : q.type === "file"
-                    ? "File Upload / ID"
+                    ? q.allowMultiple
+                      ? "File Upload (Multiple)"
+                      : "File Upload (Single)"
                     : "Short Text";
 
                 return (
@@ -669,7 +743,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                 Attendee Registration
               </span>
               <h4 className="text-lg font-bold text-white tracking-tight">
-                {event?.name || event?.title || "Tech Fest 2026"}
+                {event?.name || event?.title || "Event Registration"}
               </h4>
               <p className="text-xs text-[#9B9EA4] mt-0.5">
                 Fill out the details below to RSVP and receive your pass
@@ -685,7 +759,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                 <input
                   type="text"
                   disabled
-                  placeholder="Rahul Sharma"
+                  placeholder="Enter full name"
                   className="w-full bg-[#131517] border border-[#2A2D31] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none cursor-not-allowed"
                 />
               </div>
@@ -698,7 +772,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                 <input
                   type="email"
                   disabled
-                  placeholder="rahul@example.com"
+                  placeholder="Enter email address"
                   className="w-full bg-[#131517] border border-[#2A2D31] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none cursor-not-allowed"
                 />
               </div>
@@ -712,7 +786,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                   <input
                     type="tel"
                     disabled
-                    placeholder="+91 98765 43210"
+                    placeholder="Enter phone number"
                     className="w-full bg-[#131517] border border-[#2A2D31] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none cursor-not-allowed"
                   />
                 </div>
@@ -767,10 +841,24 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                         <p className="text-[11px] text-[#9B9EA4] italic">No options added yet</p>
                       )}
                     </div>
+                  ) : q.type === "date" ? (
+                    <div className="relative">
+                      <input
+                        type="date"
+                        disabled
+                        className="w-full bg-[#131517] border border-[#2A2D31] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none cursor-not-allowed"
+                      />
+                      <Calendar size={13} className="text-[#FE760B] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   ) : q.type === "file" ? (
                     <div className="p-3 border border-dashed border-[#2A2D31] rounded-xl text-center text-xs text-[#9B9EA4] flex items-center justify-center gap-2 bg-[#131517]">
                       <Upload size={13} className="text-[#FE760B]" />
-                      <span>{q.placeholder || "Upload file / ID verification"}</span>
+                      <span>
+                        {q.placeholder ||
+                          (q.allowMultiple
+                            ? "Upload multiple documents (Single or Multiple)"
+                            : "Upload single document / ID proof")}
+                      </span>
                     </div>
                   ) : (
                     <input
@@ -848,12 +936,42 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                 >
                   <option value="text">Short Text</option>
                   <option value="select">Dropdown / Single Select</option>
+                  <option value="date">Date / DOB (Calendar)</option>
+                  <option value="file">File Upload / Document Proof</option>
                   <option value="checkbox">Multi-Select Checkboxes</option>
                   <option value="radio">Radio Buttons</option>
                   <option value="textarea">Long Paragraph Text</option>
-                  <option value="file">File Upload / ID Proof</option>
                 </select>
               </div>
+
+              {questionForm.type === "file" && (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[#131517] border border-[#2A2D31]">
+                  <div>
+                    <p className="text-xs font-bold text-white">Upload Mode</p>
+                    <p className="text-[11px] text-[#9B9EA4]">
+                      {questionForm.allowMultiple
+                        ? "Multiple files allowed per attendee"
+                        : "Single file only"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuestionForm((prev) => ({
+                        ...prev,
+                        allowMultiple: !prev.allowMultiple,
+                      }))
+                    }
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      questionForm.allowMultiple
+                        ? "bg-[#FE760B] text-black"
+                        : "bg-[#212327] text-white hover:bg-[#2A2D31]"
+                    }`}
+                  >
+                    {questionForm.allowMultiple ? "Multiple Files" : "Single File"}
+                  </button>
+                </div>
+              )}
 
               {(questionForm.type === "select" ||
                 questionForm.type === "radio" ||
@@ -918,6 +1036,459 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
               className="w-full py-3 rounded-2xl bg-white hover:bg-slate-200 text-black font-bold text-sm transition-all shadow-xl cursor-pointer"
             >
               Save Question
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── INTERACTIVE ATTENDEE FORM PREVIEW MODAL ── */}
+      {showPreviewModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
+          onClick={() => setShowPreviewModal(false)}
+        >
+          <div
+            className={`w-full transition-all duration-300 ${
+              previewDevice === "mobile"
+                ? "max-w-[420px] rounded-[36px] border-[6px] border-[#2A2D31] bg-[#141619] shadow-2xl p-4 sm:p-5"
+                : "max-w-2xl rounded-3xl border border-[#2A2D31] bg-[#181A1D] shadow-2xl p-6"
+            } relative my-auto text-white`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Device Switcher & Close Bar */}
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#2A2D31]/80">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#3DD68C] animate-pulse" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Attendee Form Preview
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Device Switcher */}
+                <div className="flex items-center rounded-xl bg-[#131517] p-1 border border-[#2A2D31]">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                      previewDevice === "mobile"
+                        ? "bg-[#FE760B] text-[#131517] font-bold"
+                        : "text-[#9B9EA4] hover:text-white"
+                    }`}
+                    title="Mobile phone view"
+                  >
+                    <Smartphone size={13} />
+                    <span className="hidden sm:inline text-[11px]">Mobile</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
+                      previewDevice === "desktop"
+                        ? "bg-[#FE760B] text-[#131517] font-bold"
+                        : "text-[#9B9EA4] hover:text-white"
+                    }`}
+                    title="Desktop view"
+                  >
+                    <Monitor size={13} />
+                    <span className="hidden sm:inline text-[11px]">Desktop</span>
+                  </button>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPreviewModal(false)}
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-[#9B9EA4] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Close preview"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Content as rendered to attendees */}
+            <div className="space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar pr-1">
+              {/* Event Header Banner */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#212327] to-[#1A1C1F] border border-[#2A2D31] space-y-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30 text-[10px] font-bold uppercase tracking-wider">
+                    Registration Form
+                  </span>
+                  {Boolean(event?.isPaid || (event?.price && event.price !== "Free")) ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30 text-[10px] font-bold uppercase tracking-wider">
+                      Paid Pass (₹{event?.price || "199"}) • Auto-Confirmed
+                    </span>
+                  ) : event?.requireApproval ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider">
+                      Approval Required
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30 text-[10px] font-bold uppercase tracking-wider">
+                      Free Entry • Instant Pass
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                  {event?.name || event?.title || "Event Registration"}
+                </h3>
+                <p className="text-xs text-[#9B9EA4]">
+                  Fill out the details below to complete your registration and receive your entry ticket.
+                </p>
+              </div>
+
+              {/* Attendee Info Inputs */}
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-[#D0D0D1] mb-1.5">
+                    {personalInfo.nameMode === "First and Last Name" ? "First & Last Name" : "Full Name"} <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748B] outline-none"
+                    placeholder="Enter full name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#D0D0D1] mb-1.5">
+                    Email Address <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748B] outline-none"
+                    placeholder="Enter email address"
+                  />
+                </div>
+
+                {personalInfo.phoneMode !== "Off" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#D0D0D1] mb-1.5">
+                      Phone / WhatsApp {personalInfo.phoneMode === "Required" ? <span className="text-[#FE760B]">*</span> : <span className="text-[#9B9EA4] font-normal">(Optional)</span>}
+                    </label>
+                    <input
+                      type="tel"
+                      className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748B] outline-none"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                )}
+
+                {/* Custom Questions */}
+                {customQuestions.map((q) => (
+                  <div key={q.id}>
+                    <label className="block text-xs font-semibold text-[#D0D0D1] mb-1.5">
+                      {q.label} {q.required && <span className="text-[#FE760B]">*</span>}
+                    </label>
+
+                    {q.type === "select" ? (
+                      <select className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white outline-none cursor-pointer">
+                        <option value="">{q.placeholder || "Select an option"}</option>
+                        {Array.isArray(q.options) &&
+                          q.options.map((opt, i) => (
+                            <option key={i} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                      </select>
+                    ) : q.type === "textarea" ? (
+                      <textarea
+                        rows={3}
+                        placeholder={q.placeholder || "Enter details..."}
+                        className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl p-3 text-xs sm:text-sm text-white placeholder-[#64748B] outline-none resize-none"
+                      />
+                    ) : q.type === "checkbox" ? (
+                      <div className="space-y-1.5 pt-1">
+                        {Array.isArray(q.options) && q.options.length > 0 ? (
+                          q.options.map((opt, i) => (
+                            <label key={i} className="flex items-center gap-2 text-xs sm:text-sm text-[#D0D0D1] select-none cursor-pointer">
+                              <input type="checkbox" defaultChecked={i === 0} className="rounded accent-[#FE760B]" />
+                              <span>{opt}</span>
+                            </label>
+                          ))
+                        ) : (
+                          <label className="flex items-center gap-2 text-xs text-[#D0D0D1] select-none cursor-pointer">
+                            <input type="checkbox" defaultChecked className="rounded accent-[#FE760B]" />
+                            <span>I agree to event terms &amp; guidelines</span>
+                          </label>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder={q.placeholder || "Your answer"}
+                        className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748B] outline-none"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Submit Button in Preview */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.success("Test submission successful! This is how your attendees will experience it.");
+                    setShowPreviewModal(false);
+                  }}
+                  className="w-full py-3 rounded-2xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-black text-xs sm:text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>
+                    {Boolean(event?.isPaid || (event?.price && event.price !== "Free"))
+                      ? `Pay ₹${event?.price || "199"} & Confirm Registration`
+                      : event?.requireApproval
+                      ? "Submit Registration for Review"
+                      : "Complete RSVP & Get Pass"}
+                  </span>
+                </button>
+                <p className="text-center text-[10px] text-[#9B9EA4] mt-2">
+                  🔒 Preview Mode • Submissions here will not create permanent attendee records
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════
+          MODAL: ATTENDEE NAME FORMAT (Matching Image 4)
+          ══════════════════════════════════════════════════ */}
+      {showNameModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setShowNameModal(false)}
+        >
+          <div
+            className="w-full max-w-[420px] bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-5 animate-in zoom-in-95 duration-150 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowNameModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-[#FE760B]">
+              <User size={20} />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-white">Attendee Name Format</h3>
+              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
+                Choose how attendee names are entered during registration.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              {[
+                {
+                  id: "Full Name",
+                  title: "Full Name (Single Field)",
+                  desc: "A single input for the attendee's full name. Recommended for fast registrations.",
+                },
+                {
+                  id: "First and Last Name",
+                  title: "First & Last Name (Two Fields)",
+                  desc: "Separate input boxes for first name and last name. Best for formal badges.",
+                },
+              ].map((opt) => {
+                const isSelected = personalInfo.nameMode === opt.id;
+                return (
+                  <div
+                    key={opt.id}
+                    onClick={() =>
+                      setPersonalInfo((prev) => ({ ...prev, nameMode: opt.id }))
+                    }
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#FE760B]/10 border-[#FE760B] text-white"
+                        : "bg-[#141619] border-[#2A2D31] hover:border-[#383C42] text-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">{opt.title}</span>
+                      <div
+                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                          isSelected
+                            ? "border-[#FE760B] bg-[#FE760B]"
+                            : "border-[#4A4D53]"
+                        }`}
+                      >
+                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-[#131517]" />}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-[#9B9EA4] mt-1 leading-relaxed">
+                      {opt.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowNameModal(false)}
+                className="w-full py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Apply Setting
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════
+          MODAL: PHONE REQUIREMENT (Matching Image 4)
+          ══════════════════════════════════════════════════ */}
+      {showPhoneModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setShowPhoneModal(false)}
+        >
+          <div
+            className="w-full max-w-[420px] bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-5 animate-in zoom-in-95 duration-150 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowPhoneModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-[#FE760B]">
+              <Phone size={20} />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-white">Phone / WhatsApp Requirement</h3>
+              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
+                Configure attendee phone collection for ticket delivery and event updates.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              {[
+                {
+                  id: "Required",
+                  title: "Required (Mandatory)",
+                  desc: "Attendees must enter their phone number to register. Recommended for WhatsApp tickets.",
+                },
+                {
+                  id: "Optional",
+                  title: "Optional",
+                  desc: "Attendees can choose to share their phone number or leave it blank.",
+                },
+                {
+                  id: "Off",
+                  title: "Off / Hidden",
+                  desc: "Do not ask attendees for their phone number on the registration form.",
+                },
+              ].map((opt) => {
+                const isSelected = personalInfo.phoneMode === opt.id;
+                return (
+                  <div
+                    key={opt.id}
+                    onClick={() =>
+                      setPersonalInfo((prev) => ({ ...prev, phoneMode: opt.id }))
+                    }
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-[#FE760B]/10 border-[#FE760B] text-white"
+                        : "bg-[#141619] border-[#2A2D31] hover:border-[#383C42] text-gray-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white">{opt.title}</span>
+                      <div
+                        className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                          isSelected
+                            ? "border-[#FE760B] bg-[#FE760B]"
+                            : "border-[#4A4D53]"
+                        }`}
+                      >
+                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-[#131517]" />}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-[#9B9EA4] mt-1 leading-relaxed">
+                      {opt.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowPhoneModal(false)}
+                className="w-full py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Apply Setting
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════
+          MODAL: EMAIL REQUIREMENT INFO (Matching Image 4)
+          ══════════════════════════════════════════════════ */}
+      {showEmailModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setShowEmailModal(false)}
+        >
+          <div
+            className="w-full max-w-[400px] bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-5 animate-in zoom-in-95 duration-150 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-[#3DD68C]">
+              <Mail size={20} />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-white">Email Address is Mandatory</h3>
+              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
+                Every ticket and check-in pass issued by TicketLelo requires an attendee email to deliver cryptographic QR entry passes, calendar invites, and live venue notices.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#141619] border border-[#2A2D31] text-xs text-gray-300 space-y-1.5">
+              <div className="flex items-center gap-2 text-[#3DD68C] font-semibold text-[11px]">
+                <CheckCircle2 size={13} />
+                <span>Instant Ticket PDF &amp; QR Delivery</span>
+              </div>
+              <div className="flex items-center gap-2 text-[#3DD68C] font-semibold text-[11px]">
+                <CheckCircle2 size={13} />
+                <span>Apple / Google Wallet Compatible</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(false)}
+              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition-colors cursor-pointer"
+            >
+              Got It
             </button>
           </div>
         </div>

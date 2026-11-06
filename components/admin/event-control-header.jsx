@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Ticket, ArrowUpRight } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getEvent } from "@/lib/firestore";
 
 export function EventControlHeader({
@@ -106,8 +105,6 @@ export function EventControlHeader({
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {extraActions}
-
-            <ThemeToggle inline />
 
             {/* Event Page Link button */}
             <Link

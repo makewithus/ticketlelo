@@ -1,5 +1,6 @@
 import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { NextResponse } from "next/server";
+import { sanitizeAndOffloadImages } from "@/lib/server-image-storage";
 
 export const dynamic = "force-dynamic";
 
@@ -57,12 +58,14 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    // Clean payload
-    const safeUpdates = {
+    // Clean payload and offload base64 images to prevent Firestore 1MB document limit errors
+    const cleaned = {
       ...updates,
       updatedAt: new Date(),
     };
-    delete safeUpdates.id;
+    delete cleaned.id;
+
+    const safeUpdates = await sanitizeAndOffloadImages(cleaned, eventId);
 
     await eventRef.update(safeUpdates);
 

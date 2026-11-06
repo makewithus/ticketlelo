@@ -105,7 +105,10 @@ export function SquarePhotoUploadModal({
       ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
-      const squareDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      let squareDataUrl = canvas.toDataURL("image/webp", 0.72);
+      if (!squareDataUrl || squareDataUrl.length > 150000) {
+        squareDataUrl = canvas.toDataURL("image/jpeg", 0.70);
+      }
       setPreviewSquareUrl(squareDataUrl);
     };
     img.src = sourceUrl;
@@ -131,9 +134,10 @@ export function SquarePhotoUploadModal({
 
     setIsProcessing(true);
     try {
+      const isBase64 = typeof previewSquareUrl === "string" && previewSquareUrl.startsWith("data:");
       await updateEvent(event.id, {
         coverImage: previewSquareUrl,
-        bannerUrl: previewSquareUrl,
+        bannerUrl: isBase64 ? "" : previewSquareUrl,
         aspectRatio: "1:1",
       });
 

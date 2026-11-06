@@ -42,10 +42,18 @@ export default function PricingPage() {
 
     setUpgrading(planId);
     try {
+      const authHeaders = { "Content-Type": "application/json" };
+      if (typeof user?.getIdToken === "function") {
+        try {
+          const token = await user.getIdToken();
+          if (token) authHeaders["Authorization"] = `Bearer ${token}`;
+        } catch {}
+      }
+
       // Step 1: Create Razorpay order
       const orderRes = await fetch("/api/plans/create-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({ planId, userId: user.id }),
       });
       const orderData = await orderRes.json();
@@ -56,6 +64,9 @@ export default function PricingPage() {
         return;
       }
 
+      const userName = user.fullName || user.name || (user.email ? user.email.split("@")[0] : "Organizer");
+      const userPhone = user.phone || user.phoneNumber || user.whatsappPhone || "9876543210";
+
       // Step 2: Open Razorpay checkout
       const options = {
         key: orderData.keyId,
@@ -65,16 +76,25 @@ export default function PricingPage() {
         description: `${orderData.planName} Plan`,
         order_id: orderData.orderId,
         prefill: {
-          name: user.fullName || user.email,
+          name: userName,
           email: user.email,
+          contact: userPhone,
         },
         theme: { color: "#FF6A00" },
         handler: async (response) => {
           try {
+            const verifyHeaders = { "Content-Type": "application/json" };
+            if (typeof user?.getIdToken === "function") {
+              try {
+                const token = await user.getIdToken();
+                if (token) verifyHeaders["Authorization"] = `Bearer ${token}`;
+              } catch {}
+            }
+
             // Step 3: Verify payment and upgrade plan
             const verifyRes = await fetch("/api/plans/verify-payment", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: verifyHeaders,
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -168,7 +188,7 @@ export default function PricingPage() {
             title="Profile"
             className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs hover:opacity-90 transition-opacity overflow-hidden"
           >
-            {photoURL && !photoURL.includes("googleusercontent.com/a/") ? (
+            {photoURL ? (
               <img
                 src={photoURL}
                 alt="Account"

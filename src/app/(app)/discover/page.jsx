@@ -99,7 +99,7 @@ const PROCEDURAL_PALETTES = [
 ];
 
 export default function DiscoverEventsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // State
   const [events, setEvents] = useState([]);
@@ -192,16 +192,37 @@ export default function DiscoverEventsPage() {
                 );
               })
               .map((ev) => {
+                function safeToISO(inputVal) {
+                  if (!inputVal) return new Date().toISOString();
+                  try {
+                    if (typeof inputVal?.toDate === "function") {
+                      const d = inputVal.toDate();
+                      if (!isNaN(d.getTime())) return d.toISOString();
+                    }
+                    if (typeof inputVal?.seconds === "number") {
+                      const d = new Date(inputVal.seconds * 1000);
+                      if (!isNaN(d.getTime())) return d.toISOString();
+                    }
+                    if (inputVal instanceof Date) {
+                      if (!isNaN(inputVal.getTime())) return inputVal.toISOString();
+                    }
+                    if (typeof inputVal === "string") {
+                      const d = new Date(inputVal);
+                      if (!isNaN(d.getTime())) return d.toISOString();
+                    }
+                  } catch (e) {
+                    console.warn("Invalid date value, falling back:", inputVal);
+                  }
+                  return new Date().toISOString();
+                }
+
                 let dateStr = new Date().toISOString();
                 if (ev.date) {
-                  dateStr =
-                    typeof ev.date?.toDate === "function"
-                      ? ev.date.toDate().toISOString()
-                      : new Date(ev.date).toISOString();
+                  dateStr = safeToISO(ev.date);
                 } else if (ev.startDate) {
                   const timeStr = ev.startTime ? ` ${ev.startTime}` : "";
-                  const d = new Date(`${ev.startDate}${timeStr}`);
-                  dateStr = !isNaN(d.getTime()) ? d.toISOString() : String(ev.startDate);
+                  const combined = `${ev.startDate}${timeStr}`;
+                  dateStr = safeToISO(combined);
                 }
 
                 return {
@@ -481,7 +502,9 @@ export default function DiscoverEventsPage() {
 
             <ThemeToggle inline />
 
-            {user ? (
+            {authLoading ? (
+              <div className="w-24 h-8 rounded-xl bg-slate-200 dark:bg-[#1A1C1F] animate-pulse" />
+            ) : user ? (
               <div className="flex items-center gap-2">
                 {(user.role === "superAdmin" || user.email === "adil4ticketlelo@gmail.com") && (
                   <Link
@@ -506,6 +529,7 @@ export default function DiscoverEventsPage() {
                     <img
                       src={user.photoURL}
                       alt={user.displayName || "User"}
+                      referrerPolicy="no-referrer"
                       className="w-6 h-6 rounded-full object-cover border border-[#FE760B]/40"
                       onError={() => setAvatarError(true)}
                     />
@@ -684,12 +708,12 @@ export default function DiscoverEventsPage() {
             </div>
 
             {/* Sort Dropdown */}
-            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-              <div className="relative">
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+              <div className="relative w-full sm:w-auto">
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none pl-3.5 pr-8 py-2.5 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/40 cursor-pointer"
+                  className="w-full sm:w-auto appearance-none pl-3.5 pr-8 py-2.5 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/40 cursor-pointer"
                 >
                   <option value="date-asc">Date: Upcoming First</option>
                   <option value="name-asc">Title: A to Z</option>
@@ -809,12 +833,13 @@ export default function DiscoverEventsPage() {
                   rawCapStr === "open access" ||
                   ev.isUnlimitedCapacity === true;
 
-                let capacityLabel = "150 Total Capacity";
-                let progressPercent = 65;
+                let capacityLabel = "Open Access";
+                let progressPercent = 0;
+                let spotsLeft = null;
 
                 if (isExplicitUnlimited) {
-                  capacityLabel = "Unlimited Capacity";
-                  progressPercent = 100;
+                  capacityLabel = "Open Access";
+                  progressPercent = 0;
                 } else {
                   const digits = String(rawCap ?? "").replace(/[^\d]/g, "");
                   let num = digits ? parseInt(digits, 10) : NaN;
@@ -833,8 +858,16 @@ export default function DiscoverEventsPage() {
                       }
                     }
                   }
-                  capacityLabel = `${num} Total Capacity`;
-                  progressPercent = Math.min(100, Math.max(35, (num % 65) + 35));
+                  const takenSeats = Number(
+                    ev.ticketsSold ||
+                    ev.registrationsCount ||
+                    ev.attendeesCount ||
+                    ev.totalRegistrations ||
+                    0
+                  );
+                  spotsLeft = Math.max(0, num - takenSeats);
+                  capacityLabel = `${spotsLeft} spots left`;
+                  progressPercent = num > 0 ? Math.min(100, Math.round((takenSeats / num) * 100)) : 0;
                 }
 
                 return (
@@ -944,7 +977,7 @@ export default function DiscoverEventsPage() {
                           </span>
                         </div>
 
-                        {/* Capacity Progress Bar */}
+                        {/* Capacity Info & Progress Bar */}
                         <div className="pt-1">
                           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] mb-1">
                             <span className="flex items-center gap-1">
@@ -953,16 +986,20 @@ export default function DiscoverEventsPage() {
                             </span>
                             {timing.isEnded ? (
                               <span className="text-zinc-500 font-bold">Closed</span>
+                            ) : spotsLeft === 0 && !isExplicitUnlimited ? (
+                              <span className="text-rose-500 font-bold">Sold Out</span>
                             ) : (
                               <span className="text-emerald-500 font-bold">Passes Open</span>
                             )}
                           </div>
-                          <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full transition-all duration-300"
-                              style={{ width: `${progressPercent}%` }}
-                            />
-                          </div>
+                          {!isExplicitUnlimited && (
+                            <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full transition-all duration-300"
+                                style={{ width: `${progressPercent}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
 

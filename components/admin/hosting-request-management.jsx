@@ -281,8 +281,11 @@ export function HostingRequestManagement() {
   const loadRequests = () => handleManualRefresh(true);
 
   const handleResendApprovalEmail = async (req) => {
-    const reqId = req.id;
+    const reqId = req?.id;
+    if (!reqId) return;
     setProcessingId(reqId);
+    const toastId = `resend-${reqId}`;
+    toast.loading(`Resending approval email to ${req.email}...`, { id: toastId });
     try {
       const res = await fetch("/api/send-approval-email", {
         method: "POST",
@@ -295,15 +298,15 @@ export function HostingRequestManagement() {
           isExisting: Boolean(req.isExisting),
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        toast.success(`Approval email resent to ${req.email}!`);
+        toast.success(`Approval email resent to ${req.email}!`, { id: toastId });
       } else {
-        toast.error(data.error || "Failed to resend approval email");
+        toast.error(data.error || "Failed to resend approval email", { id: toastId });
       }
     } catch (err) {
       console.error("Resend approval email error:", err);
-      toast.error("Failed to resend approval email");
+      toast.error("Failed to resend approval email", { id: toastId });
     } finally {
       setProcessingId(null);
     }
@@ -399,6 +402,8 @@ export function HostingRequestManagement() {
 
   const handleApprove = async (requestId, requestData) => {
     setProcessingId(requestId);
+    const toastId = `approve-${requestId}`;
+    toast.loading("Approving organizer access...", { id: toastId });
     try {
       const organiserEmail = requestData.email;
 
@@ -415,13 +420,13 @@ export function HostingRequestManagement() {
       });
 
       if (!createResponse.ok) {
-        const errorData = await createResponse.json();
+        const errorData = await createResponse.json().catch(() => ({}));
         throw new Error(
           errorData.error || "Failed to create organiser account",
         );
       }
 
-      const createData = await createResponse.json();
+      const createData = await createResponse.json().catch(() => ({}));
       const {
         organiserId,
         isExisting,
@@ -429,11 +434,6 @@ export function HostingRequestManagement() {
       } = createData;
 
       const finalEmail = responseEmail || organiserEmail;
-      toast.info(
-        isExisting
-          ? "Organizer access approved. Their existing password was not changed."
-          : "Organizer access approved. They can set a password with Forgot password.",
-      );
 
       await updateDoc(doc(db, "hostingRequests", requestId), {
         status: "approved",
@@ -453,6 +453,7 @@ export function HostingRequestManagement() {
       setIsExistingOrganiser(isExisting);
       setApprovalModalOpen(true);
 
+      let emailSent = false;
       try {
         const emailResponse = await fetch("/api/send-approval-email", {
           method: "POST",
@@ -466,20 +467,24 @@ export function HostingRequestManagement() {
           }),
         });
 
-        const emailResult = await emailResponse.json();
-        if (emailResult.success) {
-          toast.success("Approved! Email sent to " + requestData.email);
-        } else {
-          toast.warning("Approved but email delivery had an issue");
+        const emailResult = await emailResponse.json().catch(() => ({}));
+        if (emailResponse.ok && emailResult.success) {
+          emailSent = true;
         }
       } catch (emailError) {
         console.error("Email sending error:", emailError);
       }
 
+      if (emailSent) {
+        toast.success("Approved! Email sent to " + requestData.email, { id: toastId });
+      } else {
+        toast.warning("Approved! (Account active, but email delivery had an issue)", { id: toastId });
+      }
+
       await loadRequests();
     } catch (error) {
       console.error("Approval failed:", error);
-      toast.error(error?.message || "Failed to approve request");
+      toast.error(error?.message || "Failed to approve request", { id: toastId });
     } finally {
       setProcessingId(null);
     }
@@ -491,9 +496,14 @@ export function HostingRequestManagement() {
       return;
     }
 
-    setProcessingId(requestToReject.id);
+    const reqId = requestToReject?.id;
+    if (!reqId) return;
+
+    setProcessingId(reqId);
+    const toastId = `reject-${reqId}`;
+    toast.loading("Rejecting hosting request...", { id: toastId });
     try {
-      await rejectHostingRequest(requestToReject.id, rejectionReason);
+      await rejectHostingRequest(reqId, rejectionReason);
 
       try {
         await fetch("/api/send-rejection-email", {
@@ -513,14 +523,14 @@ export function HostingRequestManagement() {
         console.error("Failed to send rejection email:", emailError);
       }
 
-      toast.success("Hosting request rejected");
+      toast.success("Hosting request rejected", { id: toastId });
       setRejectModalOpen(false);
       setRejectionReason("");
       setRequestToReject(null);
       await loadRequests();
     } catch (error) {
       console.error("Failed to reject request:", error);
-      toast.error(error?.message || "Failed to reject request");
+      toast.error(error?.message || "Failed to reject request", { id: toastId });
     } finally {
       setProcessingId(null);
     }

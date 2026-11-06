@@ -220,8 +220,11 @@ export function EventManagement() {
       <EventCreateStudio
         editingEvent={editingEvent}
         onClose={resetForm}
-        onSuccess={async () => {
+        onSuccess={async (saved) => {
           resetForm();
+          if (saved) {
+            setEvents((prev) => [saved, ...prev.filter((e) => e.id !== saved.id)]);
+          }
           await loadEvents();
           checkEventCreationEligibility();
         }}
@@ -292,32 +295,32 @@ export function EventManagement() {
         </div>
       </div>
 
-      {/* Plan limit reached — upgrade CTA */}
+      {/* Plan limit reached — upgrade CTA styled for both light and dark modes */}
       {!canCreateEvent && user?.role === "organiser" && (
-        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-6">
+        <div className="rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-[#1E1B17] dark:to-[#171412] p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Zap className="w-5 h-5 text-amber-600" />
+            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-500/15 border border-transparent dark:border-amber-500/30 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Zap className="w-5 h-5 text-amber-600 dark:text-[#FE760B]" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-amber-900">
+              <p className="font-bold text-amber-900 dark:text-amber-100 text-base">
                 You&apos;ve reached your event limit
               </p>
-              <p className="text-sm text-amber-700 mt-1">
+              <p className="text-sm text-amber-700 dark:text-amber-200/80 mt-1">
                 {planLimitInfo?.reason ||
                   `Your current plan allows ${PLANS[user?.plan || "free"].eventsAllowed} event(s). Upgrade to create more.`}
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   onClick={() => router.push("/pricing")}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#FE760B] text-[#131517] font-semibold font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold rounded-xl text-sm transition-all shadow-sm cursor-pointer"
                 >
                   <Zap className="w-4 h-4" />
                   Upgrade Plan
                 </button>
                 <button
                   onClick={() => router.push("/host-event")}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-amber-200 text-amber-700 font-medium rounded-xl text-sm hover:bg-amber-50 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#212327] border border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-200 font-semibold rounded-xl text-sm hover:bg-amber-50 dark:hover:bg-[#2A2D31] transition-colors cursor-pointer"
                 >
                   Submit Hosting Request
                 </button>
@@ -482,7 +485,11 @@ export function EventManagement() {
                           <div className="flex items-center gap-2 text-xs text-[#9B9EA4]">
                             <Users className="w-3.5 h-3.5 text-[#9B9EA4] shrink-0" />
                             <span>
-                              {event.attendeeDisplay || `${event.totalTickets || 100} guests capacity`}
+                              {event.attendeeDisplay || (
+                                event.limitCapacity === false || event.capacity === "Unlimited" || event.totalTickets === 9999
+                                  ? "Open Access (Unlimited)"
+                                  : `${event.totalTickets || event.maxCapacity || 100} guests capacity`
+                              )}
                               {event.checkedInDisplay && (
                                 <>
                                   {" · "}

@@ -92,16 +92,27 @@ export default function AnalyticsInsightsPage() {
       if (!user) return;
       try {
         setLoading(true);
-        let list = [];
-        const emailLower = (user?.email || "").toLowerCase().trim();
-        const isSuper =
-          user.role === "superAdmin" ||
-          emailLower === "adil4ticketlelo@gmail.com" ||
-          emailLower === "superadmin@ticketlelo.com";
-        if (isSuper) {
-          list = await getAllEvents();
-        } else {
-          list = await getEventsByOrganiser(user.id);
+        const userId = user.uid || user.id;
+        let list = await getEventsByOrganiser(userId);
+        if (!list || list.length === 0) {
+          const all = await getAllEvents();
+          list = (all || []).filter(
+            (e) =>
+              e.createdBy === userId ||
+              e.userId === userId ||
+              e.organiserId === userId ||
+              e.organizerId === userId
+          );
+        }
+
+        const paramId = searchParams.get("eventId");
+        if (paramId && !list.some((e) => e.id === paramId)) {
+          try {
+            const specificEv = await getEvent(paramId);
+            if (specificEv) {
+              list.unshift(specificEv);
+            }
+          } catch {}
         }
 
         if (!isMounted) return;
@@ -115,7 +126,6 @@ export default function AnalyticsInsightsPage() {
         }
         setEvents(uniqueList);
 
-        const paramId = searchParams.get("eventId");
         let initialId = "";
 
         if (paramId && uniqueList.some((e) => e.id === paramId)) {

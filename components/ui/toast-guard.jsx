@@ -131,6 +131,10 @@ export function ToastGuard() {
         : node.querySelector?.("[data-sonner-toast]");
       if (!toastEl) return;
 
+      const isNonFrontCollapsed =
+        toastEl.getAttribute("data-front") === "false" &&
+        toastEl.getAttribute("data-expanded") === "false";
+
       const hasCustom =
         toastEl.hasAttribute("data-custom") ||
         Boolean(toastEl.querySelector("[data-custom]"));
@@ -142,31 +146,55 @@ export function ToastGuard() {
         (toastEl.querySelector("[data-content]")?.textContent || "")
       ).trim();
 
-      if (!hasCustom && !text) {
+      if (isNonFrontCollapsed || (!hasCustom && !text)) {
         toastEl.setAttribute("data-empty-toast", "true");
         toastEl.style.setProperty("display", "none", "important");
         toastEl.style.setProperty("visibility", "hidden", "important");
+        toastEl.style.setProperty("opacity", "0", "important");
         toastEl.style.setProperty("height", "0", "important");
+        toastEl.style.setProperty("min-height", "0", "important");
+        toastEl.style.setProperty("max-height", "0", "important");
         toastEl.style.setProperty("padding", "0", "important");
         toastEl.style.setProperty("margin", "0", "important");
         toastEl.style.setProperty("border", "none", "important");
+        toastEl.style.setProperty("pointer-events", "none", "important");
       }
     };
 
+    const cleanupAll = () => {
+      try {
+        const list = document.querySelectorAll("[data-sonner-toast]");
+        list.forEach((el) => cleanupEmptyNode(el));
+      } catch {
+        // Safe no-op
+      }
+    };
+
+    cleanupAll();
+
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          cleanupEmptyNode(node);
+        if (mutation.type === "attributes") {
+          cleanupEmptyNode(mutation.target);
+        } else if (mutation.addedNodes) {
+          for (const node of mutation.addedNodes) {
+            cleanupEmptyNode(node);
+          }
         }
       }
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-front", "data-expanded"],
+    });
 
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [toasts]);
 
   return null;
 }

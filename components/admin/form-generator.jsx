@@ -109,21 +109,22 @@ export function FormGenerator() {
 
   const loadEvents = async () => {
     try {
-      let allEvents;
+      const userId = user?.uid || user?.id;
+      let allEvents = await getEventsByOrganiser(userId);
+      if (!allEvents || allEvents.length === 0) {
+        const all = await getAllEvents();
+        allEvents = (all || []).filter(
+          (e) =>
+            e.createdBy === userId ||
+            e.userId === userId ||
+            e.organiserId === userId ||
+            e.organizerId === userId
+        );
+      }
 
-      // SuperAdmin sees all events
-      if (user?.role === "superAdmin") {
-        allEvents = await getAllEvents();
-      } else if (user?.role === "organiser") {
-        // Organisers only see their own event
-        allEvents = await getEventsByOrganiser(user.id);
-
-        // Auto-select only if organiser has exactly one event
-        if (allEvents.length === 1) {
-          setSelectedEventId(allEvents[0].id);
-        }
-      } else {
-        allEvents = [];
+      // Auto-select only if organiser has exactly one event
+      if (allEvents.length === 1) {
+        setSelectedEventId(allEvents[0].id);
       }
 
       // Deduplicate events by id
@@ -1465,7 +1466,7 @@ export function FormGenerator() {
                     </label>
                     <input
                       type="text"
-                      placeholder="Your full name"
+                      placeholder="Enter full name"
                       disabled
                       className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
                     />
@@ -1477,7 +1478,7 @@ export function FormGenerator() {
                     </label>
                     <input
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder="Enter email address"
                       disabled
                       className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
                     />
@@ -1489,7 +1490,7 @@ export function FormGenerator() {
                     </label>
                     <input
                       type="tel"
-                      placeholder="+91 98765 43210"
+                      placeholder="Enter phone number"
                       disabled
                       className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-white text-xs px-3.5 py-2.5 placeholder-[#5A5D63]"
                     />

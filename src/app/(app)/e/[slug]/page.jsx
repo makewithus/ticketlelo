@@ -20,6 +20,11 @@ import {
   Users,
   AlertCircle,
   Globe,
+  Ticket,
+  Layers,
+  Sparkles,
+  Info,
+  Navigation,
 } from "lucide-react";
 import {
   collection,
@@ -35,7 +40,8 @@ import { getMajorEventBySlug, getMajorEvent } from "@/lib/events-engine";
 import { getSubEventsForEvent } from "@/lib/sub-events";
 import { getCombosForEvent } from "@/lib/combos";
 import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration-form";
-import { formatEventDate } from "@/lib/date-utils";
+import { formatEventDate, parseFirestoreDate } from "@/lib/date-utils";
+import { VenueMap } from "@/components/common/venue-map";
 import { useAuth } from "@/context/auth-context";
 import { getThemeLook } from "@/lib/theme-utils";
 import { getPosterLines } from "@/components/admin/event-create-studio";
@@ -44,7 +50,7 @@ import { AnimatedRadialBackground } from "@/components/effects/AnimatedRadialBac
 import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
 
 export default function PublicEventBySlugPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -61,6 +67,7 @@ export default function PublicEventBySlugPage() {
   const [showExternalModal, setShowExternalModal] = useState(false);
   const [currentTime, setCurrentTime] = useState("1:04 PM GMT+5:30");
   const [mounted, setMounted] = useState(false);
+  const [hostImageError, setHostImageError] = useState(false);
 
   // Live local time formatted matching Image 1
   useEffect(() => {
@@ -122,10 +129,29 @@ export default function PublicEventBySlugPage() {
         subEventsData = fetchedSubs;
         combosData = fetchedCombos;
 
-        // Fetch organizer doc from users collection
+        // Fetch host info via authoritative server route (Firebase Admin)
         let organizerDocData = null;
         const organizerUid = eventData.createdBy || eventData.organizerId || eventData.userId;
-        if (organizerUid) {
+        try {
+          const hostRes = await fetch(
+            `/api/events/host-info?eventId=${encodeURIComponent(eventData.id)}&slug=${encodeURIComponent(slug)}&uid=${encodeURIComponent(organizerUid || "")}`
+          );
+          if (hostRes.ok) {
+            const hostJson = await hostRes.json();
+            if (hostJson?.host && (hostJson.host.name || hostJson.host.email || hostJson.host.photoURL)) {
+              organizerDocData = {
+                fullName: hostJson.host.name,
+                displayName: hostJson.host.name,
+                email: hostJson.host.email,
+                photoURL: hostJson.host.photoURL,
+              };
+            }
+          }
+        } catch (hErr) {
+          console.warn("[e/slug] Could not fetch authoritative host info:", hErr);
+        }
+
+        if (!organizerDocData && organizerUid) {
           try {
             const uSnap = await getDoc(doc(db, "users", organizerUid));
             if (uSnap.exists()) {
@@ -273,10 +299,11 @@ export default function PublicEventBySlugPage() {
     );
   }
 
-  // Date parsing
-  const eventDateObj = event.startDate ? new Date(event.startDate) : (event.date ? new Date(event.date) : new Date());
+  // Safe Date parsing - guarantees no NaN errors in React children
+  const parsedDate = parseFirestoreDate(event.startDate || event.date) || new Date();
+  const eventDateObj = !isNaN(parsedDate.getTime()) ? parsedDate : new Date();
   const monthShort = eventDateObj.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
-  const dayNum = eventDateObj.getDate();
+  const dayNum = String(eventDateObj.getDate());
   const weekdayDate = eventDateObj.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
 
   const formattedTimeRange = event.startTime
@@ -347,22 +374,46 @@ export default function PublicEventBySlugPage() {
   const themeLook = getThemeLook(event.themeColor || event.theme || "#FE760B");
   const posterLines = getPosterLines(event.title || event.name || "Event");
 
+  // Sanitize out stale generic defaults like "School of Engineering" or "support@ticketlelo.com"
+  const cleanOrgName =
+    event.organizerName && event.organizerName !== "School of Engineering"
+      ? event.organizerName
+      : null;
+  const cleanOrgEmail =
+    event.organizerEmail && event.organizerEmail !== "support@ticketlelo.com"
+      ? event.organizerEmail
+      : null;
+
   const organizerName =
+    organizerUser?.name ||
     organizerUser?.fullName ||
     organizerUser?.displayName ||
-    event.organizerName ||
-    "School of Engineering";
+    cleanOrgName ||
+    (event.hostName && event.hostName !== "School of Engineering" ? event.hostName : null) ||
+    (organizerUser?.email ? organizerUser.email.split("@")[0] : null) ||
+    (cleanOrgEmail ? cleanOrgEmail.split("@")[0] : null) ||
+    "Host";
+
   const organizerEmail =
     organizerUser?.email ||
-    event.organizerEmail ||
-    event.contactEmail ||
-    event.email ||
-    "support@ticketlelo.com";
+    cleanOrgEmail ||
+    (event.hostEmail && event.hostEmail !== "support@ticketlelo.com" ? event.hostEmail : null) ||
+    (event.contactEmail && event.contactEmail !== "support@ticketlelo.com" ? event.contactEmail : null) ||
+    (event.email && event.email !== "support@ticketlelo.com" ? event.email : null) ||
+    "";
+
   const organizerPhoto =
     organizerUser?.photoURL ||
     event.organizerPhotoUrl ||
     event.hostPhotoUrl ||
     null;
+
+  const broadLocation =
+    event.locationVenue ||
+    (event.venue && !event.venue.includes(",") ? event.venue : null) ||
+    (event.location ? event.location.split(",")[0].trim() : null) ||
+    event.venue ||
+    "Main Campus Venue";
 
   const AVATAR_COLORS = [
     "bg-blue-600",
@@ -438,10 +489,18 @@ export default function PublicEventBySlugPage() {
 
             <ThemeToggle inline />
 
-            {user ? (
+            {authLoading ? (
+              <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-[#212327] animate-pulse" />
+            ) : user ? (
               <div className="flex items-center gap-2">
                 <Link
-                  href="/dashboard"
+                  href={
+                    user.role === "superAdmin"
+                      ? "/superadmin"
+                      : user.role === "organiser" || user.isAdmin
+                      ? "/admin/dashboard"
+                      : "/dashboard"
+                  }
                   aria-label="Dashboard"
                   className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center hover:opacity-90 transition-opacity shrink-0 shadow-xs overflow-hidden"
                 >
@@ -470,7 +529,7 @@ export default function PublicEventBySlugPage() {
       </header>
 
       {/* Main Content Layout */}
-      <main className="relative z-10 flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-4 sm:py-6">
+      <main className="relative z-10 flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Event Status Notification: Cancelled or Postponed */}
         {event.status === "cancelled" || event.isCancelled ? (
           <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-500 dark:text-red-400">
@@ -499,56 +558,195 @@ export default function PublicEventBySlugPage() {
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr] gap-6 lg:gap-8 items-start">
-          
-          {/* Left Column: Square Poster, Host, Attendees, About Event, Tags */}
-          <div className="w-full max-w-sm sm:max-w-md md:max-w-[300px] space-y-5 mx-auto md:mx-0 md:pt-8 lg:pt-10">
-            {/* Poster Card (Perfect Square 1:1, Canonical EventBanner) */}
-            <EventBanner event={event} aspect="square" priority className="shadow-xl" />
+        {/* ── Breadcrumb & Registration Status Ribbon ── */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-[#2A2D31] pb-5 mb-8">
+          <Link
+            href="/#events"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white bg-white dark:bg-[#1A1C1F] hover:bg-slate-100 dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] px-4 py-2 rounded-xl transition-all shadow-sm group"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#FE760B] group-hover:-translate-x-1 transition-transform" />
+            <span>Back to events</span>
+          </Link>
 
-            {/* HOSTED BY Section with Google Profile Pic & Email */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
-                HOSTED BY
-              </p>
-              <div className="flex items-center gap-2.5">
-                {organizerPhoto ? (
-                  <img
-                    src={organizerPhoto}
-                    alt={organizerName}
-                    referrerPolicy="no-referrer"
-                    className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/20 shadow-xs shrink-0"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FE760B] to-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
-                    {organizerName.slice(0, 2).toUpperCase()}
+          <div className="flex items-center gap-2.5">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                isClosedForRegistration
+                  ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isClosedForRegistration ? "bg-red-500" : "bg-emerald-500 dark:bg-[#3DD68C] animate-pulse"
+                }`}
+              />
+              {isClosedForRegistration
+                ? "● Registration closed"
+                : hasCapacityLimit
+                ? `● ${seatsLeft ?? 0} spots left`
+                : "● Registration open"}
+            </span>
+            {event.category && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-[#7AA2FF] border border-blue-500/20">
+                {event.category}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Master 2-Column Responsive Layout ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* ── LEFT COLUMN: Event Story, Logistics & Map (7 Cols) ── */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Event Hero Card */}
+            <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] p-6 sm:p-8 shadow-sm dark:shadow-xl">
+              <div className="-mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-6 overflow-hidden">
+                <EventBanner event={event} aspect="video" priority className="rounded-none sm:rounded-t-2xl border-none max-h-72" />
+              </div>
+
+              <div className="relative z-10 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/20 dark:border-[#FE760B]/30 text-[#FE760B] dark:text-[#FF9A4D] text-xs font-semibold uppercase tracking-wider">
+                    <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Official event pass</span>
                   </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
-                    {organizerName}
-                  </span>
-                  {organizerEmail && (
-                    <a
-                      href={`mailto:${organizerEmail}`}
-                      className="text-[11px] text-[#FE760B] hover:underline truncate block font-medium"
-                    >
-                      {organizerEmail}
-                    </a>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20 text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Happening now</span>
+                  </div>
+                </div>
+
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+                  {event.title || event.name}
+                </h1>
+
+                {/* HOSTED BY Section */}
+                <div className="flex items-center gap-3 pt-3 border-t border-slate-100 dark:border-[#2A2D31]/60">
+                  {organizerPhoto && !hostImageError ? (
+                    <img
+                      src={organizerPhoto}
+                      alt={organizerName}
+                      referrerPolicy="no-referrer"
+                      onError={() => setHostImageError(true)}
+                      className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/20 shadow-xs shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FE760B] to-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+                      {(organizerName || "Host").slice(0, 2).toUpperCase()}
+                    </div>
                   )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {organizerName}
+                      </span>
+                      <span className="inline-flex items-center text-[10px] bg-emerald-500/10 dark:bg-[#3DD68C]/15 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20 dark:border-[#3DD68C]/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                        Verified
+                      </span>
+                    </div>
+                    {organizerEmail && (
+                      <a
+                        href={`mailto:${organizerEmail}`}
+                        className="text-[11px] text-[#FE760B] hover:underline truncate block font-medium"
+                      >
+                        {organizerEmail}
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Attendees Section with Real Google Profile Pics & Count */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
+            {/* Logistics Matrix (4 Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Date & Time */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-start gap-3.5 hover:border-[#FE760B]/30 transition-colors shadow-sm">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-[#7AA2FF] border border-blue-500/20 shrink-0">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Date & Time</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">{weekdayDate}</p>
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5 truncate">{formattedTimeRange}</p>
+                </div>
+              </div>
+
+              {/* Venue Location */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-start gap-3.5 hover:border-[#FE760B]/30 transition-colors shadow-sm">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20 shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Venue Location</p>
+                  <a
+                    href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || event.location || "") + " " + (event.city || ""))}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-bold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
+                  >
+                    <span>{event.venue || event.location || "Campus Venue"}</span>
+                    <span className="ml-1 text-[10px] text-[#FE760B]">↗</span>
+                  </a>
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5 truncate">
+                    {event.city || event.subVenue || "Campus Venue"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Ticket Pricing */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-start gap-3.5 hover:border-[#FE760B]/30 transition-colors shadow-sm">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-[#FDE003] border border-amber-500/20 shrink-0">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Admission Type</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{priceDisplay}</p>
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5">
+                    {event.isPaid ? "Tax-inclusive (18% GST)" : "Complimentary Registration"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Digital Pass */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-start gap-3.5 hover:border-[#FE760B]/30 transition-colors shadow-sm">
+                <div className="p-2.5 rounded-xl bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/20 shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Digital Pass</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">Cryptographic QR</p>
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5">Instant PDF & Wallet ticket</p>
+                </div>
+              </div>
+            </div>
+
+            {/* About This Event Card */}
+            <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-4 shadow-sm">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg border-b border-slate-200 dark:border-[#2A2D31] pb-3">
+                <Info className="w-5 h-5 text-blue-500 dark:text-[#7AA2FF]" />
+                <h2>About this event</h2>
+              </div>
+              <div className="prose max-w-none text-slate-600 dark:text-[#9B9EA4] text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                {event.description || (
+                  <p>
+                    Welcome to {event.title || event.name || "this event"}! Register to reserve your entry pass. Upon completing your registration, you will receive an official PDF ticket containing your signed QR code for rapid contactless entry.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Attendees Going Section */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-3 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
                 {attendeeCount} GOING
               </p>
               {attendeeCount > 0 ? (
                 <div className="flex items-center">
-                  <div className="flex items-center -space-x-1.5 shrink-0">
-                    {registrations.slice(0, 5).map((reg, idx) => (
+                  <div className="flex items-center -space-x-2 shrink-0">
+                    {registrations.slice(0, 6).map((reg, idx) => (
                       reg.photoURL ? (
                         <img
                           key={reg.id || idx}
@@ -556,156 +754,184 @@ export default function PublicEventBySlugPage() {
                           alt={reg.fullName}
                           referrerPolicy="no-referrer"
                           title={reg.fullName}
-                          className="w-6 h-6 rounded-full object-cover border border-white dark:border-[#131517] shadow-xs"
+                          className="w-8 h-8 rounded-full object-cover border-2 border-white dark:border-[#131517] shadow-xs"
                         />
                       ) : (
                         <div
                           key={reg.id || idx}
                           title={reg.fullName}
-                          className={`w-6 h-6 rounded-full border border-white dark:border-[#131517] flex items-center justify-center text-[9px] font-bold text-white shadow-xs ${
+                          className={`w-8 h-8 rounded-full border-2 border-white dark:border-[#131517] flex items-center justify-center text-[10px] font-bold text-white shadow-xs ${
                             AVATAR_COLORS[idx % AVATAR_COLORS.length]
                           }`}
                         >
-                          {reg.fullName.charAt(0).toUpperCase()}
+                          {String(reg.fullName || "A").charAt(0).toUpperCase()}
                         </div>
                       )
                     ))}
                   </div>
-                  <p className="text-[11px] text-slate-600 dark:text-[#9B9EA4] ml-2.5 truncate">
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] ml-3 truncate">
                     {attendeeSummaryText}
                   </p>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-[#9B9EA4]">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
                   <span>Be the first to claim a pass and join!</span>
                 </div>
               )}
             </div>
 
-            {/* ABOUT EVENT Section (Desktop Left Column) */}
-            <div className="hidden md:block pt-1 space-y-1.5 border-t border-slate-200/60 dark:border-[#2A2D31]/60">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
-                ABOUT EVENT
-              </p>
-              <p className="text-xs text-slate-700 dark:text-[#D0D0D1] leading-relaxed whitespace-pre-line">
-                {event.description || "Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event."}
-              </p>
+            {/* Included Sub-Events / Tracks (if available) */}
+            {subEvents && subEvents.length > 0 && (
+              <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#2A2D31] pb-3">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg">
+                    <Layers className="w-5 h-5 text-[#FE760B]" />
+                    <h2>Included tracks & sessions</h2>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/20">
+                    {subEvents.length} Tracks
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {subEvents.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] space-y-1.5 hover:border-[#FE760B]/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{sub.title}</h4>
+                        <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-[#7AA2FF] border border-blue-500/20 shrink-0">
+                          {sub.trackType || "Track"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-[#9B9EA4] flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-[#5C6066] shrink-0" />
+                        <span>{sub.startTime || "10:00 AM"} - {sub.endTime || "01:00 PM"}</span>
+                      </p>
+                      {sub.venue && (
+                        <p className="text-xs text-slate-600 dark:text-[#9B9EA4] flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-[#5C6066] shrink-0" />
+                          <span className="truncate">{sub.venue}</span>
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Combos & All-Access Bundles (if available) */}
+            {combos && combos.length > 0 && (
+              <div className="p-6 sm:p-7 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#2A2D31] pb-3">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg">
+                    <Sparkles className="w-5 h-5 text-amber-500 dark:text-[#FDE003]" />
+                    <h2>Festival passes & bundles</h2>
+                  </div>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-[#FDE003] border border-amber-500/20">
+                    {combos.length} Passes Available
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {combos.map((combo) => (
+                    <div
+                      key={combo.id}
+                      className="p-4 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#FE760B]/30 transition-colors"
+                    >
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">{combo.title}</h4>
+                        <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5">{combo.description || "All-access multi-track festival ticket"}</p>
+                        {combo.perks && combo.perks.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {combo.perks.slice(0, 3).map((perk, idx) => (
+                              <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#9B9EA4]">
+                                {perk}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="sm:text-right shrink-0">
+                        <span className="text-base font-extrabold text-[#FE760B] tabular-nums">₹{combo.price || 0}</span>
+                        <span className="block text-[11px] text-slate-400 dark:text-[#5C6066]">Tax Incl.</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Venue Map */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg px-1">
+                <Navigation className="w-5 h-5 text-emerald-600 dark:text-[#3DD68C]" />
+                <h2>Venue & navigation</h2>
+              </div>
+              <VenueMap
+                venueName={event.venue || event.location || event.title}
+                subVenue={event.subVenue || event.room}
+                address={event.address || event.venueAddress || event.venue || event.location}
+                city={event.city || ""}
+                latitude={event.latitude || event.lat || null}
+                longitude={event.longitude || event.lng || null}
+              />
             </div>
 
-            {/* Contact Host / Report Links & Category Tags */}
-            <div className="pt-1 space-y-1.5 hidden md:block border-t border-slate-200/60 dark:border-[#2A2D31]/60">
+            {/* Host Contact & Report Links */}
+            <div className="pt-4 border-t border-slate-200 dark:border-[#2A2D31]/60 flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4]">
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(event.title)}`;
+                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(event.title || event.name || "Event")}`;
                 }}
-                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left cursor-pointer"
+                className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Contact the host
               </button>
+              <span className="text-slate-400 dark:text-[#2A2D31]">•</span>
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title)}`;
+                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title || event.name || "Event")}`;
                 }}
-                className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors block text-left cursor-pointer"
+                className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 Report event
               </button>
-              <div className="pt-1 flex flex-wrap gap-1.5">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-[11px] font-medium text-slate-600 dark:text-[#9B9EA4]">
-                  #{event.category || "Tech"}
-                </span>
-                {event.isPaid ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 text-[11px] font-semibold text-[#FE760B]">
-                    {priceDisplay}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-semibold text-emerald-500">
-                    Free Entry
-                  </span>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Right Column: Headline, Logistics, Registration Card, Mobile About, Location */}
-          <div className="space-y-4">
-            
-            {/* Status Pill: Happening now */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/30 text-[11px] font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
-              <span>Happening now</span>
-            </div>
-
-            {/* Event Title */}
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
-              {event.title}
-            </h1>
-
-            {/* Date & Time Block */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex flex-col items-center justify-center text-center shrink-0 shadow-sm">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] leading-none">
-                  {monthShort}
-                </span>
-                <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                  {dayNum}
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white leading-snug truncate">
-                  {weekdayDate}
-                </p>
-                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] truncate">
-                  {formattedTimeRange}
-                </p>
-              </div>
-            </div>
-
-            {/* Location Block */}
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center text-slate-500 dark:text-[#9B9EA4] shrink-0 shadow-sm">
-                <MapPin className="w-4 h-4 text-[#FE760B]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <a
-                  href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || event.location || "") + " " + (event.city || ""))}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors inline-flex items-center gap-1 leading-snug group"
-                >
-                  <span className="truncate">{event.venue || event.location || "Main Stadium Ground & Central Innovation Complex"}</span>
-                  <span className="text-[10px] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">↗</span>
-                </a>
-                <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] truncate">
-                  {event.city || "Campus Venue"}
-                </p>
-              </div>
-            </div>
-
-            {/* Registration Card */}
-            <div className="bg-white/95 dark:bg-[#1A1C1F]/90 backdrop-blur-md border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 sm:p-5 shadow-2xl transition-colors">
+          {/* ── RIGHT COLUMN: Dedicated Vertical Registration Drawer (5 Cols) ── */}
+          <div className="lg:col-span-5 lg:sticky lg:top-24 w-full max-w-xl mx-auto">
+            <div className="rounded-2xl border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] p-5 sm:p-7 shadow-xl">
+              
               {/* Header row */}
-              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200 dark:border-[#2A2D31]">
-                <span className="text-xs font-semibold text-slate-600 dark:text-[#9B9EA4]">
-                  Registration
-                </span>
-                <div className="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-[#9B9EA4]">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isClosedForRegistration ? "bg-red-500" : "bg-[#FE760B] animate-pulse"}`} />
-                  <span>
-                    {isClosedForRegistration
-                      ? "Registration Closed"
-                      : hasCapacityLimit
-                      ? `${seatsLeft} of ${totalSeats} spots left`
-                      : "Registrations Open"}
+              <div className="border-b border-slate-200 dark:border-[#2A2D31] pb-4 mb-5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-800 dark:text-white text-xs font-semibold">
+                    <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Attendee registration</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] px-2.5 py-1 rounded-full">
+                    {priceDisplay}
                   </span>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    Register for {event.title || event.name}
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5">
+                    Fill in your details below to generate your entry ticket and credentials.
+                  </p>
                 </div>
               </div>
 
               {/* Spot Availability Banner */}
-              <div className="bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3 flex items-start gap-3 my-3">
+              <div className="bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3 flex items-start gap-3 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center shrink-0">
                   <Clock size={16} className="text-[#9B9EA4]" />
                 </div>
@@ -733,17 +959,12 @@ export default function PublicEventBySlugPage() {
                 </div>
               </div>
 
-              {/* Welcome text */}
-              <p className="text-xs text-slate-700 dark:text-[#D0D0D1] mb-2.5">
-                Welcome, {user?.fullName || "Guest"}! To join the event, please register below.
-              </p>
-
               {/* User email badge if signed in */}
               {user && (
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-3 py-2 mb-3">
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-3 py-2 mb-4">
                   <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
                   <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                    {user?.fullName || "Attendee"}
+                    {user?.fullName || user?.name || "Attendee"}
                   </span>
                   <span className="text-xs text-slate-500 dark:text-[#9B9EA4] font-mono truncate">
                     {user?.email}
@@ -753,7 +974,7 @@ export default function PublicEventBySlugPage() {
 
               {/* College / Team External Form Embed Banner if configured */}
               {event?.embedRegistrationMode === "custom_iframe" && event?.customFormEmbedUrl && (
-                <div className="mb-3 p-3 rounded-xl bg-orange-500/10 border border-orange-500/25 flex flex-col gap-2">
+                <div className="mb-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/25 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                       <Globe size={13} className="text-[#FE760B]" />
@@ -769,7 +990,7 @@ export default function PublicEventBySlugPage() {
                   <button
                     type="button"
                     onClick={() => setShowExternalModal(true)}
-                    className="w-full py-2 px-3 rounded-xl bg-[#FE760B] hover:bg-[#FE760B]/90 text-black text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2 px-3 rounded-xl bg-[#FE760B] hover:bg-[#FE760B]/90 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Globe size={13} />
                     <span>Open College Form Portal (Modal)</span>
@@ -787,41 +1008,16 @@ export default function PublicEventBySlugPage() {
                   defaultReferralCode={referralCode}
                 />
               </div>
-            </div>
 
-            {/* Mobile About Event Section */}
-            <div className="pt-3 md:hidden">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4] mb-1.5">
-                ABOUT EVENT
-              </p>
-              <p className="text-xs sm:text-sm text-slate-700 dark:text-[#D0D0D1] leading-relaxed whitespace-pre-line">
-                {event.description || "Event description from the organiser — what's happening, who it's for and what to bring. Shown exactly as written in Create Event."}
-              </p>
+              {/* Micro Trust Strip */}
+              <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#2A2D31] flex items-center justify-between text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-[#3DD68C]" />
+                  100% secure checkout
+                </span>
+                <span>TicketLelo verified</span>
+              </div>
             </div>
-
-            {/* Mobile Footer Links */}
-            <div className="pt-6 pb-2 border-t border-slate-200 dark:border-[#2A2D31]/60 flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4] md:hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(event.title)}`;
-                }}
-                className="hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                Contact the host
-              </button>
-              <span className="text-slate-400 dark:text-[#2A2D31]">•</span>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title)}`;
-                }}
-                className="hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                Report event
-              </button>
-            </div>
-
           </div>
         </div>
       </main>

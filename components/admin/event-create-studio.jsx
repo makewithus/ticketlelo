@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   Calendar,
   Clock,
@@ -41,6 +40,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { IoTicket } from "react-icons/io5";
 import { createEvent, updateEvent } from "@/lib/firestore";
 import { useAuth } from "@/context/auth-context";
 import { StubTicket } from "@/components/tickets/stub-ticket";
@@ -152,6 +152,26 @@ function normalizeTime(t) {
   return t.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+export function getTodayStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function parseTimeToMinutes(t) {
+  if (!t) return null;
+  const match = t.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!match) return null;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const ampm = (match[3] || "").toLowerCase();
+  if (ampm === "pm" && h < 12) h += 12;
+  if (ampm === "am" && h === 12) h = 0;
+  return h * 60 + m;
+}
+
 function formatDatePill(dateStr) {
   if (!dateStr) return "Select date";
   try {
@@ -167,8 +187,10 @@ function formatDatePill(dateStr) {
   return dateStr;
 }
 
-// Interactive calendar popover matching theme (Image 1)
-function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
+// Interactive calendar popover matching theme (Image 1) with past-date prevention
+function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate = null }) {
+  const effectiveMinDate = minDate || getTodayStr();
+
   const parsed = useMemo(() => {
     if (!value) {
       const now = new Date();
@@ -189,8 +211,12 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
 
   const monthName = viewDate.toLocaleDateString("en-US", { month: "long" });
 
+  const [minY, minM] = effectiveMinDate.split("-").map(Number);
+  const canGoPrev = viewYear > minY || (viewYear === minY && viewMonth > (minM - 1));
+
   const prevMonth = (e) => {
     e.stopPropagation();
+    if (!canGoPrev) return;
     setViewDate(new Date(viewYear, viewMonth - 1, 1));
   };
 
@@ -228,7 +254,9 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
     const yStr = String(viewYear);
     const mStr = String(viewMonth + 1).padStart(2, "0");
     const dStr = String(day).padStart(2, "0");
-    onChange(`${yStr}-${mStr}-${dStr}`);
+    const chosen = `${yStr}-${mStr}-${dStr}`;
+    if (chosen < effectiveMinDate) return;
+    onChange(chosen);
     onClose();
   };
 
@@ -247,8 +275,14 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
           <div className="flex items-center gap-1">
             <button
               type="button"
+              disabled={!canGoPrev}
               onClick={prevMonth}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              title={canGoPrev ? "Previous month" : "Cannot navigate to past months"}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
+                canGoPrev
+                  ? "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
+                  : "text-gray-300 dark:text-[#33353A] cursor-not-allowed opacity-30"
+              }`}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -280,18 +314,35 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
           {prevDays.map((d, idx) => (
             <div
               key={`prev-${idx}`}
-              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#4A4D53] select-none"
+              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#33353A] select-none"
             >
               {d}
             </div>
           ))}
 
-          {/* Current month days */}
+          {/* Current month days with past date prevention */}
           {currentDays.map((d) => {
+            const dayStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+            const isPast = dayStr < effectiveMinDate;
             const isSelected =
               parsed.year === viewYear &&
               parsed.month === viewMonth &&
               parsed.day === d;
+
+            if (isPast) {
+              return (
+                <button
+                  key={`curr-${d}`}
+                  type="button"
+                  disabled
+                  title="Date has already passed"
+                  className="h-8 w-8 mx-auto flex items-center justify-center text-xs rounded-lg text-gray-400/30 dark:text-[#4A4D53] line-through cursor-not-allowed select-none opacity-40 font-mono"
+                >
+                  {d}
+                </button>
+              );
+            }
+
             return (
               <button
                 key={`curr-${d}`}
@@ -313,7 +364,7 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
           {nextDays.map((d, idx) => (
             <div
               key={`next-${idx}`}
-              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#4A4D53] select-none"
+              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#33353A] select-none"
             >
               {d}
             </div>
@@ -324,8 +375,8 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor }) {
   );
 }
 
-// Interactive scrollable time dropdown matching theme (Image 2)
-function ThemedTimeDropdown({ value, onChange, onClose, themeColor }) {
+// Interactive scrollable time dropdown matching theme (Image 2) with past-time prevention
+function ThemedTimeDropdown({ value, onChange, onClose, themeColor, minMinutes = null }) {
   const activeRef = useRef(null);
 
   useEffect(() => {
@@ -345,6 +396,23 @@ function ThemedTimeDropdown({ value, onChange, onClose, themeColor }) {
       >
         {TIME_OPTIONS.map((slot) => {
           const isSelected = normalizeTime(slot) === normalizedVal;
+          const slotMinutes = parseTimeToMinutes(slot);
+          const isPast = minMinutes !== null && slotMinutes !== null && slotMinutes < minMinutes;
+
+          if (isPast) {
+            return (
+              <button
+                key={slot}
+                type="button"
+                disabled
+                title="Time has already passed"
+                className="w-full py-1.5 px-2 text-xs font-mono text-center rounded-xl text-gray-400/30 dark:text-[#4A4D53] line-through cursor-not-allowed select-none opacity-40"
+              >
+                {slot}
+              </button>
+            );
+          }
+
           return (
             <button
               key={slot}
@@ -406,8 +474,17 @@ export function EventCreateStudio({
     return () => clearInterval(timer);
   }, []);
 
-  // Initialize form state
+  // Pre-fetch destination routes so overview navigation is instantaneous
+  useEffect(() => {
+    try {
+      router.prefetch("/admin/overview");
+      router.prefetch("/admin/dashboard");
+    } catch {}
+  }, [router]);
+
+  // Initialize form state with current/future dates
   const getInitialDates = () => {
+    const todayStr = getTodayStr();
     if (editingEvent) {
       let sDate = "";
       let eDate = "";
@@ -420,17 +497,30 @@ export function EventCreateStudio({
         sDate = "";
       }
       return {
-        startDate: editingEvent.startDate || sDate || "2026-11-02",
+        startDate: editingEvent.startDate || sDate || todayStr,
         startTime: editingEvent.startTime || "11:30 pm",
-        endDate: editingEvent.endDate || sDate || "2026-11-03",
+        endDate: editingEvent.endDate || sDate || todayStr,
         endTime: editingEvent.endTime || "12:30 am",
       };
     }
+
+    const now = new Date();
+    const nextHour = now.getHours() + 1;
+    const startH = nextHour < 24 ? nextHour : 18;
+    const endH = (startH + 2) < 24 ? startH + 2 : 23;
+    const startAmpm = startH >= 12 ? "pm" : "am";
+    const endAmpm = endH >= 12 ? "pm" : "am";
+    const startH12 = startH % 12 === 0 ? 12 : startH % 12;
+    const endH12 = endH % 12 === 0 ? 12 : endH % 12;
+
+    const defStartTime = `${String(startH12).padStart(2, "0")}:00 ${startAmpm}`;
+    const defEndTime = `${String(endH12).padStart(2, "0")}:00 ${endAmpm}`;
+
     return {
-      startDate: "2026-11-02",
-      startTime: "11:30 pm",
-      endDate: "2026-11-03",
-      endTime: "12:30 am",
+      startDate: todayStr,
+      startTime: defStartTime,
+      endDate: todayStr,
+      endTime: defEndTime,
     };
   };
 
@@ -476,7 +566,11 @@ export function EventCreateStudio({
     posterTextMode: editingEvent?.posterTextMode || "auto",
     posterLine1: editingEvent?.posterLine1 || "",
     posterLine2: editingEvent?.posterLine2 || "",
+    posterLine3: editingEvent?.posterLine3 || "",
+    posterExtraDetails: editingEvent?.posterExtraDetails || "",
+    fontFamily: editingEvent?.fontFamily || "New Spirit",
     posterFontSize: editingEvent?.posterFontSize || 34,
+    posterTextWidth: editingEvent?.posterTextWidth || 85,
     posterAlign: editingEvent?.posterAlign || "left",
     posterTextColor: editingEvent?.posterTextColor || "auto",
     posterTextX: typeof editingEvent?.posterTextX === "number" ? editingEvent.posterTextX : 6,
@@ -535,11 +629,15 @@ export function EventCreateStudio({
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [showCapacityModal, setShowCapacityModal] = useState(false);
+  const [showTypographyModal, setShowTypographyModal] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
   const [showFullTicketModal, setShowFullTicketModal] = useState(false);
   const [modalPreviewDesign, setModalPreviewDesign] = useState("stub");
   const [previewTab, setPreviewTab] = useState("both"); // "both" | "stub" | "wide"
+  const themeColorInputRef = useRef(null);
+  const [isResizingText, setIsResizingText] = useState(false);
+  const resizeStartPosRef = useRef({ mouseX: 0, startWidth: 85 });
 
   const handleLocationInputChange = (val) => {
     setLocationInput(val);
@@ -697,6 +795,48 @@ export function EventCreateStudio({
     };
   }, [isDraggingText]);
 
+  // Horizontal text box stretch / resize handler for Image 5
+  const handleResizeStart = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizingText(true);
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    resizeStartPosRef.current = {
+      mouseX: clientX,
+      startWidth: formData.posterTextWidth || 85,
+    };
+  };
+
+  useEffect(() => {
+    if (!isResizingText) return;
+
+    const handleResizeMove = (e) => {
+      if (!posterContainerRef.current) return;
+      const rect = posterContainerRef.current.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const deltaX = ((clientX - resizeStartPosRef.current.mouseX) / rect.width) * 100;
+      let newW = Math.round(resizeStartPosRef.current.startWidth + deltaX);
+      newW = Math.max(30, Math.min(92, newW));
+      setFormData((prev) => ({ ...prev, posterTextWidth: newW }));
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizingText(false);
+    };
+
+    window.addEventListener("mousemove", handleResizeMove);
+    window.addEventListener("mouseup", handleResizeEnd);
+    window.addEventListener("touchmove", handleResizeMove, { passive: false });
+    window.addEventListener("touchend", handleResizeEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", handleResizeMove);
+      window.removeEventListener("mouseup", handleResizeEnd);
+      window.removeEventListener("touchmove", handleResizeMove);
+      window.removeEventListener("touchend", handleResizeEnd);
+    };
+  }, [isResizingText]);
+
   const selectedTheme = useMemo(() => {
     if (formData.theme === "custom") {
       return deriveThemeFromColor(formData.themeColor || customColorHex);
@@ -723,7 +863,84 @@ export function EventCreateStudio({
       ? formData.description
       : (formData.description?.text || "");
 
-  const handleImageUpload = (e) => {
+  // Compress and optimize image to WebP/JPEG using client canvas (instant upload, minimal memory & fits Firestore < 100KB)
+  const compressImageFile = (file, maxWidth = 800, maxHeight = 800, quality = 0.72) => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined" || !window.FileReader) {
+        resolve("");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onerror = () => resolve("");
+      reader.onload = () => {
+        const rawDataUrl = reader.result;
+        if (typeof rawDataUrl !== "string") {
+          resolve("");
+          return;
+        }
+        const img = typeof window !== "undefined" && window.Image ? new window.Image() : new Image();
+        img.onerror = () => {
+          // Never resolve with huge raw file data on error
+          resolve("");
+        };
+        img.onload = () => {
+          try {
+            const MAX_ALLOWED_CHARS = 100000; // ~75KB base64 max budget
+            let curW = img.width;
+            let curH = img.height;
+            if (curW > maxWidth || curH > maxHeight) {
+              const ratio = Math.min(maxWidth / curW, maxHeight / curH);
+              curW = Math.round(curW * ratio);
+              curH = Math.round(curH * ratio);
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = curW;
+            canvas.height = curH;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              resolve("");
+              return;
+            }
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+            ctx.drawImage(img, 0, 0, curW, curH);
+
+            let compressed = canvas.toDataURL("image/webp", quality);
+            if (!compressed || compressed.length > rawDataUrl.length) {
+              compressed = canvas.toDataURL("image/jpeg", quality);
+            }
+
+            // Iterative reduction if still larger than safe budget
+            if (compressed && compressed.length > MAX_ALLOWED_CHARS) {
+              compressed = canvas.toDataURL("image/webp", 0.55);
+              if (compressed.length > MAX_ALLOWED_CHARS) {
+                const scale = Math.min(500 / curW, 500 / curH);
+                if (scale < 1) {
+                  const smallCanvas = document.createElement("canvas");
+                  smallCanvas.width = Math.round(curW * scale);
+                  smallCanvas.height = Math.round(curH * scale);
+                  const smallCtx = smallCanvas.getContext("2d");
+                  if (smallCtx) {
+                    smallCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+                    compressed = smallCanvas.toDataURL("image/webp", 0.50);
+                  }
+                }
+              }
+            }
+
+            resolve(compressed || "");
+          } catch {
+            resolve("");
+          }
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -732,17 +949,22 @@ export function EventCreateStudio({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be under 5 MB");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be under 10 MB");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({ ...prev, coverImage: reader.result }));
+    try {
+      const optimized = await compressImageFile(file, 800, 800, 0.72);
+      if (!optimized) {
+        toast.error("Could not process image. Please try a different image.");
+        return;
+      }
+      setFormData((prev) => ({ ...prev, coverImage: optimized }));
       toast.success("Poster image updated");
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error("Failed to load image. Please select a valid image file.");
+    }
   };
 
   const removeCoverImage = (e) => {
@@ -751,7 +973,7 @@ export function EventCreateStudio({
     toast.info("Custom banner removed; using procedural poster");
   };
 
-  const handleTicketBgUpload = (e) => {
+  const handleTicketBgUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -760,17 +982,22 @@ export function EventCreateStudio({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size must be under 5 MB");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be under 10 MB");
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({ ...prev, ticketBgUrl: reader.result }));
+    try {
+      const optimized = await compressImageFile(file, 800, 800, 0.72);
+      if (!optimized) {
+        toast.error("Could not process ticket background. Please try a different image.");
+        return;
+      }
+      setFormData((prev) => ({ ...prev, ticketBgUrl: optimized }));
       toast.success("Ticket background image applied!");
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      toast.error("Failed to load image. Please select a valid image file.");
+    }
   };
 
   const removeTicketBgImage = (e) => {
@@ -842,6 +1069,44 @@ export function EventCreateStudio({
       return;
     }
 
+    // Logical date & time validation: event cannot be in the past
+    const todayStr = getTodayStr();
+    if (!formData.startDate) {
+      toast.error("Please select an event start date");
+      return;
+    }
+
+    if (formData.startDate < todayStr) {
+      toast.error("Event date cannot be in the past. Please select today or an upcoming date.");
+      return;
+    }
+
+    if (formData.endDate && formData.endDate < formData.startDate) {
+      toast.error("Event end date cannot be earlier than the start date.");
+      return;
+    }
+
+    // Check if start time has already passed today
+    if (formData.startDate === todayStr && formData.startTime) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const startMin = parseTimeToMinutes(formData.startTime);
+      if (startMin !== null && startMin < currentMinutes - 10) {
+        toast.error("Event start time has already passed today. Please choose an upcoming time.");
+        return;
+      }
+    }
+
+    // Check if end time is before start time on the same day
+    if (formData.startDate === formData.endDate && formData.startTime && formData.endTime) {
+      const startMin = parseTimeToMinutes(formData.startTime);
+      const endMin = parseTimeToMinutes(formData.endTime);
+      if (startMin !== null && endMin !== null && endMin <= startMin) {
+        toast.error("Event end time must be after the start time on the same date.");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       // Build ISO date timestamp
@@ -861,6 +1126,12 @@ export function EventCreateStudio({
         slug: formData.slug || editingEvent?.slug || generatedSlug,
         customDomain: formData.customDomain || editingEvent?.customDomain || "",
         description: safeDescription.trim(),
+        organizerName: editingEvent?.organizerName || user?.fullName || user?.displayName || user?.name || "",
+        organizerEmail: editingEvent?.organizerEmail || user?.email || "",
+        organizerPhotoUrl: editingEvent?.organizerPhotoUrl || user?.photoURL || "",
+        hostName: editingEvent?.hostName || user?.fullName || user?.displayName || user?.name || "",
+        hostEmail: editingEvent?.hostEmail || user?.email || "",
+        hostPhotoUrl: editingEvent?.hostPhotoUrl || user?.photoURL || "",
         date: eventDateObj,
         startDate: formData.startDate,
         startTime: formData.startTime,
@@ -881,7 +1152,7 @@ export function EventCreateStudio({
         virtualLink: formData.virtualLink.trim(),
         totalTickets: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : 9999,
         capacity: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : "Unlimited",
-        requireApproval: Boolean(formData.requireApproval),
+        requireApproval: formData.isPaid ? false : Boolean(formData.requireApproval),
         limitCapacity: Boolean(formData.limitCapacity),
         maxCapacity: parseInt(formData.maxCapacity, 10) || 50,
         waitlist: Boolean(formData.waitlist),
@@ -898,7 +1169,11 @@ export function EventCreateStudio({
         posterTextMode: formData.posterTextMode || "auto",
         posterLine1: formData.posterLine1 || "",
         posterLine2: formData.posterLine2 || "",
+        posterLine3: formData.posterLine3 || "",
+        posterExtraDetails: formData.posterExtraDetails || "",
+        fontFamily: formData.fontFamily || "New Spirit",
         posterFontSize: parseInt(formData.posterFontSize, 10) || 34,
+        posterTextWidth: parseInt(formData.posterTextWidth, 10) || 85,
         posterAlign: formData.posterAlign || "left",
         posterTextColor: formData.posterTextColor || "auto",
         posterTextX: typeof formData.posterTextX === "number" ? formData.posterTextX : 6,
@@ -906,7 +1181,10 @@ export function EventCreateStudio({
         showPosterText: formData.showPosterText !== false,
         posterTextBg: formData.posterTextBg || "shadow",
         ticketBgUrl: formData.ticketBgUrl || "",
-        ticketBackground: formData.ticketBgUrl || "",
+        // Never duplicate huge base64 strings into ticketBackground to protect Firestore 1MB document limit
+        ticketBackground: formData.ticketBgUrl?.startsWith("data:")
+          ? ""
+          : formData.ticketBgUrl || "",
         isActive: formData.visibility !== "draft",
         published: formData.visibility === "public",
         status:
@@ -916,6 +1194,13 @@ export function EventCreateStudio({
               ? "published"
               : "private",
       };
+
+      // Safeguard against Firestore 1MB document limit (1,048,576 bytes)
+      const approxPayloadBytes = JSON.stringify(payload).length;
+      if (approxPayloadBytes > 750000) {
+        console.warn("Payload size exceeds 750KB safe threshold; stripping duplicate ticketBackground");
+        delete payload.ticketBackground;
+      }
 
       let savedEvent;
       if (editingEvent?.id) {
@@ -930,6 +1215,8 @@ export function EventCreateStudio({
       if (typeof window !== "undefined" && savedEvent?.id) {
         try {
           localStorage.setItem("admin_selected_event_id", savedEvent.id);
+          localStorage.setItem(`admin_cached_event_${savedEvent.id}`, JSON.stringify(savedEvent));
+          sessionStorage.setItem("admin_last_created_event", JSON.stringify(savedEvent));
         } catch {}
       }
 
@@ -1035,8 +1322,15 @@ export function EventCreateStudio({
                 </div>
               )}
 
-              {/* ── DRAGGABLE & EDITABLE TEXT OVERLAY (Available on BOTH uploaded banner and procedural poster) ── */}
-              {formData.showPosterText !== false && (
+              {/* ── DRAGGABLE & EDITABLE TEXT OVERLAY (Only rendered when event has a name/lines or user is editing) ── */}
+              {formData.showPosterText !== false &&
+                Boolean(
+                  posterLines.line1 ||
+                    posterLines.line2 ||
+                    formData.posterLine1 ||
+                    formData.name ||
+                    isInlineEditing
+                ) && (
                 <div
                   onMouseDown={handleTextDragStart}
                   onTouchStart={handleTextDragStart}
@@ -1049,7 +1343,7 @@ export function EventCreateStudio({
                     setIsTextSelected(true);
                     setIsInlineEditing(true);
                   }}
-                  className={`absolute z-20 max-w-[92%] transition-all ${
+                  className={`absolute z-20 transition-all ${
                     isDraggingText ? "cursor-grabbing select-none" : "cursor-grab"
                   } ${
                     isTextSelected
@@ -1065,19 +1359,33 @@ export function EventCreateStudio({
                   style={{
                     left: `${formData.posterTextX ?? 6}%`,
                     top: `${formData.posterTextY ?? (formData.coverImage ? 55 : 68)}%`,
+                    width: `${formData.posterTextWidth ?? 85}%`,
+                    maxWidth: "92%",
                     textAlign: formData.posterAlign || "left",
+                    fontFamily:
+                      formData.fontFamily === "JetBrains Mono"
+                        ? "ui-monospace, monospace"
+                        : formData.fontFamily === "New Spirit"
+                        ? "Georgia, serif"
+                        : formData.fontFamily === "Outfit"
+                        ? "'Outfit', sans-serif"
+                        : formData.fontFamily === "Roboto"
+                        ? "'Roboto', sans-serif"
+                        : "inherit",
                     textShadow:
                       formData.posterTextBg === "shadow" || (!formData.posterTextBg && formData.coverImage)
                         ? "0 2px 10px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.85)"
                         : "none",
                   }}
-                  title="Click to select, drag to reposition, double-click to edit"
+                  title="Click to select, drag to reposition, stretch right handle to resize width, double-click to edit"
                 >
                   {/* Floating Action Badge when Selected */}
                   {isTextSelected && (
                     <div className="absolute -top-7 left-0 flex items-center gap-1.5 bg-[#FE760B] text-[#131517] px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase shadow-lg whitespace-nowrap z-30 pointer-events-auto">
                       <Move className="w-2.5 h-2.5 stroke-[3]" />
                       <span>Drag to move</span>
+                      <span className="opacity-40">•</span>
+                      <span>↔ {formData.posterTextWidth || 85}%</span>
                       <span className="opacity-40">•</span>
                       <button
                         type="button"
@@ -1089,26 +1397,48 @@ export function EventCreateStudio({
                       >
                         {isInlineEditing ? "Done" : "Edit Text"}
                       </button>
+                      <span className="opacity-40">•</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowTypographyModal(true);
+                        }}
+                        className="hover:text-black font-black cursor-pointer"
+                      >
+                        Settings
+                      </button>
                     </div>
                   )}
 
-                  {/* Corner handles (Figma / Canva style) */}
+                  {/* Corner handles & Stretchable Width Handle on Right Edge */}
                   {isTextSelected && (
                     <>
                       <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
                       <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
                       <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
                       <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
+
+                      {/* Stretchable Horizontal Resize Handle (Image 5) */}
+                      <div
+                        onMouseDown={handleResizeStart}
+                        onTouchStart={handleResizeStart}
+                        className="absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-9 rounded-md bg-[#FE760B] text-[#131517] flex items-center justify-center cursor-ew-resize shadow-xl z-30 select-none hover:scale-110 active:scale-95 transition-transform"
+                        title="Drag horizontally to stretch or shrink text box width"
+                      >
+                        <span className="text-[10px] font-black leading-none">↔</span>
+                      </div>
                     </>
                   )}
 
                   {/* Text Content: Inline editing or Display */}
                   {isInlineEditing ? (
-                    <div className="space-y-1.5 min-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                    <div className="space-y-1.5 w-full" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="text"
                         autoFocus
                         value={formData.posterLine1 || posterLines.line1}
+                        placeholder="Line 1 (Heading)"
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
@@ -1129,6 +1459,7 @@ export function EventCreateStudio({
                       <input
                         type="text"
                         value={formData.posterLine2 || posterLines.line2}
+                        placeholder="Line 2 (Sub-heading)"
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
@@ -1149,7 +1480,28 @@ export function EventCreateStudio({
                           )}px`,
                         }}
                       />
-                      <div className="flex justify-end pt-0.5">
+                      <input
+                        type="text"
+                        value={formData.posterLine3 || ""}
+                        placeholder="Line 3: e.g. Date • Venue • Details"
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            posterTextMode: "custom",
+                            posterLine3: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === "Escape") {
+                            setIsInlineEditing(false);
+                          }
+                        }}
+                        className="bg-black/90 border border-[#FE760B]/70 rounded px-2 py-0.5 font-bold uppercase text-white/90 outline-none w-full tracking-tight shadow-lg text-xs"
+                      />
+                      <div className="flex items-center justify-between pt-0.5">
+                        <span className="text-[9px] text-[#FE760B] font-medium">
+                          Drag ↔ right handle to stretch width
+                        </span>
                         <button
                           type="button"
                           onClick={() => setIsInlineEditing(false)}
@@ -1196,6 +1548,27 @@ export function EventCreateStudio({
                           }}
                         >
                           {posterLines.line2}
+                        </span>
+                      )}
+                      {formData.posterLine3 && (
+                        <span
+                          className="block font-bold leading-tight tracking-tight uppercase select-none mt-1.5 opacity-90 break-words"
+                          style={{
+                            color:
+                              formData.posterTextColor === "dark"
+                                ? "#131517"
+                                : formData.posterTextColor === "light"
+                                ? "#FFFFFF"
+                                : formData.coverImage
+                                ? "#FFFFFF"
+                                : selectedTheme.text,
+                            fontSize: `${Math.max(
+                              12,
+                              Math.round((formData.posterFontSize || 34) * 0.55),
+                            )}px`,
+                          }}
+                        >
+                          {formData.posterLine3}
                         </span>
                       )}
                     </div>
@@ -1263,31 +1636,55 @@ export function EventCreateStudio({
                   );
                 })}
 
-                {/* 7th Swatch: Custom Color with Palette Icon */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const fullHex = normalizeHex(customColorHex);
-                    setFormData((prev) => ({
-                      ...prev,
-                      theme: "custom",
-                      themeColor: fullHex,
-                      ticketBgColor: fullHex,
-                    }));
-                  }}
-                  className={`w-7 h-7 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center relative overflow-hidden ${
-                    formData.theme === "custom"
-                      ? "ring-2 ring-white ring-offset-2 ring-offset-[#131517] scale-110 shadow-md"
-                      : "opacity-80 hover:opacity-100 hover:scale-105"
-                  }`}
-                  style={{
-                    backgroundColor: formData.theme === "custom" ? selectedTheme.color : "#3A3D42",
-                    backgroundImage: formData.theme === "custom" ? undefined : "linear-gradient(135deg, #FE760B 0%, #EC4899 50%, #2B59FF 100%)",
-                  }}
-                  title="Custom Color"
-                >
-                  <Palette className="w-3.5 h-3.5 text-white drop-shadow-sm" />
-                </button>
+                {/* 7th Swatch: Custom Color Wheel Picker (Image 2) */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fullHex = normalizeHex(customColorHex || formData.themeColor || "#FE760B");
+                      setFormData((prev) => ({
+                        ...prev,
+                        theme: "custom",
+                        themeColor: fullHex,
+                        ticketBgColor: fullHex,
+                      }));
+                      themeColorInputRef.current?.click();
+                    }}
+                    className={`w-7 h-7 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center relative shadow-md group ${
+                      formData.theme === "custom"
+                        ? "ring-2 ring-white ring-offset-2 ring-offset-[#131517] scale-110 shadow-lg"
+                        : "opacity-90 hover:opacity-100 hover:scale-105"
+                    }`}
+                    style={{
+                      background:
+                        "conic-gradient(from 0deg, #ff0000 0%, #ff8000 12.5%, #ffff00 25%, #00ff00 37.5%, #00ffff 50%, #0000ff 62.5%, #8000ff 75%, #ff0080 87.5%, #ff0000 100%)",
+                    }}
+                    title="Custom Color Wheel - Click to open color wheel"
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full border border-black/50 shadow-xs"
+                      style={{ backgroundColor: selectedTheme.color }}
+                    />
+                  </button>
+                  <input
+                    ref={themeColorInputRef}
+                    type="color"
+                    value={normalizeHex(selectedTheme.color)}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setThemeHexInput(val.replace(/^#/, ""));
+                      setTicketHexInput(val.replace(/^#/, ""));
+                      setCustomColorHex(val);
+                      setFormData((prev) => ({
+                        ...prev,
+                        theme: "custom",
+                        themeColor: val,
+                        ticketBgColor: val,
+                      }));
+                    }}
+                    className="sr-only pointer-events-none"
+                  />
+                </div>
               </div>
 
               {/* Custom Color Code & Native Picker Input Box */}
@@ -1377,445 +1774,39 @@ export function EventCreateStudio({
                 Banner: JPEG, PNG or WebP up to 5 MB • 1200 × 400 recommended
               </p>
 
-              {/* Poster Typography & Text Adjustment Panel */}
-              <div className="w-full mt-4 pt-3.5 space-y-3 bg-[#1A1C1F] p-4 rounded-2xl border border-[#2A2D31] shadow-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-white font-bold flex items-center gap-1.5">
-                    <Type className="w-3.5 h-3.5 text-[#FE760B]" />
-                    Ticket &amp; Poster Typography &amp; Layout
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {/* Toggle text visibility on banner */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          showPosterText: prev.showPosterText === false ? true : false,
-                        }))
-                      }
-                      className={`p-1 rounded border transition-colors ${
-                        formData.showPosterText !== false
-                          ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
-                          : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
-                      }`}
-                      title={formData.showPosterText !== false ? "Hide text overlay" : "Show text overlay"}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-
-                    <div className="flex items-center rounded-lg bg-[#212327] p-0.5 border border-[#2A2D31]">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterTextMode: "auto",
-                          }))
-                        }
-                        className={`px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors ${
-                          formData.posterTextMode === "auto"
-                            ? "bg-[#FE760B] text-[#131517]"
-                            : "text-[#9B9EA4] hover:text-white"
-                        }`}
-                      >
-                        Auto Title
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterTextMode: "custom",
-                            posterLine1: prev.posterLine1 || posterLines.line1,
-                            posterLine2: prev.posterLine2 || posterLines.line2,
-                          }))
-                        }
-                        className={`px-2 py-0.5 text-[10px] font-semibold rounded-md transition-colors ${
-                          formData.posterTextMode === "custom"
-                            ? "bg-[#FE760B] text-[#131517]"
-                            : "text-[#9B9EA4] hover:text-white"
-                        }`}
-                      >
-                        Custom Lines
-                      </button>
+              {/* Poster Typography & Layout Trigger Button (Opens Image 4 Style Modal) */}
+              <div
+                className="w-full mt-4 p-3.5 bg-[#1A1C1F] hover:bg-[#212327] rounded-2xl border border-[#2A2D31] flex items-center justify-between gap-3 shadow-md transition-colors cursor-pointer"
+                onClick={() => setShowTypographyModal(true)}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#212327] border border-white/5 flex items-center justify-center text-[#FE760B] shrink-0">
+                    <Type className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                      <span>Typography &amp; Layout</span>
+                      {formData.showPosterText === false && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-500/20 text-red-400 font-semibold">
+                          Hidden
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[#9B9EA4] truncate mt-0.5">
+                      {formData.posterTextMode === "auto" ? "Auto Title" : "Custom Lines"} • {formData.posterFontSize || 34}px • {formData.posterAlign || "Left"} • {formData.posterTextWidth || 85}% width
                     </div>
                   </div>
                 </div>
-
-                {/* Drag Position Indicator & Quick Presets */}
-                <div className="flex items-center justify-between text-[11px] bg-[#212327] px-2.5 py-1.5 rounded-xl border border-[#2A2D31]">
-                  <div className="flex items-center gap-1.5 text-[#9B9EA4]">
-                    <Move className="w-3.5 h-3.5 text-[#FE760B]" />
-                    <span className="text-[10px] font-medium text-white">Drag text or snap:</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          posterTextX: 6,
-                          posterTextY: 8,
-                        }))
-                      }
-                      className="px-2 py-0.5 text-[10px] rounded font-semibold bg-[#1A1C1F] hover:bg-[#2A2D31] text-white border border-[#2A2D31] transition-colors"
-                    >
-                      Top
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          posterTextX: 6,
-                          posterTextY: 42,
-                        }))
-                      }
-                      className="px-2 py-0.5 text-[10px] rounded font-semibold bg-[#1A1C1F] hover:bg-[#2A2D31] text-white border border-[#2A2D31] transition-colors"
-                    >
-                      Center
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          posterTextX: 6,
-                          posterTextY: 68,
-                        }))
-                      }
-                      className="px-2 py-0.5 text-[10px] rounded font-semibold bg-[#1A1C1F] hover:bg-[#2A2D31] text-white border border-[#2A2D31] transition-colors"
-                    >
-                      Bottom
-                    </button>
-                    <button
-                      type="button"
-                      title="Reset text position"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          posterTextX: 6,
-                          posterTextY: prev.coverImage ? 55 : 68,
-                        }))
-                      }
-                      className="p-1 rounded text-[#9B9EA4] hover:text-white hover:bg-[#1A1C1F] transition-colors"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* If Custom Lines mode, provide custom input fields */}
-                {formData.posterTextMode === "custom" && (
-                  <div className="grid grid-cols-2 gap-2 pt-0.5">
-                    <div>
-                      <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
-                        Line 1 (Top)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.posterLine1}
-                        placeholder="e.g. DEVELOPER'S"
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterLine1: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#212327] border border-[#2A2D31] rounded-lg px-2.5 py-1 text-xs text-white uppercase focus:border-[#FE760B] outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
-                        Line 2 (Bottom)
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.posterLine2}
-                        placeholder="e.g. NIGHT 2026"
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterLine2: e.target.value,
-                          }))
-                        }
-                        className="w-full bg-[#212327] border border-[#2A2D31] rounded-lg px-2.5 py-1 text-xs text-white uppercase focus:border-[#FE760B] outline-none"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Font Size Slider & Quick Presets */}
-                <div className="space-y-1.5 pt-0.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-[#9B9EA4] flex items-center gap-1 font-medium">
-                      <Sliders className="w-3 h-3 text-[#9B9EA4]" />
-                      Font Size
-                    </span>
-                    <span className="font-mono text-white text-xs font-bold">
-                      {formData.posterFontSize || 34}px
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="20"
-                    max="48"
-                    step="2"
-                    value={formData.posterFontSize || 34}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        posterFontSize: parseInt(e.target.value, 10),
-                      }))
-                    }
-                    className="w-full accent-[#FE760B] cursor-pointer"
-                  />
-                  <div className="flex items-center gap-1 pt-1 justify-between">
-                    {[
-                      { label: "S (26px)", val: 26 },
-                      { label: "M (32px)", val: 32 },
-                      { label: "L (36px)", val: 36 },
-                      { label: "XL (42px)", val: 42 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.val}
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterFontSize: preset.val,
-                          }))
-                        }
-                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
-                          formData.posterFontSize === preset.val
-                            ? "bg-white/10 border-[#FE760B] text-[#FE760B] font-bold"
-                            : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Alignment, Text Color & Readability Backdrop */}
-                <div className="space-y-2.5 pt-1">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[#9B9EA4] mr-1">Align:</span>
-                      {[
-                        { id: "left", icon: AlignLeft },
-                        { id: "center", icon: AlignCenter },
-                        { id: "right", icon: AlignRight },
-                      ].map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                posterAlign: item.id,
-                              }))
-                            }
-                            className={`p-1 rounded border transition-colors ${
-                              formData.posterAlign === item.id
-                                ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
-                                : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
-                            }`}
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Backdrop / Readability Badge Style */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[#9B9EA4] mr-0.5">Backdrop:</span>
-                      {[
-                        { id: "shadow", label: "Shadow" },
-                        { id: "badge", label: "Glass" },
-                        { id: "solid", label: "Solid" },
-                        { id: "none", label: "None" },
-                      ].map((bg) => (
-                        <button
-                          key={bg.id}
-                          type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              posterTextBg: bg.id,
-                            }))
-                          }
-                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
-                            (formData.posterTextBg || "shadow") === bg.id
-                              ? "bg-white/10 border-[#FE760B] text-[#FE760B] font-bold"
-                              : "border-[#2A2D31] text-[#9B9EA4] hover:text-white"
-                          }`}
-                        >
-                          {bg.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Comprehensive Text Color Section */}
-                  <div className="pt-2 border-t border-[#2A2D31]/50 space-y-2">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
-                        <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
-                        Text Color:
-                      </span>
-                      <span className="font-mono text-xs text-white font-bold">
-                        {formData.posterTextColor?.startsWith("#")
-                          ? formData.posterTextColor.toUpperCase()
-                          : formData.posterTextColor === "dark"
-                          ? "Dark (#131517)"
-                          : formData.posterTextColor === "light"
-                          ? "White (#FFFFFF)"
-                          : formData.posterTextColor === "gold"
-                          ? "Gold (#FDE003)"
-                          : formData.posterTextColor === "orange"
-                          ? "Orange (#FE760B)"
-                          : formData.posterTextColor === "teal"
-                          ? "Teal (#3DD68C)"
-                          : "Theme Auto"}
-                      </span>
-                    </div>
-
-                    {/* Presets */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {[
-                        { id: "auto", label: "Theme Auto" },
-                        { id: "light", label: "White" },
-                        { id: "dark", label: "Dark" },
-                        { id: "gold", label: "Gold" },
-                        { id: "orange", label: "Orange" },
-                        { id: "teal", label: "Teal" },
-                      ].map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData((prev) => ({
-                              ...prev,
-                              posterTextColor: c.id,
-                              ticketTextColor: c.id,
-                            }));
-                            if (c.id === "light") setCustomTextColorHex("FFFFFF");
-                            if (c.id === "dark") setCustomTextColorHex("131517");
-                            if (c.id === "gold") setCustomTextColorHex("FDE003");
-                            if (c.id === "orange") setCustomTextColorHex("FE760B");
-                            if (c.id === "teal") setCustomTextColorHex("3DD68C");
-                          }}
-                          className={`text-[10px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-semibold ${
-                            (formData.posterTextColor || "auto") === c.id
-                              ? "bg-[#FE760B] text-[#131517] font-bold border-[#FE760B] shadow-sm"
-                              : "border-[#2A2D31] bg-[#212327]/60 text-[#9B9EA4] hover:text-white hover:bg-[#212327]"
-                          }`}
-                        >
-                          {c.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Custom Color Wheel + Hex Code Input */}
-                    <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                      <div className="flex items-center gap-2">
-                        <label
-                          title="Click to choose custom text color"
-                          className="relative w-6 h-6 rounded-md border border-white/20 shadow-xs cursor-pointer shrink-0 overflow-hidden flex items-center justify-center hover:scale-110 transition-transform"
-                          style={{
-                            backgroundColor: formData.posterTextColor?.startsWith("#")
-                              ? formData.posterTextColor
-                              : formData.posterTextColor === "dark"
-                              ? "#131517"
-                              : formData.posterTextColor === "gold"
-                              ? "#FDE003"
-                              : formData.posterTextColor === "orange"
-                              ? "#FE760B"
-                              : formData.posterTextColor === "teal"
-                              ? "#3DD68C"
-                              : "#FFFFFF",
-                          }}
-                        >
-                          <input
-                            type="color"
-                            value={normalizeHex(
-                              formData.posterTextColor?.startsWith("#")
-                                ? formData.posterTextColor
-                                : formData.posterTextColor === "dark"
-                                ? "#131517"
-                                : formData.posterTextColor === "gold"
-                                ? "#FDE003"
-                                : formData.posterTextColor === "orange"
-                                ? "#FE760B"
-                                : formData.posterTextColor === "teal"
-                                ? "#3DD68C"
-                                : "#FFFFFF"
-                            )}
-                            onChange={(e) => {
-                              const val = e.target.value.toUpperCase();
-                              setCustomTextColorHex(val.replace(/^#/, ""));
-                              setFormData((prev) => ({
-                                ...prev,
-                                posterTextColor: val,
-                                ticketTextColor: val,
-                              }));
-                            }}
-                            className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                          />
-                        </label>
-                        <span className="text-[10px] text-[#9B9EA4] font-medium">Custom Color:</span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex items-center gap-1 bg-[#1A1C1F] border border-[#2A2D31] px-2 py-0.5 rounded-lg focus-within:border-[#FE760B] transition-colors">
-                          <span className="text-[10px] text-[#FE760B] font-mono font-bold">#</span>
-                          <input
-                            type="text"
-                            maxLength={7}
-                            value={customTextColorHex}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/^#/, "").replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
-                              setCustomTextColorHex(raw);
-                              if (raw.length === 3 || raw.length === 6) {
-                                const fullHex = normalizeHex(raw);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  posterTextColor: fullHex,
-                                  ticketTextColor: fullHex,
-                                }));
-                              }
-                            }}
-                            placeholder="FFFFFF"
-                            className="w-16 font-mono text-[11px] uppercase font-bold text-white bg-transparent outline-none"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const fullHex = normalizeHex(customTextColorHex);
-                            setCustomTextColorHex(fullHex.replace(/^#/, ""));
-                            setFormData((prev) => ({
-                              ...prev,
-                              posterTextColor: fullHex,
-                              ticketTextColor: fullHex,
-                            }));
-                            toast.success(`Text color ${fullHex} applied!`);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-[10px] font-semibold text-white border border-white/10 transition-colors cursor-pointer"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTypographyModal(true);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-[#2A2D31] hover:bg-[#33373E] text-white text-[11px] font-semibold transition-colors shrink-0 cursor-pointer"
+                >
+                  Adjust
+                </button>
               </div>
             </div>
           </div>
@@ -1841,17 +1832,17 @@ export function EventCreateStudio({
             <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-sm relative">
               {/* Left Side: Start and End rows */}
               <div className="flex-1 space-y-3">
-                {/* Start row: ● Start [Mon, 2 Nov] | [11:30 pm] */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 w-16 shrink-0">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: selectedTheme.color }} />
+                {/* Start row: ● Start [Mon, 2 Nov] [11:30 pm] on SAME LINE */}
+                <div className="flex items-center gap-2 sm:gap-2.5 flex-nowrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 w-14 sm:w-16 shrink-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: selectedTheme.color }} />
                     <span className="text-xs font-semibold text-[#9B9EA4]">
                       Start
                     </span>
                   </div>
 
-                  {/* Start Date Pill with Calendar Popover (Image 1) */}
-                  <div className="relative">
+                  {/* Start Date Pill with Calendar Popover */}
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -1860,7 +1851,7 @@ export function EventCreateStudio({
                         setShowEndCalendar(false);
                         setShowEndTimePicker(false);
                       }}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formatDatePill(formData.startDate)}</span>
                     </button>
@@ -1868,6 +1859,7 @@ export function EventCreateStudio({
                     {showStartCalendar && (
                       <ThemedCalendarPopover
                         value={formData.startDate}
+                        minDate={getTodayStr()}
                         onChange={(newDate) => {
                           setFormData((prev) => ({
                             ...prev,
@@ -1881,8 +1873,8 @@ export function EventCreateStudio({
                     )}
                   </div>
 
-                  {/* Start Time Pill with Time Dropdown (Image 2) */}
-                  <div className="relative">
+                  {/* Start Time Pill with Time Dropdown */}
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -1891,7 +1883,7 @@ export function EventCreateStudio({
                         setShowEndCalendar(false);
                         setShowEndTimePicker(false);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formData.startTime}</span>
                     </button>
@@ -1899,6 +1891,11 @@ export function EventCreateStudio({
                     {showStartTimePicker && (
                       <ThemedTimeDropdown
                         value={formData.startTime}
+                        minMinutes={
+                          formData.startDate === getTodayStr()
+                            ? new Date().getHours() * 60 + new Date().getMinutes() - 5
+                            : null
+                        }
                         onChange={(newTime) => {
                           setFormData((prev) => ({
                             ...prev,
@@ -1912,17 +1909,17 @@ export function EventCreateStudio({
                   </div>
                 </div>
 
-                {/* End row: ○ End [Tue, 3 Nov] | [12:30 am] */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 w-16 shrink-0">
-                    <span className="w-2 h-2 rounded-full border border-[#9B9EA4]" />
+                {/* End row: ○ End [Tue, 3 Nov] [12:30 am] on SAME LINE */}
+                <div className="flex items-center gap-2 sm:gap-2.5 flex-nowrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 w-14 sm:w-16 shrink-0">
+                    <span className="w-2 h-2 rounded-full border border-[#9B9EA4] shrink-0" />
                     <span className="text-xs font-semibold text-[#9B9EA4]">
                       End
                     </span>
                   </div>
 
-                  {/* End Date Pill with Calendar Popover (Image 1) */}
-                  <div className="relative">
+                  {/* End Date Pill with Calendar Popover */}
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -1931,7 +1928,7 @@ export function EventCreateStudio({
                         setShowStartCalendar(false);
                         setShowStartTimePicker(false);
                       }}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formatDatePill(formData.endDate)}</span>
                     </button>
@@ -1939,6 +1936,7 @@ export function EventCreateStudio({
                     {showEndCalendar && (
                       <ThemedCalendarPopover
                         value={formData.endDate}
+                        minDate={formData.startDate || getTodayStr()}
                         onChange={(newDate) => {
                           setFormData((prev) => ({
                             ...prev,
@@ -1951,8 +1949,8 @@ export function EventCreateStudio({
                     )}
                   </div>
 
-                  {/* End Time Pill with Time Dropdown (Image 2) */}
-                  <div className="relative">
+                  {/* End Time Pill with Time Dropdown */}
+                  <div className="relative shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -1961,7 +1959,7 @@ export function EventCreateStudio({
                         setShowStartCalendar(false);
                         setShowStartTimePicker(false);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formData.endTime}</span>
                     </button>
@@ -1969,6 +1967,11 @@ export function EventCreateStudio({
                     {showEndTimePicker && (
                       <ThemedTimeDropdown
                         value={formData.endTime}
+                        minMinutes={
+                          formData.endDate === formData.startDate
+                            ? parseTimeToMinutes(formData.startTime)
+                            : null
+                        }
                         onChange={(newTime) => {
                           setFormData((prev) => ({
                             ...prev,
@@ -2057,9 +2060,11 @@ export function EventCreateStudio({
                     allowFullScreen
                     referrerPolicy="no-referrer-when-downgrade"
                     src={
-                      formData.latitude && formData.longitude
-                        ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(formData.longitude) - 0.007}%2C${Number(formData.latitude) - 0.005}%2C${Number(formData.longitude) + 0.007}%2C${Number(formData.latitude) + 0.005}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`
-                        : `https://www.openstreetmap.org/export/embed.html?bbox=77.10%2C28.55%2C77.30%2C28.75&layer=mapnik&marker=28.6139%2C77.2090`
+                      `https://maps.google.com/maps?q=${encodeURIComponent(
+                        formData.latitude && formData.longitude
+                          ? `${formData.latitude},${formData.longitude}`
+                          : formData.locationVenue || formData.location || "India"
+                      )}&t=&z=15&ie=UTF8&iwloc=&output=embed`
                     }
                     className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
                   />
@@ -2143,7 +2148,7 @@ export function EventCreateStudio({
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
-                        <Ticket className="w-4 h-4" />
+                        <IoTicket className="w-4 h-4" />
                       </div>
                       <div>
                         <span className="text-sm font-bold text-white block">
@@ -2170,10 +2175,15 @@ export function EventCreateStudio({
                       <button
                         type="button"
                         onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            isPaid: !prev.isPaid,
-                          }))
+                          setFormData((prev) => {
+                            const nextIsPaid = !prev.isPaid;
+                            return {
+                              ...prev,
+                              isPaid: nextIsPaid,
+                              // If switching to paid, automatically turn off and lock requireApproval
+                              requireApproval: nextIsPaid ? false : prev.requireApproval,
+                            };
+                          })
                         }
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
                           formData.isPaid ? "bg-[#FE760B]" : "bg-[#2A2D31]"
@@ -2247,31 +2257,55 @@ export function EventCreateStudio({
                   )}
                 </div>
 
-                {/* Row 2: Require Approval toggle (Image 1 & 2) */}
-                <div className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Lock className="w-4 h-4 text-[#9B9EA4]" />
-                    <span className="text-sm font-medium text-white">
-                      Require Approval
-                    </span>
+                {/* Row 2: Require Approval toggle (Locked & Off for Paid Events) */}
+                <div className={`p-4 flex items-center justify-between gap-4 ${formData.isPaid ? "opacity-65" : ""}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Lock className={`w-4 h-4 shrink-0 ${formData.isPaid ? "text-amber-400/80" : "text-[#9B9EA4]"}`} />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-white block">
+                        Require Approval
+                      </span>
+                      {formData.isPaid ? (
+                        <span className="text-[11px] text-amber-400 font-medium block leading-tight mt-0.5">
+                          Paid events do not require approval (passes are auto-confirmed upon payment)
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-[#9B9EA4] block leading-tight mt-0.5">
+                          Manually review and approve registrations before tickets are issued
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() =>
+                    disabled={formData.isPaid}
+                    onClick={() => {
+                      if (formData.isPaid) return;
                       setFormData((prev) => ({
                         ...prev,
                         requireApproval: !prev.requireApproval,
-                      }))
-                    }
-                    className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                      formData.requireApproval ? "bg-[#3DD68C]" : "bg-[#2A2D31]"
+                      }));
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
+                      formData.isPaid
+                        ? "cursor-not-allowed bg-[#2A2D31] opacity-50"
+                        : "cursor-pointer"
+                    } ${
+                      !formData.isPaid && formData.requireApproval ? "bg-[#3DD68C]" : "bg-[#2A2D31]"
                     }`}
-                    style={formData.requireApproval ? { backgroundColor: selectedTheme.color } : {}}
+                    style={!formData.isPaid && formData.requireApproval ? { backgroundColor: selectedTheme.color } : {}}
+                    title={
+                      formData.isPaid
+                        ? "Paid events do not require approval"
+                        : formData.requireApproval
+                        ? "Approval required"
+                        : "Approval not required"
+                    }
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                        formData.requireApproval ? "translate-x-5" : ""
+                        !formData.isPaid && formData.requireApproval ? "translate-x-5" : ""
                       }`}
                     />
                   </button>
@@ -2297,12 +2331,37 @@ export function EventCreateStudio({
                   </div>
                 </div>
 
+                {/* Row 4: Poster Typography & Layout Modal Trigger */}
+                <div
+                  onClick={() => setShowTypographyModal(true)}
+                  className="p-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Type className="w-4 h-4 text-[#9B9EA4] group-hover:text-white transition-colors shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-white block">
+                        Poster &amp; Ticket Typography
+                      </span>
+                      <span className="text-[11px] text-[#9B9EA4] block truncate">
+                        {formData.posterTextMode === "auto" ? "Auto Title" : "Custom Lines"} • {formData.posterFontSize || 34}px • {formData.posterAlign || "Left"} • {formData.posterTextWidth || 85}% width
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-semibold text-[#FE760B] group-hover:underline">
+                      Customize
+                    </span>
+                    <Edit3 className="w-3.5 h-3.5 text-[#9B9EA4] group-hover:text-white transition-colors" />
+                  </div>
+                </div>
+
                 {/* Ticket Format & Style (Stub tickets vs Wide tickets) */}
                 <div className="p-4 sm:p-5 border-t border-[#2A2D31]/80 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
-                        <Ticket className="w-4 h-4" />
+                        <IoTicket className="w-4 h-4" />
                       </div>
                       <div>
                         <span className="text-sm font-bold text-white block">
@@ -2381,7 +2440,7 @@ export function EventCreateStudio({
                   <div className="mt-4 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 sm:p-5 space-y-3">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Ticket className="w-4 h-4 text-[#FE760B]" />
+                        <IoTicket className="w-4 h-4 text-[#FE760B]" />
                         <h4 className="text-xs sm:text-sm font-bold text-white tracking-wide">
                           Ticket Background &amp; Accent Color
                         </h4>
@@ -2629,10 +2688,10 @@ export function EventCreateStudio({
                               setModalPreviewDesign("stub");
                               setShowFullTicketModal(true);
                             }}
-                            className="pt-1 pb-1 overflow-x-auto flex justify-center no-scrollbar cursor-pointer transition-transform hover:scale-[1.005]"
+                            className="pt-1 pb-1 overflow-hidden flex justify-center cursor-pointer transition-transform hover:scale-[1.005] w-full max-w-full"
                             title="Click to view full length ticket"
                           >
-                            <div className="w-full max-w-[780px] min-w-[320px]">
+                            <div className="w-full max-w-[780px]">
                               <StubTicket
                                 event={{
                                   name: formData.name || "Developer's Night 2026",
@@ -2686,10 +2745,10 @@ export function EventCreateStudio({
                               setModalPreviewDesign("wide");
                               setShowFullTicketModal(true);
                             }}
-                            className="pt-1 pb-1 overflow-x-auto flex justify-center no-scrollbar cursor-pointer transition-transform hover:scale-[1.005]"
+                            className="pt-1 pb-1 overflow-hidden flex justify-center cursor-pointer transition-transform hover:scale-[1.005] w-full max-w-full"
                             title="Click to view full length ticket"
                           >
-                            <div className="w-full max-w-[780px] min-w-[320px]">
+                            <div className="w-full max-w-[780px]">
                               <WideTicket
                                 event={{
                                   name: formData.name || "Developer's Night 2026",
@@ -2999,9 +3058,11 @@ export function EventCreateStudio({
                           allowFullScreen
                           referrerPolicy="no-referrer-when-downgrade"
                           src={
-                            selectedLocationVenue.lat && selectedLocationVenue.lng
-                              ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(selectedLocationVenue.lng) - 0.007}%2C${Number(selectedLocationVenue.lat) - 0.005}%2C${Number(selectedLocationVenue.lng) + 0.007}%2C${Number(selectedLocationVenue.lat) + 0.005}&layer=mapnik&marker=${selectedLocationVenue.lat}%2C${selectedLocationVenue.lng}`
-                              : `https://www.openstreetmap.org/export/embed.html?bbox=77.10%2C28.55%2C77.30%2C28.75&layer=mapnik&marker=28.6139%2C77.2090`
+                            `https://maps.google.com/maps?q=${encodeURIComponent(
+                              selectedLocationVenue.lat && selectedLocationVenue.lng
+                                ? `${selectedLocationVenue.lat},${selectedLocationVenue.lng}`
+                                : (selectedLocationVenue.name || "") + (selectedLocationVenue.address ? `, ${selectedLocationVenue.address}` : "")
+                            )}&t=&z=15&ie=UTF8&iwloc=&output=embed`
                           }
                           className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
                         />
@@ -3077,69 +3138,70 @@ export function EventCreateStudio({
           </div>
         </div>
       )}
-      {/* Event Description Modal (Properly styled & modern) */}
+      {/* Event Description Modal (Crisp, clean & modern matching Image 4) */}
       {showDescriptionModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
           onClick={() => setShowDescriptionModal(false)}
         >
           <div
-            className="w-full max-w-xl bg-[#1A1C1F] border border-[#2A2D31] rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 space-y-0"
+            className="w-full max-w-xl bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl relative p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-[#2A2D31]">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
-                  <Edit3 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-bold text-white leading-tight">
-                    Event Description
-                  </h3>
-                  <p className="text-xs text-[#9B9EA4] mt-0.5">
-                    Provide clear details about what attendees should expect
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowDescriptionModal(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Top Close 'X' Button */}
+            <button
+              type="button"
+              onClick={() => setShowDescriptionModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
 
-            {/* Body: High quality textarea box */}
-            <div className="p-5 space-y-2">
-              <div className="rounded-2xl bg-[#141619] border border-[#2A2D31] focus-within:border-[#FE760B] focus-within:ring-2 focus-within:ring-[#FE760B]/20 p-4 transition-all">
-                <textarea
-                  autoFocus
-                  value={safeDescription}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="Who should come? What's the event about? Include schedule, guidelines, and what to bring..."
-                  rows={7}
-                  className="w-full bg-transparent text-sm sm:text-base text-white placeholder:text-[#9B9EA4]/70 border-none outline-none focus:ring-0 resize-none leading-relaxed"
-                />
+            {/* Header: Icon + Title & Description */}
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-10 h-10 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-[#FE760B] shrink-0">
+                <Edit3 className="w-5 h-5 text-[#FE760B]" />
               </div>
-              <div className="flex items-center justify-between text-[11px] text-[#9B9EA4] px-1">
-                <span>Markdown & line breaks supported</span>
-                <span>{safeDescription.length} characters</span>
+              <div>
+                <h3 className="text-base font-bold text-white leading-tight">
+                  Event Description
+                </h3>
+                <p className="text-xs text-[#9B9EA4] leading-relaxed mt-0.5">
+                  Provide clear details about what attendees should expect
+                </p>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="p-5 pt-1 border-t border-[#2A2D31]/80 flex items-center justify-end gap-3">
+            {/* Content: Single crisp unified container without double-borders */}
+            <div className="rounded-2xl bg-[#121417] border border-[#26292E] focus-within:border-[#FE760B] transition-colors p-4 space-y-3">
+              <textarea
+                value={safeDescription}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                placeholder="Who should come? What's the event about? Include schedule, guidelines, and what to bring..."
+                rows={7}
+                className="w-full bg-transparent text-xs sm:text-sm text-white placeholder:text-[#64748B] border-0 outline-none ring-0 focus:outline-none focus:ring-0 resize-none leading-relaxed font-normal"
+              />
+              <div className="flex items-center justify-between text-[11px] text-[#9B9EA4] pt-2 border-t border-white/5 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                  Markdown &amp; line breaks supported
+                </span>
+                <span className="font-mono text-xs text-[#9B9EA4]">{safeDescription.length} characters</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDescriptionModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -3195,31 +3257,41 @@ export function EventCreateStudio({
       {/* Max Capacity Dialog matching Image 4 */}
       {showCapacityModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
           onClick={() => setShowCapacityModal(false)}
         >
           <div
-            className="w-full max-w-[360px] bg-white dark:bg-[#1A1C1F] border border-gray-200 dark:border-[#2A2D31] rounded-3xl shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150"
+            className="w-full max-w-[380px] bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-5 animate-in fade-in zoom-in-95 duration-150 text-white"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Top Close 'X' Button */}
+            <button
+              type="button"
+              onClick={() => setShowCapacityModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
             {/* Top Icon */}
-            <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-[#212327] border border-gray-200 dark:border-[#2A2D31] flex items-center justify-center text-gray-700 dark:text-gray-300">
-              <Upload className="w-5 h-5 rotate-180" />
+            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-white">
+              <Upload className="w-5 h-5 rotate-180 text-white" />
             </div>
 
             {/* Title & Description */}
             <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              <h3 className="text-base font-bold text-white">
                 Max Capacity
               </h3>
-              <p className="text-xs text-gray-500 dark:text-[#9B9EA4] leading-relaxed mt-1">
+              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
                 Close registration when reaching the capacity. Only approved guests count towards it.
               </p>
             </div>
 
             {/* Limit Event Capacity Toggle */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+              <span className="text-xs sm:text-sm font-medium text-white">
                 Limit Event Capacity
               </span>
               <button
@@ -3231,7 +3303,7 @@ export function EventCreateStudio({
                   }))
                 }
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                  formData.limitCapacity ? "bg-[#3DD68C]" : "bg-gray-300 dark:bg-[#2A2D31]"
+                  formData.limitCapacity ? "bg-[#3DD68C]" : "bg-[#2A2D31]"
                 }`}
                 style={formData.limitCapacity ? { backgroundColor: selectedTheme.color } : {}}
               >
@@ -3246,7 +3318,7 @@ export function EventCreateStudio({
             {/* Max Capacity input (visible if limitCapacity is true) */}
             {formData.limitCapacity && (
               <div className="flex items-center justify-between animate-in fade-in duration-100">
-                <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                <span className="text-xs sm:text-sm font-medium text-white">
                   Max Capacity
                 </span>
                 <input
@@ -3260,14 +3332,14 @@ export function EventCreateStudio({
                       capacity: e.target.value,
                     }))
                   }
-                  className="w-20 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-[#2A2D31] bg-gray-50 dark:bg-[#212327] text-gray-900 dark:text-white text-center font-bold text-sm outline-none focus:ring-1 focus:ring-black dark:focus:ring-white"
+                  className="w-24 px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#212327] text-white text-center font-bold text-sm outline-none focus:ring-1 focus:ring-white"
                 />
               </div>
             )}
 
             {/* Over-Capacity Waitlist Toggle */}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+              <span className="text-xs sm:text-sm font-medium text-white">
                 Over-Capacity Waitlist
               </span>
               <button
@@ -3279,7 +3351,7 @@ export function EventCreateStudio({
                   }))
                 }
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                  formData.waitlist ? "bg-[#3DD68C]" : "bg-gray-300 dark:bg-[#2A2D31]"
+                  formData.waitlist ? "bg-[#FE760B]" : "bg-[#2A2D31]"
                 }`}
                 style={formData.waitlist ? { backgroundColor: selectedTheme.color } : {}}
               >
@@ -3296,7 +3368,419 @@ export function EventCreateStudio({
               <button
                 type="button"
                 onClick={() => setShowCapacityModal(false)}
-                className="w-full py-2.5 rounded-xl bg-[#1A1C1F] dark:bg-white text-white dark:text-[#131517] font-semibold text-sm hover:opacity-90 transition-opacity shadow-md cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-white text-[#131517] font-semibold text-sm hover:bg-gray-100 transition-colors shadow-lg cursor-pointer"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Typography & Poster Text Adjustment Modal (Clean & Crisp Image 4 Style) ── */}
+      {showTypographyModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          onClick={() => setShowTypographyModal(false)}
+        >
+          <div
+            className="w-full max-w-md bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Close 'X' Button */}
+            <button
+              type="button"
+              onClick={() => setShowTypographyModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Top Icon */}
+            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-white">
+              <Type className="w-5 h-5 text-[#FE760B]" />
+            </div>
+
+            {/* Title & Description */}
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-white">
+                Ticket &amp; Poster Typography &amp; Layout
+              </h3>
+              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
+                Customize title mode, text size, alignment, backdrop effect, and stretchable width for your event poster.
+              </p>
+            </div>
+
+            {/* Display toggle & Mode row */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white">Display on Poster</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      showPosterText: prev.showPosterText === false ? true : false,
+                    }))
+                  }
+                  className={`p-1 rounded-md border text-xs transition-colors ${
+                    formData.showPosterText !== false
+                      ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
+                      : "border-[#2A2D31] text-[#9B9EA4]"
+                  }`}
+                  title={formData.showPosterText !== false ? "Hide text overlay" : "Show text overlay"}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-center rounded-lg bg-[#181A1D] p-0.5 border border-[#2A2D31]">
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, posterTextMode: "auto" }))}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                    formData.posterTextMode === "auto"
+                      ? "bg-[#FE760B] text-[#131517]"
+                      : "text-[#9B9EA4] hover:text-white"
+                  }`}
+                >
+                  Auto Title
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      posterTextMode: "custom",
+                      posterLine1: prev.posterLine1 || posterLines.line1,
+                      posterLine2: prev.posterLine2 || posterLines.line2,
+                    }))
+                  }
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                    formData.posterTextMode === "custom"
+                      ? "bg-[#FE760B] text-[#131517]"
+                      : "text-[#9B9EA4] hover:text-white"
+                  }`}
+                >
+                  Custom Lines
+                </button>
+              </div>
+            </div>
+
+            {/* Snap Position Row */}
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">
+              <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                <Move className="w-3.5 h-3.5 text-[#FE760B]" />
+                Drag text or snap:
+              </span>
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: "Top", y: 8 },
+                  { label: "Center", y: 42 },
+                  { label: "Bottom", y: 68 },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        posterTextX: 6,
+                        posterTextY: item.y,
+                      }))
+                    }
+                    className={`px-2.5 py-1 text-xs rounded-lg font-semibold border transition-colors ${
+                      formData.posterTextY === item.y
+                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                        : "bg-[#181A1D] border-[#2A2D31] text-white hover:bg-[#2A2D31]"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  title="Reset text position"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      posterTextX: 6,
+                      posterTextY: prev.coverImage ? 55 : 68,
+                    }))
+                  }
+                  className="p-1.5 rounded-lg border border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#181A1D] transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Stretchable Text Box Width Slider (Image 5 Requirement) */}
+            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Stretchable Text Box Width
+                </span>
+                <span className="font-mono text-white text-xs font-bold">
+                  {formData.posterTextWidth || 85}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="30"
+                max="92"
+                value={formData.posterTextWidth || 85}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    posterTextWidth: parseInt(e.target.value, 10),
+                  }))
+                }
+                className="w-full accent-[#FE760B] cursor-pointer"
+              />
+              <div className="flex items-center justify-between text-[10px] text-[#71767B]">
+                <span>Narrow (wraps text to more lines)</span>
+                <span>Wide (keeps on one line)</span>
+              </div>
+            </div>
+
+            {/* Font Size Slider & Presets */}
+            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Font Size
+                </span>
+                <span className="font-mono text-white text-xs font-bold">
+                  {formData.posterFontSize || 34}px
+                </span>
+              </div>
+              <input
+                type="range"
+                min="20"
+                max="56"
+                step="2"
+                value={formData.posterFontSize || 34}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    posterFontSize: parseInt(e.target.value, 10),
+                  }))
+                }
+                className="w-full accent-[#FE760B] cursor-pointer"
+              />
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: "S (26px)", val: 26 },
+                  { label: "M (32px)", val: 32 },
+                  { label: "L (36px)", val: 36 },
+                  { label: "XL (42px)", val: 42 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, posterFontSize: preset.val }))}
+                    className={`flex-1 py-1 text-xs rounded-lg font-semibold border transition-colors ${
+                      formData.posterFontSize === preset.val
+                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                        : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Font Family Selection */}
+            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Font Family
+                </span>
+                <span className="font-semibold text-white text-xs">
+                  {formData.fontFamily || "New Spirit"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                {[
+                  { id: "New Spirit", name: "New Spirit", fontClass: "font-serif" },
+                  { id: "Inter", name: "Inter", fontClass: "font-sans" },
+                  { id: "Outfit", name: "Outfit", fontClass: "font-sans font-bold" },
+                  { id: "Roboto", name: "Roboto", fontClass: "font-sans" },
+                  { id: "JetBrains Mono", name: "Mono", fontClass: "font-mono" },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, fontFamily: f.id }))}
+                    className={`py-1.5 px-2 text-xs rounded-xl border text-center transition-all cursor-pointer ${
+                      (formData.fontFamily || "New Spirit") === f.id
+                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold"
+                        : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
+                    }`}
+                  >
+                    <span className={f.fontClass}>{f.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Align & Backdrop Row (Mobile-Friendly Responsive) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-medium">Text Alignment</span>
+                <div className="flex items-center rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
+                  {[
+                    { align: "left", label: "Left", icon: AlignLeft },
+                    { align: "center", label: "Center", icon: AlignCenter },
+                    { align: "right", label: "Right", icon: AlignRight },
+                  ].map(({ align, label, icon: Icon }) => (
+                    <button
+                      key={align}
+                      type="button"
+                      title={label}
+                      onClick={() => setFormData((prev) => ({ ...prev, posterAlign: align }))}
+                      className={`flex-1 py-1.5 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                        (formData.posterAlign || "left") === align
+                          ? "bg-[#FE760B] text-[#131517]"
+                          : "text-[#9B9EA4] hover:text-white"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-medium">Text Backdrop</span>
+                <div className="grid grid-cols-4 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
+                  {["shadow", "badge", "solid", "none"].map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, posterTextBg: b }))}
+                      className={`py-1.5 text-[11px] font-semibold capitalize rounded transition-colors text-center cursor-pointer truncate ${
+                        (formData.posterTextBg || "shadow") === b
+                          ? "bg-[#FE760B] text-[#131517] font-bold"
+                          : "text-[#9B9EA4] hover:text-white"
+                      }`}
+                    >
+                      {b === "badge" ? "Glass" : b}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Text Color Selection */}
+            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+              <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
+                Text Color
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { id: "auto", label: "Theme Auto" },
+                  { id: "light", label: "White" },
+                  { id: "dark", label: "Dark" },
+                  { id: "#FDE003", label: "Gold" },
+                  { id: "#FE760B", label: "Orange" },
+                  { id: "#14B8A6", label: "Teal" },
+                ].map((col) => {
+                  const isSel = (formData.posterTextColor || "auto") === col.id;
+                  return (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, posterTextColor: col.id }))}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-semibold border transition-colors ${
+                        isSel
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                          : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
+                      }`}
+                    >
+                      {col.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Hex Color */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  maxLength={7}
+                  placeholder="#FFFFFF"
+                  value={customTextColorHex ? `#${customTextColorHex}` : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/^#/, "").toUpperCase();
+                    setCustomTextColorHex(raw);
+                  }}
+                  className="flex-1 px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs font-mono text-white outline-none focus:border-[#FE760B]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (customTextColorHex) {
+                      const full = normalizeHex(customTextColorHex);
+                      setFormData((prev) => ({ ...prev, posterTextColor: full }));
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Lines Inputs (if mode is custom) */}
+            {formData.posterTextMode === "custom" && (
+              <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+                <span className="text-xs text-white font-semibold block">Custom Poster Lines</span>
+                <div>
+                  <label className="text-[10px] text-[#9B9EA4] block mb-1">Line 1 (Heading)</label>
+                  <input
+                    type="text"
+                    value={formData.posterLine1}
+                    placeholder="Enter headline"
+                    onChange={(e) => setFormData((prev) => ({ ...prev, posterLine1: e.target.value }))}
+                    className="w-full px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs font-bold text-white outline-none focus:border-[#FE760B]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#9B9EA4] block mb-1">Line 2 (Sub-heading)</label>
+                  <input
+                    type="text"
+                    value={formData.posterLine2}
+                    placeholder="Enter sub-heading"
+                    onChange={(e) => setFormData((prev) => ({ ...prev, posterLine2: e.target.value }))}
+                    className="w-full px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs font-bold text-white outline-none focus:border-[#FE760B]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#9B9EA4] block mb-1">Line 3 (Extra Details / Tagline)</label>
+                  <input
+                    type="text"
+                    value={formData.posterLine3 || ""}
+                    placeholder="e.g. KIET CAMPUS • AUDITORIUM • 9 AM"
+                    onChange={(e) => setFormData((prev) => ({ ...prev, posterLine3: e.target.value }))}
+                    className="w-full px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs text-white outline-none focus:border-[#FE760B]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Confirm Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowTypographyModal(false)}
+                className="w-full py-3 rounded-2xl bg-white text-[#131517] font-semibold text-sm hover:bg-gray-100 transition-colors shadow-lg cursor-pointer"
               >
                 Confirm
               </button>

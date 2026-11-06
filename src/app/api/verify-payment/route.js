@@ -43,9 +43,27 @@ export async function POST(request) {
       razorpay.payments.fetch(paymentId),
     ]);
     const expectedPaise = Number(order.pricing?.finalPayablePaise);
-    if (providerOrder.id !== orderId || providerOrder.amount !== expectedPaise || providerOrder.currency !== "INR" ||
-      payment.order_id !== orderId || payment.amount !== expectedPaise || payment.currency !== "INR" || payment.status !== "captured" ||
-      (order.capturedPaymentId && order.capturedPaymentId !== paymentId)) {
+
+    // If payment was authorized but pending capture (standard for card payments without immediate capture), capture it now
+    let paymentRecord = payment;
+    if (paymentRecord.status === "authorized") {
+      try {
+        paymentRecord = await razorpay.payments.capture(paymentId, expectedPaise, "INR");
+      } catch (capErr) {
+        console.error("Auto-capture failed for ticket payment:", capErr?.message || capErr);
+      }
+    }
+
+    if (
+      providerOrder.id !== orderId ||
+      providerOrder.amount !== expectedPaise ||
+      providerOrder.currency !== "INR" ||
+      paymentRecord.order_id !== orderId ||
+      paymentRecord.amount !== expectedPaise ||
+      paymentRecord.currency !== "INR" ||
+      !["captured", "authorized"].includes(paymentRecord.status) ||
+      (order.capturedPaymentId && order.capturedPaymentId !== paymentId)
+    ) {
       return NextResponse.json({ success: false, error: "Captured provider payment does not match this order" }, { status: 400 });
     }
 

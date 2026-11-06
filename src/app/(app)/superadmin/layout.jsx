@@ -221,10 +221,11 @@ export default function SuperAdminLayout({ children }) {
                 className="w-8 h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer hover:ring-2 ring-[#FE760B]/40 transition-all overflow-hidden select-none"
                 title={user?.email || "Super Admin"}
               >
-                {user?.photoURL && !user.photoURL.includes("googleusercontent.com/a/") ? (
+                {user?.photoURL ? (
                   <img
                     src={user.photoURL}
                     alt={user?.email || "Avatar"}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover rounded-full"
                   />
                 ) : (
@@ -237,10 +238,11 @@ export default function SuperAdminLayout({ children }) {
                   {/* User Profile Card */}
                   <div className="border-b border-slate-100 dark:border-[#2A2D31] pb-2.5 flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
-                      {user?.photoURL && !user.photoURL.includes("googleusercontent.com/a/") ? (
+                      {user?.photoURL ? (
                         <img
                           src={user.photoURL}
                           alt="Avatar"
+                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -414,8 +416,13 @@ export default function SuperAdminLayout({ children }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
-                    {user?.photoURL && !user.photoURL.includes("googleusercontent.com/a/") ? (
-                      <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                    {user?.photoURL ? (
+                      <img
+                        src={user.photoURL}
+                        alt="Avatar"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       userInitial
                     )}

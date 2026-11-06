@@ -10,7 +10,7 @@ import Image from "next/image";
 import { useAuth } from "@/context/auth-context";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     <>
@@ -64,7 +64,9 @@ export default function Header() {
           {/* THEME TOGGLE */}
           <ThemeToggle inline />
 
-          {user ? (
+          {loading ? (
+            <div className="w-20 h-7 sm:h-8 rounded-xl bg-slate-200 dark:bg-[#1A1C1F] animate-pulse" />
+          ) : user ? (
             <div className="flex items-center gap-1.5 xs:gap-2">
               <Link
                 href={

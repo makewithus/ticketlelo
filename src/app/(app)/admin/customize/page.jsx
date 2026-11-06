@@ -20,10 +20,14 @@ import {
   CheckCircle2,
   Scissors,
   ChevronDown,
+  Lock,
+  ShieldAlert,
+  Send,
 } from "lucide-react";
 import { EventControlHeader } from "@/components/admin/event-control-header";
 import { getEvent, updateEvent, deleteEvent } from "@/lib/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { useAuth } from "@/context/auth-context";
 import { doc, onSnapshot } from "firebase/firestore";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { COLOR_SWATCHES, getThemeLook } from "@/lib/theme-utils";
@@ -50,9 +54,16 @@ export default function MoreEventSettingsPage() {
   const [currentEvent, setCurrentEvent] = useState(null);
   const [loadingEvent, setLoadingEvent] = useState(true);
 
+  const isPaidEvent = Boolean(
+    currentEvent?.isPaid ||
+      (currentEvent?.price &&
+        String(currentEvent.price).toLowerCase() !== "free" &&
+        Number(String(currentEvent.price).replace(/[^\d.]/g, "")) > 0)
+  );
+
   const [copied, setCopied] = useState(false);
   const [customDomain, setCustomDomain] = useState("");
-  const [customSlug, setCustomSlug] = useState("tech-fest-2026");
+  const [customSlug, setCustomSlug] = useState("event");
   const [isSavingSlug, setIsSavingSlug] = useState(false);
   const [selectedColor, setSelectedColor] = useState(COLOR_SWATCHES[0]);
   const [isPublished, setIsPublished] = useState(true);
@@ -92,6 +103,11 @@ export default function MoreEventSettingsPage() {
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Paid event cancellation ticket modal to Super Admin
+  const [showCancellationTicketModal, setShowCancellationTicketModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
 
   // Load the active event from query or localStorage with real-time sync
   useEffect(() => {
@@ -223,8 +239,7 @@ export default function MoreEventSettingsPage() {
   const posterLines = getPosterLines(
     currentEvent?.name ||
       currentEvent?.title ||
-      customSlug.replace(/-/g, " ") ||
-      "Tech Fest '26"
+      (customSlug && customSlug !== "event" ? customSlug.replace(/-/g, " ") : "")
   );
 
   const handleCopyLink = () => {
@@ -235,13 +250,13 @@ export default function MoreEventSettingsPage() {
   };
 
   const handleGenerateSlug = () => {
-    const raw = currentEvent?.name || currentEvent?.title || "tech-fest-2026";
+    const raw = currentEvent?.name || currentEvent?.title || "event";
     const generated = raw
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-")
       .slice(0, 50);
-    setCustomSlug(generated || "tech-fest-2026");
+    setCustomSlug(generated || "event");
     toast.info("Slug generated from event title!");
   };
 
@@ -319,7 +334,7 @@ export default function MoreEventSettingsPage() {
     setTimeout(() => setCodeCopied(false), 2000);
   };
 
-  // Ticket Artwork Upload Handlers
+  // Ticket Artwork Upload Handlers with safe canvas compression (< 75KB)
   const handleTicketBgUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -329,12 +344,51 @@ export default function MoreEventSettingsPage() {
       return;
     }
 
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be under 10 MB");
+      return;
+    }
+
     const reader = new FileReader();
+    reader.onerror = () => toast.error("Could not read image file");
     reader.onload = (uploadEvent) => {
-      if (uploadEvent.target?.result) {
-        setTicketBgPreview(uploadEvent.target.result);
-        toast.success("Ticket artwork loaded! Click 'Save ticket look' to apply.");
-      }
+      const rawDataUrl = uploadEvent.target?.result;
+      if (typeof rawDataUrl !== "string") return;
+
+      const img = new Image();
+      img.onerror = () => toast.error("Failed to load image for compression");
+      img.onload = () => {
+        try {
+          const maxDim = 800;
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            const ratio = Math.min(maxDim / width, maxDim / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, 0, 0, width, height);
+
+          let compressed = canvas.toDataURL("image/webp", 0.72);
+          if (!compressed || compressed.length > rawDataUrl.length) {
+            compressed = canvas.toDataURL("image/jpeg", 0.72);
+          }
+          if (compressed.length > 100000) {
+            compressed = canvas.toDataURL("image/webp", 0.55);
+          }
+          setTicketBgPreview(compressed);
+          toast.success("Ticket artwork loaded! Click 'Save ticket look' to apply.");
+        } catch {
+          toast.error("Could not optimize image. Please try a different image.");
+        }
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -347,9 +401,10 @@ export default function MoreEventSettingsPage() {
 
     setIsSavingTicketBg(true);
     try {
+      const isBase64 = typeof ticketBgPreview === "string" && ticketBgPreview.startsWith("data:");
       await updateEvent(activeEventId, {
         ticketBgUrl: ticketBgPreview || "",
-        ticketBackground: ticketBgPreview || "",
+        ticketBackground: isBase64 ? "" : (ticketBgPreview || ""),
       });
       setCurrentEvent((prev) => ({
         ...prev,
@@ -613,6 +668,53 @@ export default function MoreEventSettingsPage() {
     }
   };
 
+  // Submit Paid Event Cancellation Ticket to Super Admin
+  const handleSubmitCancellationTicket = async (e) => {
+    e?.preventDefault();
+    if (!activeEventId) return;
+    if (!cancellationReason.trim() || cancellationReason.trim().length < 10) {
+      toast.error("Please enter a valid reason for cancellation (min 10 characters)");
+      return;
+    }
+
+    setIsSubmittingTicket(true);
+    try {
+      const token = await auth.currentUser?.getIdToken?.(true).catch(() => null);
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/events/cancellation-request", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          eventId: activeEventId,
+          reason: cancellationReason.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit cancellation request");
+
+      setCurrentEvent((prev) => ({
+        ...(prev || {}),
+        cancellationRequest: {
+          status: "pending",
+          reason: cancellationReason.trim(),
+          requestedAt: new Date().toISOString(),
+        },
+      }));
+
+      toast.success("Cancellation ticket submitted to Super Admin! You will be notified upon review.");
+      setShowCancellationTicketModal(false);
+      setCancellationReason("");
+    } catch (err) {
+      console.error("Failed to submit cancellation ticket:", err);
+      toast.error(err.message || "Failed to submit cancellation ticket");
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
+
   const handleTogglePublish = async () => {
     if (!activeEventId) return;
     const nextState = !isPublished;
@@ -644,7 +746,7 @@ export default function MoreEventSettingsPage() {
       {/* ── Standard Navigation Header (More Tab active) ── */}
       <EventControlHeader
         activeTab="More"
-        eventTitle={currentEvent?.name || currentEvent?.title || "Tech Fest 2026"}
+        eventTitle={currentEvent?.name || currentEvent?.title || "Event Settings"}
         eventSlug={customSlug}
         eventId={activeEventId}
         isLive={isPublished && !currentEvent?.isCancelled}
@@ -1095,8 +1197,8 @@ export default function MoreEventSettingsPage() {
             <div className="w-full max-w-3xl">
               <StubTicket
                 event={{
-                  name: currentEvent?.name || currentEvent?.title || "Tech Fest 2026",
-                  title: currentEvent?.name || currentEvent?.title || "Tech Fest 2026",
+                  name: currentEvent?.name || currentEvent?.title || "Event Pass",
+                  title: currentEvent?.name || currentEvent?.title || "Event Pass",
                   date: currentEvent?.date || currentEvent?.startDate || "2026-11-07",
                   time: currentEvent?.time || currentEvent?.startTime || "10:00 AM",
                   location: currentEvent?.location || currentEvent?.venue || "Main Auditorium, Campus",
@@ -1107,7 +1209,7 @@ export default function MoreEventSettingsPage() {
                 }}
                 registration={{
                   ticketId: "TKT-1793-LIVE-DEMO",
-                  attendeeName: "Rahul Sharma (Attendee)",
+                  attendeeName: "Attendee Name",
                   status: previewCheckedIn ? "Used" : "Unused",
                   checkedIn: previewCheckedIn,
                   ticketTier: "VIP ALL-ACCESS",
@@ -1132,7 +1234,7 @@ export default function MoreEventSettingsPage() {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          {/* Postpone Event Card */}
+          {/* Postpone Event Card (Available for both free and paid) */}
           <div className="bg-white dark:bg-[#1A1C1F] border border-[#D9DBE0] dark:border-[#2A2D31] rounded-2xl p-4 flex flex-col justify-between shadow-xs">
             <div>
               <div className="flex items-center gap-2 mb-1.5">
@@ -1163,17 +1265,61 @@ export default function MoreEventSettingsPage() {
                   Cancel Event
                 </h3>
               </div>
-              <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
-                Marks event as cancelled and immediately closes all registration. No further registrations will be entertained.
-              </p>
+              {isPaidEvent ? (
+                <div>
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-2">
+                    Paid Event (Ticketed)
+                  </div>
+                  <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
+                    {currentEvent?.isCancelled
+                      ? "This event has been cancelled with Super Admin approval."
+                      : currentEvent?.cancellationRequest?.status === "pending"
+                      ? `Cancellation ticket under review by Super Admin (${currentEvent.cancellationRequest.reason}).`
+                      : "Paid events require Super Admin approval. Submit a cancellation ticket with a valid reason to Super Admin."}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
+                  Marks event as cancelled and immediately closes all registration. No further registrations will be entertained.
+                </p>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowCancelModal(true)}
-              className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
-            >
-              {currentEvent?.isCancelled ? "Event Cancelled" : "Cancel event"}
-            </button>
+
+            {isPaidEvent ? (
+              currentEvent?.isCancelled ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-2 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-bold cursor-not-allowed opacity-80"
+                >
+                  Event Cancelled (Approved)
+                </button>
+              ) : currentEvent?.cancellationRequest?.status === "pending" ? (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold cursor-not-allowed"
+                >
+                  Ticket Under Review
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCancellationTicketModal(true)}
+                  className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Raise cancellation ticket
+                </button>
+              )
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(true)}
+                className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
+              >
+                {currentEvent?.isCancelled ? "Event Cancelled" : "Cancel event"}
+              </button>
+            )}
           </div>
 
           {/* Delete Event Card */}
@@ -1185,17 +1331,43 @@ export default function MoreEventSettingsPage() {
                   Delete Event
                 </h3>
               </div>
-              <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
-                Permanently deletes the event and all associated registrations from the database. Cannot be undone.
-              </p>
+              {isPaidEvent ? (
+                <div>
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-bold uppercase tracking-wider mb-2">
+                    <Lock size={10} /> Deletion Locked
+                  </div>
+                  <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
+                    Paid events cannot be deleted directly due to attendee ticketing and financial records. Only postpone is directly possible, or submit a cancellation request to Super Admin.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
+                  Permanently deletes the event and all associated registrations from the database. Cannot be undone.
+                </p>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowDeleteModal(true)}
-              className="w-full py-2 px-3 rounded-xl bg-red-50 dark:bg-[#261515] hover:bg-red-100 dark:hover:bg-[#381a1a] border border-red-500/30 text-red-600 dark:text-[#FF6B6B] text-xs font-bold transition-colors cursor-pointer"
-            >
-              Delete event
-            </button>
+
+            {isPaidEvent ? (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.info("Paid events cannot be deleted. Please raise a cancellation ticket to Super Admin.");
+                  setShowCancellationTicketModal(true);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] border border-slate-300 dark:border-[#2A2D31] text-slate-500 dark:text-[#9B9EA4] text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Lock size={12} />
+                <span>Deletion Restricted (Paid Event)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full py-2 px-3 rounded-xl bg-red-50 dark:bg-[#261515] hover:bg-red-100 dark:hover:bg-[#381a1a] border border-red-500/30 text-red-600 dark:text-[#FF6B6B] text-xs font-bold transition-colors cursor-pointer"
+              >
+                Delete event
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1393,7 +1565,7 @@ export default function MoreEventSettingsPage() {
       )}
 
       {/* ══════════════════════════════════════════════════
-          MODAL: CANCEL EVENT
+          MODAL: CANCEL EVENT (FREE EVENT)
           ══════════════════════════════════════════════════ */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1432,6 +1604,89 @@ export default function MoreEventSettingsPage() {
                 {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════
+          MODAL: RAISE CANCELLATION TICKET (PAID EVENT)
+          ══════════════════════════════════════════════════ */}
+      {showCancellationTicketModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl bg-[#1A1C1F] border border-amber-500/30 p-6 shadow-2xl relative space-y-4 text-white animate-in zoom-in-95 duration-200">
+            <button
+              type="button"
+              onClick={() => setShowCancellationTicketModal(false)}
+              className="absolute top-5 right-5 p-1.5 text-[#9B9EA4] hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+                <ShieldAlert size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white tracking-tight">
+                  Raise Cancellation Ticket
+                </h3>
+                <p className="text-xs text-[#9B9EA4]">
+                  Paid event cancellation requires Super Admin review and authorization.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#131517] border border-[#2A2D31] rounded-2xl p-4 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-400">
+                <span>Event Title:</span>
+                <span className="font-bold text-white">{currentEvent?.name || currentEvent?.title || "Event"}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Ticket Price:</span>
+                <span className="font-bold text-amber-400">₹{currentEvent?.price || currentEvent?.ticketPrice || 0}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Tickets Sold / Passes:</span>
+                <span className="font-bold text-white">{currentEvent?.ticketsSold || currentEvent?.registrationsCount || 0}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitCancellationTicket} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider mb-1.5">
+                  Reason for Cancellation *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Provide a detailed and valid reason for cancellation (e.g. Venue unavailable due to unforeseen maintenance, emergency weather advisory, etc.)"
+                  className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 rounded-xl p-3 text-xs text-white placeholder-[#64748B] outline-none resize-none transition-all leading-relaxed"
+                />
+                <p className="text-[11px] text-[#9B9EA4] mt-1">
+                  Minimum 10 characters. This reason is submitted to the Super Admin team for verification.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+                <button
+                  type="button"
+                  onClick={() => setShowCancellationTicketModal(false)}
+                  className="px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer border border-[#2A2D31]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingTicket || !cancellationReason.trim() || cancellationReason.trim().length < 10}
+                  className="px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Send size={14} />
+                  <span>{isSubmittingTicket ? "Submitting Ticket..." : "Submit Ticket to Super Admin"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -1487,7 +1742,7 @@ export default function MoreEventSettingsPage() {
         event={{
           ...currentEvent,
           id: activeEventId,
-          name: currentEvent?.name || currentEvent?.title || "Tech Fest 2026",
+          name: currentEvent?.name || currentEvent?.title || "Event Registration",
           embedRegistrationMode: registrationMode,
           customFormEmbedUrl: customFormUrl,
           closeRegistrationEnabled: closeRegEnabled,

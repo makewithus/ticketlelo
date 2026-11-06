@@ -25,8 +25,8 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning className="max-w-full overflow-x-clip">
-      <body className="antialiased font-sans bg-background text-foreground transition-colors duration-150 max-w-full overflow-x-clip">
+    <html lang="en" suppressHydrationWarning className="max-w-full overflow-x-hidden">
+      <body className="antialiased font-sans bg-background text-foreground transition-colors duration-150 max-w-full overflow-x-hidden">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -43,6 +43,9 @@ export default function RootLayout({ children }) {
             position="top-right" 
             theme="dark" 
             closeButton
+            expand={false}
+            visibleToasts={3}
+            gap={12}
             toastOptions={{
               classNames: {
                 toast: "tl-toast",

@@ -84,19 +84,20 @@ function UnifiedLoginContent() {
   // If already logged in, redirect automatically to the requested redirect path or role dashboard
   useEffect(() => {
     let isMounted = true;
-    if (!authLoading && currentUser) {
+    const activeUser = currentUser || (typeof window !== "undefined" ? auth.currentUser : null);
+    if (!authLoading && activeUser) {
       const checkAndRedirect = async () => {
-        let activeRole = currentUser.role;
+        let activeRole = currentUser?.role;
 
-        // Ensure latest verified role from Firestore & claims are synchronized
-        try {
-          const fresh = await refreshUser?.();
-          if (fresh?.role) activeRole = fresh.role;
-        } catch (e) {
-          console.warn("Could not refresh user role on login page:", e);
+        // If role not yet resolved from claims, check email directly for instant redirection
+        if (!activeRole) {
+          const emailLower = (activeUser.email || "").toLowerCase().trim();
+          if (emailLower === "adil4ticketlelo@gmail.com" || emailLower === "superadmin@ticketlelo.com") {
+            activeRole = "superAdmin";
+          } else {
+            activeRole = "user";
+          }
         }
-
-        if (!isMounted) return;
 
         const requiresAdmin =
           redirectParam &&
@@ -131,7 +132,9 @@ function UnifiedLoginContent() {
           }
         }
 
-        router.replace(targetPath);
+        if (isMounted) {
+          router.replace(targetPath);
+        }
       };
 
       checkAndRedirect();
@@ -139,7 +142,7 @@ function UnifiedLoginContent() {
     return () => {
       isMounted = false;
     };
-  }, [currentUser, authLoading, router, redirectParam, refreshUser]);
+  }, [currentUser, authLoading, router, redirectParam]);
 
   const handleAuthSuccess = (role, displayName) => {
     setRedirectingRole(role);
@@ -259,6 +262,20 @@ function UnifiedLoginContent() {
 
   const handleGoogleSignIn = async () => {
     if (googleLoading) return;
+
+    // Check if user is ALREADY authenticated!
+    const activeUser = currentUser || (typeof window !== "undefined" ? auth.currentUser : null);
+    if (activeUser) {
+      const emailLower = (activeUser.email || "").toLowerCase().trim();
+      const isSuper =
+        emailLower === "adil4ticketlelo@gmail.com" ||
+        emailLower === "superadmin@ticketlelo.com";
+      const role = isSuper ? "superAdmin" : currentUser?.role || "user";
+      const fullName = currentUser?.fullName || activeUser.displayName;
+      handleAuthSuccess(role, fullName);
+      return;
+    }
+
     setGoogleLoading(true);
     setError("");
 
@@ -441,6 +458,11 @@ function UnifiedLoginContent() {
   };
 
   const isFromHostingPage = redirectParam.includes("/host-event");
+
+  // Gate: If session is loading or user is already authenticated, show BrandLoader and do NOT render login form
+  if (authLoading || currentUser || (typeof window !== "undefined" && auth.currentUser)) {
+    return <BrandLoader message="Loading..." fullScreen />;
+  }
 
   return (
     <div className="min-h-screen relative flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-[#131517] text-[#FFFFFF] selection:bg-[#FE760B] selection:text-white">

@@ -32,8 +32,26 @@ export async function POST(request) {
       razorpay.orders.fetch(orderId),
       razorpay.payments.fetch(paymentId),
     ]);
-    if (providerOrder.id !== orderId || providerOrder.amount !== planOrder.amount || providerOrder.currency !== "INR" ||
-      payment.order_id !== orderId || payment.amount !== planOrder.amount || payment.currency !== "INR" || payment.status !== "captured") {
+
+    // If payment was authorized but pending capture (standard for card payments without immediate capture), capture it now
+    let paymentRecord = payment;
+    if (paymentRecord.status === "authorized") {
+      try {
+        paymentRecord = await razorpay.payments.capture(paymentId, planOrder.amount, "INR");
+      } catch (capErr) {
+        console.error("Auto-capture failed for plan payment:", capErr?.message || capErr);
+      }
+    }
+
+    if (
+      providerOrder.id !== orderId ||
+      providerOrder.amount !== planOrder.amount ||
+      providerOrder.currency !== "INR" ||
+      paymentRecord.order_id !== orderId ||
+      paymentRecord.amount !== planOrder.amount ||
+      paymentRecord.currency !== "INR" ||
+      !["captured", "authorized"].includes(paymentRecord.status)
+    ) {
       return NextResponse.json({ success: false, error: "Provider payment does not match this plan order" }, { status: 400 });
     }
 

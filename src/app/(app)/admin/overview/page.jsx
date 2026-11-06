@@ -27,6 +27,8 @@ import {
   X,
   Mail,
   Pencil,
+  User,
+  Trash2,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { EventControlHeader } from "@/components/admin/event-control-header";
@@ -124,6 +126,13 @@ export default function EventOverviewPage() {
   const [isSendingInvites, setIsSendingInvites] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
 
+  // Add Host Modal States
+  const [showAddHostModal, setShowAddHostModal] = useState(false);
+  const [newHostName, setNewHostName] = useState("");
+  const [newHostEmail, setNewHostEmail] = useState("");
+  const [newHostRole, setNewHostRole] = useState("Co-Host");
+  const [isSavingHost, setIsSavingHost] = useState(false);
+
   // Slide-over & Interactive Modals
   const [showEditSlider, setShowEditSlider] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -137,23 +146,61 @@ export default function EventOverviewPage() {
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isSavingLocation, setIsSavingLocation] = useState(false);
 
-  // 1. Initial Load: Fetch organiser events from Firestore
+  // 1. Initial Load: Fetch organiser events from Firestore with instant cache hydration
   useEffect(() => {
     let isMounted = true;
+    const paramId = searchParams.get("eventId");
+
+    // Instant optimistic hydration from event creation cache (0ms perceived latency)
+    if (paramId && typeof window !== "undefined") {
+      try {
+        let cached = null;
+        const lastCreatedRaw = sessionStorage.getItem("admin_last_created_event");
+        if (lastCreatedRaw) {
+          const parsed = JSON.parse(lastCreatedRaw);
+          if (parsed && (parsed.id === paramId || parsed.slug === paramId)) {
+            cached = parsed;
+          }
+        }
+        if (!cached) {
+          const specificCache = localStorage.getItem(`admin_cached_event_${paramId}`);
+          if (specificCache) {
+            cached = JSON.parse(specificCache);
+          }
+        }
+        if (cached && isMounted) {
+          setSelectedEventId(cached.id || paramId);
+          setEvent(cached);
+          setEvents((prev) => (prev.some((e) => e.id === cached.id) ? prev : [cached, ...prev]));
+          setLoading(false);
+        }
+      } catch {}
+    }
+
     const loadEvents = async () => {
       if (!user) return;
       try {
-        setLoading(true);
-        let list = [];
-        const emailLower = (user?.email || "").toLowerCase().trim();
-        const isSuper =
-          user.role === "superAdmin" ||
-          emailLower === "adil4ticketlelo@gmail.com" ||
-          emailLower === "superadmin@ticketlelo.com";
-        if (isSuper) {
-          list = await getAllEvents();
-        } else {
-          list = await getEventsByOrganiser(user.id);
+        const userId = user.uid || user.id;
+        let list = await getEventsByOrganiser(userId);
+        if (!list || list.length === 0) {
+          const all = await getAllEvents();
+          list = (all || []).filter(
+            (e) =>
+              e.createdBy === userId ||
+              e.userId === userId ||
+              e.organiserId === userId ||
+              e.organizerId === userId
+          );
+        }
+
+        // If a specific event is requested via paramId (e.g. newly created event), include it
+        if (paramId && !list.some((e) => e.id === paramId)) {
+          try {
+            const specificEv = await getEvent(paramId);
+            if (specificEv) {
+              list.unshift(specificEv);
+            }
+          } catch {}
         }
 
         if (!isMounted) return;
@@ -165,13 +212,26 @@ export default function EventOverviewPage() {
             uniqueList.push(ev);
           }
         }
+
+        // Guarantee that if a newly created event was just generated, it is never dropped during Firestore query index sync
+        if (paramId && !uniqueList.some((e) => e.id === paramId) && typeof window !== "undefined") {
+          try {
+            const cachedRaw = sessionStorage.getItem("admin_last_created_event") || localStorage.getItem(`admin_cached_event_${paramId}`);
+            if (cachedRaw) {
+              const parsed = JSON.parse(cachedRaw);
+              if (parsed && parsed.id === paramId) {
+                uniqueList.unshift(parsed);
+              }
+            }
+          } catch {}
+        }
+
         setEvents(uniqueList);
 
         // Determine which event to select:
         // Priority 1: query param ?eventId=...
         // Priority 2: localStorage admin_selected_event_id
         // Priority 3: first event in list
-        const paramId = searchParams.get("eventId");
         let initialId = "";
 
         if (paramId && uniqueList.some((e) => e.id === paramId)) {
@@ -447,6 +507,64 @@ export default function EventOverviewPage() {
     link.download = `${event?.slug || "event"}-qr.png`;
     link.click();
     toast.success("QR code downloaded!");
+  };
+
+  const handleAddHost = async (e) => {
+    e?.preventDefault();
+    if (!newHostName.trim() || !newHostEmail.trim()) {
+      toast.error("Host name and email are required");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newHostEmail.trim())) {
+      toast.error("Please enter a valid host email");
+      return;
+    }
+    setIsSavingHost(true);
+    try {
+      const existingHosts = Array.isArray(event?.hosts) ? event.hosts : [];
+      if (existingHosts.some((h) => h.email?.toLowerCase() === newHostEmail.trim().toLowerCase())) {
+        toast.error("A host with this email is already added");
+        setIsSavingHost(false);
+        return;
+      }
+      const newHost = {
+        id: `host_${Date.now()}`,
+        name: newHostName.trim(),
+        email: newHostEmail.trim().toLowerCase(),
+        role: newHostRole,
+        addedAt: new Date().toISOString(),
+      };
+      const updatedHosts = [...existingHosts, newHost];
+      if (selectedEventId) {
+        await updateEvent(selectedEventId, { hosts: updatedHosts });
+      }
+      setEvent((prev) => ({ ...(prev || {}), hosts: updatedHosts }));
+      toast.success(`${newHostName.trim()} added as ${newHostRole}`);
+      setNewHostName("");
+      setNewHostEmail("");
+      setNewHostRole("Co-Host");
+      setShowAddHostModal(false);
+    } catch (err) {
+      console.error("Failed to add host:", err);
+      toast.error("Failed to add host");
+    } finally {
+      setIsSavingHost(false);
+    }
+  };
+
+  const handleRemoveHost = async (hostId) => {
+    try {
+      const updatedHosts = (event?.hosts || []).filter((h) => h.id !== hostId);
+      if (selectedEventId) {
+        await updateEvent(selectedEventId, { hosts: updatedHosts });
+      }
+      setEvent((prev) => ({ ...(prev || {}), hosts: updatedHosts }));
+      toast.success("Host removed");
+    } catch (err) {
+      console.error("Failed to remove host:", err);
+      toast.error("Failed to remove host");
+    }
   };
 
   // Theme & Poster Typography
@@ -977,13 +1095,13 @@ export default function EventOverviewPage() {
         </div>
       </div>
 
-      {/* ── Hosts Section matching Image 1 ── */}
+      {/* ── Hosts Section ── */}
       <div className="mb-6 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-white">Hosts</h3>
           <button
             type="button"
-            onClick={() => setShowInviteModal(true)}
+            onClick={() => setShowAddHostModal(true)}
             className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-xs font-semibold text-white inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
           >
             <Plus size={14} className="text-[#FE760B]" />
@@ -991,7 +1109,7 @@ export default function EventOverviewPage() {
           </button>
         </div>
 
-        {/* Host item matching Image 1 */}
+        {/* Creator Host Card (Creator cannot be edited or deleted) */}
         <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#183124] border border-[#3DD68C]/30 flex items-center justify-center text-xs font-bold text-[#3DD68C] shrink-0">
@@ -1009,16 +1127,42 @@ export default function EventOverviewPage() {
               </span>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowEditSlider(true)}
-            className="p-1.5 text-[#9B9EA4] hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-            title="Edit host options"
-          >
-            <Pencil size={14} />
-          </button>
         </div>
+
+        {/* Additional Team / Co-Hosts */}
+        {Array.isArray(event?.hosts) &&
+          event.hosts.map((host) => (
+            <div
+              key={host.id}
+              className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-xs font-bold text-[#FE760B] shrink-0">
+                  {(host.name || "H")[0].toUpperCase()}
+                </div>
+                <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-bold text-white truncate">
+                    {host.name}
+                  </span>
+                  <span className="text-xs text-[#9B9EA4] font-mono truncate">
+                    {host.email}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-[#212327] text-amber-400 border border-amber-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    {host.role || "Co-Host"}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleRemoveHost(host.id)}
+                className="p-1.5 text-[#9B9EA4] hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                title="Remove host"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
 
         <p className="text-[11px] text-[#9B9EA4] flex items-center gap-1.5">
           <QrCode size={13} className="text-[#9B9EA4]" />
@@ -1393,6 +1537,92 @@ export default function EventOverviewPage() {
                 <span>{isSendingInvites ? "Sending..." : "Send Invitations"}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Host / Team Member Modal ── */}
+      {showAddHostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl bg-[#1A1C1F] border border-[#2A2D31] p-6 shadow-2xl relative space-y-5 animate-in zoom-in-95 duration-200 text-white">
+            <button
+              type="button"
+              onClick={() => setShowAddHostModal(false)}
+              className="absolute top-5 right-5 p-1.5 text-[#9B9EA4] hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-2xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#FE760B] mb-2">
+                <User size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-white tracking-tight">Add Host / Team Member</h3>
+              <p className="text-xs text-[#9B9EA4] mt-1 max-w-xs">
+                Add co-hosts or check-in staff to manage attendee entry and event operations.
+              </p>
+            </div>
+
+            <form onSubmit={handleAddHost} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider mb-1.5">
+                  Host Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Sarah Jenkins"
+                  value={newHostName}
+                  onChange={(e) => setNewHostName(e.target.value)}
+                  className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider mb-1.5">
+                  Host Email Address *
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. sarah@example.com"
+                  value={newHostEmail}
+                  onChange={(e) => setNewHostEmail(e.target.value)}
+                  className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#9B9EA4] uppercase tracking-wider mb-1.5">
+                  Role &amp; Permissions
+                </label>
+                <select
+                  value={newHostRole}
+                  onChange={(e) => setNewHostRole(e.target.value)}
+                  className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3 py-2.5 text-xs text-white outline-none cursor-pointer"
+                >
+                  <option value="Co-Host">Co-Host (Manage event, guests &amp; check-ins)</option>
+                  <option value="Check-in Staff">Check-in Staff (Scanner &amp; gate access only)</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddHostModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingHost}
+                  className="flex-1 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSavingHost ? "Adding..." : "Add Host"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

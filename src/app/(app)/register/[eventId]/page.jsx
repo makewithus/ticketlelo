@@ -36,7 +36,7 @@ import { formatEventDate } from "@/lib/date-utils";
 
 export default function RegisterPage() {
   const { eventId } = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [event, setEvent] = useState(null);
   const [subEvents, setSubEvents] = useState([]);
   const [combos, setCombos] = useState([]);
@@ -94,6 +94,12 @@ export default function RegisterPage() {
   const formattedDate = event ? formatEventDate(event.date || event.startDate) : "";
   const isPaid = Boolean(event?.isPaid && (event?.price || event?.amount));
   const priceDisplay = isPaid ? `₹${event?.price || event?.amount}` : "Free Pass";
+  const broadLocation =
+    event?.locationVenue ||
+    (event?.venue && !event.venue.includes(",") ? event.venue : null) ||
+    (event?.location ? event.location.split(",")[0].trim() : null) ||
+    event?.venue ||
+    "Campus Venue";
 
   if (isLoading) {
     return <BrandLoader message="Loading..." fullScreen />;
@@ -144,7 +150,9 @@ export default function RegisterPage() {
               </span>
             )}
             <ThemeToggle inline />
-            {user ? (
+            {authLoading ? (
+              <div className="w-8 h-8 rounded-full bg-[#1A1C1F] animate-pulse" />
+            ) : user ? (
               <Link
                 href={
                   user.role === "superAdmin"
@@ -154,12 +162,17 @@ export default function RegisterPage() {
                     : "/dashboard"
                 }
                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs overflow-hidden"
-                title={user.displayName || user.email}
+                title={user.displayName || user.fullName || user.email}
               >
-                {user.photoURL && !user.photoURL.includes("googleusercontent.com/a/") ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt="Avatar"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-full"
+                  />
                 ) : (
-                  (user.displayName || user.email || "U").charAt(0).toUpperCase()
+                  (user.displayName || user.fullName || user.email || "U").trim().charAt(0).toUpperCase()
                 )}
               </Link>
             ) : (
@@ -261,8 +274,8 @@ export default function RegisterPage() {
                           <Users className="w-3.5 h-3.5 text-slate-400 dark:text-[#5C6066]" />
                           <span>
                             {String(event.capacity || event.totalTickets).toLowerCase().includes("unlimited") || Number(event.totalTickets) >= 9999
-                              ? "Unlimited capacity"
-                              : `${event.totalTickets} Total capacity`}
+                              ? "Open Access (Unlimited spots)"
+                              : `${Math.max(0, Number(event.totalTickets) - Number(event.attendeesCount || event.registeredGuestsCount || 0))} spots left`}
                           </span>
                         </p>
                       )}
@@ -291,8 +304,8 @@ export default function RegisterPage() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Venue Location</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">{event.location || event.venue || "Campus Venue"}</p>
-                      <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5 truncate">{event.subVenue || event.room || "Check gate on arrival"}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">{broadLocation}</p>
+                      <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5 truncate">{event.subVenue || event.room || event.city || "Check gate on arrival"}</p>
                     </div>
                   </div>
 
@@ -428,9 +441,9 @@ export default function RegisterPage() {
                     <h2>Venue & navigation</h2>
                   </div>
                   <VenueMap
-                    venueName={event.location || event.venue || event.name}
+                    venueName={event.locationVenue || broadLocation || event.venue || event.name}
                     subVenue={event.subVenue || event.room}
-                    address={event.address || event.venueAddress || event.location}
+                    address={event.locationAddress || event.address || event.venueAddress || event.location}
                     city={event.city || ""}
                     latitude={event.latitude || event.lat || null}
                     longitude={event.longitude || event.lng || null}

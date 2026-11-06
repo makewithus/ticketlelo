@@ -171,7 +171,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
     pathname.startsWith("/admin/messages");
 
   return (
-    <div className="tl-app-shell tl-system-theme bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white min-h-screen flex flex-col transition-colors selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-clip">
+    <div className="tl-app-shell tl-system-theme bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white min-h-screen flex flex-col transition-colors selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-hidden">
       {/* ── Top Navigation Bar matching Image 2 & 3 (Centered Content Container, border removed / transparent) ── */}
       <header className="sticky top-0 z-40 h-16 border-b border-transparent bg-white/80 dark:bg-[#131517]/80 backdrop-blur-md transition-colors">
         <div className="max-w-6xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -263,7 +263,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer hover:ring-2 ring-[#FE760B]/40 transition-all overflow-hidden select-none"
                 title={displayName}
               >
-                {photoURL && !avatarError && !photoURL.includes("googleusercontent.com/a/") ? (
+                {photoURL && !avatarError ? (
                   <img
                     src={photoURL}
                     alt={displayName}
@@ -466,8 +466,14 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
-                    {photoURL && !avatarError && !photoURL.includes("googleusercontent.com/a/") ? (
-                      <img src={photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                    {photoURL && !avatarError ? (
+                      <img
+                        src={photoURL}
+                        alt="Avatar"
+                        onError={() => setAvatarError(true)}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       firstChar
                     )}

@@ -172,6 +172,10 @@ export const AuthProvider = ({ children }) => {
             userData.isAdmin = isSuper || userData.role === "superAdmin" || userData.role === "organiser";
             if (googlePhoto) {
               userData.photoURL = googlePhoto;
+              try {
+                const { doc: firestoreDoc, setDoc: firestoreSetDoc } = await import("firebase/firestore");
+                firestoreSetDoc(firestoreDoc(db, "users", firebaseUser.uid), { photoURL: googlePhoto }, { merge: true }).catch(() => {});
+              } catch (_) {}
             }
           }
 

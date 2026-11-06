@@ -25,7 +25,9 @@ export default function HostEventPage() {
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ThemeToggle inline />
-          {!loading && user ? (
+          {loading ? (
+            <div className="w-20 h-7 rounded-lg bg-[#212327] animate-pulse" />
+          ) : user ? (
             <Link
               href={
                 user.role === "superAdmin" ||

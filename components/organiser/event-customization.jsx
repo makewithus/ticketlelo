@@ -355,7 +355,7 @@ export default function EventCustomization({
             {/* Live Real-Time Banner Preview */}
             {(() => {
               const liveLook = getThemeLook(themeColor);
-              const liveLines = getPosterLines(event?.name || slug || "Tech Fest '26");
+              const liveLines = getPosterLines(event?.name || (slug && slug !== "event" ? slug.replace(/-/g, " ") : ""));
               return (
                 <div
                   className="w-full aspect-[16/7] max-h-52 rounded-xl overflow-hidden relative border border-[#2A2D31] flex items-center justify-center shadow-inner transition-all duration-300 group"

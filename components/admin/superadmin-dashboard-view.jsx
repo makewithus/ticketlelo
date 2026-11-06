@@ -37,10 +37,13 @@ import {
   Wallet,
   Shield,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  ShieldAlert,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { auth } from "@/lib/firebase";
 import { StyledDropdown } from "@/components/ui/styled-dropdown";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import {
@@ -114,9 +117,57 @@ export function SuperAdminDashboardView() {
   // Copy order ID state
   const [copiedId, setCopiedId] = useState(null);
 
+  // Paid event cancellation requests state
+  const [cancellationRequests, setCancellationRequests] = useState([]);
+  const [processingCancelId, setProcessingCancelId] = useState(null);
+
+  const fetchCancellationRequests = async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken?.(true).catch(() => null);
+      const headers = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch("/api/events/cancellation-request", { headers, cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        setCancellationRequests(json.requests || []);
+      }
+    } catch (e) {
+      console.warn("Could not fetch cancellation requests:", e);
+    }
+  };
+
+  const handleReviewCancellation = async (requestId, action) => {
+    try {
+      setProcessingCancelId(requestId);
+      const token = await auth.currentUser?.getIdToken?.(true).catch(() => null);
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/events/cancellation-request", {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ requestId, action }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update cancellation ticket");
+      toast.success(
+        action === "approve"
+          ? "Event cancellation approved. Marked cancelled in real-time."
+          : "Cancellation ticket rejected."
+      );
+      fetchCancellationRequests();
+      fetchOverview();
+    } catch (err) {
+      toast.error(err.message || "Failed to process cancellation");
+    } finally {
+      setProcessingCancelId(null);
+    }
+  };
+
   const fetchOverview = async (isManual = false) => {
     try {
       if (isManual) setRefreshing(true);
+      fetchCancellationRequests();
       const res = await fetch("/api/superadmin/overview", { cache: "no-store" });
       if (!res.ok) {
         throw new Error(`Failed to load metrics (HTTP ${res.status})`);
@@ -137,6 +188,7 @@ export function SuperAdminDashboardView() {
     let ignore = false;
     async function init() {
       try {
+        fetchCancellationRequests();
         const res = await fetch("/api/superadmin/overview", { cache: "no-store" });
         if (!res.ok) throw new Error(`Failed to load metrics (HTTP ${res.status})`);
         const json = await res.json();
@@ -479,6 +531,7 @@ export function SuperAdminDashboardView() {
             {[
               { id: "overview", label: "Overview", icon: Activity, color: "text-[#FE760B]" },
               { id: "requests", label: `Hosting Requests (${kpis.pendingRequestsCount || 0})`, icon: Inbox, color: "text-[#FE760B]" },
+              { id: "cancellations", label: `Cancellation Requests (${cancellationRequests.filter((r) => r.status === "pending").length})`, icon: ShieldAlert, color: "text-rose-500" },
               { id: "financials", label: "Finance & Payments", icon: TrendingUp, color: "text-emerald-500" },
               { id: "events", label: `Event Analytics (${kpis.totalEvents || 0})`, icon: Calendar, color: "text-blue-500" },
               { id: "organisers", label: `Organisers (${kpis.totalOrganisers || 0})`, icon: Building2, color: "text-purple-500" },
@@ -1323,6 +1376,124 @@ export function SuperAdminDashboardView() {
               </Link>
             </div>
             <HostingRequestManagement />
+          </motion.div>
+        )}
+
+        {/* ══════════ TAB: CANCELLATION REQUESTS ══════════ */}
+        {activeTab === "cancellations" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#2A2D31]">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Paid Event Cancellation Tickets
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                  Review and authorize cancellation requests for paid events. Upon approval, the event status is marked cancelled in real-time.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchCancellationRequests}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-1.5"
+              >
+                <RefreshCw size={13} />
+                <span>Refresh Tickets</span>
+              </button>
+            </div>
+
+            {cancellationRequests.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 dark:bg-[#131517] rounded-2xl border border-slate-200 dark:border-[#2A2D31]">
+                <ShieldCheck className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-80" />
+                <p className="text-sm font-bold text-slate-900 dark:text-white">No Cancellation Tickets</p>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 max-w-sm mx-auto">
+                  When organizers of paid events submit a cancellation request, it will appear here for Super Admin approval.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {cancellationRequests.map((req) => {
+                  const isPending = req.status === "pending";
+                  const isProcessing = processingCancelId === req.id;
+                  return (
+                    <div
+                      key={req.id}
+                      className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] space-y-3 transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-slate-900 dark:text-white">
+                            {req.eventTitle}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[10px] font-bold border border-amber-500/20">
+                            Ticket: ₹{req.ticketPrice}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-[#212327] text-slate-700 dark:text-slate-300 text-[10px] font-bold">
+                            {req.ticketsSold} passes sold
+                          </span>
+                        </div>
+                        <div>
+                          {req.status === "approved" ? (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-bold inline-flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Approved &amp; Cancelled
+                            </span>
+                          ) : req.status === "rejected" ? (
+                            <span className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-bold inline-flex items-center gap-1">
+                              <XCircle size={12} /> Request Rejected
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold inline-flex items-center gap-1 animate-pulse">
+                              <Clock size={12} /> Pending Review
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-[#1A1C1F] p-3 rounded-xl border border-slate-200 dark:border-[#2A2D31] space-y-1">
+                        <p className="font-semibold text-slate-900 dark:text-white">Reason for Cancellation:</p>
+                        <p className="leading-relaxed whitespace-pre-wrap">{req.reason}</p>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4] gap-2 pt-1">
+                        <div>
+                          <span>Requested by </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{req.organizerName}</span>
+                          <span> ({req.organizerEmail})</span>
+                          {req.requestedAt && (
+                            <span className="ml-2">• {new Date(req.requestedAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
+
+                        {isPending && (
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => handleReviewCancellation(req.id, "reject")}
+                              className="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              Reject Request
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isProcessing}
+                              onClick={() => handleReviewCancellation(req.id, "approve")}
+                              className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-md cursor-pointer disabled:opacity-50"
+                            >
+                              {isProcessing ? "Processing..." : "Approve & Cancel Event"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 

@@ -50,21 +50,22 @@ export function RegistrationManagement() {
       if (!user) return;
       
       try {
-        let allEvents;
+        const userId = user.uid || user.id;
+        let allEvents = await getEventsByOrganiser(userId);
+        if (!allEvents || allEvents.length === 0) {
+          const all = await getAllEvents();
+          allEvents = (all || []).filter(
+            (e) =>
+              e.createdBy === userId ||
+              e.userId === userId ||
+              e.organiserId === userId ||
+              e.organizerId === userId
+          );
+        }
         
-        // SuperAdmin sees all events
-        if (user.role === "superAdmin") {
-          allEvents = await getAllEvents();
-        } else if (user.role === "organiser") {
-          // Organisers only see their own event
-          allEvents = await getEventsByOrganiser(user.id);
-          
-          // Auto-select the organiser's event
-          if (allEvents.length > 0) {
-            setSelectedEventId(allEvents[0].id);
-          }
-        } else {
-          allEvents = [];
+        // Auto-select the organiser's event
+        if (allEvents.length > 0) {
+          setSelectedEventId(allEvents[0].id);
         }
         
         const uniqueEvents = [];

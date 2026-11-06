@@ -68,10 +68,21 @@ export default function AdminDashboardPage() {
       if (userId) {
         let evts = [];
         try {
-          if (userRole === "superAdmin") {
-            evts = await getAllEvents();
-          } else {
-            evts = await getEventsByOrganiser(userId);
+          // Always load this specific organiser's events for their personal dashboard
+          const userEvents = await getEventsByOrganiser(userId);
+          if (Array.isArray(userEvents) && userEvents.length > 0) {
+            evts = userEvents;
+          } else if (userRole === "superAdmin") {
+            // If superAdmin, filter platform events down to events created by this user
+            const all = await getAllEvents();
+            evts = (all || []).filter(
+              (ev) =>
+                ev?.createdBy === userId ||
+                ev?.userId === userId ||
+                ev?.organiserId === userId ||
+                ev?.organizerId === userId ||
+                (ev?.organiserEmail && ev.organiserEmail.toLowerCase() === emailLower)
+            );
           }
         } catch (evtErr) {
           console.warn("Could not load events:", evtErr);
@@ -139,8 +150,32 @@ export default function AdminDashboardPage() {
   }).length;
 
   const totalGuestsCapacity = events.reduce((acc, ev) => {
-    const cap = parseInt(ev.totalTickets || ev.capacity || 0, 10);
-    return acc + (Number.isFinite(cap) ? cap : 0);
+    // 1. Explicitly limited capacity
+    if (ev.limitCapacity && ev.maxCapacity) {
+      const cap = parseInt(ev.maxCapacity, 10);
+      if (Number.isFinite(cap) && cap > 0) return acc + cap;
+    }
+    // 2. Numeric capacity (excluding dummy 9999)
+    if (typeof ev.capacity === "number" && Number.isFinite(ev.capacity) && ev.capacity < 9999) {
+      return acc + ev.capacity;
+    }
+    // 3. String capacity (excluding "Unlimited")
+    if (typeof ev.capacity === "string" && ev.capacity !== "Unlimited") {
+      const cap = parseInt(ev.capacity, 10);
+      if (Number.isFinite(cap) && cap > 0 && cap < 9999) return acc + cap;
+    }
+    // 4. Specific totalTickets (excluding default placeholder 9999)
+    if (ev.totalTickets && ev.totalTickets !== 9999) {
+      const cap = parseInt(ev.totalTickets, 10);
+      if (Number.isFinite(cap) && cap > 0 && cap < 9999) return acc + cap;
+    }
+    // 5. Open access / unlimited events: count actual confirmed registrations
+    const actualAttendees =
+      ev.attendeesCount ||
+      ev.registrationsCount ||
+      ev.attendeeCount ||
+      (Array.isArray(ev.attendees) ? ev.attendees.length : 0);
+    return acc + (Number.isFinite(actualAttendees) ? actualAttendees : 0);
   }, 0);
 
   return (
@@ -208,7 +243,7 @@ export default function AdminDashboardPage() {
           icon={Users}
           label="Total Capacity"
           value={totalGuestsCapacity.toLocaleString("en-IN")}
-          sub="Across all events"
+          sub="Across your events"
           iconBg="bg-[#FDE003]/10"
           iconColor="text-[#FDE003]"
           loading={loading}

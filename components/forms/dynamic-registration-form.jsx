@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,10 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
+  Calendar,
+  UploadCloud,
+  FileText,
+  Upload,
 } from "lucide-react";
 
 /**
@@ -52,19 +56,19 @@ import {
 const DEFAULT_FALLBACK_FIELDS = [
   {
     id: "fullName",
-    label: "Name",
-    name: "Name",
+    label: "Full Name",
+    name: "Full Name",
     type: "text",
     required: true,
-    placeholder: "Your full name",
+    placeholder: "Enter full name",
   },
   {
     id: "email",
-    label: "Email",
-    name: "Email",
+    label: "Email Address",
+    name: "Email Address",
     type: "email",
     required: true,
-    placeholder: "you@example.com",
+    placeholder: "Enter email address",
   },
   {
     id: "whatsappPhone",
@@ -72,23 +76,23 @@ const DEFAULT_FALLBACK_FIELDS = [
     name: "Phone / WhatsApp",
     type: "tel",
     required: true,
-    placeholder: "+91 98765 43210",
+    placeholder: "Enter phone number",
   },
   {
     id: "college",
-    label: "College name",
-    name: "College name",
+    label: "College / University Name",
+    name: "College / University Name",
     type: "text",
     required: false,
-    placeholder: "Your college",
+    placeholder: "Enter college or university name",
   },
   {
     id: "yearOfStudy",
-    label: "Year of study",
-    name: "Year of study",
+    label: "Year of Study",
+    name: "Year of Study",
     type: "dropdown",
     required: false,
-    placeholder: "Select",
+    placeholder: "Select year of study",
     options: [
       "1st Year",
       "2nd Year",
@@ -102,16 +106,48 @@ const DEFAULT_FALLBACK_FIELDS = [
 /**
  * Sanitizes organizer custom form fields to ensure consistent property access:
  * id, label, name, type, required, placeholder, options.
- * Does NOT inject synthetic/hardcoded fields that the organizer never configured.
+ * Replaces any mock or institution-specific placeholders with privacy-safe genuine prompts.
  */
 function sanitizeCustomFields(fields = []) {
   if (!Array.isArray(fields)) return [];
   return fields
     .filter((f) => f && typeof f === "object")
     .map((f, index) => {
-      const id = f.id !== undefined && f.id !== null ? f.id : `field_${index}`;
-      const name = f.name || f.label || `Field ${index + 1}`;
-      const label = f.label || f.name || `Field ${index + 1}`;
+      const id = f.id !== undefined && f.id !== null ? String(f.id) : `field_${index}`;
+      const name = f.name ? String(f.name) : (f.label ? String(f.label) : `Field ${index + 1}`);
+      const label = f.label ? String(f.label) : (f.name ? String(f.name) : `Field ${index + 1}`);
+      
+      let cleanPlaceholder = f.placeholder;
+      const lowerPh = String(cleanPlaceholder || "").toLowerCase();
+      if (!cleanPlaceholder || lowerPh.includes("e.g.") || lowerPh.includes("example.com") || lowerPh.includes("+91") || lowerPh.includes("cusat") || lowerPh.includes("codeninjas")) {
+        const lowerName = String(label || name || "").toLowerCase();
+        if (f.type === "tel" || lowerName.includes("phone") || lowerName.includes("mobile") || lowerName.includes("whatsapp")) {
+          cleanPlaceholder = "Enter phone number";
+        } else if (f.type === "email" || lowerName.includes("email")) {
+          cleanPlaceholder = "Enter email address";
+        } else if (lowerName.includes("college") || lowerName.includes("university") || lowerName.includes("institute")) {
+          cleanPlaceholder = "Enter college or university name";
+        } else if (lowerName.includes("team")) {
+          cleanPlaceholder = "Enter team name";
+        } else if (lowerName.includes("name") && !lowerName.includes("team")) {
+          cleanPlaceholder = "Enter full name";
+        } else if (f.type === "dropdown" || f.type === "select") {
+          cleanPlaceholder = `Select ${label.toLowerCase()}`;
+        } else {
+          cleanPlaceholder = `Enter ${label.toLowerCase()}`;
+        }
+      }
+
+      const options = (
+        Array.isArray(f.options)
+          ? f.options
+          : typeof f.options === "string"
+          ? f.options.split(",").map((s) => s.trim())
+          : []
+      )
+        .map(String)
+        .filter((opt) => opt.trim().length > 0);
+
       return {
         ...f,
         id,
@@ -119,14 +155,8 @@ function sanitizeCustomFields(fields = []) {
         label,
         type: f.type || "text",
         required: Boolean(f.required),
-        placeholder:
-          f.placeholder ||
-          (f.type === "tel"
-            ? "+91 98765 43210"
-            : f.type === "email"
-            ? "you@example.com"
-            : `Your ${label.toLowerCase()}`),
-        options: Array.isArray(f.options) ? f.options : [],
+        placeholder: cleanPlaceholder,
+        options,
       };
     });
 }
@@ -140,6 +170,90 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [currentEvent, setCurrentEvent] = useState(initialEvent || props.event || null);
   const [liveRegistrationsCount, setLiveRegistrationsCount] = useState(0);
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [customForm, setCustomForm] = useState(null);
+  const [formData, setFormData] = useState({});
+  const [errors, setErrors] = useState({});
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [tempFormData, setTempFormData] = useState(null);
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [isPendingApproval, setIsPendingApproval] = useState(false);
+  const [formLoadError, setFormLoadError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const hasLoadedFormRef = useRef(false);
+  const prevFormFieldsSignatureRef = useRef("");
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponValidating, setCouponValidating] = useState(false);
+  const [couponData, setCouponData] = useState(null);
+  const [couponError, setCouponError] = useState("");
+
+  // Helper to build initial form values with user pre-population
+  const buildInitialData = (fields) => {
+    const initialData = {};
+    if (!Array.isArray(fields)) return initialData;
+    fields.forEach((field) => {
+      if (field.id !== undefined && field.id !== null) {
+        initialData[field.id] = "";
+      }
+      if (field.name) {
+        initialData[field.name] = "";
+      }
+    });
+    const signedIn = authUser || auth.currentUser;
+    if (signedIn) {
+      const emailF = fields.find((f) => {
+        const t = String(f?.type || "").toLowerCase();
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return t === "email" || n === "email" || n.includes("email");
+      });
+      const nameF = fields.find((f) => {
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return (
+          n === "fullname" ||
+          n === "name" ||
+          (n.includes("name") &&
+            !n.includes("college") &&
+            !n.includes("school") &&
+            !n.includes("team") &&
+            !n.includes("company"))
+        );
+      });
+      const phoneF = fields.find((f) => {
+        const t = String(f?.type || "").toLowerCase();
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return (
+          t === "tel" ||
+          n.includes("phone") ||
+          n.includes("mobile") ||
+          n.includes("whatsapp") ||
+          n.includes("contact")
+        );
+      });
+      if (emailF && signedIn.email) {
+        initialData[emailF.id] = signedIn.email;
+        if (emailF.name) initialData[emailF.name] = signedIn.email;
+      }
+      if (nameF && (signedIn.displayName || signedIn.fullName)) {
+        const nVal = signedIn.displayName || signedIn.fullName;
+        initialData[nameF.id] = nVal;
+        if (nameF.name) initialData[nameF.name] = nVal;
+      }
+      if (phoneF && (signedIn.phoneNumber || signedIn.whatsappPhone)) {
+        const pVal = signedIn.phoneNumber || signedIn.whatsappPhone;
+        initialData[phoneF.id] = pVal;
+        if (phoneF.name) initialData[phoneF.name] = pVal;
+      }
+    }
+    return initialData;
+  };
+
   useEffect(() => {
     if (initialEvent || props.event) {
       setCurrentEvent(initialEvent || props.event);
@@ -152,7 +266,161 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
     let unsubEvent = null;
     let unsubRegs = null;
+    let unsubFormEvent = null;
+    let unsubFormTarget = null;
 
+    let latestEventDocs = [];
+    let latestTargetDocs = [];
+
+    const applyFormUpdate = (formDoc) => {
+      if (!formDoc || !Array.isArray(formDoc.fields)) return;
+      const sanitizedFields = sanitizeCustomFields(formDoc.fields);
+
+      setCustomForm((prev) => ({
+        ...(prev || {}),
+        id: formDoc.id,
+        ...formDoc,
+        fields: sanitizedFields,
+      }));
+
+      // Merge formData so user inputs in existing fields are preserved
+      setFormData((prev) => {
+        const initial = buildInitialData(sanitizedFields);
+        const next = { ...initial };
+        if (prev && typeof prev === "object") {
+          for (const [key, val] of Object.entries(prev)) {
+            if (val !== undefined && val !== null && val !== "") {
+              next[key] = val;
+            }
+          }
+        }
+        return next;
+      });
+
+      // Clear errors for any removed fields or fields whose requirements changed
+      setErrors((prev) => {
+        if (!prev || Object.keys(prev).length === 0) return prev;
+        const validIds = new Set(
+          sanitizedFields.flatMap((f) => [String(f.id), f.name ? String(f.name) : null]).filter(Boolean)
+        );
+        const nextErrors = {};
+        for (const [key, val] of Object.entries(prev)) {
+          if (validIds.has(String(key))) {
+            nextErrors[key] = val;
+          }
+        }
+        return nextErrors;
+      });
+
+      // Show toast if form updated while user is actively viewing
+      const newSignature = JSON.stringify(
+        sanitizedFields.map((f) => ({
+          id: f.id,
+          label: f.label,
+          type: f.type,
+          req: f.required,
+          opts: f.options,
+        }))
+      );
+
+      if (hasLoadedFormRef.current) {
+        if (prevFormFieldsSignatureRef.current && prevFormFieldsSignatureRef.current !== newSignature) {
+          toast.info("Registration form has been updated by the host.", {
+            id: "form-realtime-update-toast",
+            duration: 3500,
+          });
+        }
+      } else {
+        hasLoadedFormRef.current = true;
+      }
+      prevFormFieldsSignatureRef.current = newSignature;
+    };
+
+    const applyEventQuestionsUpdate = (evData) => {
+      if (!evData || !Array.isArray(evData.customQuestions) || evData.customQuestions.length === 0) return;
+      const compiled = [];
+      compiled.push({
+        id: "fullName",
+        name: "fullName",
+        label: "Full Name",
+        type: "text",
+        required: true,
+        placeholder: "Enter full name",
+      });
+      compiled.push({
+        id: "email",
+        name: "email",
+        label: "Email Address",
+        type: "email",
+        required: true,
+        placeholder: "Enter email address",
+      });
+      if (evData.personalInfoConfig?.phoneMode !== "Hidden") {
+        compiled.push({
+          id: "whatsappPhone",
+          name: "whatsappPhone",
+          label: "Phone / WhatsApp",
+          type: "tel",
+          required: evData.personalInfoConfig?.phoneMode === "Required",
+          placeholder: "Enter phone number",
+        });
+      }
+      evData.customQuestions.forEach((q, idx) => {
+        compiled.push({
+          id: q.id || `q_${idx}`,
+          name: q.name || q.label || `q_${idx}`,
+          label: q.label || `Question ${idx + 1}`,
+          type: q.type === "select" ? "dropdown" : q.type || "text",
+          required: Boolean(q.required),
+          placeholder: q.placeholder || "",
+          options: Array.isArray(q.options) ? q.options : [],
+        });
+      });
+      const sanitizedFields = sanitizeCustomFields(compiled);
+      const isPaid = Boolean(evData.isPaid ?? ((evData.price || evData.ticketPrice) > 0));
+      const amount = Number(evData.price ?? evData.ticketPrice ?? 0);
+      applyFormUpdate({
+        id: `ev_form_${evData.id}`,
+        eventId: evData.id,
+        fields: sanitizedFields,
+        isPaid,
+        amount,
+        status: "published",
+      });
+    };
+
+    const syncLatestForm = () => {
+      const docMap = new Map();
+      latestEventDocs.forEach((d) => docMap.set(d.id, d));
+      latestTargetDocs.forEach((d) => docMap.set(d.id, d));
+
+      const allDocs = Array.from(docMap.values());
+      if (allDocs.length > 0) {
+        allDocs.sort((a, b) => {
+          const getMillis = (item) =>
+            item?.updatedAt?.toMillis?.() ||
+            (item?.updatedAt?.seconds ? item.updatedAt.seconds * 1000 : 0) ||
+            item?.createdAt?.toMillis?.() ||
+            (item?.createdAt?.seconds ? item.createdAt.seconds * 1000 : 0) ||
+            0;
+          return getMillis(b) - getMillis(a);
+        });
+
+        // Pick latest published doc or latest doc
+        const latestDoc = allDocs.find((d) => d.status === "published") || allDocs[0];
+        if (Array.isArray(latestDoc.fields) && latestDoc.fields.length > 0) {
+          applyFormUpdate(latestDoc);
+          return;
+        }
+      }
+
+      // Fallback: check if event document itself has customQuestions
+      if (currentEvent && Array.isArray(currentEvent.customQuestions) && currentEvent.customQuestions.length > 0) {
+        applyEventQuestionsUpdate(currentEvent);
+      }
+    };
+
+    // 1. Listen to events collection
     try {
       unsubEvent = onSnapshot(
         doc(db, "events", targetId),
@@ -160,6 +428,16 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           if (snap.exists()) {
             const data = { id: snap.id, ...snap.data() };
             setCurrentEvent((prev) => ({ ...(prev || {}), ...data }));
+
+            // If no customForms docs exist, or if customQuestions on event updated
+            if (
+              Array.isArray(data.customQuestions) &&
+              data.customQuestions.length > 0 &&
+              latestEventDocs.length === 0 &&
+              latestTargetDocs.length === 0
+            ) {
+              applyEventQuestionsUpdate(data);
+            }
           }
         },
         (err) => console.warn("Real-time event subscription warning:", err?.message)
@@ -168,6 +446,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       console.warn("Could not bind real-time event listener:", err);
     }
 
+    // 2. Listen to live registrations count
     try {
       const q = query(collection(db, "registrations"), where("eventId", "==", targetId));
       unsubRegs = onSnapshot(
@@ -181,35 +460,46 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       console.warn("Could not bind real-time registrations listener:", err);
     }
 
+    // 3. Real-time listener for customForms collection by eventId
+    try {
+      const qFormEvent = query(collection(db, "customForms"), where("eventId", "==", targetId));
+      unsubFormEvent = onSnapshot(
+        qFormEvent,
+        (snap) => {
+          latestEventDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          syncLatestForm();
+        },
+        (err) => console.warn("Real-time form (eventId) subscription warning:", err?.message)
+      );
+    } catch (err) {
+      console.warn("Could not bind real-time form listener (eventId):", err);
+    }
+
+    // 4. Real-time listener for customForms collection by targetId
+    try {
+      const qFormTarget = query(collection(db, "customForms"), where("targetId", "==", targetId));
+      unsubFormTarget = onSnapshot(
+        qFormTarget,
+        (snap) => {
+          latestTargetDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          syncLatestForm();
+        },
+        (err) => console.warn("Real-time form (targetId) subscription warning:", err?.message)
+      );
+    } catch (err) {
+      console.warn("Could not bind real-time form listener (targetId):", err);
+    }
+
     return () => {
       if (typeof unsubEvent === "function") unsubEvent();
       if (typeof unsubRegs === "function") unsubRegs();
+      if (typeof unsubFormEvent === "function") unsubFormEvent();
+      if (typeof unsubFormTarget === "function") unsubFormTarget();
     };
   }, [eventId, initialEvent?.id, props.event?.id]);
 
   const activeEvent = currentEvent || initialEvent || props.event || {};
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [customForm, setCustomForm] = useState(null);
-  const [formData, setFormData] = useState({});
-  const [errors, setErrors] = useState({});
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [tempFormData, setTempFormData] = useState(null);
-  const [loginPassword, setLoginPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const themeColor = activeEvent?.themeColor || "#FE760B";
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [isPendingApproval, setIsPendingApproval] = useState(false);
-  const [formLoadError, setFormLoadError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  // Coupon state
-  const [couponCode, setCouponCode] = useState("");
-  const [couponValidating, setCouponValidating] = useState(false);
-  const [couponData, setCouponData] = useState(null);
-  const [couponError, setCouponError] = useState("");
 
   // Registration Closure & Capacity Controls (Computed authoritatively in real time)
   const isEventCancelled = Boolean(
@@ -274,66 +564,6 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     isRegistrationClosedExplicit ||
     isCapacityClosed ||
     isGlobalCapacityReached;
-
-  // Helper to build initial form values with user pre-population
-  const buildInitialData = (fields) => {
-    const initialData = {};
-    if (!Array.isArray(fields)) return initialData;
-    fields.forEach((field) => {
-      if (field.id !== undefined && field.id !== null) {
-        initialData[field.id] = "";
-      }
-      if (field.name) {
-        initialData[field.name] = "";
-      }
-    });
-    const signedIn = authUser || auth.currentUser;
-    if (signedIn) {
-      const emailF = fields.find((f) => {
-        const t = String(f?.type || "").toLowerCase();
-        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-        return t === "email" || n === "email" || n.includes("email");
-      });
-      const nameF = fields.find((f) => {
-        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-        return (
-          n === "fullname" ||
-          n === "name" ||
-          (n.includes("name") &&
-            !n.includes("college") &&
-            !n.includes("school") &&
-            !n.includes("team") &&
-            !n.includes("company"))
-        );
-      });
-      const phoneF = fields.find((f) => {
-        const t = String(f?.type || "").toLowerCase();
-        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
-        return (
-          t === "tel" ||
-          n.includes("phone") ||
-          n.includes("mobile") ||
-          n.includes("whatsapp") ||
-          n.includes("contact")
-        );
-      });
-      if (emailF && signedIn.email) {
-        initialData[emailF.id] = signedIn.email;
-        if (emailF.name) initialData[emailF.name] = signedIn.email;
-      }
-      if (nameF && (signedIn.displayName || signedIn.fullName)) {
-        const nVal = signedIn.displayName || signedIn.fullName;
-        initialData[nameF.id] = nVal;
-        if (nameF.name) initialData[nameF.name] = nVal;
-      }
-      if (phoneF && (signedIn.phoneNumber || signedIn.whatsappPhone)) {
-        const pVal = signedIn.phoneNumber || signedIn.whatsappPhone;
-        initialData[phoneF.id] = pVal;
-        if (phoneF.name) initialData[phoneF.name] = pVal;
-      }
-    }
-    return initialData;
-  };
 
   // Auto-fill and lock logged-in attendee details when auth initializes or changes
   useEffect(() => {
@@ -527,12 +757,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   // Load Razorpay script
   useEffect(() => {
     if (customForm?.isPaid) {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      document.body.appendChild(script);
+      const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.async = true;
+        document.body.appendChild(script);
+      }
     }
-  }, [customForm]);
+  }, [customForm?.isPaid]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -544,7 +777,13 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           : (field.name && formData[field.name] !== undefined ? formData[field.name] : "");
       const trimmedVal = typeof rawVal === "string" ? rawVal.trim() : rawVal;
 
-      if (field.required && (trimmedVal === "" || trimmedVal === null || trimmedVal === undefined)) {
+      if (
+        field.required &&
+        (trimmedVal === "" ||
+          trimmedVal === null ||
+          trimmedVal === undefined ||
+          (Array.isArray(trimmedVal) && trimmedVal.length === 0))
+      ) {
         newErrors[field.id] =
           `${field.label || field.name || "This field"} is required`;
         return;
@@ -720,6 +959,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         name: "Ticketलेलो",
         description: `Ticket for ${event?.name || "Event"}`,
         order_id: gatewayOrder.id,
+        prefill: {
+          name: (typeof tempFormData !== "undefined" && tempFormData?.fullName) || (typeof fullName !== "undefined" && fullName) || user?.fullName || user?.email || "Attendee",
+          email: (typeof tempFormData !== "undefined" && tempFormData?.email) || (typeof email !== "undefined" && email) || user?.email || "",
+          contact: (typeof tempFormData !== "undefined" && (tempFormData?.whatsappPhone || tempFormData?.phone)) || (typeof whatsappPhone !== "undefined" && whatsappPhone) || (typeof phone !== "undefined" && phone) || user?.phone || user?.phoneNumber || "9876543210",
+        },
         handler: async function (response) {
           try {
             const verifyResponse = await fetch("/api/verify-payment", {
@@ -797,9 +1041,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const registerExistingUser = async (user, payloadData = null) => {
     try {
       const dataToSend = payloadData || tempFormData?.formData || {};
+      const token =
+        (await auth.currentUser?.getIdToken?.(true).catch(() => null)) ||
+        (await user?.getIdToken?.(true).catch(() => null));
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch("/api/register-free", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ eventId, formData: dataToSend }),
       });
       const result = await response.json();
@@ -1139,6 +1389,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         name: "Ticketलेलो",
         description: `Ticket for ${event?.name || "Event"}`,
         order_id: gatewayOrder.id,
+        prefill: {
+          name: (typeof tempFormData !== "undefined" && tempFormData?.fullName) || (typeof fullName !== "undefined" && fullName) || user?.fullName || user?.email || "Attendee",
+          email: (typeof tempFormData !== "undefined" && tempFormData?.email) || (typeof email !== "undefined" && email) || user?.email || "",
+          contact: (typeof tempFormData !== "undefined" && (tempFormData?.whatsappPhone || tempFormData?.phone)) || (typeof whatsappPhone !== "undefined" && whatsappPhone) || (typeof phone !== "undefined" && phone) || user?.phone || user?.phoneNumber || "9876543210",
+        },
         handler: async function (response) {
           try {
             console.log(" Payment successful");
@@ -1241,9 +1496,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       );
       await sendPasswordResetEmail(auth, email);
       const dataToSend = payloadData || tempFormData?.formData || {};
+      const token =
+        (await auth.currentUser?.getIdToken?.(true).catch(() => null)) ||
+        (await user?.getIdToken?.(true).catch(() => null));
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch("/api/register-free", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           eventId: eventId,
           formData: dataToSend,
@@ -1308,6 +1569,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   };
 
   const renderField = (field) => {
+    if (!field || !field.id) return null;
     const value =
       formData[field.id] !== undefined && formData[field.id] !== ""
         ? formData[field.id]
@@ -1385,6 +1647,34 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           }
         };
 
+        const resolvedPlaceholder = (() => {
+          const raw = String(field.placeholder || "").trim();
+          const lower = raw.toLowerCase();
+          if (
+            !raw ||
+            lower.includes("e.g.") ||
+            lower.includes("example.com") ||
+            lower.includes("+91") ||
+            lower.includes("cusat") ||
+            lower.includes("codeninjas")
+          ) {
+            if (isTel) return "Enter phone number";
+            if (isEmail) return "Enter email address";
+            const fieldLabelLower = String(field.label || field.name || "").toLowerCase();
+            if (fieldLabelLower.includes("college") || fieldLabelLower.includes("university")) {
+              return "Enter college or university name";
+            }
+            if (fieldLabelLower.includes("team")) {
+              return "Enter team name";
+            }
+            if (fieldLabelLower.includes("name")) {
+              return "Enter full name";
+            }
+            return `Enter ${String(field.label || field.name || "details").toLowerCase()}`;
+          }
+          return raw;
+        })();
+
         return (
           <div key={field.id} className="space-y-1.5 w-full">
             <div className="flex items-center justify-between gap-2">
@@ -1403,12 +1693,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 type={isEmail ? "email" : field.type}
                 inputMode={isTel ? "tel" : isEmail ? "email" : undefined}
                 maxLength={isTel ? 15 : undefined}
-                placeholder={
-                  field.placeholder ||
-                  (isTel
-                    ? "10-digit mobile number"
-                    : `Your ${String(field.label || field.name || "value").toLowerCase()}`)
-                }
+                placeholder={resolvedPlaceholder}
                 value={fieldValue}
                 readOnly={isEmailLocked}
                 onChange={handleInputChange}
@@ -1462,7 +1747,17 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           </div>
         );
 
-      case "radio":
+      case "radio": {
+        const rawOptions = (
+          Array.isArray(field.options)
+            ? field.options
+            : typeof field.options === "string"
+            ? field.options.split(",").map((s) => s.trim())
+            : []
+        )
+          .map(String)
+          .filter((opt) => opt.trim().length > 0);
+
         return (
           <div key={field.id} className="space-y-2 w-full">
             <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
@@ -1470,9 +1765,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               {field.required && <span className="text-red-500">*</span>}
             </label>
             <div className="space-y-2">
-              {field.options?.map((option, idx) => (
+              {rawOptions.map((option, idx) => (
                 <label
-                  key={idx}
+                  key={`${field.id}_${idx}`}
                   className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
                     value === option
                       ? "bg-[#FE760B]/10 border-[#FE760B] text-[#FE760B] font-medium"
@@ -1497,8 +1792,20 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             )}
           </div>
         );
+      }
 
-      case "dropdown":
+      case "select":
+      case "dropdown": {
+        const rawOptions = (
+          Array.isArray(field.options)
+            ? field.options
+            : typeof field.options === "string"
+            ? field.options.split(",").map((s) => s.trim())
+            : []
+        )
+          .map(String)
+          .filter((opt) => opt.trim().length > 0);
+
         return (
           <div key={field.id} className="space-y-1.5 w-full">
             <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
@@ -1506,7 +1813,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               {field.required && <span className="text-red-500">*</span>}
             </label>
             <Select
-              value={value}
+              value={typeof value === "string" && value ? value : undefined}
               onValueChange={updateValue}
               disabled={isLoading}
             >
@@ -1516,13 +1823,13 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 />
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white shadow-2xl rounded-xl">
-                {field.options?.map((option, idx) => (
+                {rawOptions.map((option, idx) => (
                   <SelectItem
-                    key={idx}
-                    value={option}
+                    key={`${field.id}_${idx}`}
+                    value={String(option)}
                     className="text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-[#212327] text-sm cursor-pointer"
                   >
-                    {option}
+                    {String(option)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1532,9 +1839,239 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             )}
           </div>
         );
+      }
 
-      default:
-        return null;
+      case "date":
+        return (
+          <div key={field.id} className="space-y-1.5 w-full">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+              {field.label || field.name || "Date of Birth / Date"}{" "}
+              {field.required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="relative">
+              <input
+                type="date"
+                value={value || ""}
+                onChange={(e) => updateValue(e.target.value)}
+                disabled={isLoading}
+                placeholder={field.placeholder || "YYYY-MM-DD"}
+                className={`w-full px-3.5 py-2.5 h-11 border rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm ${
+                  error
+                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-slate-50 dark:bg-[#212327]"
+                    : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-slate-50 dark:bg-[#212327]"
+                }`}
+              />
+              <Calendar className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {field.placeholder && (
+              <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4]">{field.placeholder}</p>
+            )}
+            {error && (
+              <p className="text-[11px] text-red-500 dark:text-red-400 mt-1 font-medium">{error}</p>
+            )}
+          </div>
+        );
+
+      case "checkbox": {
+        const rawOptions = (
+          Array.isArray(field.options)
+            ? field.options
+            : typeof field.options === "string"
+            ? field.options.split(",").map((s) => s.trim())
+            : []
+        )
+          .map(String)
+          .filter((opt) => opt.trim().length > 0);
+
+        const selectedArr = Array.isArray(value) ? value : value ? [String(value)] : [];
+        return (
+          <div key={field.id} className="space-y-2 w-full">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+              {field.label || field.name || "Field"}{" "}
+              {field.required && <span className="text-red-500">*</span>}
+            </label>
+            <div className="space-y-2">
+              {rawOptions.map((option, idx) => {
+                const checked = selectedArr.includes(option);
+                return (
+                  <label
+                    key={`${field.id}_${idx}`}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                      checked
+                        ? "bg-[#FE760B]/10 border-[#FE760B] text-[#FE760B] font-medium"
+                        : "bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:border-slate-300 dark:hover:border-[#3A3D42]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const newSelected = e.target.checked
+                          ? [...selectedArr, option]
+                          : selectedArr.filter((o) => o !== option);
+                        updateValue(newSelected);
+                      }}
+                      disabled={isLoading}
+                      className="w-4 h-4 rounded text-[#FE760B] border-slate-300 dark:border-[#2A2D31] focus:ring-[#FE760B]"
+                    />
+                    <span className="text-sm font-medium">{option}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {error && (
+              <p className="text-[11px] text-red-500 dark:text-red-400">{error}</p>
+            )}
+          </div>
+        );
+      }
+
+      case "file": {
+        const isMultiple = Boolean(field.allowMultiple || field.multiple);
+        const fileList = Array.isArray(value) ? value : value ? [value] : [];
+        return (
+          <div key={field.id} className="space-y-1.5 w-full">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+                {field.label || field.name || "File Upload"}{" "}
+                {field.required && <span className="text-red-500">*</span>}
+              </label>
+              <span className="text-[10px] text-slate-500 dark:text-[#9B9EA4] font-medium">
+                {isMultiple ? "Multiple files allowed" : "Single file"}
+              </span>
+            </div>
+            <div
+              className={`p-4 rounded-xl border border-dashed transition-all ${
+                error
+                  ? "border-red-500 bg-red-500/5"
+                  : "border-slate-300 dark:border-[#2A2D31] hover:border-[#FE760B] bg-slate-50 dark:bg-[#212327]"
+              }`}
+            >
+              <input
+                type="file"
+                id={`file-input-${field.id}`}
+                multiple={isMultiple}
+                disabled={isLoading}
+                className="hidden"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length === 0) return;
+                  const processed = await Promise.all(
+                    files.map(
+                      (file) =>
+                        new Promise((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            resolve({
+                              name: file.name,
+                              size: file.size,
+                              type: file.type,
+                              data: reader.result,
+                            });
+                          };
+                          reader.onerror = () =>
+                            resolve({ name: file.name, size: file.size });
+                          reader.readAsDataURL(file);
+                        })
+                    )
+                  );
+                  if (isMultiple) {
+                    const combined = [...fileList, ...processed];
+                    updateValue(combined);
+                  } else {
+                    updateValue(processed.slice(0, 1));
+                  }
+                }}
+              />
+              <label
+                htmlFor={`file-input-${field.id}`}
+                className="flex flex-col items-center justify-center cursor-pointer text-center space-y-1.5"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#FE760B]/10 text-[#FE760B] flex items-center justify-center">
+                  <UploadCloud className="w-5 h-5" />
+                </div>
+                <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                  <span className="text-[#FE760B] font-semibold hover:underline">
+                    Click to upload
+                  </span>{" "}
+                  or drag and drop
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-[#9B9EA4]">
+                  {isMultiple
+                    ? "Upload one or more documents (PDF, PNG, JPG up to 10MB each)"
+                    : "Upload a document (PDF, PNG, JPG up to 10MB)"}
+                </p>
+              </label>
+
+              {fileList.length > 0 && (
+                <div className="mt-3 space-y-1.5 border-t border-slate-200 dark:border-[#2A2D31] pt-2.5">
+                  {fileList.map((f, fIdx) => (
+                    <div
+                      key={fIdx}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-xs text-slate-800 dark:text-slate-200"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+                        <span className="truncate">
+                          {typeof f === "string" ? f : f?.name || "Uploaded document"}
+                        </span>
+                        {f?.size && (
+                          <span className="text-[10px] text-slate-400">
+                            ({(f.size / 1024).toFixed(0)} KB)
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          const updated = fileList.filter((_, i) => i !== fIdx);
+                          updateValue(isMultiple ? updated : null);
+                        }}
+                        className="text-slate-400 hover:text-red-500 p-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {error && (
+              <p className="text-[11px] text-red-500 dark:text-red-400 mt-1 font-medium">{error}</p>
+            )}
+          </div>
+        );
+      }
+
+      default: {
+        return (
+          <div key={field.id} className="space-y-1.5 w-full">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+              {field.label || field.name || "Field"}{" "}
+              {field.required && <span className="text-red-500">*</span>}
+            </label>
+            <input
+              type={field.type || "text"}
+              placeholder={
+                field.placeholder ||
+                `Enter ${String(field.label || field.name || "details").toLowerCase()}`
+              }
+              value={value ?? ""}
+              onChange={(e) => updateValue(e.target.value)}
+              disabled={isLoading}
+              className={`w-full px-3.5 py-2.5 h-11 border rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm ${
+                error
+                  ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-slate-50 dark:bg-[#212327]"
+                  : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-slate-50 dark:bg-[#212327]"
+              }`}
+            />
+            {error && (
+              <p className="text-[11px] text-red-500 dark:text-red-400 mt-1 font-medium">{error}</p>
+            )}
+          </div>
+        );
+      }
     }
   };
 
@@ -1571,7 +2108,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
   return (
     <>
-      <div className="w-full">
+      <div className="w-full max-w-xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex flex-col space-y-4">
             {customForm.fields
@@ -1642,7 +2179,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               </div>
             )}
 
-          {/* High Contrast CTA Button or Closed for Registration */}
+          {/* High Contrast Brand CTA Button or Closed for Registration */}
           {isClosedForRegistration ? (
             <button
               type="button"
@@ -1656,11 +2193,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <button
               type="submit"
               disabled={isLoading || paymentProcessing}
-              className="w-full bg-[#131517] hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-[#131517] disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer"
+              className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-white disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-lg shadow-[#FE760B]/20 flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer active:scale-[0.99]"
             >
               {isLoading || paymentProcessing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white dark:text-black" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>{paymentProcessing ? "Processing Payment..." : "Registering..."}</span>
                 </>
               ) : customForm?.isPaid && customForm?.amount > 0 ? (

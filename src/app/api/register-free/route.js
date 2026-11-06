@@ -18,7 +18,10 @@ export async function POST(request) {
     }
     const email = String(caller.email || "").trim().toLowerCase();
     const submittedEmail = String(formData.email || Object.values(formData).find((value) => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) || "").trim().toLowerCase();
-    if (!email || submittedEmail !== email) {
+    if (!email) {
+      return NextResponse.json({ error: "Sign in with a valid email to register" }, { status: 401 });
+    }
+    if (submittedEmail && submittedEmail !== email) {
       return NextResponse.json({ error: "Sign in with the email address used for registration" }, { status: 403 });
     }
 
@@ -41,7 +44,14 @@ export async function POST(request) {
         return NextResponse.json({ error: "Registration capacity reached. This event is closed for registration." }, { status: 409 });
       }
     }
-    if (!(event.isPublished === true || event.published === true || event.status === "published")) {
+    const isEventOpen =
+      event.isPublished === true ||
+      event.published === true ||
+      event.status === "published" ||
+      event.status === "live" ||
+      event.status === "active" ||
+      event.isActive === true;
+    if (!isEventOpen) {
       return NextResponse.json({ error: "Event registration is not open" }, { status: 409 });
     }
     const form = formSnap.empty ? null : formSnap.docs[0].data();
@@ -126,7 +136,15 @@ export async function POST(request) {
         createdAt: now,
         updatedAt: now,
       });
-      if (capacity > 0) transaction.update(eventRef, { allocatedSeats: allocated + 1, updatedAt: now });
+      const updateData = {
+        registrationsCount: (current.registrationsCount || 0) + 1,
+        ticketsSold: (current.ticketsSold || 0) + 1,
+        updatedAt: now,
+      };
+      if (capacity > 0) {
+        updateData.allocatedSeats = allocated + 1;
+      }
+      transaction.update(eventRef, updateData);
       return { alreadyRegistered: false, ticketId, requiresApproval };
     });
 

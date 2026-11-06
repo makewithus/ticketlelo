@@ -95,12 +95,21 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
         let eventsList = [];
         if (user?.uid) {
           try {
-            eventsList =
-              user.role === "superadmin"
-                ? await getAllEvents()
-                : await getEventsByOrganiser(user.uid);
+            const userId = user.uid;
+            let list = await getEventsByOrganiser(userId);
+            if (!list || list.length === 0) {
+              const all = await getAllEvents();
+              list = (all || []).filter(
+                (e) =>
+                  e.createdBy === userId ||
+                  e.userId === userId ||
+                  e.organiserId === userId ||
+                  e.organizerId === userId
+              );
+            }
+            eventsList = list;
           } catch {
-            eventsList = await getAllEvents();
+            eventsList = [];
           }
         } else {
           eventsList = await getAllEvents();

@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   Award,
   Scissors,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatTicketMeta } from "./stub-ticket";
@@ -403,88 +404,143 @@ export function WideTicket({
         }}
       >
         {/* ══════════════════════════════════════════════════
-            PANEL 1: LEFT PANEL (WHITE: QR or EVENT DETAILS)
+            PANEL 1: LEFT PANEL (HIGH-CONTRAST DARK QR STUB WITH TEAR)
             ══════════════════════════════════════════════════ */}
-        <div className="relative w-full md:w-[150px] lg:w-[155px] shrink-0 bg-white text-black p-3 sm:p-4 flex flex-col justify-between items-center text-center">
-          {!isDetailsLeft ? (
-            /* Variant A: Admit One + QR */
-            <>
-              <div className="w-full">
-                <span className="font-extrabold text-[11px] sm:text-[12px] tracking-wider text-black block text-center uppercase">
-                  ADMIT ONE
-                </span>
-              </div>
+        <div
+          onClick={handleStubClick}
+          title={
+            interactive
+              ? isTorn
+                ? "Ticket stub torn off · User checked in"
+                : "Click stub to tear off & check in"
+              : undefined
+          }
+          style={{
+            transformOrigin: "center left",
+          }}
+          className={`relative w-full md:w-[175px] lg:w-[190px] shrink-0 bg-[#16181B] text-white p-3.5 sm:p-4 flex flex-col justify-between items-center text-center transition-all duration-300 ${
+            interactive ? "cursor-pointer group/qrstub" : ""
+          } ${
+            isTorn
+              ? "md:-translate-x-2.5 md:-translate-y-1 md:-rotate-[1.5deg] shadow-2xl opacity-95 ring-1 ring-emerald-500/40"
+              : "hover:brightness-105"
+          }`}
+        >
+          {/* Top Status Header: SCAN AT ENTRY or CHECKED IN */}
+          <div className="w-full text-center">
+            <span
+              className={`text-[9px] sm:text-[10px] font-black tracking-widest uppercase block ${
+                isTorn
+                  ? "text-emerald-400 font-extrabold flex items-center justify-center gap-1.5"
+                  : "text-[#FDE003]"
+              }`}
+            >
+              {isTorn ? (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>CHECKED IN</span>
+                </>
+              ) : (
+                "SCAN AT ENTRY"
+              )}
+            </span>
+          </div>
 
-              {/* QR Code */}
-              <div className="my-auto py-1 flex items-center justify-center">
-                {qrDataUrl ? (
-                  <img
-                    src={qrDataUrl}
-                    alt="Ticket QR Code"
-                    className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
-                  />
-                ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gray-100 animate-pulse rounded" />
-                )}
-              </div>
-
-              {/* Ticket ID */}
-              <span className="font-mono text-[9px] sm:text-[10px] font-bold tracking-tight text-black/85 block">
-                {ticketId}
-              </span>
-            </>
-          ) : (
-            /* Variant B: Details + Big Date (Praroha Style) */
-            <div className="w-full h-full flex flex-col justify-between items-start text-left">
-              <div>
+          {/* High-Contrast Styled QR Code Card with Checked In Overlay */}
+          <div className="my-auto py-1 flex items-center justify-center relative">
+            <div className="p-2 sm:p-2.5 bg-white rounded-xl shadow-md flex items-center justify-center relative">
+              {qrDataUrl ? (
                 <img
-                  src="/ticket.png"
-                  alt="TicketLelo"
-                  className="h-4 sm:h-5 w-auto object-contain mb-2"
+                  src={qrDataUrl}
+                  alt={`Ticket QR Code for ${ticketId}`}
+                  className="w-24 h-24 sm:w-28 sm:h-28 object-contain"
                 />
-                <h3 className="text-sm sm:text-base font-black text-black leading-tight tracking-tight">
-                  {event.name || event.title || "Praroha Gaming"}
-                </h3>
-                <div className="text-[9px] sm:text-[10px] text-gray-600 mt-1 space-y-0.5 leading-snug">
-                  <p className="truncate max-w-[130px] font-medium">
-                    {event.location || "School Of Engineering"}
-                  </p>
-                  <p>
-                    Doors open {event.time || "10:00 AM"} • {meta.priceStr}
-                  </p>
-                  <p className="text-black font-semibold truncate max-w-[130px]">
-                    Guest: {attendeeName}
-                  </p>
+              ) : (
+                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                 </div>
-              </div>
+              )}
 
-              {/* Big Date */}
-              <div className="mt-3">
-                <div
-                  className="text-2xl sm:text-3xl font-black leading-none"
-                  style={{ color: themeStyles.dateColor === "text-black" ? "#000" : "#472F92" }}
-                >
-                  {dateDisplay.num}
+              {/* Checked In Overlay Stamp on QR when Torn */}
+              {isTorn && (
+                <div className="absolute inset-0 bg-black/65 backdrop-blur-[1px] rounded-xl flex flex-col items-center justify-center p-1 border-2 border-emerald-400">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-400 mb-0.5">
+                    <Check className="w-4 h-4 stroke-[3]" />
+                  </div>
+                  <span className="text-[10px] sm:text-[11px] font-black tracking-wider text-emerald-300 uppercase leading-none">
+                    CHECKED IN
+                  </span>
                 </div>
-                <div className="text-[9px] font-bold text-gray-500 tracking-wider uppercase">
-                  {dateDisplay.sub}
-                </div>
-              </div>
+              )}
+            </div>
+          </div>
+
+          {/* Ticket ID & Attendee Info matching Stub ticket style */}
+          <div className="w-full space-y-0.5 pt-1">
+            <span className="font-mono text-[9px] sm:text-[10.5px] font-bold tracking-tight text-[#FE760B] block truncate">
+              {ticketId}
+            </span>
+            <span className="text-[9px] sm:text-[10px] text-gray-300 font-medium block truncate">
+              {attendeeName} (Attendee)
+            </span>
+          </div>
+
+          {/* Perforation line (dashed) on right boundary */}
+          <div
+            className={`hidden md:block absolute inset-y-0 right-0 w-0 border-r-2 border-dashed ${
+              isTorn ? "border-emerald-500/60" : "border-black/30 dark:border-white/20"
+            } z-10`}
+          />
+
+          {/* Right boundary die-cut notches for Left QR Stub (desktop) */}
+          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+
+          {/* Jagged Ripped Paper SVG Edge when torn */}
+          {isTorn && (
+            <div className="hidden md:block absolute -right-2 top-0 bottom-0 w-2 pointer-events-none z-20 overflow-hidden">
+              <svg
+                viewBox="0 0 10 100"
+                preserveAspectRatio="none"
+                className="w-full h-full fill-[#16181B] drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+              >
+                <polygon points="0,0 8,5 1,10 9,16 2,22 7,28 0,34 8,40 2,46 9,52 1,58 7,64 0,70 8,76 2,82 9,88 1,94 0,100" />
+              </svg>
             </div>
           )}
 
-          {/* Right boundary die-cut notches for Left Panel (desktop) */}
-          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
-          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+          {/* Floating Scissors Tear Cue on Perforation when Untorn */}
+          {interactive && !isTorn && (
+            <div className="hidden md:flex absolute -right-3 top-4 z-30 items-center justify-center px-1.5 py-0.5 rounded-full bg-[#FE760B] text-black text-[9px] font-black uppercase shadow-lg border border-white/20 whitespace-nowrap animate-bounce pointer-events-none gap-0.5">
+              <Scissors className="w-2.5 h-2.5 stroke-[2.5]" />
+              <span>TEAR</span>
+            </div>
+          )}
         </div>
 
         {/* ══════════════════════════════════════════════════
-            PANEL 2: CENTER ART PANEL (VIBRANT THEME ART)
+            PANEL 2: ARTWORK PANEL (VIBRANT THEME ART)
             ══════════════════════════════════════════════════ */}
         <div
           style={themeConfig.bodyBgStyle}
-          className="relative flex-1 min-h-[160px] md:min-h-[190px] flex flex-col justify-between p-4 sm:p-5 overflow-hidden"
+          className="relative flex-1 min-h-[160px] md:min-h-[190px] flex flex-col justify-between p-4 sm:p-5 overflow-hidden rounded-b-2xl md:rounded-b-none md:rounded-r-2xl"
         >
+          {/* Left boundary die-cut notches for Art Panel (desktop) */}
+          <div className="ticket-notch hidden md:block absolute -top-3.5 -left-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -left-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
+
+          {/* Jagged Ripped Paper SVG Edge on left when torn */}
+          {isTorn && (
+            <div className="hidden md:block absolute -left-2 top-0 bottom-0 w-2 pointer-events-none z-20 overflow-hidden">
+              <svg
+                viewBox="0 0 10 100"
+                preserveAspectRatio="none"
+                className="w-full h-full fill-black/40 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
+              >
+                <polygon points="10,0 2,5 9,10 1,16 8,22 3,28 10,34 2,40 8,46 1,52 9,58 3,64 10,70 2,76 8,82 1,88 9,94 10,100" />
+              </svg>
+            </div>
+          )}
           {/* Custom Ticket Artwork / Background with auto-fit aspect ratio */}
           {ticketBgUrl ? (
             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -641,86 +697,6 @@ export function WideTicket({
               {meta.dateStr} • {meta.timeStr} • {meta.venueStr} • {attendeeName}
             </p>
           </div>
-
-          {/* Right boundary die-cut notches for Center Panel (desktop) */}
-          <div className="ticket-notch hidden md:block absolute -top-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
-          <div className="ticket-notch hidden md:block absolute -bottom-3.5 -right-3.5 w-7 h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] print:bg-white z-20 pointer-events-none" />
-        </div>
-
-        {/* ══════════════════════════════════════════════════
-            PANEL 3: RIGHT PANEL (WHITE BARCODE STUB)
-            ══════════════════════════════════════════════════ */}
-        <div
-          onClick={handleStubClick}
-          className={`relative w-full md:w-[84px] lg:w-[92px] shrink-0 bg-white text-black py-3 px-2 flex flex-row md:flex-col items-center justify-center cursor-pointer transition-transform duration-300 ${
-            interactive ? "hover:bg-gray-50" : ""
-          } ${
-            isTorn
-              ? "opacity-60 md:translate-x-1.5 md:rotate-1 border-l-2 border-dashed border-red-500/40"
-              : ""
-          }`}
-          title={interactive ? "Click to tear stub off" : undefined}
-        >
-          {/* Perforation line (dashed) on left */}
-          <div className="hidden md:block absolute inset-y-0 left-0 w-0 border-r-2 border-dashed border-black/25 z-10" />
-
-          {/* Realistic Jagged Ripped Paper Edges when torn */}
-          {isTorn && (
-            <>
-              {/* Desktop vertical ripped paper edge */}
-              <div className="hidden md:block absolute -left-2 top-0 bottom-0 w-2 pointer-events-none z-20 overflow-hidden">
-                <svg
-                  viewBox="0 0 10 100"
-                  preserveAspectRatio="none"
-                  className="w-full h-full fill-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-                >
-                  <polygon points="10,0 2,5 9,10 1,16 8,22 3,28 10,34 2,40 8,46 1,52 9,58 3,64 10,70 2,76 8,82 1,88 9,94 10,100" />
-                </svg>
-              </div>
-              {/* Mobile horizontal ripped paper edge */}
-              <div className="block md:hidden absolute left-0 right-0 -top-2 h-2 pointer-events-none z-20 overflow-hidden">
-                <svg
-                  viewBox="0 0 100 10"
-                  preserveAspectRatio="none"
-                  className="w-full h-full fill-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]"
-                >
-                  <polygon points="0,10 5,2 10,9 16,1 22,8 28,3 34,10 40,2 46,8 52,1 58,9 64,3 70,10 76,2 82,8 88,1 94,9 100,10" />
-                </svg>
-              </div>
-            </>
-          )}
-
-          {/* Floating tear hint when untorn */}
-          {!isTorn && interactive && (
-            <div className="hidden md:flex absolute -left-2.5 top-2 z-20 items-center justify-center w-5 h-5 rounded-full bg-[#FE760B] text-black shadow-md animate-bounce pointer-events-none">
-              <Scissors className="w-2.5 h-2.5 stroke-[2.5]" />
-            </div>
-          )}
-
-          {/* Barcode & Ticket ID Container */}
-          <div className="flex md:flex-col items-center justify-between gap-1.5 h-full w-full py-1">
-            {/* Scannable Barcode: vertical on desktop, horizontal on mobile */}
-            <div className="hidden md:flex h-[115px] w-7 items-center justify-center">
-              <SvgBarcode value={ticketId} height={26} orientation="vertical" />
-            </div>
-            <div className="flex md:hidden h-9 w-28 items-center justify-center">
-              <SvgBarcode value={ticketId} height={32} orientation="horizontal" />
-            </div>
-
-            {/* Rotated Ticket ID text */}
-            <span className="font-mono text-[8px] sm:text-[8.5px] font-bold tracking-wider text-black/80 whitespace-nowrap select-none md:[writing-mode:vertical-rl] md:rotate-180">
-              {ticketId}
-            </span>
-          </div>
-
-          {/* Stamp indicator when torn / claimed */}
-          {isTorn && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/5 backdrop-blur-[1px]">
-              <span className="border-2 border-[#FE760B] text-[#FE760B] font-black text-[10px] tracking-widest px-1 py-0.5 rounded -rotate-12 uppercase shadow-sm">
-                CLAIMED
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

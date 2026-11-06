@@ -152,6 +152,7 @@ export async function POST(request) {
       const rzpOrder = await razorpay.orders.create({
         amount: pricing.finalPayablePaise,
         currency: "INR",
+        payment_capture: 1, // Auto-capture Card & other payments immediately
         receipt: `rcpt_${Date.now()}`,
         notes: { eventId, ticketTitle: ticketConfig.title, reservationId: reservation.id },
       });

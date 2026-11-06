@@ -52,6 +52,7 @@ export async function POST(request) {
     const order = await razorpay.orders.create({
       amount: plan.price * 100, // paise
       currency: "INR",
+      payment_capture: 1, // Auto-capture Card & other payments immediately
       receipt: `plan_${planId}_${Date.now().toString().slice(-10)}`,
       notes: {
         userId,
