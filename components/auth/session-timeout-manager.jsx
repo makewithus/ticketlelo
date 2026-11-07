@@ -34,10 +34,37 @@ export function SessionTimeoutManager() {
   const [countdown, setCountdown] = useState(COUNTDOWN_TOTAL_SECONDS);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const lastActiveRef = useRef(0);
+  const getInitialActiveTime = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = Number(localStorage.getItem(STORAGE_KEY));
+        const now = Date.now();
+        // Stored timestamp is only valid if it's within the active inactivity window (< 10 minutes)
+        if (stored && !isNaN(stored) && stored > 0 && stored <= now && (now - stored < INACTIVITY_TIMEOUT_MS)) {
+          return stored;
+        }
+      } catch (_) {}
+    }
+    return Date.now();
+  };
+
+  const lastActiveRef = useRef(getInitialActiveTime());
   const warningStartTimeRef = useRef(0);
   const countdownIntervalRef = useRef(null);
   const isLoggingOutRef = useRef(false);
+
+  // Sync timestamp when authenticated user is detected or route changes
+  useEffect(() => {
+    if (user && !authLoading) {
+      const now = Date.now();
+      lastActiveRef.current = now;
+      try {
+        localStorage.setItem(STORAGE_KEY, String(now));
+      } catch (_) {}
+      setShowWarning(false);
+      warningStartTimeRef.current = 0;
+    }
+  }, [user?.id, authLoading, pathname]);
 
   // Determine effective timeout duration (allow testing override via window.__TICKETLELO_TIMEOUT_MS__)
   const getTimeoutDuration = useCallback(() => {
@@ -258,12 +285,34 @@ export function SessionTimeoutManager() {
       return;
     }
 
+    // Do NOT check inactivity on login/auth routes
+    const isAuthRoute =
+      pathname?.startsWith("/login") ||
+      pathname?.startsWith("/user-login") ||
+      pathname?.startsWith("/organiser-login") ||
+      pathname?.startsWith("/super-admin-login");
+
+    if (isAuthRoute) {
+      if (showWarning) setShowWarning(false);
+      return;
+    }
+
     const intervalId = setInterval(() => {
       if (isLoggingOutRef.current) return;
 
       const timeout = getTimeoutDuration();
       const countdownMs = getCountdownDuration() * 1000;
       const now = Date.now();
+
+      // Guard: If lastActiveRef is invalid, zero, or ahead of clock, re-sync to now
+      if (!lastActiveRef.current || lastActiveRef.current <= 0 || lastActiveRef.current > now) {
+        lastActiveRef.current = now;
+        try {
+          localStorage.setItem(STORAGE_KEY, String(now));
+        } catch (_) {}
+        return;
+      }
+
       const elapsed = now - lastActiveRef.current;
 
       // If user was away/asleep for longer than 10 mins + 5 seconds, do NOT leave modal open;
@@ -280,7 +329,7 @@ export function SessionTimeoutManager() {
     }, 500);
 
     return () => clearInterval(intervalId);
-  }, [user, authLoading, showWarning, getTimeoutDuration, getCountdownDuration, performLogout]);
+  }, [user, authLoading, showWarning, pathname, getTimeoutDuration, getCountdownDuration, performLogout]);
 
   // If user is not logged in or in login process, do not render modal
   if (!user || !showWarning) {

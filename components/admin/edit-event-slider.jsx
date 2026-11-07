@@ -630,21 +630,21 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
 
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, ticketDesign: "wide" })}
+                onClick={() => setFormData({ ...formData, ticketDesign: "deck" })}
                 className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                  formData.ticketDesign === "wide"
+                  formData.ticketDesign === "deck" || formData.ticketDesign === "wide"
                     ? "bg-[#131517] border-[#FE760B] shadow-md"
                     : "bg-[#131517] border-[#2A2D31] hover:border-[#383C42]"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white">Wide tickets</span>
-                  {formData.ticketDesign === "wide" && (
+                  <span className="text-xs font-bold text-white">Deck View tickets</span>
+                  {(formData.ticketDesign === "deck" || formData.ticketDesign === "wide") && (
                     <span className="w-2 h-2 rounded-full bg-[#FE760B]" />
                   )}
                 </div>
                 <p className="text-[10px] text-[#9B9EA4] mt-1 leading-tight">
-                  3-panel wide ticket with art + vertical barcode stub
+                  Interactive collectible deck pass with QR tear notch
                 </p>
               </button>
             </div>

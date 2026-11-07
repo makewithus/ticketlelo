@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, Ticket as TicketIcon } from "lucide-react";
 import { StubTicket } from "./stub-ticket";
 import { WideTicket } from "./wide-ticket";
+import { TicketGraphic } from "./ticket-graphic";
 
 export function TicketFullPreviewModal({
   isOpen,
@@ -54,6 +55,7 @@ export function TicketFullPreviewModal({
     status: "Valid Pass",
   };
 
+  const isDeck = design === "deck" || eventData?.ticketDesign === "deck";
   const isWide = design === "wide" || eventData?.ticketDesign === "wide";
 
   const modalContent = (
@@ -95,8 +97,39 @@ export function TicketFullPreviewModal({
 
         {/* Full Length Scrollable Ticket Render */}
         <div className="py-2 overflow-x-auto overflow-y-auto flex-1 flex justify-center no-scrollbar">
-          <div className="w-full max-w-[780px] min-w-[300px]">
-            {isWide ? (
+          <div className="w-full max-w-[780px] min-w-[300px] flex justify-center">
+            {isDeck ? (
+              <TicketGraphic
+                ticket={{
+                  title: eventData.name || eventData.title || "Event Pass",
+                  name: eventData.name || eventData.title || "Event Pass",
+                  date: eventData.date,
+                  time: eventData.time,
+                  venue: eventData.location || eventData.venue || "Main Auditorium",
+                  location: eventData.location || eventData.venue || "Main Auditorium",
+                  theme: eventData.theme,
+                  themeColor: eventData.themeColor || eventData.themeHex,
+                  ticketBgColor: eventData.ticketBgColor,
+                  ticketBgUrl: eventData.ticketBgUrl,
+                  price: eventData.price,
+                  ticketTier: regData.ticketTier || (eventData.isPaid ? "VIP PASS" : "GENERAL PASS"),
+                  ticketId: regData.ticketId || "TKT-1793-PREVIEW",
+                  attendeeName: regData.attendeeName || "Attendee Pass",
+                  guest: regData.attendeeName || "Attendee Pass",
+                  status: regData.status || "Valid Pass",
+                  posterLine1: eventData.posterLine1,
+                  posterLine2: eventData.posterLine2,
+                  posterTextMode: eventData.posterTextMode,
+                  posterTextColor: eventData.posterTextColor,
+                  posterFontSize: eventData.posterFontSize,
+                  posterAlign: eventData.posterAlign,
+                  posterTextY: eventData.posterTextY,
+                  posterTextBg: eventData.posterTextBg,
+                  showPosterText: eventData.showPosterText,
+                }}
+                horizontal={true}
+              />
+            ) : isWide ? (
               <WideTicket
                 event={eventData}
                 registration={regData}

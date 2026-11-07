@@ -38,12 +38,15 @@ import {
   Navigation,
   ImageIcon,
   Trash2,
+  Plus,
+  ChevronsUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { IoTicket } from "react-icons/io5";
+import { IoTicket, IoColorPalette, IoShuffle } from "react-icons/io5";
 import { createEvent, updateEvent } from "@/lib/firestore";
 import { useAuth } from "@/context/auth-context";
 import { StubTicket } from "@/components/tickets/stub-ticket";
+import { TicketGraphic } from "@/components/tickets/ticket-graphic";
 import { WideTicket } from "@/components/tickets/wide-ticket";
 import { TicketFullPreviewModal } from "@/components/tickets/ticket-full-preview-modal";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -84,15 +87,17 @@ const THEMES = [
   {
     id: "minimal",
     name: "Minimal",
-    color: "#2E7D32",
-    bg: "#1B3B2B",
-    sun: "#2E7D32",
+    color: "#FE760B",
+    pageBg: "#432E01",
+    bg: "#432E01",
+    sun: "#FE760B",
     text: "#FFFFFF",
   },
   {
     id: "sunset",
     name: "Sunset",
     color: "#FE760B",
+    pageBg: "#2B1605",
     bg: "#FE760B",
     sun: "#FB923C",
     text: "#131517",
@@ -101,6 +106,7 @@ const THEMES = [
     id: "sunny",
     name: "Sunny",
     color: "#FDE003",
+    pageBg: "#261D02",
     bg: "#FE760B",
     sun: "#FDE003",
     text: "#131517",
@@ -109,6 +115,7 @@ const THEMES = [
     id: "electric",
     name: "Electric",
     color: "#2B59FF",
+    pageBg: "#0B1536",
     bg: "#1D4ED8",
     sun: "#38BDF8",
     text: "#FFFFFF",
@@ -117,6 +124,7 @@ const THEMES = [
     id: "neon",
     name: "Neon",
     color: "#EC4899",
+    pageBg: "#290A1A",
     bg: "#BE185D",
     sun: "#F43F5E",
     text: "#FFFFFF",
@@ -125,10 +133,46 @@ const THEMES = [
     id: "mint",
     name: "Mint",
     color: "#10B981",
+    pageBg: "#062319",
     bg: "#047857",
     sun: "#34D399",
     text: "#FFFFFF",
   },
+];
+
+const ARTWORK_PRESETS = [
+  {
+    id: "squiggles",
+    name: "Playful Squiggles",
+    // Cream background (#FBF8EE) with artistic paint brush squiggles matching user screenshot
+    svg: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%23FBF8EE"/><path d="M40 70 Q90 10 140 60 T220 50" fill="none" stroke="%233B82F6" stroke-width="24" stroke-linecap="round"/><path d="M80 180 Q140 120 220 180 T340 160" fill="none" stroke="%23EF4444" stroke-width="26" stroke-linecap="round"/><path d="M30 260 Q90 320 160 270 T260 290" fill="none" stroke="%2310B981" stroke-width="24" stroke-linecap="round"/><path d="M190 80 Q250 20 320 70 T380 140" fill="none" stroke="%23F59E0B" stroke-width="24" stroke-linecap="round"/><path d="M280 200 Q360 260 300 340 T220 370" fill="none" stroke="%233B82F6" stroke-width="24" stroke-linecap="round"/><path d="M100 340 Q180 380 220 320" fill="none" stroke="%23F59E0B" stroke-width="26" stroke-linecap="round"/><circle cx="80" cy="90" r="14" fill="%23EF4444"/><circle cx="340" cy="270" r="14" fill="%2310B981"/></svg>`,
+  },
+  {
+    id: "minimal-sunset",
+    name: "Minimal Sunset",
+    svg: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%231E1508"/><circle cx="340" cy="80" r="160" fill="%23FE760B" opacity="0.95"/><circle cx="80" cy="320" r="120" fill="%23F59E0B" opacity="0.4"/><path d="M0 300 Q150 250 400 300 L400 400 L0 400 Z" fill="%232D1C08"/></svg>`,
+  },
+  {
+    id: "abstract-waves",
+    name: "Abstract Waves",
+    svg: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><rect width="400" height="400" fill="%230F172A"/><path d="M-50 200 C100 100 200 300 450 180 L450 400 L-50 400 Z" fill="%233B82F6" opacity="0.75"/><path d="M-50 260 C150 200 250 360 450 240 L450 400 L-50 400 Z" fill="%2310B981" opacity="0.65"/></svg>`,
+  },
+  {
+    id: "aurora",
+    name: "Aurora Glow",
+    svg: `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%"><defs><linearGradient id="auroraG" x1="0%25" y1="0%25" x2="100%25" y2="100%25"><stop offset="0%25" stop-color="%23EC4899"/><stop offset="50%25" stop-color="%238B5CF6"/><stop offset="100%25" stop-color="%233B82F6"/></linearGradient></defs><rect width="400" height="400" fill="url(%23auroraG)"/></svg>`,
+  },
+];
+
+const TIMEZONE_OPTIONS = [
+  { tz: "GMT+05:30", city: "Kolkata", label: "India Standard Time (IST)" },
+  { tz: "GMT+00:00", city: "London", label: "Greenwich Mean Time (GMT/UTC)" },
+  { tz: "GMT-05:00", city: "New York", label: "Eastern Time (EST)" },
+  { tz: "GMT-08:00", city: "San Francisco", label: "Pacific Time (PST)" },
+  { tz: "GMT+01:00", city: "Berlin", label: "Central European Time (CET)" },
+  { tz: "GMT+04:00", city: "Dubai", label: "Gulf Standard Time (GST)" },
+  { tz: "GMT+08:00", city: "Singapore", label: "Singapore Time (SGT)" },
+  { tz: "GMT+09:00", city: "Tokyo", label: "Japan Standard Time (JST)" },
 ];
 
 // 30-minute interval time options from 12:00 am to 11:30 pm matching Image 2
@@ -181,7 +225,7 @@ function formatDatePill(dateStr) {
       const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
       const month = d.toLocaleDateString("en-US", { month: "short" });
       const day = parts[2];
-      return `${weekday}, ${day} ${month}`;
+      return `${weekday}, ${month} ${day}`;
     }
   } catch {}
   return dateStr;
@@ -546,10 +590,11 @@ export function EventCreateStudio({
     locationPin: editingEvent?.locationPin || null,
     locationType: editingEvent?.locationType || "in-person",
     virtualLink: editingEvent?.virtualLink || "",
+    locationInstructions: editingEvent?.locationInstructions || "",
     theme: editingEvent?.theme || "minimal",
     themeColor: editingEvent?.themeColor || editingEvent?.themeHex || "",
     ticketBgColor: editingEvent?.ticketBgColor || editingEvent?.themeColor || "",
-    coverImage: editingEvent?.coverImage || editingEvent?.image || "",
+    coverImage: editingEvent?.coverImage || editingEvent?.image || ARTWORK_PRESETS[0].svg,
     visibility:
       editingEvent?.visibility ||
       (editingEvent?.isActive === false ? "draft" : "public"),
@@ -575,7 +620,7 @@ export function EventCreateStudio({
     posterTextColor: editingEvent?.posterTextColor || "auto",
     posterTextX: typeof editingEvent?.posterTextX === "number" ? editingEvent.posterTextX : 6,
     posterTextY: typeof editingEvent?.posterTextY === "number" ? editingEvent.posterTextY : (editingEvent?.coverImage ? 55 : 68),
-    showPosterText: editingEvent?.showPosterText !== undefined ? editingEvent.showPosterText : true,
+    showPosterText: editingEvent?.showPosterText !== undefined ? editingEvent.showPosterText : false,
     posterTextBg: editingEvent?.posterTextBg || "shadow",
     requireApproval: Boolean(editingEvent?.requireApproval),
     limitCapacity: Boolean(
@@ -586,6 +631,23 @@ export function EventCreateStudio({
     waitlist: editingEvent?.waitlist !== undefined ? Boolean(editingEvent.waitlist) : true,
     ticketBgUrl: editingEvent?.ticketBgUrl || editingEvent?.ticketBackground || "",
   });
+
+  const [showThemeDropdown, setShowThemeDropdown] = useState(false);
+  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+  const [showFurtherInstructions, setShowFurtherInstructions] = useState(Boolean(editingEvent?.locationInstructions));
+  const [artworkPresetIdx, setArtworkPresetIdx] = useState(0);
+
+  const handleShuffleArtwork = () => {
+    setArtworkPresetIdx((prev) => {
+      const nextIdx = (prev + 1) % ARTWORK_PRESETS.length;
+      setFormData((f) => ({
+        ...f,
+        coverImage: ARTWORK_PRESETS[nextIdx].svg,
+      }));
+      toast.success(`Theme artwork: ${ARTWORK_PRESETS[nextIdx].name}`, { duration: 1500 });
+      return nextIdx;
+    });
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -1150,6 +1212,7 @@ export function EventCreateStudio({
         locationPin: formData.locationPin || null,
         locationType: formData.locationType,
         virtualLink: formData.virtualLink.trim(),
+        locationInstructions: formData.locationInstructions || "",
         totalTickets: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : 9999,
         capacity: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : "Unlimited",
         requireApproval: formData.isPaid ? false : Boolean(formData.requireApproval),
@@ -1245,10 +1308,18 @@ export function EventCreateStudio({
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#131517] text-white flex flex-col selection:bg-[#FE760B] selection:text-[#131517]">
+    <div
+      className="min-h-screen text-white flex flex-col selection:bg-[#FE760B] selection:text-[#131517] transition-colors duration-300"
+      style={{
+        backgroundColor:
+          formData.theme === "minimal"
+            ? "#432E01"
+            : selectedTheme?.pageBg || "#432E01",
+      }}
+    >
       {/* Main Studio Body: 2 Columns */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="mb-6 flex items-center justify-between text-xs text-[#9B9EA4]">
+        <div className="mb-6 flex items-center justify-between text-xs text-white/70">
           <button
             type="button"
             onClick={() => {
@@ -1260,7 +1331,7 @@ export function EventCreateStudio({
             <ArrowLeft className="w-4 h-4 text-[#FE760B]" />
             <span className="font-medium">Back to Events</span>
           </button>
-          <span className="font-semibold text-white tracking-wide">
+          <span className="font-semibold text-white/80 tracking-wide">
             {editingEvent ? "Edit Event Studio" : "Create Event Studio"}
           </span>
         </div>
@@ -1269,7 +1340,7 @@ export function EventCreateStudio({
           className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
         >
           {/* ================= LEFT COLUMN: POSTER & THEME ================= */}
-          <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-5">
+          <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-4">
             {/* Poster Card (Square, 1:1, rounded-3xl) with Draggable & Editable Text Overlay */}
             <div
               ref={posterContainerRef}
@@ -1595,205 +1666,192 @@ export function EventCreateStudio({
               />
             </div>
 
-            {/* Theme Selector matching Image 2 & 3 */}
-            <div className="w-full max-w-[360px] pt-1">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-xs text-[#9B9EA4] font-medium tracking-wide">
-                  Theme
-                </span>
-                <span className="text-xs font-semibold text-[#D0D0D1]">
-                  {selectedTheme.name}
-                </span>
-              </div>
+            {/* Helper text directly underneath square cover artwork */}
+            <div className="w-full max-w-[360px] px-1 pt-0.5">
+              <p className="text-[11px] text-white/50 leading-relaxed">
+                Square cover artwork: JPEG, PNG or WebP up to 5 MB
+              </p>
+            </div>
 
-              {/* Theme Color Swatches + Custom Picker */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                {THEMES.map((theme) => {
-                  const isSelected = formData.theme === theme.id;
-                  return (
-                    <button
-                      key={theme.id}
-                      type="button"
-                      onClick={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          theme: theme.id,
-                          themeColor: theme.color,
-                          ticketBgColor: theme.color,
-                        }));
-                        setCustomColorHex(theme.color);
-                        setThemeHexInput(theme.color.replace(/^#/, ""));
-                        setTicketHexInput(theme.color.replace(/^#/, ""));
-                      }}
-                      className={`w-7 h-7 rounded-full transition-all duration-200 cursor-pointer ${
-                        isSelected
-                          ? "ring-2 ring-white ring-offset-2 ring-offset-[#131517] scale-110 shadow-md"
-                          : "opacity-80 hover:opacity-100 hover:scale-105"
-                      }`}
-                      style={{ backgroundColor: theme.color }}
-                      title={theme.name}
-                    />
-                  );
-                })}
-
-                {/* 7th Swatch: Custom Color Wheel Picker (Image 2) */}
-                <div className="relative">
+            {/* Theme & Artwork Bar matching User Screenshot */}
+            <div className="w-full max-w-[360px] space-y-2.5 pt-1">
+              <div className="flex items-stretch gap-2 relative">
+                {/* Theme Selector Pill Dropdown Trigger */}
+                <div className="relative flex-1 min-w-0">
                   <button
                     type="button"
-                    onClick={() => {
-                      const fullHex = normalizeHex(customColorHex || formData.themeColor || "#FE760B");
-                      setFormData((prev) => ({
-                        ...prev,
-                        theme: "custom",
-                        themeColor: fullHex,
-                        ticketBgColor: fullHex,
-                      }));
-                      themeColorInputRef.current?.click();
-                    }}
-                    className={`w-7 h-7 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center relative shadow-md group ${
-                      formData.theme === "custom"
-                        ? "ring-2 ring-white ring-offset-2 ring-offset-[#131517] scale-110 shadow-lg"
-                        : "opacity-90 hover:opacity-100 hover:scale-105"
-                    }`}
-                    style={{
-                      background:
-                        "conic-gradient(from 0deg, #ff0000 0%, #ff8000 12.5%, #ffff00 25%, #00ff00 37.5%, #00ffff 50%, #0000ff 62.5%, #8000ff 75%, #ff0080 87.5%, #ff0000 100%)",
-                    }}
-                    title="Custom Color Wheel - Click to open color wheel"
+                    onClick={() => setShowThemeDropdown(!showThemeDropdown)}
+                    className="w-full h-[50px] flex items-center justify-between gap-3 px-3.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.12] backdrop-blur-md border border-white/10 hover:border-white/20 transition-all cursor-pointer shadow-sm group"
                   >
-                    <div
-                      className="w-2.5 h-2.5 rounded-full border border-black/50 shadow-xs"
-                      style={{ backgroundColor: selectedTheme.color }}
-                    />
-                  </button>
-                  <input
-                    ref={themeColorInputRef}
-                    type="color"
-                    value={normalizeHex(selectedTheme.color)}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setThemeHexInput(val.replace(/^#/, ""));
-                      setTicketHexInput(val.replace(/^#/, ""));
-                      setCustomColorHex(val);
-                      setFormData((prev) => ({
-                        ...prev,
-                        theme: "custom",
-                        themeColor: val,
-                        ticketBgColor: val,
-                      }));
-                    }}
-                    className="sr-only pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              {/* Custom Color Code & Native Picker Input Box */}
-              <div className="mt-3 p-2.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] flex items-center justify-between gap-3 shadow-inner">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  {/* Clickable color preview button that triggers native color picker */}
-                  <label
-                    title="Click to open color palette wheel"
-                    className="relative w-7 h-7 rounded-lg border border-white/20 shadow-xs cursor-pointer shrink-0 overflow-hidden flex items-center justify-center hover:scale-105 transition-transform"
-                    style={{ backgroundColor: selectedTheme.color }}
-                  >
-                    <input
-                      type="color"
-                      value={normalizeHex(selectedTheme.color)}
-                      onChange={(e) => {
-                        const val = e.target.value.toUpperCase();
-                        setThemeHexInput(val.replace(/^#/, ""));
-                        setTicketHexInput(val.replace(/^#/, ""));
-                        setCustomColorHex(val);
-                        setFormData((prev) => ({
-                          ...prev,
-                          theme: "custom",
-                          themeColor: val,
-                          ticketBgColor: val,
-                        }));
-                      }}
-                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
-                    />
-                  </label>
-
-                  {/* Hex Color Code text input */}
-                  <div className="min-w-0 flex-1">
-                    <span className="text-[10px] uppercase font-bold text-[#9B9EA4] block tracking-wider">
-                      Color Code (HEX)
-                    </span>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-xs text-[#FE760B] font-mono font-bold">#</span>
-                      <input
-                        type="text"
-                        maxLength={7}
-                        value={themeHexInput}
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/^#/, "").replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
-                          setThemeHexInput(raw);
-                          if (raw.length === 3 || raw.length === 6) {
-                            const fullHex = normalizeHex(raw);
-                            setCustomColorHex(fullHex);
-                            setTicketHexInput(fullHex.replace(/^#/, ""));
-                            setFormData((prev) => ({
-                              ...prev,
-                              theme: "custom",
-                              themeColor: fullHex,
-                              ticketBgColor: fullHex,
-                            }));
-                          }
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Theme Palette Icon from react-icons */}
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all shadow-xs"
+                        style={{
+                          backgroundColor: `${selectedTheme.color}20`,
+                          borderColor: `${selectedTheme.color}40`,
                         }}
-                        placeholder="FE760B"
-                        className="w-24 font-mono text-xs uppercase font-bold text-white bg-transparent outline-none border-b border-[#2A2D31] focus:border-[#FE760B] pb-0.5"
-                      />
+                      >
+                        <IoColorPalette
+                          className="w-4 h-4 transition-transform group-hover:scale-110"
+                          style={{ color: selectedTheme.color }}
+                        />
+                      </div>
+                      <div className="flex flex-col text-left leading-tight min-w-0">
+                        <span className="text-[10px] text-white/60 font-medium uppercase tracking-wider">Theme</span>
+                        <span className="text-xs sm:text-sm font-bold text-white truncate">
+                          {selectedTheme.name}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                    <ChevronsUpDown className="w-4 h-4 text-white/60 group-hover:text-white shrink-0 transition-colors" />
+                  </button>
+
+                  {/* Theme Selection Dropdown Popover */}
+                  {showThemeDropdown && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-30"
+                        onClick={() => setShowThemeDropdown(false)}
+                      />
+                      <div className="absolute top-full left-0 mt-2 w-72 bg-[#1A1C1F]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-3 shadow-2xl z-40 space-y-2 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-white/10 px-1">
+                          <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <IoColorPalette className="w-3.5 h-3.5 text-[#FE760B]" />
+                            Select Event Theme
+                          </span>
+                          <span className="text-[10px] text-white/50">Luma Minimal &amp; Vibrant</span>
+                        </div>
+
+                        <div className="space-y-1 max-h-56 overflow-y-auto">
+                          {THEMES.map((theme) => {
+                            const isSelected = formData.theme === theme.id;
+                            return (
+                              <button
+                                key={theme.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    theme: theme.id,
+                                    themeColor: theme.color,
+                                    ticketBgColor: theme.color,
+                                  }));
+                                  setCustomColorHex(theme.color);
+                                  setThemeHexInput(theme.color.replace(/^#/, ""));
+                                  setTicketHexInput(theme.color.replace(/^#/, ""));
+                                  setShowThemeDropdown(false);
+                                }}
+                                className={`w-full p-2 rounded-xl flex items-center justify-between text-left transition-colors cursor-pointer ${
+                                  isSelected ? "bg-white/[0.15]" : "hover:bg-white/[0.08]"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <span
+                                    className="w-4 h-4 rounded-full border border-white/20 shrink-0"
+                                    style={{ backgroundColor: theme.color }}
+                                  />
+                                  <span className="text-xs font-semibold text-white">
+                                    {theme.name}
+                                  </span>
+                                </div>
+                                {isSelected && (
+                                  <Check className="w-3.5 h-3.5 text-[#FE760B] stroke-[3]" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Custom Color Option inside dropdown */}
+                        <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2 px-1">
+                          <div className="flex items-center gap-2">
+                            <label
+                              title="Pick custom color"
+                              className="relative w-6 h-6 rounded-md border border-white/20 shadow-xs cursor-pointer shrink-0 overflow-hidden flex items-center justify-center hover:scale-105 transition-transform"
+                              style={{ backgroundColor: selectedTheme.color }}
+                            >
+                              <input
+                                type="color"
+                                value={normalizeHex(selectedTheme.color)}
+                                onChange={(e) => {
+                                  const val = e.target.value.toUpperCase();
+                                  setThemeHexInput(val.replace(/^#/, ""));
+                                  setTicketHexInput(val.replace(/^#/, ""));
+                                  setCustomColorHex(val);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    theme: "custom",
+                                    themeColor: val,
+                                    ticketBgColor: val,
+                                  }));
+                                }}
+                                className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                              />
+                            </label>
+                            <span className="text-xs font-medium text-white/80">Custom Hex:</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg border border-white/15">
+                            <span className="text-xs font-mono font-bold text-[#FE760B]">#</span>
+                            <input
+                              type="text"
+                              maxLength={6}
+                              value={themeHexInput}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(/^#/, "").replace(/[^0-9A-Fa-f]/g, "").slice(0, 6).toUpperCase();
+                                setThemeHexInput(raw);
+                                if (raw.length === 3 || raw.length === 6) {
+                                  const fullHex = normalizeHex(raw);
+                                  setCustomColorHex(fullHex);
+                                  setTicketHexInput(fullHex.replace(/^#/, ""));
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    theme: "custom",
+                                    themeColor: fullHex,
+                                    ticketBgColor: fullHex,
+                                  }));
+                                }
+                              }}
+                              className="w-16 font-mono text-xs uppercase font-bold text-white bg-transparent outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
+                {/* Shuffle Button with react-icons IoShuffle */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const fullHex = normalizeHex(themeHexInput);
-                    setThemeHexInput(fullHex.replace(/^#/, ""));
-                    setTicketHexInput(fullHex.replace(/^#/, ""));
-                    setCustomColorHex(fullHex);
-                    setFormData((prev) => ({
-                      ...prev,
-                      theme: "custom",
-                      themeColor: fullHex,
-                      ticketBgColor: fullHex,
-                    }));
-                    toast.success(`Theme color ${fullHex} applied!`);
-                  }}
-                  className="px-2.5 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[11px] font-semibold text-white border border-[#2A2D31] transition-colors cursor-pointer shrink-0"
+                  onClick={handleShuffleArtwork}
+                  className="w-[50px] h-[50px] rounded-xl bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/10 hover:border-white/20 transition-all cursor-pointer shadow-sm flex items-center justify-center text-white/80 hover:text-white shrink-0 group active:scale-95"
+                  title="Shuffle cover artwork preset"
                 >
-                  Apply
+                  <IoShuffle className="w-5 h-5 text-white/70 group-hover:text-white transition-colors" />
                 </button>
               </div>
 
-              {/* Helper text matching Image 2 */}
-              <p className="text-[11px] text-[#71767B] leading-relaxed mt-3">
-                Banner: JPEG, PNG or WebP up to 5 MB • 1200 × 400 recommended
-              </p>
-
-              {/* Poster Typography & Layout Trigger Button (Opens Image 4 Style Modal) */}
+              {/* Poster Typography & Layout Trigger Button */}
               <div
-                className="w-full mt-4 p-3.5 bg-[#1A1C1F] hover:bg-[#212327] rounded-2xl border border-[#2A2D31] flex items-center justify-between gap-3 shadow-md transition-colors cursor-pointer"
+                className="w-full min-h-[50px] p-2.5 sm:px-3.5 sm:py-2.5 bg-white/[0.08] hover:bg-white/[0.12] backdrop-blur-md rounded-xl border border-white/10 hover:border-white/20 flex items-center justify-between gap-3 shadow-sm transition-all cursor-pointer group"
                 onClick={() => setShowTypographyModal(true)}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-9 h-9 rounded-xl bg-[#212327] border border-white/5 flex items-center justify-center text-[#FE760B] shrink-0">
-                    <Type className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-lg bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
+                    <Type className="w-4 h-4 text-[#FE760B]" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                    <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 truncate">
                       <span>Typography &amp; Layout</span>
                       {formData.showPosterText === false && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-500/20 text-red-400 font-semibold">
-                          Hidden
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-white/60 font-semibold border border-white/10">
+                          Clean
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-[#9B9EA4] truncate mt-0.5">
-                      {formData.posterTextMode === "auto" ? "Auto Title" : "Custom Lines"} • {formData.posterFontSize || 34}px • {formData.posterAlign || "Left"} • {formData.posterTextWidth || 85}% width
+                    <div className="text-[11px] text-white/50 truncate mt-0.5 font-medium">
+                      {formData.posterTextMode === "auto" ? "Auto Title" : "Custom Lines"} • {formData.posterFontSize || 34}px • {formData.posterAlign || "Left"}
                     </div>
                   </div>
                 </div>
@@ -1803,7 +1861,7 @@ export function EventCreateStudio({
                     e.stopPropagation();
                     setShowTypographyModal(true);
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-[#2A2D31] hover:bg-[#33373E] text-white text-[11px] font-semibold transition-colors shrink-0 cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-[#FE760B] hover:text-[#131517] text-white text-xs font-bold transition-all border border-white/15 hover:border-[#FE760B] shadow-sm shrink-0 cursor-pointer"
                 >
                   Adjust
                 </button>
@@ -1814,8 +1872,8 @@ export function EventCreateStudio({
           {/* ================= RIGHT COLUMN: EVENT DETAILS ================= */}
           <div className="lg:col-span-7 flex flex-col space-y-4">
 
-            {/* Event Name Input (Large Display typography matching Image 2) */}
-            <div className="pt-2">
+            {/* Event Name Input (Large Display typography matching Image 2 & screenshot) */}
+            <div className="pt-1">
               <input
                 type="text"
                 value={formData.name}
@@ -1824,19 +1882,22 @@ export function EventCreateStudio({
                 }
                 placeholder="Event Name"
                 required
-                className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl font-extrabold text-white placeholder:text-[#9B9EA4] !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight"
+                className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl lg:text-5xl font-black text-white placeholder:text-white/30 !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight"
               />
             </div>
 
-            {/* Date & Time Card matching Image 1 & Image 2 */}
-            <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shadow-sm relative">
-              {/* Left Side: Start and End rows */}
-              <div className="flex-1 space-y-3">
-                {/* Start row: ● Start [Mon, 2 Nov] [11:30 pm] on SAME LINE */}
-                <div className="flex items-center gap-2 sm:gap-2.5 flex-nowrap">
-                  <div className="flex items-center gap-1.5 sm:gap-2 w-14 sm:w-16 shrink-0">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: selectedTheme.color }} />
-                    <span className="text-xs font-semibold text-[#9B9EA4]">
+            {/* Date & Time Card + Dedicated Timezone Box matching Screenshot */}
+            <div className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md relative">
+              {/* Left Side: Start and End rows connected by vertical timeline line */}
+              <div className="flex-1 space-y-2 relative">
+                {/* Vertical timeline connector line */}
+                <div className="absolute left-[4.5px] top-[14px] bottom-[14px] w-px bg-white/25 pointer-events-none" />
+
+                {/* Start row: ● Start [Thu, Nov 5] [18:30] */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-nowrap relative z-10">
+                  <div className="flex items-center gap-2 w-14 sm:w-16 shrink-0">
+                    <span className="w-2.5 h-2.5 rounded-full bg-white/80 shrink-0" />
+                    <span className="text-xs font-semibold text-white/70">
                       Start
                     </span>
                   </div>
@@ -1851,7 +1912,7 @@ export function EventCreateStudio({
                         setShowEndCalendar(false);
                         setShowEndTimePicker(false);
                       }}
-                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formatDatePill(formData.startDate)}</span>
                     </button>
@@ -1883,7 +1944,7 @@ export function EventCreateStudio({
                         setShowEndCalendar(false);
                         setShowEndTimePicker(false);
                       }}
-                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formData.startTime}</span>
                     </button>
@@ -1909,11 +1970,11 @@ export function EventCreateStudio({
                   </div>
                 </div>
 
-                {/* End row: ○ End [Tue, 3 Nov] [12:30 am] on SAME LINE */}
-                <div className="flex items-center gap-2 sm:gap-2.5 flex-nowrap">
-                  <div className="flex items-center gap-1.5 sm:gap-2 w-14 sm:w-16 shrink-0">
-                    <span className="w-2 h-2 rounded-full border border-[#9B9EA4] shrink-0" />
-                    <span className="text-xs font-semibold text-[#9B9EA4]">
+                {/* End row: ○ End [Thu, Nov 5] [19:30] */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-nowrap relative z-10">
+                  <div className="flex items-center gap-2 w-14 sm:w-16 shrink-0">
+                    <span className="w-2.5 h-2.5 rounded-full border-2 border-white/60 bg-transparent shrink-0" />
+                    <span className="text-xs font-semibold text-white/70">
                       End
                     </span>
                   </div>
@@ -1928,7 +1989,7 @@ export function EventCreateStudio({
                         setShowStartCalendar(false);
                         setShowStartTimePicker(false);
                       }}
-                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formatDatePill(formData.endDate)}</span>
                     </button>
@@ -1959,7 +2020,7 @@ export function EventCreateStudio({
                         setShowStartCalendar(false);
                         setShowStartTimePicker(false);
                       }}
-                      className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white hover:border-[#3A3D42] transition-colors cursor-pointer whitespace-nowrap"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formData.endTime}</span>
                     </button>
@@ -1985,29 +2046,40 @@ export function EventCreateStudio({
                   </div>
                 </div>
               </div>
+
+              {/* Right Side: Dedicated Timezone Card matching screenshot */}
+              <div
+                onClick={() => setShowTimezoneModal(true)}
+                className="rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 p-2.5 sm:p-3 flex flex-col justify-center items-start shrink-0 min-w-[125px] sm:min-w-[135px] transition-colors cursor-pointer group"
+                title="Click to change timezone"
+              >
+                <div className="flex items-center gap-1.5 text-white/70 group-hover:text-white">
+                  <Globe className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-semibold tracking-wide">
+                    {formData.timezone || "GMT+05:30"}
+                  </span>
+                </div>
+                <span className="text-[11px] text-white/60 group-hover:text-white/80 mt-0.5 truncate max-w-[120px]">
+                  {formData.timezoneCity || "Kolkata"}
+                </span>
+              </div>
             </div>
 
-            {/* Location Card matching Image 3 & Image 5 */}
-            {/* Location Card & Google Maps Live Form Preview */}
+            {/* Location Card matching screenshot */}
             {formData.location.trim() && formData.locationType === "in-person" ? (
-              <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 space-y-3 shadow-md hover:border-[#3A3D42] transition-colors">
+              <div className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-4 space-y-3 shadow-md">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="p-2 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 text-[#FE760B] shrink-0 mt-0.5">
-                      <MapPin className="w-5 h-5" />
-                    </div>
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <MapPin className="w-4 h-4 text-white/80 shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#3DD68C] flex items-center gap-1">
-                        <Check className="w-3 h-3" /> Confirmed Venue Location
-                      </span>
-                      <h4 className="text-sm sm:text-base font-bold text-white mt-0.5 truncate">
+                      <h4 className="text-sm sm:text-base font-bold text-white truncate">
                         {formData.locationVenue || formData.location}
                       </h4>
-                      <p className="text-xs text-[#9B9EA4] line-clamp-2 mt-0.5">
+                      <p className="text-xs text-white/60 truncate mt-0.5">
                         {formData.locationAddress || formData.location}
                       </p>
                       {formData.locationPin?.landmark && (
-                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-[11px] text-[#FE760B] font-medium">
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-white/[0.06] border border-white/10 text-[11px] text-white/80 font-medium">
                           <MapPin className="w-3 h-3 text-[#FE760B] shrink-0" />
                           <span>Spot:</span>
                           <span>{formData.locationPin.landmark}</span>
@@ -2017,16 +2089,6 @@ export function EventCreateStudio({
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocationInput(formData.locationVenue || formData.location);
-                        setShowLocationModal(true);
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-white border border-[#2A2D31] transition-colors cursor-pointer"
-                    >
-                      Change
-                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -2041,7 +2103,7 @@ export function EventCreateStudio({
                         }));
                         setSelectedLocationVenue(null);
                       }}
-                      className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
+                      className="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                       title="Clear location"
                     >
                       <X className="w-4 h-4" />
@@ -2049,8 +2111,8 @@ export function EventCreateStudio({
                   </div>
                 </div>
 
-                {/* Real Interactive Venue Map Preview */}
-                <div className="rounded-xl overflow-hidden border border-[#2A2D31] h-40 sm:h-44 w-full relative bg-[#131517] shadow-inner">
+                {/* Real Interactive Venue Map Preview with [ Adjust Pin ] pill button */}
+                <div className="rounded-xl overflow-hidden border border-white/10 h-36 sm:h-44 w-full relative bg-black/40 shadow-inner">
                   <iframe
                     title="Interactive Venue Map Preview"
                     width="100%"
@@ -2068,7 +2130,21 @@ export function EventCreateStudio({
                     }
                     className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
                   />
-                  <div className="absolute top-2 right-2 z-10">
+
+                  {/* Top-left [ Adjust Pin ] overlay pill button matching screenshot */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocationInput(formData.locationVenue || formData.location);
+                      setShowLocationModal(true);
+                    }}
+                    className="absolute top-2.5 left-2.5 z-10 px-3 py-1 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-[11px] font-medium text-white border border-white/20 shadow-md flex items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02]"
+                  >
+                    <MapPin className="w-3 h-3 text-white/90" />
+                    <span>Adjust Pin</span>
+                  </button>
+
+                  <div className="absolute top-2.5 right-2.5 z-10">
                     <a
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                         formData.latitude && formData.longitude
@@ -2077,9 +2153,9 @@ export function EventCreateStudio({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-1 rounded-lg bg-black/80 hover:bg-black text-[10px] font-semibold text-white flex items-center gap-1 backdrop-blur-sm border border-white/10 transition-colors shadow-sm"
+                      className="px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black text-[10px] font-medium text-white flex items-center gap-1 backdrop-blur-sm border border-white/10 transition-colors shadow-sm"
                     >
-                      <span>Open in Google Maps</span>
+                      <span>Google Maps</span>
                       <ExternalLink className="w-2.5 h-2.5 text-[#FE760B]" />
                     </a>
                   </div>
@@ -2090,6 +2166,45 @@ export function EventCreateStudio({
                     </div>
                   )}
                 </div>
+
+                {/* + Add Further Instructions button matching screenshot */}
+                <div>
+                  {!showFurtherInstructions && !formData.locationInstructions ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowFurtherInstructions(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 text-xs font-medium text-white/80 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-white/70" />
+                      <span>Add Further Instructions</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-xs text-white/70">
+                        <span className="font-medium">Further Location Instructions</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFurtherInstructions(false);
+                            setFormData((prev) => ({ ...prev, locationInstructions: "" }));
+                          }}
+                          className="text-[11px] text-white/50 hover:text-white"
+                        >
+                          Hide
+                        </button>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={formData.locationInstructions}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, locationInstructions: e.target.value }))
+                        }
+                        placeholder="e.g., Gate 2 entry, Auditorium on 3rd floor, Parking available in basement..."
+                        className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/30 resize-none transition-colors"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div
@@ -2097,10 +2212,10 @@ export function EventCreateStudio({
                   setLocationInput(formData.location);
                   setShowLocationModal(true);
                 }}
-                className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-start gap-3.5 hover:border-[#3A3D42] transition-colors cursor-pointer shadow-sm group"
+                className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-4 flex items-start gap-3.5 hover:bg-white/[0.12] transition-colors cursor-pointer shadow-sm group"
               >
                 <MapPin className={`w-5 h-5 shrink-0 mt-0.5 transition-colors ${
-                  formData.location.trim() ? "text-[#FE760B]" : "text-[#9B9EA4] group-hover:text-white"
+                  formData.location.trim() ? "text-[#FE760B]" : "text-white/60 group-hover:text-white"
                 }`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-white">
@@ -2110,7 +2225,7 @@ export function EventCreateStudio({
                       <span>Add Event Location *</span>
                     )}
                   </div>
-                  <div className="text-xs text-[#9B9EA4] mt-0.5 truncate">
+                  <div className="text-xs text-white/60 mt-0.5 truncate">
                     {formData.locationType === "virtual"
                       ? formData.virtualLink || "Online meeting / virtual link"
                       : "Search venue on Google Maps or add virtual link"}
@@ -2119,18 +2234,18 @@ export function EventCreateStudio({
               </div>
             )}
 
-            {/* Description Card (Image 3 Trigger) */}
+            {/* Description Card matching screenshot */}
             <div
               onClick={() => setShowDescriptionModal(true)}
-              className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 flex items-center gap-3.5 hover:border-[#3A3D42] transition-colors cursor-pointer shadow-sm group"
+              className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-4 flex items-center gap-3.5 hover:bg-white/[0.12] transition-colors cursor-pointer shadow-sm group"
             >
-              <AlignLeft className="w-5 h-5 text-[#9B9EA4] group-hover:text-white shrink-0 transition-colors" />
+              <AlignLeft className="w-5 h-5 text-white/60 group-hover:text-white shrink-0 transition-colors" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-white">
                   {safeDescription.trim() ? (
                     <span className="line-clamp-2">{safeDescription}</span>
                   ) : (
-                    <span className="text-[#9B9EA4]">Add Description</span>
+                    <span className="text-white/60">Event Description</span>
                   )}
                 </div>
               </div>
@@ -2138,23 +2253,21 @@ export function EventCreateStudio({
 
             {/* Event Options Section matching Image 1, 2, 4 */}
             <div className="pt-2">
-              <div className="text-xs text-[#9B9EA4] font-medium tracking-wide mb-2">
+              <div className="text-xs text-white/60 font-medium tracking-wide mb-2">
                 Event Options
               </div>
 
-              <div className="rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] divide-y divide-[#2A2D31] overflow-hidden shadow-sm">
-                {/* Row 1: Ticket Price (Properly styled & prominent for easy identification & price setting) */}
+              <div className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 divide-y divide-white/10 overflow-hidden shadow-sm">
+                {/* Row 1: Ticket Price */}
                 <div className="p-4 sm:p-5 space-y-3.5">
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
-                        <IoTicket className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-bold text-white block">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <IoTicket className="w-4 h-4 text-white/60 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-white block">
                           Ticket Pricing
                         </span>
-                        <span className="text-[11px] text-[#9B9EA4] block">
+                        <span className="text-[11px] text-white/60 block leading-tight mt-0.5">
                           Set free registration or charge a fixed price per attendee
                         </span>
                       </div>
@@ -2186,7 +2299,7 @@ export function EventCreateStudio({
                           })
                         }
                         className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                          formData.isPaid ? "bg-[#FE760B]" : "bg-[#2A2D31]"
+                          formData.isPaid ? "bg-[#FE760B]" : "bg-white/20"
                         }`}
                         title={formData.isPaid ? "Switch to Free event" : "Switch to Paid event"}
                       >
@@ -2201,19 +2314,19 @@ export function EventCreateStudio({
 
                   {/* Prominent, Beautifully Styled Price Input Box when Paid is enabled */}
                   {formData.isPaid && (
-                    <div className="p-4 rounded-xl bg-[#141619] border border-[#2A2D31] space-y-3 animate-fade-in shadow-inner">
+                    <div className="p-4 rounded-xl bg-black/30 border border-white/10 space-y-3 animate-fade-in shadow-inner">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <label className="text-xs font-bold text-white block">
                             Ticket Price (INR)
                           </label>
-                          <span className="text-[11px] text-[#9B9EA4]">
+                          <span className="text-[11px] text-white/60">
                             Enter the pass amount per attendee
                           </span>
                         </div>
 
                         {/* Large, Clear, High-Contrast Price Input Box */}
-                        <div className="flex items-center gap-2 bg-[#1A1C1F] px-4 py-2.5 rounded-xl border border-[#3A3D42] focus-within:border-[#FE760B] focus-within:ring-2 focus-within:ring-[#FE760B]/20 transition-all w-full sm:w-52">
+                        <div className="flex items-center gap-2 bg-black/40 px-4 py-2.5 rounded-xl border border-white/15 focus-within:border-[#FE760B] focus-within:ring-2 focus-within:ring-[#FE760B]/20 transition-all w-full sm:w-52">
                           <span className="text-xl font-black text-[#FE760B]">₹</span>
                           <input
                             type="number"
@@ -2229,15 +2342,15 @@ export function EventCreateStudio({
                             }
                             className="bg-transparent text-xl font-black text-white w-full border-none outline-none focus:ring-0 p-0 tracking-tight"
                           />
-                          <span className="text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                          <span className="text-[11px] font-bold text-white/60 uppercase tracking-wider">
                             INR
                           </span>
                         </div>
                       </div>
 
                       {/* Quick select price chips */}
-                      <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-[#2A2D31]/70">
-                        <span className="text-[10px] text-[#9B9EA4] font-semibold uppercase">Popular:</span>
+                      <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-white/10">
+                        <span className="text-[10px] text-white/60 font-semibold uppercase">Popular:</span>
                         {["99", "199", "499", "999"].map((preset) => (
                           <button
                             key={preset}
@@ -2246,7 +2359,7 @@ export function EventCreateStudio({
                             className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                               String(formData.price) === preset
                                 ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
-                                : "bg-[#212327] text-[#D0D0D1] hover:text-white hover:bg-[#2A2D31] border border-[#2A2D31]"
+                                : "bg-white/[0.08] text-white/80 hover:text-white hover:bg-white/15 border border-white/10"
                             }`}
                           >
                             ₹{preset}
@@ -2260,7 +2373,7 @@ export function EventCreateStudio({
                 {/* Row 2: Require Approval toggle (Locked & Off for Paid Events) */}
                 <div className={`p-4 flex items-center justify-between gap-4 ${formData.isPaid ? "opacity-65" : ""}`}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <Lock className={`w-4 h-4 shrink-0 ${formData.isPaid ? "text-amber-400/80" : "text-[#9B9EA4]"}`} />
+                    <Lock className={`w-4 h-4 shrink-0 ${formData.isPaid ? "text-amber-400/80" : "text-white/60"}`} />
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-white block">
                         Require Approval
@@ -2270,7 +2383,7 @@ export function EventCreateStudio({
                           Paid events do not require approval (passes are auto-confirmed upon payment)
                         </span>
                       ) : (
-                        <span className="text-[11px] text-[#9B9EA4] block leading-tight mt-0.5">
+                        <span className="text-[11px] text-white/60 block leading-tight mt-0.5">
                           Manually review and approve registrations before tickets are issued
                         </span>
                       )}
@@ -2289,10 +2402,10 @@ export function EventCreateStudio({
                     }}
                     className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
                       formData.isPaid
-                        ? "cursor-not-allowed bg-[#2A2D31] opacity-50"
+                        ? "cursor-not-allowed bg-white/20 opacity-50"
                         : "cursor-pointer"
                     } ${
-                      !formData.isPaid && formData.requireApproval ? "bg-[#3DD68C]" : "bg-[#2A2D31]"
+                      !formData.isPaid && formData.requireApproval ? "bg-[#3DD68C]" : "bg-white/20"
                     }`}
                     style={!formData.isPaid && formData.requireApproval ? { backgroundColor: selectedTheme.color } : {}}
                     title={
@@ -2311,23 +2424,23 @@ export function EventCreateStudio({
                   </button>
                 </div>
 
-                {/* Row 3: Capacity field (Image 4 Dialog trigger) */}
+                {/* Row 3: Capacity field */}
                 <div
                   onClick={() => setShowCapacityModal(true)}
                   className="p-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <Upload className="w-4 h-4 text-[#9B9EA4] group-hover:text-white transition-colors rotate-180" />
+                    <Upload className="w-4 h-4 text-white/60 group-hover:text-white transition-colors rotate-180" />
                     <span className="text-sm font-medium text-white">
                       Capacity
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[#9B9EA4] group-hover:text-white transition-colors">
+                    <span className="text-xs font-semibold text-white/70 group-hover:text-white transition-colors">
                       {formData.limitCapacity ? `${formData.maxCapacity} spots` : "Unlimited"}
                     </span>
-                    <Edit3 className="w-3.5 h-3.5 text-[#9B9EA4] group-hover:text-white transition-colors" />
+                    <Edit3 className="w-3.5 h-3.5 text-white/60 group-hover:text-white transition-colors" />
                   </div>
                 </div>
 
@@ -2337,12 +2450,12 @@ export function EventCreateStudio({
                   className="p-4 flex items-center justify-between gap-4 hover:bg-white/[0.03] cursor-pointer transition-colors group"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <Type className="w-4 h-4 text-[#9B9EA4] group-hover:text-white transition-colors shrink-0" />
+                    <Type className="w-4 h-4 text-white/60 group-hover:text-white transition-colors shrink-0" />
                     <div className="min-w-0">
                       <span className="text-sm font-medium text-white block">
                         Poster &amp; Ticket Typography
                       </span>
-                      <span className="text-[11px] text-[#9B9EA4] block truncate">
+                      <span className="text-[11px] text-white/60 block truncate">
                         {formData.posterTextMode === "auto" ? "Auto Title" : "Custom Lines"} • {formData.posterFontSize || 34}px • {formData.posterAlign || "Left"} • {formData.posterTextWidth || 85}% width
                       </span>
                     </div>
@@ -2352,23 +2465,21 @@ export function EventCreateStudio({
                     <span className="text-xs font-semibold text-[#FE760B] group-hover:underline">
                       Customize
                     </span>
-                    <Edit3 className="w-3.5 h-3.5 text-[#9B9EA4] group-hover:text-white transition-colors" />
+                    <Edit3 className="w-3.5 h-3.5 text-white/60 group-hover:text-white transition-colors" />
                   </div>
                 </div>
 
                 {/* Ticket Format & Style (Stub tickets vs Wide tickets) */}
-                <div className="p-4 sm:p-5 border-t border-[#2A2D31]/80 space-y-4">
+                <div className="p-4 sm:p-5 border-t border-white/10 space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
-                        <IoTicket className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-bold text-white block">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <IoTicket className="w-4 h-4 text-white/60 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-white block">
                           Ticket Layout &amp; Template
                         </span>
-                        <span className="text-[11px] text-[#9B9EA4] block">
-                          Choose between standard stub ticket or 3-panel wide ticket. Editable anytime.
+                        <span className="text-[11px] text-white/60 block leading-tight mt-0.5">
+                          Choose between standard stub ticket or collectible deck view pass. Editable anytime.
                         </span>
                       </div>
                     </div>
@@ -2383,8 +2494,8 @@ export function EventCreateStudio({
                       }
                       className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                         formData.ticketDesign === "stub"
-                          ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.12)]"
-                          : "border-[#2A2D31] bg-[#212327]/60 hover:bg-[#212327] hover:border-[#3A3D42]"
+                          ? "border-[#FE760B] bg-[#FE760B]/15 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.15)]"
+                          : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5 w-full">
@@ -2397,61 +2508,61 @@ export function EventCreateStudio({
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </span>
                         ) : (
-                          <span className="w-5 h-5 rounded-full border border-[#3A3D42] bg-[#141619]/60 shrink-0" />
+                          <span className="w-5 h-5 rounded-full border border-white/20 bg-black/30 shrink-0" />
                         )}
                       </div>
-                      <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
+                      <p className="text-[11px] text-white/60 leading-relaxed">
                         780 × 240 art panel + dark QR check-in stub.
                       </p>
                     </button>
 
-                    {/* Option 2: Wide tickets */}
+                    {/* Option 2: Deck View tickets */}
                     <button
                       type="button"
                       onClick={() =>
-                        setFormData((prev) => ({ ...prev, ticketDesign: "wide" }))
+                        setFormData((prev) => ({ ...prev, ticketDesign: "deck" }))
                       }
                       className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
-                        formData.ticketDesign === "wide"
-                          ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.12)]"
-                          : "border-[#2A2D31] bg-[#212327]/60 hover:bg-[#212327] hover:border-[#3A3D42]"
+                        formData.ticketDesign === "deck" || formData.ticketDesign === "wide"
+                          ? "border-[#FE760B] bg-[#FE760B]/15 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.15)]"
+                          : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1.5 w-full">
                         <span className="text-xs font-bold text-white flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
-                          Wide tickets
+                          Deck View tickets
                         </span>
-                        {formData.ticketDesign === "wide" ? (
+                        {formData.ticketDesign === "deck" || formData.ticketDesign === "wide" ? (
                           <span className="w-5 h-5 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] shrink-0">
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </span>
                         ) : (
-                          <span className="w-5 h-5 rounded-full border border-[#3A3D42] bg-[#141619]/60 shrink-0" />
+                          <span className="w-5 h-5 rounded-full border border-white/20 bg-black/30 shrink-0" />
                         )}
                       </div>
-                      <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
-                        720 × 200 3-panel: QR + art + vertical barcode stub.
+                      <p className="text-[11px] text-white/60 leading-relaxed">
+                        Interactive collectible deck pass with QR tear notch.
                       </p>
                     </button>
                   </div>
 
                   {/* Ticket Background & Accent Color Card */}
-                  <div className="mt-4 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-4 sm:p-5 space-y-3">
+                  <div className="mt-4 rounded-2xl bg-white/[0.04] border border-white/10 p-4 sm:p-5 space-y-3">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <IoTicket className="w-4 h-4 text-[#FE760B]" />
+                        <IoTicket className="w-4 h-4 text-white/70 shrink-0" />
                         <h4 className="text-xs sm:text-sm font-bold text-white tracking-wide">
                           Ticket Background &amp; Accent Color
                         </h4>
                       </div>
-                      <p className="text-[11px] text-[#9B9EA4] mt-1">
+                      <p className="text-[11px] text-white/60 mt-1">
                         Choose your custom ticket accent and background color. Select from the palette wheel or enter any 6-digit hex code.
                       </p>
                     </div>
 
                     {/* Ticket Background Color Picker and Hex Code Input */}
-                    <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="p-3 rounded-xl bg-black/30 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
                         <label
                           title="Click to choose custom ticket color"
@@ -2476,7 +2587,7 @@ export function EventCreateStudio({
                           />
                         </label>
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] block">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white/60 block">
                             Current Ticket Color
                           </span>
                           <span className="text-xs font-mono font-bold text-white">
@@ -2486,7 +2597,7 @@ export function EventCreateStudio({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1 bg-[#1A1C1F] border border-[#2A2D31] px-2.5 py-1 rounded-lg focus-within:border-[#FE760B] transition-colors">
+                        <div className="flex items-center gap-1 bg-black/40 border border-white/15 px-2.5 py-1 rounded-lg focus-within:border-[#FE760B] transition-colors">
                           <span className="text-xs text-[#FE760B] font-mono font-bold">#</span>
                           <input
                             type="text"
@@ -2524,7 +2635,7 @@ export function EventCreateStudio({
                             }));
                             toast.success(`Ticket color ${fullHex} applied!`);
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-xs font-semibold text-white border border-white/10 transition-colors cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/10 transition-colors cursor-pointer"
                         >
                           Use Color
                         </button>
@@ -2538,7 +2649,7 @@ export function EventCreateStudio({
                       <label className="text-xs font-bold text-white flex items-center gap-1.5">
                         <ImageIcon className="w-3.5 h-3.5 text-[#FE760B]" />
                         <span>Ticket Background Image</span>
-                        <span className="text-[10px] font-normal text-[#9B9EA4]">(Optional)</span>
+                        <span className="text-[10px] font-normal text-white/50">(Optional)</span>
                       </label>
                       {formData.ticketBgUrl && (
                         <button
@@ -2561,7 +2672,7 @@ export function EventCreateStudio({
                     />
 
                     {formData.ticketBgUrl ? (
-                      <div className="relative rounded-xl border border-[#2A2D31] bg-[#212327] p-3 flex items-center justify-between gap-3 overflow-hidden">
+                      <div className="relative rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center justify-between gap-3 overflow-hidden">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="relative w-14 h-10 rounded-lg overflow-hidden shrink-0 border border-white/10 bg-black/40">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2575,7 +2686,7 @@ export function EventCreateStudio({
                             <p className="text-xs font-semibold text-white truncate">
                               Custom Artwork Applied
                             </p>
-                            <p className="text-[11px] text-[#9B9EA4]">
+                            <p className="text-[11px] text-white/60">
                               Shown in the ticket artwork zone behind details
                             </p>
                           </div>
@@ -2585,7 +2696,7 @@ export function EventCreateStudio({
                           <button
                             type="button"
                             onClick={() => ticketBgInputRef.current?.click()}
-                            className="px-3 py-1.5 rounded-lg bg-[#2A2D31] hover:bg-[#34383E] text-xs font-semibold text-white border border-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
+                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white border border-white/10 transition-colors cursor-pointer flex items-center gap-1.5"
                           >
                             <Upload className="w-3 h-3 text-[#FE760B]" />
                             Change
@@ -2603,15 +2714,15 @@ export function EventCreateStudio({
                     ) : (
                       <div
                         onClick={() => ticketBgInputRef.current?.click()}
-                        className="group border border-dashed border-[#2A2D31] hover:border-[#FE760B]/60 rounded-xl bg-[#212327]/60 hover:bg-[#212327] p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5"
+                        className="group border border-dashed border-white/15 hover:border-[#FE760B]/60 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5"
                       >
-                        <div className="w-9 h-9 rounded-full bg-[#1A1C1F] group-hover:bg-[#FE760B]/10 flex items-center justify-center transition-colors">
-                          <Upload className="w-4 h-4 text-[#9B9EA4] group-hover:text-[#FE760B] transition-colors" />
+                        <div className="w-9 h-9 rounded-full bg-white/[0.06] group-hover:bg-[#FE760B]/10 flex items-center justify-center transition-colors">
+                          <Upload className="w-4 h-4 text-white/60 group-hover:text-[#FE760B] transition-colors" />
                         </div>
                         <div className="text-xs font-semibold text-white">
                           Click to upload custom ticket background image
                         </div>
-                        <div className="text-[11px] text-[#9B9EA4]">
+                        <div className="text-[11px] text-white/60">
                           PNG, JPG, or WebP up to 5MB (overlays on the green/theme card)
                         </div>
                       </div>
@@ -2619,7 +2730,7 @@ export function EventCreateStudio({
                   </div>
 
                   {/* ── Live Ticket Preview Area ── */}
-                  <div className="mt-5 rounded-2xl bg-[#141619] border border-[#2A2D31] p-4 sm:p-5 space-y-4 shadow-xl relative">
+                  <div className="mt-5 rounded-2xl bg-black/30 border border-white/10 p-4 sm:p-5 space-y-4 shadow-xl relative">
                     <div className="flex items-center justify-between flex-wrap gap-2.5">
                       <div className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-[#3DD68C] animate-pulse" />
@@ -2628,15 +2739,15 @@ export function EventCreateStudio({
                         </span>
                       </div>
 
-                      {/* Preview format switcher tabs (Both views, Stub, Wide) */}
-                      <div className="flex items-center rounded-xl bg-[#212327] p-1 border border-[#2A2D31]">
+                      {/* Preview format switcher tabs (Both views, Stub, Deck) */}
+                      <div className="flex items-center rounded-xl bg-white/[0.06] p-1 border border-white/10">
                         <button
                           type="button"
                           onClick={() => setPreviewTab("both")}
                           className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                             previewTab === "both"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
-                              : "text-[#9B9EA4] hover:text-white"
+                              : "text-white/60 hover:text-white"
                           }`}
                         >
                           Both Views
@@ -2650,7 +2761,7 @@ export function EventCreateStudio({
                           className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                             previewTab === "stub"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
-                              : "text-[#9B9EA4] hover:text-white"
+                              : "text-white/60 hover:text-white"
                           }`}
                         >
                           Stub (780×240)
@@ -2658,16 +2769,16 @@ export function EventCreateStudio({
                         <button
                           type="button"
                           onClick={() => {
-                            setPreviewTab("wide");
-                            setFormData((prev) => ({ ...prev, ticketDesign: "wide" }));
+                            setPreviewTab("deck");
+                            setFormData((prev) => ({ ...prev, ticketDesign: "deck" }));
                           }}
                           className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                            previewTab === "wide"
+                            previewTab === "deck"
                               ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
-                              : "text-[#9B9EA4] hover:text-white"
+                              : "text-white/60 hover:text-white"
                           }`}
                         >
-                          Wide (720×200)
+                          Deck View
                         </button>
                       </div>
                     </div>
@@ -2678,7 +2789,7 @@ export function EventCreateStudio({
                       {(previewTab === "both" || previewTab === "stub") && (
                         <div className="space-y-1.5">
                           {previewTab === "both" && (
-                            <div className="flex items-center justify-between text-xs px-1 text-[#9B9EA4]">
+                            <div className="flex items-center justify-between text-xs px-1 text-white/60">
                               <span className="font-semibold text-white">Stub Layout (780×240)</span>
                               <span className="text-[11px] text-[#FE760B]">Click ticket to view full length</span>
                             </div>
@@ -2731,38 +2842,44 @@ export function EventCreateStudio({
                         </div>
                       )}
 
-                      {/* Render Wide Ticket if in "both" or "wide" mode */}
-                      {(previewTab === "both" || previewTab === "wide") && (
+                      {/* Render Deck View Pass if in "both" or "deck" mode */}
+                      {(previewTab === "both" || previewTab === "deck") && (
                         <div className="space-y-1.5">
                           {previewTab === "both" && (
-                            <div className="flex items-center justify-between text-xs px-1 text-[#9B9EA4] pt-2 border-t border-[#2A2D31]/60">
-                              <span className="font-semibold text-white">Wide Layout (720×200)</span>
-                              <span className="text-[11px] text-[#FE760B]">Click ticket to view full length</span>
+                            <div className="flex items-center justify-between text-xs px-1 text-white/60 pt-2 border-t border-white/10">
+                              <span className="font-semibold text-white">Deck View (Pass)</span>
+                              <span className="text-[11px] text-[#FE760B]">Click pass to view full length</span>
                             </div>
                           )}
                           <div
                             onClick={() => {
-                              setModalPreviewDesign("wide");
+                              setModalPreviewDesign("deck");
                               setShowFullTicketModal(true);
                             }}
                             className="pt-1 pb-1 overflow-hidden flex justify-center cursor-pointer transition-transform hover:scale-[1.005] w-full max-w-full"
-                            title="Click to view full length ticket"
+                            title="Click to view full length deck pass"
                           >
-                            <div className="w-full max-w-[780px]">
-                              <WideTicket
-                                event={{
+                            <div className="w-full max-w-[780px] flex justify-center">
+                              <TicketGraphic
+                                ticket={{
                                   name: formData.name || "Developer's Night 2026",
                                   title: formData.name || "Developer's Night 2026",
                                   date: formData.startDate || "2026-11-07",
                                   time: formData.startTime || "12:00 PM",
                                   location: formData.location || "Main Auditorium, Campus",
+                                  venue: formData.location || "Main Auditorium, Campus",
                                   theme: formData.theme,
                                   themeColor: selectedTheme.color,
                                   themeHex: selectedTheme.color,
                                   ticketBgColor: formData.ticketBgColor || selectedTheme.color,
-                                  price: formData.isPaid ? formData.price : "Free",
-                                  ticketDesign: "wide",
                                   ticketBgUrl: formData.ticketBgUrl || "",
+                                  price: formData.isPaid ? formData.price : "Free",
+                                  ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+                                  ticketType: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+                                  ticketId: "TKT-1793-DEMO-DECK",
+                                  attendeeName: "Rahul Sharma (Attendee)",
+                                  guest: "Rahul Sharma (Attendee)",
+                                  status: "Valid Pass",
                                   posterLine1: formData.posterLine1,
                                   posterLine2: formData.posterLine2,
                                   posterTextMode: formData.posterTextMode,
@@ -2774,14 +2891,7 @@ export function EventCreateStudio({
                                   posterTextBg: formData.posterTextBg,
                                   showPosterText: formData.showPosterText,
                                 }}
-                                registration={{
-                                  ticketId: "TKT-1793-DEMO-WIDE",
-                                  attendeeName: "Rahul Sharma (Attendee)",
-                                  status: "Valid Pass",
-                                  ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-                                }}
-                                interactive={true}
-                                showActions={true}
+                                horizontal={true}
                               />
                             </div>
                           </div>
@@ -2824,7 +2934,7 @@ export function EventCreateStudio({
                   if (onClose) onClose();
                   else router.push("/admin/dashboard");
                 }}
-                className="w-full text-center text-xs text-[#9B9EA4] hover:text-white transition-colors cursor-pointer py-1"
+                className="w-full text-center text-xs text-white/60 hover:text-white transition-colors cursor-pointer py-1"
               >
                 Cancel and return to events
               </button>
@@ -2832,6 +2942,63 @@ export function EventCreateStudio({
           </div>
         </form>
       </main>
+
+      {/* Timezone Selection Modal */}
+      {showTimezoneModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#2D1F03] border border-white/15 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Globe className="w-5 h-5 text-[#FE760B]" />
+                <h3 className="text-base font-bold text-white">Select Timezone</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTimezoneModal(false)}
+                className="text-white/60 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-white/10 max-h-80 overflow-y-auto rounded-xl border border-white/10">
+              {TIMEZONE_OPTIONS.map((item) => {
+                const isSelected =
+                  formData.timezone === item.tz && formData.timezoneCity === item.city;
+                return (
+                  <button
+                    key={`${item.tz}-${item.city}`}
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        timezone: item.tz,
+                        timezoneCity: item.city,
+                      }));
+                      setShowTimezoneModal(false);
+                      toast.success(`Timezone set to ${item.city} (${item.tz})`);
+                    }}
+                    className={`w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.08] transition-colors cursor-pointer ${
+                      isSelected ? "bg-white/[0.12]" : ""
+                    }`}
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-white flex items-center gap-2">
+                        <span>{item.city}</span>
+                        <span className="text-xs font-mono font-normal text-white/60">({item.tz})</span>
+                      </div>
+                      <div className="text-xs text-white/60 mt-0.5">{item.label}</div>
+                    </div>
+                    {isSelected && (
+                      <Check className="w-4 h-4 text-[#FE760B] stroke-[3]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Location Modal */}
       {showLocationModal && (

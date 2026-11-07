@@ -18,11 +18,13 @@ export default function OrganiserLayout({ children }) {
   useEffect(() => {
     let isMounted = true;
     const checkAccess = async () => {
+      const emailLower = (user?.email || "").toLowerCase().trim();
       const hasAdminAccess =
         user?.isAdmin ||
         user?.role === "organiser" ||
         user?.role === "superAdmin" ||
-        user?.email === "adil4ticketlelo@gmail.com";
+        emailLower === "adil4ticketlelo@gmail.com" ||
+        emailLower === "superadmin@ticketlelo.com";
 
       if (!loading && (!user || !hasAdminAccess)) {
         if (user && refreshUser) {
@@ -56,11 +58,13 @@ export default function OrganiserLayout({ children }) {
     return <BrandLoader message="Loading..." fullScreen />;
   }
 
+  const emailLower = (user?.email || "").toLowerCase().trim();
   const hasAdminAccess =
     user?.isAdmin ||
     user?.role === "organiser" ||
     user?.role === "superAdmin" ||
-    user?.email === "adil4ticketlelo@gmail.com";
+    emailLower === "adil4ticketlelo@gmail.com" ||
+    emailLower === "superadmin@ticketlelo.com";
   if (!user || !hasAdminAccess) {
     return null;
   }

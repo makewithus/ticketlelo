@@ -214,8 +214,22 @@ export const AuthProvider = ({ children }) => {
                 normalizedEmail === "adil4ticketlelo@gmail.com" ||
                 normalizedEmail === "superadmin@ticketlelo.com" ||
                 liveData.role === "superAdmin";
-              const liveRole = liveSuper ? "superAdmin" : liveData.role || "user";
-              const liveIsAdmin = liveSuper || liveRole === "organiser";
+              let liveRole = liveSuper ? "superAdmin" : liveData.role || "user";
+
+              // Prevent accidentally demoting an approved organiser back to "user"
+              if (liveRole !== "superAdmin" && liveRole !== "organiser") {
+                if (prevRoleRef.current === "organiser" || userData?.role === "organiser") {
+                  liveRole = "organiser";
+                } else {
+                  try {
+                    const tokenResult = await firebaseUser.getIdTokenResult();
+                    if (tokenResult.claims?.role === "organiser" || tokenResult.claims?.admin) {
+                      liveRole = "organiser";
+                    }
+                  } catch (_) {}
+                }
+              }
+              const liveIsAdmin = liveSuper || liveRole === "superAdmin" || liveRole === "organiser";
 
               const oldRole = prevRoleRef.current;
               prevRoleRef.current = liveRole;

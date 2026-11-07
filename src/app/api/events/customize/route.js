@@ -110,7 +110,7 @@ export async function POST(request) {
 
     // ======= Validate & Set Ticket Design Layout =======
     const ticketDesign = formData.get("ticketDesign");
-    if (ticketDesign && (ticketDesign === "stub" || ticketDesign === "wide")) {
+    if (ticketDesign && (ticketDesign === "stub" || ticketDesign === "wide" || ticketDesign === "deck")) {
       updates.ticketDesign = ticketDesign;
     }
 

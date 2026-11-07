@@ -54,6 +54,14 @@ export default function AdminDashboardPage() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("ticketlelo_last_active", String(Date.now()));
+      } catch (_) {}
+    }
+  }, []);
+
   const userId = user?.id;
   const emailLower = (user?.email || "").toLowerCase().trim();
   const isSuperAdmin =

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import {
   getAuthErrorMessage,
   login,
@@ -57,6 +57,7 @@ function UnifiedLoginContent() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [redirectingRole, setRedirectingRole] = useState(null);
+  const isNavigatingRef = useRef(false);
 
   // Forgot password OTP states
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -85,8 +86,14 @@ function UnifiedLoginContent() {
   useEffect(() => {
     let isMounted = true;
     const activeUser = currentUser || (typeof window !== "undefined" ? auth.currentUser : null);
-    if (!authLoading && activeUser) {
+    if (!authLoading && activeUser && !isNavigatingRef.current) {
       const checkAndRedirect = async () => {
+        isNavigatingRef.current = true;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("ticketlelo_last_active", String(Date.now()));
+          } catch (_) {}
+        }
         let activeRole = currentUser?.role;
 
         // If role not yet resolved from claims, check email directly for instant redirection
@@ -145,6 +152,15 @@ function UnifiedLoginContent() {
   }, [currentUser, authLoading, router, redirectParam]);
 
   const handleAuthSuccess = (role, displayName) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("ticketlelo_last_active", String(Date.now()));
+      } catch (_) {}
+    }
+
     setRedirectingRole(role);
     const requiresAdmin =
       redirectParam &&
@@ -191,9 +207,7 @@ function UnifiedLoginContent() {
       toast.success(`Welcome${displayName ? `, ${displayName}` : ""}! Opening your tickets...`);
     }
 
-    setTimeout(() => {
-      router.push(targetPath);
-    }, 400);
+    router.replace(targetPath);
   };
 
   const handleLogin = async (e) => {
@@ -459,9 +473,17 @@ function UnifiedLoginContent() {
 
   const isFromHostingPage = redirectParam.includes("/host-event");
 
-  // Gate: If session is loading or user is already authenticated, show BrandLoader and do NOT render login form
-  if (authLoading || currentUser || (typeof window !== "undefined" && auth.currentUser)) {
-    return <BrandLoader message="Loading..." fullScreen />;
+  // Gate: If session is loading, user is already authenticated, or redirecting, show BrandLoader and do NOT render login form
+  if (authLoading || currentUser || redirectingRole || isNavigatingRef.current || (typeof window !== "undefined" && auth.currentUser)) {
+    const loadingMessage =
+      redirectingRole === "superAdmin"
+        ? "Opening Super Admin Suite..."
+        : redirectingRole === "organiser"
+        ? "Opening Organiser Dashboard..."
+        : redirectingRole === "user"
+        ? "Opening your tickets..."
+        : "Loading...";
+    return <BrandLoader message={loadingMessage} fullScreen />;
   }
 
   return (

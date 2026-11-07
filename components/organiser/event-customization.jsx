@@ -481,12 +481,12 @@ export default function EventCustomization({
               </div>
             </button>
 
-            {/* Wide tickets */}
+            {/* Deck View tickets */}
             <button
               type="button"
-              onClick={() => setTicketDesign("wide")}
+              onClick={() => setTicketDesign("deck")}
               className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
-                ticketDesign === "wide"
+                ticketDesign === "deck" || ticketDesign === "wide"
                   ? "border-[#FE760B] bg-[#FE760B]/10 ring-1 ring-[#FE760B]"
                   : "border-[#2A2D31] bg-[#212327] hover:border-[#3A3D42]"
               }`}
@@ -494,19 +494,18 @@ export default function EventCustomization({
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
-                  Wide tickets
+                  Deck View tickets
                 </span>
-                {ticketDesign === "wide" && (
+                {(ticketDesign === "deck" || ticketDesign === "wide") && (
                   <Check className="w-4 h-4 text-[#FE760B]" />
                 )}
               </div>
               <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
-                3-panel pass with art center, QR and vertical barcode stub.
+                Interactive collectible deck pass with QR tear notch.
               </p>
               <div className="mt-2.5 h-6 rounded-md border border-[#2A2D31] flex overflow-hidden bg-black/40 text-[8px] font-mono">
-                <div className="w-7 bg-white text-black font-bold flex items-center justify-center">QR</div>
-                <div className="flex-1 bg-[#FE760B]/80 flex items-center justify-center text-black font-extrabold border-x border-dashed border-black/30">ART</div>
-                <div className="w-7 bg-white text-black font-bold flex items-center justify-center">||||</div>
+                <div className="flex-1 bg-[#FE760B]/80 flex items-center justify-center text-black font-extrabold">PASS</div>
+                <div className="w-8 bg-[#181A1D] border-l border-dashed border-[#FE760B]/40 flex items-center justify-center text-[#FE760B] font-bold">QR</div>
               </div>
             </button>
           </div>

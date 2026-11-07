@@ -56,6 +56,11 @@ export default function DashboardPage() {
 
   // Close on Escape key
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("ticketlelo_last_active", String(Date.now()));
+      } catch (_) {}
+    }
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
         setMobileMenuOpen(false);
@@ -66,47 +71,10 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.replace("/login?redirect=/dashboard");
-        return;
-      }
-
-      let isMounted = true;
-      const verifySession = async () => {
-        try {
-          const { auth } = await import("@/lib/firebase");
-          const currentUser = auth.currentUser;
-          if (!currentUser) {
-            if (isMounted) {
-              await logout();
-              router.replace("/login?redirect=/dashboard&reason=session_expired");
-            }
-            return;
-          }
-          const tokenResult = await currentUser.getIdTokenResult();
-          const expirationTime = new Date(tokenResult.expirationTime).getTime();
-          if (expirationTime <= Date.now()) {
-            if (isMounted) {
-              await logout();
-              router.replace("/login?redirect=/dashboard&reason=session_expired");
-            }
-          }
-        } catch (err) {
-          console.warn("Session check error on dashboard:", err);
-          if (isMounted) {
-            await logout();
-            router.replace("/login?redirect=/dashboard&reason=session_expired");
-          }
-        }
-      };
-
-      verifySession();
-      return () => {
-        isMounted = false;
-      };
+    if (!authLoading && !user) {
+      router.replace("/login?redirect=/dashboard");
     }
-  }, [user, authLoading, router, logout]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -141,7 +109,7 @@ export default function DashboardPage() {
       isMounted = false;
       if (typeof unsubscribe === "function") unsubscribe();
     };
-  }, [user]);
+  }, [user?.id]);
 
   const handleLogout = async () => {
     try {

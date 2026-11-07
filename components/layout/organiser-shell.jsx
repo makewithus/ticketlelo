@@ -43,17 +43,16 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
   const [avatarError, setAvatarError] = useState(false);
   const [timeStr, setTimeStr] = useState("");
 
-  const hasAdminAccess =
-    user?.isAdmin ||
-    user?.role === "organiser" ||
-    user?.role === "superAdmin" ||
-    user?.email === "adil4ticketlelo@gmail.com";
-
   const emailLower = (user?.email || "").toLowerCase().trim();
   const isSuperAdmin =
     user?.role === "superAdmin" ||
     emailLower === "adil4ticketlelo@gmail.com" ||
     emailLower === "superadmin@ticketlelo.com";
+
+  const hasAdminAccess =
+    user?.isAdmin ||
+    user?.role === "organiser" ||
+    isSuperAdmin;
 
   // Live IST Clock matching Image 3 (e.g. "10:57 pm IST")
   useEffect(() => {
@@ -170,10 +169,20 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
     pathname.startsWith("/admin/analytics") ||
     pathname.startsWith("/admin/messages");
 
+  const isCreateEvent = pathname === "/admin/create-event";
+
   return (
-    <div className="tl-app-shell tl-system-theme bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white min-h-screen flex flex-col transition-colors selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-hidden">
+    <div className={`tl-app-shell tl-system-theme min-h-screen flex flex-col transition-colors selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-hidden ${
+      isCreateEvent
+        ? "bg-[#432E01] text-white"
+        : "bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white"
+    }`}>
       {/* ── Top Navigation Bar matching Image 2 & 3 (Centered Content Container, border removed / transparent) ── */}
-      <header className="sticky top-0 z-40 h-16 border-b border-transparent bg-white/80 dark:bg-[#131517]/80 backdrop-blur-md transition-colors">
+      <header className={`sticky top-0 z-40 h-16 border-b transition-colors backdrop-blur-md ${
+        isCreateEvent
+          ? "bg-[#432E01]/90 text-white border-white/10"
+          : "border-transparent bg-white/80 dark:bg-[#131517]/80"
+      }`}>
         <div className="max-w-6xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Left Side: Brand Logo + Events + Discover */}
           <div className="flex items-center gap-6 sm:gap-8">
