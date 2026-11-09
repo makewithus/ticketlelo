@@ -15,6 +15,8 @@ import { EventManagement } from "@/components/admin/event-management";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { getAllEvents, getEventsByOrganiser } from "@/lib/firestore";
+import { DashboardEventsSkeleton } from "@/components/ui/skeleton";
+import { getCachedOrganiserEvents, setCachedOrganiserEvents } from "@/lib/client-cache";
 
 function MetricCard({
   icon: Icon,
@@ -51,8 +53,20 @@ function MetricCard({
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const userId = user?.id || user?.uid;
+
+  // Instant 0ms cache-first hydration
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const uId = user?.id || user?.uid;
+        const cached = getCachedOrganiserEvents(uId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => events.length === 0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -62,7 +76,6 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  const userId = user?.id;
   const emailLower = (user?.email || "").toLowerCase().trim();
   const isSuperAdmin =
     user?.role === "superAdmin" ||
@@ -130,6 +143,9 @@ export default function AdminDashboardPage() {
           }
         }
         setEvents(unique);
+        if (userId) {
+          setCachedOrganiserEvents(userId, unique);
+        }
       }
     } catch (e) {
       console.error("Failed to load dashboard data:", e);
@@ -142,6 +158,7 @@ export default function AdminDashboardPage() {
     const timer = setTimeout(() => {
       loadData(false);
     }, 0);
+
     return () => clearTimeout(timer);
   }, [loadData]);
 
@@ -185,6 +202,10 @@ export default function AdminDashboardPage() {
       (Array.isArray(ev.attendees) ? ev.attendees.length : 0);
     return acc + (Number.isFinite(actualAttendees) ? actualAttendees : 0);
   }, 0);
+
+  if (loading && events.length === 0) {
+    return <DashboardEventsSkeleton />;
+  }
 
   return (
     <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 min-h-screen text-slate-900 dark:text-white transition-colors">

@@ -1,18 +1,30 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth-server';
-import { resolveCommissionRule, saveCommissionRule } from '@/lib/payments/commission-engine';
+import {
+  resolveCommissionRule,
+  saveCommissionRule,
+  savePlanCommissionRule,
+  getAllCommissionConfigurations,
+} from '@/lib/payments/commission-engine';
 
 /**
  * GET /api/payments/commission
- * Resolve effective platform commission rule for an event or organizer
+ * Resolve effective platform commission rule for an event, organizer, or all plan tiers
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get('eventId');
     const organizerId = searchParams.get('organizerId');
+    const planId = searchParams.get('planId');
+    const fetchAll = searchParams.get('all') === 'true';
 
-    const rule = await resolveCommissionRule({ eventId, organizerId });
+    if (fetchAll) {
+      const configurations = await getAllCommissionConfigurations();
+      return NextResponse.json({ success: true, configurations });
+    }
+
+    const rule = await resolveCommissionRule({ eventId, organizerId, planId });
     return NextResponse.json({ success: true, rule });
   } catch (error) {
     console.error('[API/payments/commission GET] Error:', error.message);
@@ -31,20 +43,52 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    if (caller.role !== 'superadmin' && caller.role !== 'admin') {
+    const emailLower = (caller.email || '').toLowerCase().trim();
+    const isSuperAdmin =
+      caller.role === 'superAdmin' ||
+      caller.role === 'superadmin' ||
+      caller.role === 'admin' ||
+      caller.isAdmin === true ||
+      emailLower === 'adil4ticketlelo@gmail.com' ||
+      emailLower === 'superadmin@ticketlelo.com' ||
+      emailLower === (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim();
+
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: 'Forbidden: Superadmin access required' }, { status: 403 });
     }
 
     const body = await request.json();
+
+    // If configuring a plan tier (START / CAMPUS / FEST)
+    if (body.planTier || body.planId) {
+      const planId = body.planTier || body.planId;
+      const ratePercent = body.ratePercent;
+      const reason = body.reason || 'Admin updated plan platform fee';
+
+      const rule = await savePlanCommissionRule({
+        planId,
+        ratePercent,
+        updatedBy: caller.email || caller.uid,
+        reason,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Plan fee for ${rule.planTier} updated to ${rule.ratePercent}%`,
+        rule,
+      });
+    }
+
+    // Custom rule (global / organizer / event)
     const {
-      targetType, // 'global' | 'organizer' | 'event'
+      targetType,
       targetId,
       commissionType,
       ratePercent,
       fixedFeePaise,
       minCommissionPaise,
       maxCommissionPaise,
-      currency
+      currency,
     } = body;
 
     const savedRule = await saveCommissionRule({
@@ -56,13 +100,13 @@ export async function POST(request) {
       minCommissionPaise,
       maxCommissionPaise,
       currency,
-      updatedBy: caller.email || caller.uid
+      updatedBy: caller.email || caller.uid,
     });
 
     return NextResponse.json({
       success: true,
       message: `Commission rule version ${savedRule.version} saved successfully`,
-      rule: savedRule
+      rule: savedRule,
     });
   } catch (error) {
     console.error('[API/payments/commission POST] Error:', error.message);

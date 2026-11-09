@@ -18,6 +18,9 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Lock,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -29,15 +32,26 @@ import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getCachedOrganiserEvents, setCachedOrganiserEvents } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
-import { EventCreateStudio } from "@/components/admin/event-create-studio";
 
 export function EventManagement() {
   const { user } = useAuth();
   const router = useRouter();
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Instant 0ms cache-first hydration
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const uId = user?.id || user?.uid;
+        const cached = getCachedOrganiserEvents(uId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => events.length === 0);
   const [isCreating, setIsCreating] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [subEventModalTarget, setSubEventModalTarget] = useState(null);
@@ -146,6 +160,9 @@ export function EventManagement() {
       }
 
       setEvents(uniqueEvents);
+      if (userId) {
+        setCachedOrganiserEvents(userId, uniqueEvents);
+      }
     } catch (error) {
       console.error("Failed to load events:", error);
       toast.error("Failed to load events");
@@ -165,8 +182,7 @@ export function EventManagement() {
   }, [userId, loadEvents, checkEventCreationEligibility]);
 
   const handleEdit = (event) => {
-    setEditingEvent(event);
-    setIsCreating(true);
+    router.push(`/admin/create-event?eventId=${event.id}`);
   };
 
   const handleDelete = async (eventId) => {
@@ -215,27 +231,58 @@ export function EventManagement() {
     });
   }, [events, now]);
 
+  useEffect(() => {
+    if (isCreating) {
+      if (editingEvent?.id) {
+        router.push(`/admin/create-event?eventId=${editingEvent.id}`);
+      } else {
+        router.push("/admin/create-event");
+      }
+      setIsCreating(false);
+    }
+  }, [isCreating, editingEvent, router]);
+
   if (isCreating) {
-    return (
-      <EventCreateStudio
-        editingEvent={editingEvent}
-        onClose={resetForm}
-        onSuccess={async (saved) => {
-          resetForm();
-          if (saved) {
-            setEvents((prev) => [saved, ...prev.filter((e) => e.id !== saved.id)]);
-          }
-          await loadEvents();
-          checkEventCreationEligibility();
-        }}
-      />
-    );
+    return null;
   }
 
   if (isLoading && events.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[65vh] w-full">
-        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <Skeleton className="h-8 w-32 rounded-xl" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-10 w-48 sm:w-64 rounded-xl" />
+            <Skeleton className="h-10 w-32 rounded-xl" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3].map((card) => (
+            <div
+              key={card}
+              className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between"
+            >
+              <div className="w-full h-44 sm:h-48 bg-slate-100 dark:bg-[#131517]">
+                <Skeleton className="w-full h-full rounded-none" />
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-24 rounded-full" />
+                  <Skeleton className="h-4 w-16 rounded-md" />
+                </div>
+                <Skeleton className="h-5 w-3/4 rounded-lg" />
+                <Skeleton className="h-3.5 w-1/2 rounded-md" />
+                <div className="space-y-1.5 pt-1">
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+              </div>
+              <div className="p-4 border-t border-slate-100 dark:border-[#2A2D31] flex items-center justify-between gap-2">
+                <Skeleton className="h-8 flex-1 rounded-xl" />
+                <Skeleton className="h-8 w-20 rounded-xl" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -285,7 +332,7 @@ export function EventManagement() {
           {/* + Create event button matching Events section design */}
           <button
             type="button"
-            onClick={() => setIsCreating(true)}
+            onClick={() => router.push("/admin/create-event")}
             disabled={!canCreateEvent}
             className="px-3.5 py-1.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-xs font-bold text-white transition-all cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
           >
@@ -350,7 +397,7 @@ export function EventManagement() {
               </p>
               {eventTab === "upcoming" && (
                 <Button
-                  onClick={() => setIsCreating(true)}
+                  onClick={() => router.push("/admin/create-event")}
                   disabled={!canCreateEvent}
                   className="h-10 bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold text-xs px-5 rounded-xl shadow-none inline-flex items-center gap-2"
                 >
@@ -407,22 +454,28 @@ export function EventManagement() {
                 }
 
                 // Mutually exclusive status badge
-                const isLive = event.status === "live";
-                const isEnded = eventTab === "past" || event.status === "ended";
-                const isDraft = event.status === "draft";
-                const isPublished = !isLive && !isEnded && !isDraft;
+                const isCancelled = Boolean(event.isCancelled || event.status === "cancelled");
+                const isCancelPending = Boolean(event.cancellationRequest?.status === "pending");
+                const isLive = !isCancelled && event.status === "live";
+                const isEnded = !isCancelled && (eventTab === "past" || event.status === "ended");
+                const isDraft = !isCancelled && event.status === "draft";
+                const isPublished = !isCancelled && !isLive && !isEnded && !isDraft;
 
                 return (
                   <div
                     key={`mgmt-event-${event.id || idx}`}
-                    className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] hover:border-[#3A3D42] p-4 sm:p-5 shadow-sm transition-all group"
+                    className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition-all group ${
+                      isCancelled
+                        ? "border-rose-500/30 bg-[#1A1C1F]/80"
+                        : "border-[#2A2D31] bg-[#1A1C1F] hover:border-[#3A3D42]"
+                    }`}
                   >
                     <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                       {/* Left: Date Badge + Details */}
                       <div className="flex items-start gap-3.5 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
                         {/* Clean Date Tile */}
                         <div className="w-16 sm:w-20 shrink-0 flex flex-col items-center justify-center py-2.5 px-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-center">
-                          <span className="text-xs sm:text-sm font-black text-[#FE760B] uppercase">
+                          <span className={`text-xs sm:text-sm font-black uppercase ${isCancelled ? "text-rose-500" : "text-[#FE760B]"}`}>
                             {datePart || "Upcoming"}
                           </span>
                           <span className="text-[11px] text-[#9B9EA4] font-medium mt-0.5 truncate max-w-full">
@@ -434,6 +487,18 @@ export function EventManagement() {
                         <div className="space-y-1.5 flex-1 min-w-0">
                           {/* Meta Line: Status + Price + Time */}
                           <div className="flex items-center gap-2 flex-wrap">
+                            {isCancelled && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                Cancelled
+                              </span>
+                            )}
+                            {isCancelPending && !isCancelled && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 animate-pulse">
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                Cancellation Requested
+                              </span>
+                            )}
                             {isLive && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FE760B]/14 text-[#FE760B] border border-[#FE760B]/30">
                                 <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B] animate-pulse" />
@@ -469,7 +534,7 @@ export function EventManagement() {
                           </div>
 
                           {/* Event Title */}
-                          <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-[#FE760B] transition-colors truncate">
+                          <h3 className={`text-base sm:text-lg font-bold transition-colors truncate ${isCancelled ? "text-white/80 line-through decoration-rose-500/50" : "text-white group-hover:text-[#FE760B]"}`}>
                             {event.name}
                           </h3>
 
@@ -516,7 +581,19 @@ export function EventManagement() {
                     {/* Bottom Action Bar */}
                     <div className="flex items-center justify-between gap-2 pt-3.5 mt-3.5 border-t border-[#2A2D31] flex-wrap">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {isLive ? (
+                        {isCancelled ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                              router.push(`/admin/overview?eventId=${event.id}`);
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>View Event (Cancelled)</span>
+                            <span>→</span>
+                          </button>
+                        ) : isLive ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -568,30 +645,34 @@ export function EventManagement() {
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setSubEventModalTarget(event)}
-                          title="Manage tracks / sub-events"
-                          className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] hover:border-[#FE760B]/30 transition-colors cursor-pointer"
-                        >
-                          <Layers className="w-3.5 h-3.5" />
-                        </button>
+                        {!isCancelled && (
+                          <button
+                            type="button"
+                            onClick={() => setSubEventModalTarget(event)}
+                            title="Manage tracks / sub-events"
+                            className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] hover:border-[#FE760B]/30 transition-colors cursor-pointer"
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleEdit(event)}
-                          title="Edit event"
+                          title={isCancelled ? "View event details" : "Edit event"}
                           className="p-2 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] hover:border-[#FE760B]/30 transition-colors cursor-pointer"
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(event.id)}
-                          title="Delete event"
-                          className="p-2 rounded-lg bg-[#212327] hover:bg-rose-950/40 text-[#9B9EA4] hover:text-rose-400 border border-[#2A2D31] hover:border-rose-500/30 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {!isCancelled && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(event.id)}
+                            title="Delete event"
+                            className="p-2 rounded-lg bg-[#212327] hover:bg-rose-950/40 text-[#9B9EA4] hover:text-rose-400 border border-[#2A2D31] hover:border-rose-500/30 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

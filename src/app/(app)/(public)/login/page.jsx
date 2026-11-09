@@ -474,7 +474,7 @@ function UnifiedLoginContent() {
   const isFromHostingPage = redirectParam.includes("/host-event");
 
   // Gate: If session is loading, user is already authenticated, or redirecting, show BrandLoader and do NOT render login form
-  if (authLoading || currentUser || redirectingRole || isNavigatingRef.current || (typeof window !== "undefined" && auth.currentUser)) {
+  if (authLoading || currentUser || redirectingRole) {
     const loadingMessage =
       redirectingRole === "superAdmin"
         ? "Opening Super Admin Suite..."

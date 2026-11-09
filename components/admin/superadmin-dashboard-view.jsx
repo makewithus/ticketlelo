@@ -21,7 +21,6 @@ import {
   UserX,
   ExternalLink,
   Search,
-  Sparkles,
   ShieldCheck,
   Activity,
   ChevronRight,
@@ -40,6 +39,7 @@ import {
   LayoutDashboard,
   ShieldAlert,
   XCircle,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -65,6 +65,8 @@ import { HostingRequestManagement } from "./hosting-request-management";
 import { OrganisersManagement } from "./organisers-management";
 import { SiteSettingsManager } from "./site-settings-manager";
 import { EmailMonitoringDashboard } from "./email-monitoring";
+import { SuperAdminSupportView } from "./support/superadmin-support-view";
+import { SuperAdminPlansView } from "./plans/superadmin-plans-view";
 
 // Custom dark mode tooltip for Recharts
 function CustomChartTooltip({ active, payload, label }) {
@@ -536,7 +538,9 @@ export function SuperAdminDashboardView() {
               { id: "events", label: `Event Analytics (${kpis.totalEvents || 0})`, icon: Calendar, color: "text-blue-500" },
               { id: "organisers", label: `Organisers (${kpis.totalOrganisers || 0})`, icon: Building2, color: "text-purple-500" },
               { id: "site-settings", label: "Site Settings", icon: Sliders, color: "text-amber-500" },
+              { id: "plans", label: "Plans", icon: Layers, color: "text-[#FE760B]" },
               { id: "emails", label: `Email Monitoring (${emailQuota.dailyRemaining ?? 100} Left)`, icon: Mail, color: "text-cyan-500" },
+              { id: "support", label: "Support Tickets", icon: MessageSquare, color: "text-amber-500" },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1581,6 +1585,64 @@ export function SuperAdminDashboardView() {
               </Link>
             </div>
             <EmailMonitoringDashboard />
+          </motion.div>
+        )}
+
+        {/* ══════════ TAB 7: SUPPORT TICKETS ══════════ */}
+        {activeTab === "support" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#2A2D31]">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Help &amp; Support Ticket Management
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                  Manage organizer disputes, settlement holds, technical inquiries, and private administrative notes.
+                </p>
+              </div>
+              <Link
+                href="/superadmin/support"
+                className="text-xs font-bold text-[#FE760B] hover:underline flex items-center gap-1 shrink-0"
+              >
+                <span>Full Page View</span>
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+            <SuperAdminSupportView />
+          </motion.div>
+        )}
+
+        {/* ══════════ TAB 8: PLANS & FACILITIES ══════════ */}
+        {activeTab === "plans" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-[#2A2D31]">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Subscription Plans &amp; Facilities
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                  Manage organizer subscription tiers, platform facilities, limits, and instant 1-click plan updates.
+                </p>
+              </div>
+              <Link
+                href="/superadmin/plans"
+                className="text-xs font-bold text-[#FE760B] hover:underline flex items-center gap-1 shrink-0"
+              >
+                <span>Full Page View</span>
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+            <SuperAdminPlansView />
           </motion.div>
         )}
       </div>

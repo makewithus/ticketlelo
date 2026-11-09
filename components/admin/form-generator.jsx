@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getCachedOrganiserEvents, setCachedOrganiserEvents } from "@/lib/client-cache";
 import {
   Loader2,
   Plus,
@@ -51,9 +53,26 @@ import { useAuth } from "@/context/auth-context";
 
 export function FormGenerator() {
   const { user } = useAuth();
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  // Instant 0ms cache-first hydration
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedOrganiserEvents();
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedOrganiserEvents();
+        if (Array.isArray(cached) && cached.length === 1) return cached[0].id;
+      } catch {}
+    }
+    return "";
+  });
+  const [isLoading, setIsLoading] = useState(() => events.length === 0);
   const [isSaving, setIsSaving] = useState(false);
   const [existingFormId, setExistingFormId] = useState(null);
 
@@ -138,6 +157,7 @@ export function FormGenerator() {
       }
 
       setEvents(uniqueEvents);
+      setCachedOrganiserEvents(uniqueEvents);
     } catch (error) {
       console.error("Failed to load events:", error);
       toast.error("Failed to load events");
@@ -840,10 +860,21 @@ export function FormGenerator() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && events.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[65vh] w-full">
-        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
+      <div className="space-y-6 animate-fade-in">
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-sm space-y-4">
+          <Skeleton className="h-6 w-40 rounded-lg" />
+          <Skeleton className="h-10 w-full rounded-xl" />
+        </div>
+        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-sm space-y-4">
+          <Skeleton className="h-6 w-48 rounded-lg" />
+          <Skeleton className="h-4 w-96 rounded-md" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <Skeleton className="h-20 rounded-xl" />
+            <Skeleton className="h-20 rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }

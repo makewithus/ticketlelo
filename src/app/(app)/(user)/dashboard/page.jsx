@@ -29,15 +29,26 @@ import Link from "next/link";
 import { Layers, LayoutGrid } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { UserDashboardSkeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 const LOGO_SRC = "/logo/ticketlelo-logo-nav.png";
 
 export default function DashboardPage() {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [registrations, setRegistrations] = useState([]);
+  // Synchronous cache hydration for instant display
+  const [registrations, setRegistrations] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedItem(`user_regs_${user?.id}`);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
   const [events, setEvents] = useState(new Map());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => registrations.length === 0);
   const [filter, setFilter] = useState("All");
   const [viewMode, setViewMode] = useState("deck");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -102,6 +113,9 @@ export default function DashboardPage() {
       );
       if (isMounted) {
         setEvents(eventsMap);
+        if (user?.id) {
+          setCachedItem(`user_regs_${user.id}`, regs, 10 * 60 * 1000);
+        }
         setIsLoading(false);
       }
     });
@@ -120,8 +134,12 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading || isLoading || !user) {
+  if (authLoading && !user) {
     return <BrandLoader message="Loading..." fullScreen />;
+  }
+
+  if (isLoading || !user) {
+    return <UserDashboardSkeleton />;
   }
 
   const pendingCount = registrations.filter(

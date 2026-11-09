@@ -49,6 +49,15 @@ import { EditEventSlider } from "@/components/admin/edit-event-slider";
 import { SquarePhotoUploadModal } from "@/components/admin/square-photo-upload-modal";
 import { WebScannerModal } from "@/components/admin/web-scanner-modal";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { OverviewSkeleton } from "@/components/ui/skeleton";
+import {
+  getCachedOrganiserEvents,
+  setCachedOrganiserEvents,
+  getCachedEvent,
+  setCachedEvent,
+  getCachedRegistrations,
+  setCachedRegistrations,
+} from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 
 const THEMES = [
@@ -110,11 +119,55 @@ export default function EventOverviewPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
-  const [event, setEvent] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Instant 0ms cache-first hydration
+  const initialEventId = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const p = searchParams.get("eventId");
+      if (p) return p;
+      return localStorage.getItem("admin_selected_event_id") || "";
+    } catch {
+      return "";
+    }
+  }, [searchParams]);
+
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const uId = user?.uid || user?.id;
+        const cached = getCachedOrganiserEvents(uId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId);
+
+  const [event, setEvent] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const idToCheck = initialEventId;
+        if (idToCheck) {
+          const cached = getCachedEvent(idToCheck);
+          if (cached) return cached;
+        }
+      } catch {}
+    }
+    return null;
+  });
+
+  const [registrations, setRegistrations] = useState(() => {
+    if (typeof window !== "undefined" && initialEventId) {
+      try {
+        const cached = getCachedRegistrations(initialEventId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [loading, setLoading] = useState(() => !event);
   const [copied, setCopied] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [isUpdatingLive, setIsUpdatingLive] = useState(false);
@@ -227,6 +280,9 @@ export default function EventOverviewPage() {
         }
 
         setEvents(uniqueList);
+        if (userId) {
+          setCachedOrganiserEvents(userId, uniqueList);
+        }
 
         // Determine which event to select:
         // Priority 1: query param ?eventId=...
@@ -257,6 +313,7 @@ export default function EventOverviewPage() {
           const matchedEvt = uniqueList.find((e) => e.id === initialId) || uniqueList[0] || null;
           if (matchedEvt) {
             setEvent(matchedEvt);
+            setCachedEvent(matchedEvt.id, matchedEvt);
           }
         }
       } catch (err) {
@@ -283,6 +340,7 @@ export default function EventOverviewPage() {
     const unsubscribeEvent = subscribeToEvent(selectedEventId, (updatedEvent) => {
       if (updatedEvent) {
         setEvent(updatedEvent);
+        setCachedEvent(updatedEvent.id, updatedEvent);
       }
     });
 
@@ -308,6 +366,7 @@ export default function EventOverviewPage() {
           return timeB - timeA;
         });
         setRegistrations(sorted);
+        setCachedRegistrations(selectedEventId, sorted);
       }
     );
 
@@ -403,13 +462,17 @@ export default function EventOverviewPage() {
     }
   };
 
+  const isCancelled = Boolean(event?.isCancelled || event?.status === "cancelled");
+  const isCancelPending = Boolean(event?.cancellationRequest?.status === "pending");
+
   // Status toggle: live vs draft
   const isLive =
-    event?.status === "live" ||
-    (event?.isActive !== false && event?.status !== "draft");
+    !isCancelled &&
+    (event?.status === "live" ||
+      (event?.isActive !== false && event?.status !== "draft"));
 
   const handleToggleLive = async () => {
-    if (!event?.id || isUpdatingLive) return;
+    if (!event?.id || isUpdatingLive || isCancelled) return;
     const nextState = !isLive;
     setIsUpdatingLive(true);
     try {
@@ -611,7 +674,7 @@ export default function EventOverviewPage() {
   }, [event]);
 
   if (loading && !event) {
-    return <BrandLoader message="Loading..." fullScreen />;
+    return <OverviewSkeleton />;
   }
 
   // If no events found in database for this user
@@ -646,7 +709,10 @@ export default function EventOverviewPage() {
         activeTab="Overview"
         eventTitle={event.name}
         eventSlug={event.slug || event.id}
+        eventId={event.id}
         isLive={isLive}
+        isCancelled={isCancelled}
+        isCancellationPending={isCancelPending}
         extraActions={
           events.length > 1 ? (
             <div className="relative">
@@ -701,15 +767,26 @@ export default function EventOverviewPage() {
         {/* Button 1: Invite Guests */}
         <button
           type="button"
-          onClick={() => setShowInviteModal(true)}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#2B59FF]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm hover:shadow-[0_0_28px_rgba(43,89,255,0.4)] hover:scale-[1.01] group cursor-pointer"
+          disabled={isCancelled}
+          onClick={() => {
+            if (isCancelled) {
+              toast.info("This event is cancelled. Guest invitations are disabled.");
+              return;
+            }
+            setShowInviteModal(true);
+          }}
+          className={`border rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm ${
+            isCancelled
+              ? "bg-[#1A1C1F]/60 border-[#2A2D31] opacity-60 cursor-not-allowed"
+              : "bg-[#1A1C1F] hover:bg-[#212327] border-[#2A2D31] hover:border-[#2B59FF]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all text-left shadow-sm hover:shadow-[0_0_28px_rgba(43,89,255,0.4)] hover:scale-[1.01] group cursor-pointer"
+          }`}
         >
           <div className="w-11 h-11 rounded-2xl bg-[#2B59FF] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
             <Mail size={19} className="text-white fill-white/20" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white group-hover:text-[#2B59FF] transition-colors">
-              Invite Guests
+              {isCancelled ? "Invitations Closed" : "Invite Guests"}
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
               {totalGuests} registered {totalCapacity ? `(of ${totalCapacity})` : ""}
@@ -934,17 +1011,19 @@ export default function EventOverviewPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setLocationQuery(event.location || "");
-                  setIsEditingLocation((prev) => !prev);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[11px] font-semibold text-slate-300 hover:text-white border border-[#2A2D31] transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
-              >
-                <Pencil size={12} className="text-[#FE760B]" />
-                <span>{isEditingLocation ? "Close" : "Edit"}</span>
-              </button>
+              {!isCancelled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationQuery(event.location || "");
+                    setIsEditingLocation((prev) => !prev);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[11px] font-semibold text-slate-300 hover:text-white border border-[#2A2D31] transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                >
+                  <Pencil size={12} className="text-[#FE760B]" />
+                  <span>{isEditingLocation ? "Close" : "Edit"}</span>
+                </button>
+              )}
             </div>
 
             {/* Real-time Location Search & Edit dropdown (Image 5) */}
@@ -1031,31 +1110,59 @@ export default function EventOverviewPage() {
             {/* Big Check In Guests Button - Opens Web Scanner */}
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => {
+                if (isCancelled) return;
                 setTargetScannerGuest(null);
                 setShowScannerModal(true);
               }}
-              className="w-full py-3 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] hover:border-[#3DD68C]/50 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer group hover:shadow-[0_0_20px_rgba(61,214,140,0.3)]"
+              className={`w-full py-3 px-4 rounded-xl border font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${
+                isCancelled
+                  ? "bg-[#212327]/60 border-[#2A2D31] text-[#9B9EA4] cursor-not-allowed opacity-60"
+                  : "bg-[#212327] hover:bg-[#2A2D31] border-[#2A2D31] hover:border-[#3DD68C]/50 text-white cursor-pointer group hover:shadow-[0_0_20px_rgba(61,214,140,0.3)]"
+              }`}
             >
-              <QrCode size={18} className="text-[#3DD68C] group-hover:scale-110 transition-transform" />
-              <span>Check In Guests</span>
+              <QrCode size={18} className={isCancelled ? "text-[#9B9EA4]" : "text-[#3DD68C] group-hover:scale-110 transition-transform"} />
+              <span>{isCancelled ? "Check-In Disabled (Cancelled)" : "Check In Guests"}</span>
             </button>
 
             {/* Secondary Edit & Photo Buttons */}
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => setShowEditSlider(true)}
-                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] hover:border-[#FE760B]/40 text-xs font-semibold text-white text-center transition-colors cursor-pointer"
+                disabled={isCancelled}
+                onClick={() => {
+                  if (isCancelled) {
+                    toast.info("This event is cancelled. Viewing data only.");
+                    return;
+                  }
+                  setShowEditSlider(true);
+                }}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-semibold text-center transition-colors ${
+                  isCancelled
+                    ? "bg-[#212327]/60 border-[#2A2D31] text-[#9B9EA4] cursor-not-allowed opacity-60"
+                    : "bg-[#212327] hover:bg-[#2A2D31] border-[#2A2D31] hover:border-[#FE760B]/40 text-white cursor-pointer"
+                }`}
               >
-                Edit Event
+                {isCancelled ? "Edit Locked" : "Edit Event"}
               </button>
               <button
                 type="button"
-                onClick={() => setShowPhotoModal(true)}
-                className="py-2.5 px-3 rounded-xl bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] hover:border-[#FE760B]/40 text-xs font-semibold text-white text-center transition-colors cursor-pointer"
+                disabled={isCancelled}
+                onClick={() => {
+                  if (isCancelled) {
+                    toast.info("This event is cancelled. Photo changes are disabled.");
+                    return;
+                  }
+                  setShowPhotoModal(true);
+                }}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-semibold text-center transition-colors ${
+                  isCancelled
+                    ? "bg-[#212327]/60 border-[#2A2D31] text-[#9B9EA4] cursor-not-allowed opacity-60"
+                    : "bg-[#212327] hover:bg-[#2A2D31] border-[#2A2D31] hover:border-[#FE760B]/40 text-white cursor-pointer"
+                }`}
               >
-                Change Photo
+                {isCancelled ? "Photo Locked" : "Change Photo"}
               </button>
             </div>
           </div>

@@ -92,8 +92,8 @@ export function StyledDropdown({
           isFullWidth ? "w-full justify-between" : "gap-2"
         } h-9 px-3.5 rounded-xl border text-xs font-medium transition-all shadow-sm cursor-pointer select-none group ${
           isOpen
-            ? "bg-[#212327] border-[#FE760B] ring-2 ring-[#FE760B]/20 text-white"
-            : "bg-[#1A1C1F] hover:bg-[#212327] border-[#2A2D31] hover:border-[#3A3D42] text-[#9B9EA4] hover:text-white"
+            ? "bg-slate-100 dark:bg-[#212327] border-[#FE760B] ring-2 ring-[#FE760B]/20 text-slate-900 dark:text-white"
+            : "bg-white dark:bg-[#1A1C1F] hover:bg-slate-100 dark:hover:bg-[#212327] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42] text-slate-700 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""} ${buttonClassName}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -105,23 +105,23 @@ export function StyledDropdown({
               className={`transition-colors shrink-0 ${
                 isOpen
                   ? "text-[#FE760B]"
-                  : "text-[#9B9EA4] group-hover:text-[#FE760B]"
+                  : "text-slate-400 dark:text-[#9B9EA4] group-hover:text-[#FE760B]"
               }`}
             />
           )}
           {label && (
-            <span className="font-medium text-[#9B9EA4] select-none">
+            <span className="font-medium text-slate-500 dark:text-[#9B9EA4] select-none">
               {label}:
             </span>
           )}
-          <span className="font-semibold text-white select-none truncate">
+          <span className="font-semibold text-slate-900 dark:text-white select-none truncate">
             {currentOption ? currentOption.label : placeholder}
           </span>
         </div>
         <ChevronDown
           size={13}
           className={`transition-transform duration-200 shrink-0 ml-1.5 ${
-            isOpen ? "rotate-180 text-[#FE760B]" : "text-[#9B9EA4] group-hover:text-white"
+            isOpen ? "rotate-180 text-[#FE760B]" : "text-slate-400 dark:text-[#9B9EA4] group-hover:text-slate-700 dark:group-hover:text-white"
           }`}
         />
       </button>
@@ -133,12 +133,12 @@ export function StyledDropdown({
           tabIndex={-1}
           className={`absolute z-50 ${
             isFullWidth ? "w-full" : "min-w-[210px]"
-          } p-1.5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 ${
+          } p-1.5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 ${
             dropDirection === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5"
           } ${align === "right" ? "right-0" : "left-0"} ${menuClassName}`}
         >
           {computedHeader && (
-            <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#71767B] border-b border-[#2A2D31]/60 mb-1 select-none">
+            <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] border-b border-slate-100 dark:border-[#2A2D31]/60 mb-1 select-none">
               {computedHeader}
             </div>
           )}
@@ -155,7 +155,7 @@ export function StyledDropdown({
                   className={`w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
                     isSelected
                       ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30 shadow-sm"
-                      : "text-slate-300 hover:text-white hover:bg-[#212327]"
+                      : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327]"
                   }`}
                 >
                   <span className="truncate">{opt.label}</span>

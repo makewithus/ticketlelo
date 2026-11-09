@@ -28,6 +28,8 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { AnalyticsSkeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 // TicketLelo Brand Palette & Chart Tokens
 const COLORS = {
@@ -125,15 +127,23 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function AnalyticsDashboard({ eventId, userId }) {
-  const [analytics, setAnalytics] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // Instant 0ms cache-first hydration
   const [days, setDays] = useState(30);
+  const [analytics, setAnalytics] = useState(() => {
+    if (typeof window !== "undefined" && eventId) {
+      try {
+        return getCachedItem(`analytics_${eventId}_30`) || null;
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => !analytics);
+  const [error, setError] = useState("");
   const [activeChart, setActiveChart] = useState("registrations");
 
   const fetchAnalytics = useCallback(async (showLoading = true) => {
     if (!eventId) return;
-    if (showLoading) setLoading(true);
+    if (showLoading && !analytics) setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ userId: userId || "", days });
@@ -142,12 +152,13 @@ export default function AnalyticsDashboard({ eventId, userId }) {
 
       if (!data.success) throw new Error(data.error);
       setAnalytics(data.analytics);
+      setCachedItem(`analytics_${eventId}_${days}`, data.analytics, 5 * 60 * 1000);
     } catch (err) {
       setError(err.message || "Failed to load analytics");
     } finally {
       setLoading(false);
     }
-  }, [eventId, userId, days]);
+  }, [eventId, userId, days, analytics]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -156,12 +167,8 @@ export default function AnalyticsDashboard({ eventId, userId }) {
     return () => clearTimeout(timer);
   }, [fetchAnalytics]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[65vh] w-full">
-        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
-      </div>
-    );
+  if (loading && !analytics) {
+    return <AnalyticsSkeleton />;
   }
 
   if (error) {

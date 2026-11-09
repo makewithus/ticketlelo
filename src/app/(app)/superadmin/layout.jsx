@@ -13,6 +13,8 @@ import {
   LayoutDashboard,
   Menu,
   X,
+  MessageSquare,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -135,33 +137,66 @@ export default function SuperAdminLayout({ children }) {
     {
       href: "/superadmin/hosting-requests",
       label: "Hosting requests",
+      shortLabel: "Hosting",
       icon: Inbox,
       badge: pendingCount,
     },
-    { href: "/superadmin/organisers", label: "Organisers", icon: Building2 },
-    { href: "/superadmin/site-settings", label: "Site settings", icon: Sliders },
-    { href: "/superadmin/emails", label: "Email monitoring", icon: Mail },
-    { href: "/superadmin/payments", label: "Payments", icon: CreditCard },
+    {
+      href: "/superadmin/organisers",
+      label: "Organisers",
+      shortLabel: "Organisers",
+      icon: Building2,
+    },
+    {
+      href: "/superadmin/site-settings",
+      label: "Site settings",
+      shortLabel: "Settings",
+      icon: Sliders,
+    },
+    {
+      href: "/superadmin/emails",
+      label: "Email monitoring",
+      shortLabel: "Emails",
+      icon: Mail,
+    },
+    {
+      href: "/superadmin/payments",
+      label: "Payments & Payouts",
+      shortLabel: "Payouts",
+      icon: CreditCard,
+    },
+    {
+      href: "/superadmin/plans",
+      label: "Plans",
+      shortLabel: "Plans",
+      icon: Layers,
+    },
+    {
+      href: "/superadmin/support",
+      label: "Support tickets",
+      shortLabel: "Support",
+      icon: MessageSquare,
+    },
   ];
 
   return (
     <div className="tl-app-shell tl-system-theme bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white min-h-screen flex flex-col selection:bg-[#FE760B] selection:text-[#131517] transition-colors w-full max-w-full overflow-x-clip">
       {/* ── Top Navigation Bar (Full width, with mobile hamburger & sidebar drawer) ── */}
       <header className="border-b border-slate-200 dark:border-[#2A2D31]/80 bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md sticky top-0 z-40 transition-colors">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
           {/* Left: Mobile Hamburger + Brand Logo + Super Admin Pill */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Mobile Hamburger Button */}
+            {/* Mobile / Tablet Hamburger Button */}
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="md:hidden p-2 -ml-2 rounded-xl text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+              className="lg:hidden p-2 -ml-1 rounded-xl text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
               aria-label="Open navigation sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href="/superadmin/hosting-requests" prefetch={false} className="flex items-center gap-2.5 group">
+            <Link href="/superadmin/hosting-requests" prefetch={false} className="flex items-center gap-2.5 group shrink-0">
               <Image
                 src={LOGO_SRC}
                 alt="TicketLelo"
@@ -171,19 +206,20 @@ export default function SuperAdminLayout({ children }) {
                 priority
               />
             </Link>
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF4D4D]/10 text-[#FF6B6B] border border-[#FF6B6B]/30 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D4D] animate-pulse" />
-              <span>Super Admin</span>
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF4D4D]/10 text-[#FF6B6B] border border-[#FF6B6B]/30 select-none shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4D4D] animate-pulse shrink-0" />
+              <span className="whitespace-nowrap">Super Admin</span>
             </span>
           </div>
 
-          {/* Center: Desktop Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 flex-1 justify-center max-w-4xl">
+          {/* Center: Desktop Navigation Tabs (Safe container with zero clipping) */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-1 min-w-0 flex-1 justify-start xl:justify-[safe_center] 2xl:justify-center scroll-smooth overscroll-x-contain">
             {topTabs.map((item) => {
               const cleanPath = (pathname || "").replace(/\/+$/, "");
               const cleanItemHref = item.href.replace(/\/+$/, "");
               const isActive =
                 cleanPath === cleanItemHref ||
+                cleanPath.startsWith(cleanItemHref + "/") ||
                 (cleanItemHref === "/superadmin/hosting-requests" && (cleanPath === "/superadmin" || cleanPath === ""));
 
               return (
@@ -191,16 +227,17 @@ export default function SuperAdminLayout({ children }) {
                   key={item.href}
                   href={item.href}
                   prefetch={false}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold transition-all whitespace-nowrap shrink-0 border select-none ${
                     isActive
-                      ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
-                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327]"
+                      ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
+                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] border-transparent"
                   }`}
                 >
-                  <item.icon className="w-3.5 h-3.5" />
-                  <span>{item.label}</span>
+                  <item.icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden 2xl:inline whitespace-nowrap">{item.label}</span>
+                  <span className="inline 2xl:hidden whitespace-nowrap">{item.shortLabel || item.label}</span>
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#FE760B] text-white">
+                    <span className="ml-1 px-1.5 py-0.5 min-w-[18px] text-center rounded-full text-[10px] font-bold bg-[#FE760B] text-white shrink-0 leading-none">
                       {item.badge}
                     </span>
                   )}
@@ -210,8 +247,8 @@ export default function SuperAdminLayout({ children }) {
           </nav>
 
           {/* Right: Theme Toggle and Profile Dropdown */}
-          <div className="flex items-center gap-2 sm:gap-3.5 shrink-0">
-            <ThemeToggle inline />
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeToggle inline className="[&>span]:hidden 2xl:[&>span]:inline" />
 
             {/* Profile Avatar with Dropdown */}
             <div className="relative" data-user-dropdown>
@@ -306,7 +343,7 @@ export default function SuperAdminLayout({ children }) {
 
       {/* ── Mobile Sidebar Drawer & Backdrop ── */}
       {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden lg:hidden">
           {/* Backdrop overlay */}
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-fade-in"
@@ -355,6 +392,7 @@ export default function SuperAdminLayout({ children }) {
                     const cleanItemHref = item.href.replace(/\/+$/, "");
                     const isActive =
                       cleanPath === cleanItemHref ||
+                      cleanPath.startsWith(cleanItemHref + "/") ||
                       (cleanItemHref === "/superadmin/hosting-requests" && (cleanPath === "/superadmin" || cleanPath === ""));
 
                     return (
@@ -363,10 +401,10 @@ export default function SuperAdminLayout({ children }) {
                         href={item.href}
                         prefetch={false}
                         onClick={() => setMobileSidebarOpen(false)}
-                        className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                        className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
                           isActive
-                            ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
-                            : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327]"
+                            ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
+                            : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] border-transparent"
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
@@ -374,7 +412,7 @@ export default function SuperAdminLayout({ children }) {
                           <span>{item.label}</span>
                         </div>
                         {item.badge !== undefined && item.badge > 0 && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FE760B] text-white">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FE760B] text-white shrink-0 leading-none">
                             {item.badge}
                           </span>
                         )}
@@ -456,7 +494,7 @@ export default function SuperAdminLayout({ children }) {
       )}
 
       {/* ── Main Full-Width Content Area ── */}
-      <main className="flex-1 min-w-0 w-full transition-colors max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 min-w-0 w-full transition-colors max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>
     </div>

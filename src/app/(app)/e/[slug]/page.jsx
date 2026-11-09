@@ -5,6 +5,8 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { EventPageSkeleton } from "@/components/ui/skeleton";
+import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import {
   ArrowLeft,
@@ -57,6 +59,7 @@ export default function PublicEventBySlugPage() {
   const slug = params?.slug;
   const referralCode = searchParams?.get("ref") || "";
 
+  // Safe SSR hydration - avoids hydration mismatch
   const [event, setEvent] = useState(null);
   const [organizerUser, setOrganizerUser] = useState(null);
   const [registrations, setRegistrations] = useState([]);
@@ -104,9 +107,22 @@ export default function PublicEventBySlugPage() {
     if (!slug) return;
     let isMounted = true;
 
+    // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
+    let hasCached = false;
+    try {
+      const cached = getCachedEvent(slug);
+      if (cached && isMounted) {
+        hasCached = true;
+        setEvent(cached);
+        setIsLoading(false);
+      }
+    } catch {}
+
     (async () => {
       try {
-        setIsLoading(true);
+        if (!hasCached) {
+          setIsLoading(true);
+        }
         let subEventsData = null;
         let combosData = null;
         let eventData = await getMajorEventBySlug(slug);
@@ -202,6 +218,8 @@ export default function PublicEventBySlugPage() {
 
         if (isMounted) {
           setEvent(eventData);
+          if (slug) setCachedEvent(slug, eventData);
+          if (eventData?.id) setCachedEvent(eventData.id, eventData);
           setOrganizerUser(organizerDocData);
           setRegistrations(enrichedRegistrations);
           setSubEvents(subEventsData || []);
@@ -270,13 +288,8 @@ export default function PublicEventBySlugPage() {
     };
   }, [event?.id]);
 
-  if (isLoading) {
-    return (
-      <BrandLoader
-        message="Loading..."
-        fullScreen
-      />
-    );
+  if (isLoading && !event) {
+    return <EventPageSkeleton />;
   }
 
   if (notFound || !event) {

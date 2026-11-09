@@ -9,6 +9,7 @@ import { resolveTicketEntitlements } from "@/lib/combos";
 import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
 import { getDefaultPaymentProvider } from "@/lib/payments/provider-registry";
 import { recordPaymentCaptureLedger } from "@/lib/payments/ledger";
+import { scheduleSettlementForOrder } from "@/lib/payments/settlement-engine";
 
 const deterministicId = (orderId) => crypto.createHash("sha256").update(orderId).digest("hex");
 
@@ -205,6 +206,21 @@ export async function POST(request) {
         organizerSharePaise,
         platformCommissionPaise
       });
+
+      // Automatically schedule T+4 working-day settlement record
+      await scheduleSettlementForOrder({
+        id: orderId,
+        paymentId,
+        capturedPaymentId: paymentId,
+        eventId: order.eventId,
+        eventTitle: event.title || event.name || "Event Pass",
+        organizerId: order.organizerId,
+        amount: expectedPaise,
+        platformCommissionPaise,
+        organizerSharePaise,
+        registrationData: buyer,
+        createdAt: now.toDate ? now.toDate().toISOString() : new Date().toISOString()
+      }).catch(sErr => console.warn("[verify-payment] Settlement scheduling warning:", sErr.message));
 
       await orderRef.update({
         paymentStatus: "CAPTURED",

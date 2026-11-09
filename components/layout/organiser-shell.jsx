@@ -169,20 +169,39 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
     pathname.startsWith("/admin/analytics") ||
     pathname.startsWith("/admin/messages");
 
-  const isCreateEvent = pathname === "/admin/create-event";
+  const isCreateEvent = pathname === "/admin/create-event" || pathname.startsWith("/admin/create-event");
 
   return (
-    <div className={`tl-app-shell tl-system-theme min-h-screen flex flex-col transition-colors selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-hidden ${
-      isCreateEvent
-        ? "bg-[#432E01] text-white"
-        : "bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white"
-    }`}>
-      {/* ── Top Navigation Bar matching Image 2 & 3 (Centered Content Container, border removed / transparent) ── */}
-      <header className={`sticky top-0 z-40 h-16 border-b transition-colors backdrop-blur-md ${
+    <div
+      className={`tl-app-shell tl-system-theme min-h-screen flex flex-col transition-colors duration-300 selection:bg-[#FE760B] selection:text-[#131517] w-full max-w-full overflow-x-hidden ${
         isCreateEvent
-          ? "bg-[#432E01]/90 text-white border-white/10"
-          : "border-transparent bg-white/80 dark:bg-[#131517]/80"
-      }`}>
+          ? "text-white"
+          : "bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white"
+      }`}
+      style={
+        isCreateEvent
+          ? {
+              backgroundColor: "var(--studio-bg, #432E01)",
+            }
+          : undefined
+      }
+    >
+      {/* ── Top Navigation Bar matching Image 2 & 3 (Centered Content Container, border removed / transparent) ── */}
+      <header
+        className={`sticky top-0 z-40 h-16 border-b transition-colors duration-300 backdrop-blur-md ${
+          isCreateEvent
+            ? "text-white border-white/10"
+            : "border-transparent bg-white/80 dark:bg-[#131517]/80"
+        }`}
+        style={
+          isCreateEvent
+            ? {
+                backgroundColor: "var(--studio-header-bg, rgba(67, 46, 1, 0.95))",
+                borderColor: "rgba(255, 255, 255, 0.1)",
+              }
+            : undefined
+        }
+      >
         <div className="max-w-6xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Left Side: Brand Logo + Events + Discover */}
           <div className="flex items-center gap-6 sm:gap-8">
@@ -522,7 +541,16 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
       )}
 
       {/* ── Full Width Content Area (No Desktop Sidebar) ── */}
-      <main className="flex-1 min-w-0 w-full transition-colors">
+      <main
+        className="flex-1 min-w-0 w-full transition-colors duration-300"
+        style={
+          isCreateEvent
+            ? {
+                backgroundColor: "var(--studio-bg, #432E01)",
+              }
+            : undefined
+        }
+      >
         {children}
       </main>
     </div>

@@ -214,9 +214,14 @@ export function GuestDetailsModal({
 
   const actionMenuRef = useRef(null);
 
+  const isEventCancelled = Boolean(event?.isCancelled || event?.status === "cancelled");
   const isEditing = editingGuestId === guest?.id;
 
   const handleApprove = async () => {
+    if (isEventCancelled) {
+      toast.info("This event is cancelled. Registrations cannot be approved.");
+      return;
+    }
     if (!guest?.id) return;
     setIsProcessingApproval(true);
     try {
@@ -241,6 +246,10 @@ export function GuestDetailsModal({
   };
 
   const handleDecline = async () => {
+    if (isEventCancelled) {
+      toast.info("This event is cancelled. Registrations cannot be declined.");
+      return;
+    }
     if (!guest?.id) return;
     setIsProcessingApproval(true);
     try {
@@ -929,74 +938,83 @@ export function GuestDetailsModal({
           <div className="overflow-y-auto px-5 py-5 space-y-6 flex-1 text-left overscroll-contain bg-[#1A1C1F]">
             {/* ── Pending Approval Card & Actions (Matching Image 2 & 3) ── */}
             {isPending && (
-              <div className="space-y-3">
-                {/* Amber status card */}
-                <div className="bg-[#2C2614] border border-[#FDE003]/30 rounded-xl p-3.5 flex items-center gap-2.5 text-[#FDE003]">
-                  <Clock size={16} className="shrink-0 text-[#FDE003]" />
+              isEventCancelled ? (
+                <div className="bg-[#2B1414] border border-rose-500/30 rounded-xl p-3.5 flex items-center gap-2.5 text-rose-300">
+                  <ShieldAlert size={16} className="shrink-0 text-rose-400" />
                   <p className="text-xs font-semibold">
-                    This guest is currently pending approval.
+                    This event has been cancelled. Guest registrations are locked in view-only mode.
                   </p>
                 </div>
-
-                {/* Form action box */}
-                <div className="bg-[#131517] border border-[#2A2D31] rounded-2xl p-4 space-y-3.5 shadow-sm">
-                  {/* Notify guest checkbox */}
-                  <label className="flex items-center gap-2.5 text-xs font-semibold text-white cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={notifyGuest}
-                      onChange={(e) => setNotifyGuest(e.target.checked)}
-                      className="w-4 h-4 rounded bg-[#212327] border-[#2A2D31] text-[#22C55E] focus:ring-0 cursor-pointer accent-[#22C55E]"
-                    />
-                    <span>Notify Guest</span>
-                  </label>
-
-                  {/* Optional custom message */}
-                  <div className="space-y-1">
-                    <textarea
-                      rows={2}
-                      placeholder="Add an optional, custom message..."
-                      value={customApprovalMessage}
-                      onChange={(e) => setCustomApprovalMessage(e.target.value)}
-                      className="w-full text-xs font-medium text-white bg-[#212327] border border-[#2A2D31] rounded-xl p-3 outline-none focus:border-[#FE760B] transition-colors placeholder-[#9B9EA4] resize-none"
-                    />
-                    <p className="text-[10px] text-[#9B9EA4] leading-tight">
-                      Any message you specified in the registration emails will always be included.
+              ) : (
+                <div className="space-y-3">
+                  {/* Amber status card */}
+                  <div className="bg-[#2C2614] border border-[#FDE003]/30 rounded-xl p-3.5 flex items-center gap-2.5 text-[#FDE003]">
+                    <Clock size={16} className="shrink-0 text-[#FDE003]" />
+                    <p className="text-xs font-semibold">
+                      This guest is currently pending approval.
                     </p>
                   </div>
 
-                  {/* Big Approve & Decline Buttons */}
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <button
-                      type="button"
-                      disabled={isProcessingApproval}
-                      onClick={handleApprove}
-                      className="w-full py-2.5 px-4 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                    >
-                      {isProcessingApproval ? (
-                        <Loader2 size={14} className="animate-spin text-white" />
-                      ) : (
-                        <Check size={14} strokeWidth={3} />
-                      )}
-                      <span>Approve</span>
-                    </button>
+                  {/* Form action box */}
+                  <div className="bg-[#131517] border border-[#2A2D31] rounded-2xl p-4 space-y-3.5 shadow-sm">
+                    {/* Notify guest checkbox */}
+                    <label className="flex items-center gap-2.5 text-xs font-semibold text-white cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={notifyGuest}
+                        onChange={(e) => setNotifyGuest(e.target.checked)}
+                        className="w-4 h-4 rounded bg-[#212327] border-[#2A2D31] text-[#22C55E] focus:ring-0 cursor-pointer accent-[#22C55E]"
+                      />
+                      <span>Notify Guest</span>
+                    </label>
 
-                    <button
-                      type="button"
-                      disabled={isProcessingApproval}
-                      onClick={handleDecline}
-                      className="w-full py-2.5 px-4 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                    >
-                      {isProcessingApproval ? (
-                        <Loader2 size={14} className="animate-spin text-white" />
-                      ) : (
-                        <X size={14} strokeWidth={3} />
-                      )}
-                      <span>Decline</span>
-                    </button>
+                    {/* Optional custom message */}
+                    <div className="space-y-1">
+                      <textarea
+                        rows={2}
+                        placeholder="Add an optional, custom message..."
+                        value={customApprovalMessage}
+                        onChange={(e) => setCustomApprovalMessage(e.target.value)}
+                        className="w-full text-xs font-medium text-white bg-[#212327] border border-[#2A2D31] rounded-xl p-3 outline-none focus:border-[#FE760B] transition-colors placeholder-[#9B9EA4] resize-none"
+                      />
+                      <p className="text-[10px] text-[#9B9EA4] leading-tight">
+                        Any message you specified in the registration emails will always be included.
+                      </p>
+                    </div>
+
+                    {/* Big Approve & Decline Buttons */}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <button
+                        type="button"
+                        disabled={isProcessingApproval}
+                        onClick={handleApprove}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#22C55E] hover:bg-[#16A34A] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                      >
+                        {isProcessingApproval ? (
+                          <Loader2 size={14} className="animate-spin text-white" />
+                        ) : (
+                          <Check size={14} strokeWidth={3} />
+                        )}
+                        <span>Approve</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isProcessingApproval}
+                        onClick={handleDecline}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#EF4444] hover:bg-[#DC2626] active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                      >
+                        {isProcessingApproval ? (
+                          <Loader2 size={14} className="animate-spin text-white" />
+                        ) : (
+                          <X size={14} strokeWidth={3} />
+                        )}
+                        <span>Decline</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             )}
 
             {/* If previously declined */}
@@ -1008,14 +1026,16 @@ export function GuestDetailsModal({
                     Registration was declined by the organiser.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={isProcessingApproval}
-                  onClick={handleApprove}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#22C55E] hover:bg-[#16A34A] text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-50"
-                >
-                  Approve Now
-                </button>
+                {!isEventCancelled && (
+                  <button
+                    type="button"
+                    disabled={isProcessingApproval}
+                    onClick={handleApprove}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#22C55E] hover:bg-[#16A34A] text-white text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    Approve Now
+                  </button>
+                )}
               </div>
             )}
 
@@ -1025,40 +1045,42 @@ export function GuestDetailsModal({
                 <h4 className="text-base font-bold text-white tracking-tight">
                   Registration Questions
                 </h4>
-                {!isEditing ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditedFormData(guest.formData || {});
-                      setEditingGuestId(guest.id);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-[#D0D0D1] bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] transition-colors"
-                  >
-                    <Pencil size={12} />
-                    <span>Edit</span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-2">
+                {!isEventCancelled && (
+                  !isEditing ? (
                     <button
                       type="button"
                       onClick={() => {
                         setEditedFormData(guest.formData || {});
-                        setEditingGuestId(null);
+                        setEditingGuestId(guest.id);
                       }}
-                      className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#9B9EA4] hover:text-white"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-[#D0D0D1] bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] transition-colors"
                     >
-                      Cancel
+                      <Pencil size={12} />
+                      <span>Edit</span>
                     </button>
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={handleSaveQuestions}
-                      className="px-3 py-1 rounded-lg text-xs font-semibold text-white bg-[#10B981] hover:bg-[#059669] flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                    >
-                      {isSaving && <Loader2 size={12} className="animate-spin" />}
-                      <span>Save</span>
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditedFormData(guest.formData || {});
+                          setEditingGuestId(null);
+                        }}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium text-[#9B9EA4] hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={handleSaveQuestions}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold text-white bg-[#10B981] hover:bg-[#059669] flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        {isSaving && <Loader2 size={12} className="animate-spin" />}
+                        <span>Save</span>
+                      </button>
+                    </div>
+                  )
                 )}
               </div>
 

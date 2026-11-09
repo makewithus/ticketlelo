@@ -40,6 +40,7 @@ import {
   Trash2,
   Plus,
   ChevronsUpDown,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { IoTicket, IoColorPalette, IoShuffle } from "react-icons/io5";
@@ -77,6 +78,7 @@ export function deriveThemeFromColor(hexColor) {
     id: "custom",
     name: `Custom (${safeHex.toUpperCase()})`,
     color: safeHex,
+    pageBg: darkBg,
     bg: darkBg,
     sun: brightSun,
     text: luminance > 0.55 ? "#131517" : "#FFFFFF",
@@ -306,14 +308,17 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
 
   return (
     <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-full mt-2 left-0 z-40 w-[270px] bg-white dark:bg-[#1A1C1F] border border-gray-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl p-4 select-none animate-in fade-in zoom-in-95 duration-100"
+        className="absolute top-full mt-2 left-0 z-50 w-[270px] bg-[#181512] dark:bg-[#181512] border border-white/20 rounded-2xl shadow-2xl p-4 select-none animate-in fade-in zoom-in-95 duration-100"
+        style={{
+          boxShadow: "0 20px 40px -10px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.15)",
+        }}
       >
         {/* Month Header with < > Navigation */}
         <div className="flex items-center justify-between mb-3 px-1">
-          <span className="text-sm font-bold text-gray-900 dark:text-white">
+          <span className="text-sm font-bold text-white">
             {monthName}
           </span>
           <div className="flex items-center gap-1">
@@ -324,8 +329,8 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
               title={canGoPrev ? "Previous month" : "Cannot navigate to past months"}
               className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
                 canGoPrev
-                  ? "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer"
-                  : "text-gray-300 dark:text-[#33353A] cursor-not-allowed opacity-30"
+                  ? "text-white/70 hover:text-white hover:bg-white/10 cursor-pointer"
+                  : "text-white/20 cursor-not-allowed opacity-30"
               }`}
             >
               <ChevronLeft className="w-4 h-4" />
@@ -333,7 +338,7 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
             <button
               type="button"
               onClick={nextMonth}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -345,7 +350,7 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
           {["S", "M", "T", "W", "T", "F", "S"].map((day, idx) => (
             <div
               key={idx}
-              className="text-[11px] font-medium text-gray-400 dark:text-[#9B9EA4] py-1"
+              className="text-[11px] font-medium text-white/50 py-1"
             >
               {day}
             </div>
@@ -358,7 +363,7 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
           {prevDays.map((d, idx) => (
             <div
               key={`prev-${idx}`}
-              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#33353A] select-none"
+              className="h-8 flex items-center justify-center text-xs text-white/20 select-none"
             >
               {d}
             </div>
@@ -380,7 +385,7 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
                   type="button"
                   disabled
                   title="Date has already passed"
-                  className="h-8 w-8 mx-auto flex items-center justify-center text-xs rounded-lg text-gray-400/30 dark:text-[#4A4D53] line-through cursor-not-allowed select-none opacity-40 font-mono"
+                  className="h-8 w-8 mx-auto flex items-center justify-center text-xs rounded-lg text-white/20 line-through cursor-not-allowed select-none opacity-40 font-mono"
                 >
                   {d}
                 </button>
@@ -392,11 +397,18 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
                 key={`curr-${d}`}
                 type="button"
                 onClick={() => selectDay(d)}
-                style={isSelected ? { backgroundColor: themeColor } : {}}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor: themeColor,
+                        color: isLightColor(themeColor) ? "#131517" : "#FFFFFF",
+                      }
+                    : {}
+                }
                 className={`h-8 w-8 mx-auto flex items-center justify-center text-xs rounded-lg transition-colors cursor-pointer ${
                   isSelected
-                    ? "text-white font-bold shadow-sm"
-                    : "text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 font-medium"
+                    ? "font-bold shadow-sm"
+                    : "text-white/80 hover:bg-white/10 hover:text-white font-medium"
                 }`}
               >
                 {d}
@@ -408,7 +420,7 @@ function ThemedCalendarPopover({ value, onChange, onClose, themeColor, minDate =
           {nextDays.map((d, idx) => (
             <div
               key={`next-${idx}`}
-              className="h-8 flex items-center justify-center text-xs text-gray-300 dark:text-[#33353A] select-none"
+              className="h-8 flex items-center justify-center text-xs text-white/20 select-none"
             >
               {d}
             </div>
@@ -433,10 +445,13 @@ function ThemedTimeDropdown({ value, onChange, onClose, themeColor, minMinutes =
 
   return (
     <>
-      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-full mt-2 left-0 z-40 w-32 max-h-60 overflow-y-auto bg-white dark:bg-[#1A1C1F] border border-gray-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl p-1.5 select-none animate-in fade-in zoom-in-95 duration-100 space-y-0.5"
+        className="absolute top-full mt-2 left-0 z-50 w-32 max-h-60 overflow-y-auto bg-[#181512] dark:bg-[#181512] border border-white/20 rounded-2xl shadow-2xl p-1.5 select-none animate-in fade-in zoom-in-95 duration-100 space-y-0.5 custom-scrollbar"
+        style={{
+          boxShadow: "0 20px 40px -10px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.15)",
+        }}
       >
         {TIME_OPTIONS.map((slot) => {
           const isSelected = normalizeTime(slot) === normalizedVal;
@@ -450,7 +465,7 @@ function ThemedTimeDropdown({ value, onChange, onClose, themeColor, minMinutes =
                 type="button"
                 disabled
                 title="Time has already passed"
-                className="w-full py-1.5 px-2 text-xs font-mono text-center rounded-xl text-gray-400/30 dark:text-[#4A4D53] line-through cursor-not-allowed select-none opacity-40"
+                className="w-full py-1.5 px-2 text-xs font-mono text-center rounded-xl text-white/20 line-through cursor-not-allowed select-none opacity-40"
               >
                 {slot}
               </button>
@@ -466,11 +481,18 @@ function ThemedTimeDropdown({ value, onChange, onClose, themeColor, minMinutes =
                 onChange(slot);
                 onClose();
               }}
-              style={isSelected ? { backgroundColor: themeColor } : {}}
+              style={
+                isSelected
+                  ? {
+                      backgroundColor: themeColor,
+                      color: isLightColor(themeColor) ? "#131517" : "#FFFFFF",
+                    }
+                  : {}
+              }
               className={`w-full py-1.5 px-2 text-xs font-mono text-center rounded-xl transition-colors cursor-pointer ${
                 isSelected
-                  ? "text-white font-bold shadow-sm"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+                  ? "font-bold shadow-sm"
+                  : "text-white/80 hover:text-white hover:bg-white/10"
               }`}
             >
               {slot}
@@ -592,9 +614,12 @@ export function EventCreateStudio({
     virtualLink: editingEvent?.virtualLink || "",
     locationInstructions: editingEvent?.locationInstructions || "",
     theme: editingEvent?.theme || "minimal",
-    themeColor: editingEvent?.themeColor || editingEvent?.themeHex || "",
-    ticketBgColor: editingEvent?.ticketBgColor || editingEvent?.themeColor || "",
-    coverImage: editingEvent?.coverImage || editingEvent?.image || ARTWORK_PRESETS[0].svg,
+    themeColor: editingEvent?.themeColor || editingEvent?.themeHex || "#FE760B",
+    ticketBgColor: editingEvent?.ticketBgColor || editingEvent?.themeColor || "#FE760B",
+    coverImage:
+      editingEvent?.coverImage ||
+      editingEvent?.image ||
+      (editingEvent?.theme === "sunny" ? ARTWORK_PRESETS[0].svg : ARTWORK_PRESETS[1].svg),
     visibility:
       editingEvent?.visibility ||
       (editingEvent?.isActive === false ? "draft" : "public"),
@@ -620,7 +645,7 @@ export function EventCreateStudio({
     posterTextColor: editingEvent?.posterTextColor || "auto",
     posterTextX: typeof editingEvent?.posterTextX === "number" ? editingEvent.posterTextX : 6,
     posterTextY: typeof editingEvent?.posterTextY === "number" ? editingEvent.posterTextY : (editingEvent?.coverImage ? 55 : 68),
-    showPosterText: editingEvent?.showPosterText !== undefined ? editingEvent.showPosterText : false,
+    showPosterText: editingEvent?.showPosterText !== undefined ? editingEvent.showPosterText : true,
     posterTextBg: editingEvent?.posterTextBg || "shadow",
     requireApproval: Boolean(editingEvent?.requireApproval),
     limitCapacity: Boolean(
@@ -631,6 +656,8 @@ export function EventCreateStudio({
     waitlist: editingEvent?.waitlist !== undefined ? Boolean(editingEvent.waitlist) : true,
     ticketBgUrl: editingEvent?.ticketBgUrl || editingEvent?.ticketBackground || "",
   });
+
+  const isEventCancelled = Boolean(editingEvent?.isCancelled || editingEvent?.status === "cancelled");
 
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
@@ -1121,6 +1148,11 @@ export function EventCreateStudio({
   const handleFormSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
+    if (isEventCancelled) {
+      toast.error("This event is cancelled. Modifications cannot be saved.");
+      return;
+    }
+
     if (!formData.name.trim()) {
       toast.error("Please enter an event name");
       return;
@@ -1307,18 +1339,43 @@ export function EventCreateStudio({
     .slice(0, 2)
     .toUpperCase();
 
+  const currentBgColor =
+    formData.theme === "minimal"
+      ? "#432E01"
+      : selectedTheme?.pageBg || "#432E01";
+
+  // Dynamic full-page background synchronization to ensure zero static color mismatch
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const prevHtmlBg = document.documentElement.style.backgroundColor;
+      const prevBodyBg = document.body.style.backgroundColor;
+
+      document.documentElement.style.backgroundColor = currentBgColor;
+      document.body.style.backgroundColor = currentBgColor;
+      document.documentElement.style.setProperty("--studio-bg", currentBgColor);
+      document.documentElement.style.setProperty(
+        "--studio-header-bg",
+        `${currentBgColor}F0`
+      );
+
+      return () => {
+        document.documentElement.style.backgroundColor = prevHtmlBg;
+        document.body.style.backgroundColor = prevBodyBg;
+        document.documentElement.style.removeProperty("--studio-bg");
+        document.documentElement.style.removeProperty("--studio-header-bg");
+      };
+    }
+  }, [currentBgColor]);
+
   return (
     <div
-      className="min-h-screen text-white flex flex-col selection:bg-[#FE760B] selection:text-[#131517] transition-colors duration-300"
+      className="min-h-screen text-white flex flex-col selection:bg-[#FE760B] selection:text-[#131517] transition-colors duration-300 w-full"
       style={{
-        backgroundColor:
-          formData.theme === "minimal"
-            ? "#432E01"
-            : selectedTheme?.pageBg || "#432E01",
+        backgroundColor: currentBgColor,
       }}
     >
       {/* Main Studio Body: 2 Columns */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6 flex items-center justify-between text-xs text-white/70">
           <button
             type="button"
@@ -1332,9 +1389,40 @@ export function EventCreateStudio({
             <span className="font-medium">Back to Events</span>
           </button>
           <span className="font-semibold text-white/80 tracking-wide">
-            {editingEvent ? "Edit Event Studio" : "Create Event Studio"}
+            {isEventCancelled
+              ? "Event Cancelled (View Only)"
+              : editingEvent
+              ? "Edit Event Studio"
+              : "Create Event Studio"}
           </span>
         </div>
+
+        {/* Cancelled Event Warning Banner */}
+        {isEventCancelled && (
+          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-rose-400">
+                  This event is Cancelled — View-Only Mode
+                </p>
+                <p className="text-[11px] text-rose-200/80">
+                  Registrations are permanently stopped and all event operations are locked in read-only mode.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (onClose) onClose();
+                else router.push("/admin/dashboard");
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white border border-[#2A2D31] transition-colors shrink-0 cursor-pointer"
+            >
+              Return to Events
+            </button>
+          </div>
+        )}
         <form
           onSubmit={handleFormSubmit}
           className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
@@ -1345,10 +1433,24 @@ export function EventCreateStudio({
             <div
               ref={posterContainerRef}
               onClick={() => {
-                setIsTextSelected(false);
-                setIsInlineEditing(false);
+                if (formData.showPosterText === false) {
+                  setFormData((prev) => ({ ...prev, showPosterText: true }));
+                  setIsTextSelected(true);
+                  setIsInlineEditing(true);
+                } else if (!formData.name && !formData.posterLine1 && !posterLines.line1) {
+                  setIsTextSelected(true);
+                  setIsInlineEditing(true);
+                } else {
+                  setIsTextSelected(false);
+                  setIsInlineEditing(false);
+                }
               }}
-              className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none cursor-default"
+              onDoubleClick={() => {
+                setFormData((prev) => ({ ...prev, showPosterText: true }));
+                setIsTextSelected(true);
+                setIsInlineEditing(true);
+              }}
+              className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none cursor-pointer"
             >
               {formData.coverImage ? (
                 // Custom Uploaded Banner Image
@@ -1393,15 +1495,26 @@ export function EventCreateStudio({
                 </div>
               )}
 
-              {/* ── DRAGGABLE & EDITABLE TEXT OVERLAY (Only rendered when event has a name/lines or user is editing) ── */}
-              {formData.showPosterText !== false &&
-                Boolean(
-                  posterLines.line1 ||
-                    posterLines.line2 ||
-                    formData.posterLine1 ||
-                    formData.name ||
-                    isInlineEditing
-                ) && (
+              {/* Action button on banner when text is hidden ("Clean" mode) */}
+              {formData.showPosterText === false && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFormData((prev) => ({ ...prev, showPosterText: true }));
+                    setIsTextSelected(true);
+                    setIsInlineEditing(true);
+                  }}
+                  className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 hover:bg-black text-white backdrop-blur border border-white/25 text-[11px] font-bold shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  title="Click to write text on banner"
+                >
+                  <Type className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>+ Write Text on Banner</span>
+                </button>
+              )}
+
+              {/* ── DRAGGABLE & EDITABLE TEXT OVERLAY ── */}
+              {formData.showPosterText !== false && (
                 <div
                   onMouseDown={handleTextDragStart}
                   onTouchStart={handleTextDragStart}
@@ -1508,15 +1621,18 @@ export function EventCreateStudio({
                       <input
                         type="text"
                         autoFocus
-                        value={formData.posterLine1 || posterLines.line1}
-                        placeholder="Line 1 (Heading)"
-                        onChange={(e) =>
+                        value={formData.posterLine1 ?? posterLines.line1 ?? ""}
+                        placeholder="Line 1 (Heading / Title)"
+                        onChange={(e) => {
+                          const val = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             posterTextMode: "custom",
-                            posterLine1: e.target.value,
-                          }))
-                        }
+                            posterLine1: val,
+                            name: !prev.name || prev.name === prev.posterLine1 ? val : prev.name,
+                            showPosterText: true,
+                          }));
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === "Escape") {
                             setIsInlineEditing(false);
@@ -1529,15 +1645,17 @@ export function EventCreateStudio({
                       />
                       <input
                         type="text"
-                        value={formData.posterLine2 || posterLines.line2}
+                        value={formData.posterLine2 ?? posterLines.line2 ?? ""}
                         placeholder="Line 2 (Sub-heading)"
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const val = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             posterTextMode: "custom",
-                            posterLine2: e.target.value,
-                          }))
-                        }
+                            posterLine2: val,
+                            showPosterText: true,
+                          }));
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === "Escape") {
                             setIsInlineEditing(false);
@@ -1555,13 +1673,15 @@ export function EventCreateStudio({
                         type="text"
                         value={formData.posterLine3 || ""}
                         placeholder="Line 3: e.g. Date • Venue • Details"
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const val = e.target.value;
                           setFormData((prev) => ({
                             ...prev,
                             posterTextMode: "custom",
-                            posterLine3: e.target.value,
-                          }))
-                        }
+                            posterLine3: val,
+                            showPosterText: true,
+                          }));
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === "Escape") {
                             setIsInlineEditing(false);
@@ -1582,7 +1702,7 @@ export function EventCreateStudio({
                         </button>
                       </div>
                     </div>
-                  ) : (
+                  ) : posterLines.line1 || formData.name || formData.posterLine1 ? (
                     <div>
                       <span
                         className="block font-black leading-[0.92] tracking-tight uppercase select-none break-words"
@@ -1642,6 +1762,21 @@ export function EventCreateStudio({
                           {formData.posterLine3}
                         </span>
                       )}
+                    </div>
+                  ) : (
+                    /* Inviting clickable write button when text is empty */
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsTextSelected(true);
+                        setIsInlineEditing(true);
+                      }}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 hover:bg-black/85 border border-dashed border-white/50 hover:border-[#FE760B] text-white/90 hover:text-white cursor-pointer transition-all shadow-xl backdrop-blur-md group select-none"
+                    >
+                      <Type className="w-4 h-4 text-[#FE760B] group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-bold tracking-tight">
+                        Click to write text on banner
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1711,19 +1846,24 @@ export function EventCreateStudio({
                   {showThemeDropdown && (
                     <>
                       <div
-                        className="fixed inset-0 z-30"
+                        className="fixed inset-0 z-40"
                         onClick={() => setShowThemeDropdown(false)}
                       />
-                      <div className="absolute top-full left-0 mt-2 w-72 bg-[#1A1C1F]/95 backdrop-blur-xl border border-white/15 rounded-2xl p-3 shadow-2xl z-40 space-y-2 animate-in fade-in zoom-in-95 duration-100">
+                      <div
+                        className="absolute top-full left-0 mt-2 w-72 bg-[#181512] dark:bg-[#181512] border border-white/20 rounded-2xl p-3 shadow-2xl z-50 space-y-2 animate-in fade-in zoom-in-95 duration-100"
+                        style={{
+                          boxShadow: "0 20px 40px -10px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.15)",
+                        }}
+                      >
                         <div className="flex items-center justify-between pb-1.5 border-b border-white/10 px-1">
                           <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                            <IoColorPalette className="w-3.5 h-3.5 text-[#FE760B]" />
+                            <IoColorPalette className="w-3.5 h-3.5" style={{ color: selectedTheme.color }} />
                             Select Event Theme
                           </span>
                           <span className="text-[10px] text-white/50">Luma Minimal &amp; Vibrant</span>
                         </div>
 
-                        <div className="space-y-1 max-h-56 overflow-y-auto">
+                        <div className="space-y-1 max-h-56 overflow-y-auto custom-scrollbar">
                           {THEMES.map((theme) => {
                             const isSelected = formData.theme === theme.id;
                             return (
@@ -1731,11 +1871,30 @@ export function EventCreateStudio({
                                 key={theme.id}
                                 type="button"
                                 onClick={() => {
+                                  const isCurrentPreset =
+                                    !formData.coverImage ||
+                                    ARTWORK_PRESETS.some((p) => p.svg === formData.coverImage);
+                                  let matchingPreset = formData.coverImage;
+                                  if (isCurrentPreset) {
+                                    if (theme.id === "minimal" || theme.id === "sunset") {
+                                      matchingPreset = ARTWORK_PRESETS[1].svg;
+                                    } else if (theme.id === "sunny") {
+                                      matchingPreset = ARTWORK_PRESETS[0].svg;
+                                    } else if (theme.id === "electric") {
+                                      matchingPreset = ARTWORK_PRESETS[2].svg;
+                                    } else if (theme.id === "neon") {
+                                      matchingPreset = ARTWORK_PRESETS[3].svg;
+                                    } else {
+                                      matchingPreset = ARTWORK_PRESETS[1].svg;
+                                    }
+                                  }
+
                                   setFormData((prev) => ({
                                     ...prev,
                                     theme: theme.id,
                                     themeColor: theme.color,
                                     ticketBgColor: theme.color,
+                                    coverImage: matchingPreset,
                                   }));
                                   setCustomColorHex(theme.color);
                                   setThemeHexInput(theme.color.replace(/^#/, ""));
@@ -1756,7 +1915,7 @@ export function EventCreateStudio({
                                   </span>
                                 </div>
                                 {isSelected && (
-                                  <Check className="w-3.5 h-3.5 text-[#FE760B] stroke-[3]" />
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" style={{ color: selectedTheme.color }} />
                                 )}
                               </button>
                             );
@@ -1844,9 +2003,23 @@ export function EventCreateStudio({
                   <div className="min-w-0">
                     <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 truncate">
                       <span>Typography &amp; Layout</span>
-                      {formData.showPosterText === false && (
+                      {formData.showPosterText === false ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData((prev) => ({ ...prev, showPosterText: true }));
+                            setIsTextSelected(true);
+                            setIsInlineEditing(true);
+                          }}
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-[#FE760B]/20 text-[#FE760B] font-bold border border-[#FE760B]/40 hover:bg-[#FE760B] hover:text-[#131517] transition-all cursor-pointer"
+                          title="Click to enable banner text"
+                        >
+                          + Enable Text
+                        </button>
+                      ) : (
                         <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-white/60 font-semibold border border-white/10">
-                          Clean
+                          Active
                         </span>
                       )}
                     </div>
@@ -1877,9 +2050,14 @@ export function EventCreateStudio({
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    name: val,
+                    showPosterText: true,
+                  }));
+                }}
                 placeholder="Event Name"
                 required
                 className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl lg:text-5xl font-black text-white placeholder:text-white/30 !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight"
@@ -1887,16 +2065,23 @@ export function EventCreateStudio({
             </div>
 
             {/* Date & Time Card + Dedicated Timezone Box matching Screenshot */}
-            <div className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md relative">
+            <div className={`rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md relative transition-all ${
+              showStartTimePicker || showEndTimePicker || showStartCalendar || showEndCalendar ? "z-40" : "z-10"
+            }`}>
               {/* Left Side: Start and End rows connected by vertical timeline line */}
               <div className="flex-1 space-y-2 relative">
                 {/* Vertical timeline connector line */}
                 <div className="absolute left-[4.5px] top-[14px] bottom-[14px] w-px bg-white/25 pointer-events-none" />
 
                 {/* Start row: ● Start [Thu, Nov 5] [18:30] */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-nowrap relative z-10">
+                <div className={`flex items-center gap-2 sm:gap-3 flex-nowrap relative ${
+                  showStartCalendar || showStartTimePicker ? "z-30" : "z-20"
+                }`}>
                   <div className="flex items-center gap-2 w-14 sm:w-16 shrink-0">
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/80 shrink-0" />
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                      style={{ backgroundColor: selectedTheme.color }}
+                    />
                     <span className="text-xs font-semibold text-white/70">
                       Start
                     </span>
@@ -1912,6 +2097,7 @@ export function EventCreateStudio({
                         setShowEndCalendar(false);
                         setShowEndTimePicker(false);
                       }}
+                      style={showStartCalendar ? { borderColor: selectedTheme.color } : {}}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formatDatePill(formData.startDate)}</span>
@@ -1944,6 +2130,7 @@ export function EventCreateStudio({
                         setShowEndCalendar(false);
                         setShowEndTimePicker(false);
                       }}
+                      style={showStartTimePicker ? { borderColor: selectedTheme.color } : {}}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formData.startTime}</span>
@@ -1971,7 +2158,9 @@ export function EventCreateStudio({
                 </div>
 
                 {/* End row: ○ End [Thu, Nov 5] [19:30] */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-nowrap relative z-10">
+                <div className={`flex items-center gap-2 sm:gap-3 flex-nowrap relative ${
+                  showEndCalendar || showEndTimePicker ? "z-30" : "z-10"
+                }`}>
                   <div className="flex items-center gap-2 w-14 sm:w-16 shrink-0">
                     <span className="w-2.5 h-2.5 rounded-full border-2 border-white/60 bg-transparent shrink-0" />
                     <span className="text-xs font-semibold text-white/70">
@@ -1989,6 +2178,7 @@ export function EventCreateStudio({
                         setShowStartCalendar(false);
                         setShowStartTimePicker(false);
                       }}
+                      style={showEndCalendar ? { borderColor: selectedTheme.color } : {}}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formatDatePill(formData.endDate)}</span>
@@ -2020,6 +2210,7 @@ export function EventCreateStudio({
                         setShowStartCalendar(false);
                         setShowStartTimePicker(false);
                       }}
+                      style={showEndTimePicker ? { borderColor: selectedTheme.color } : {}}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-xs font-mono font-medium text-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span>{formData.endTime}</span>
@@ -2907,16 +3098,26 @@ export function EventCreateStudio({
             <div className="pt-4 space-y-3">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                style={{
-                  backgroundColor: selectedTheme.color,
-                  color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
-                }}
-                className={`w-full font-bold text-sm sm:text-base py-3.5 px-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:opacity-90 active:scale-[0.99] ${
-                  isLightColor(selectedTheme.color) ? "border border-black/15 shadow-md" : ""
+                disabled={isSubmitting || isEventCancelled}
+                style={
+                  isEventCancelled
+                    ? { backgroundColor: "#212327", color: "#9B9EA4" }
+                    : {
+                        backgroundColor: selectedTheme.color,
+                        color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
+                      }
+                }
+                className={`w-full font-bold text-sm sm:text-base py-3.5 px-6 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 ${
+                  isEventCancelled
+                    ? "cursor-not-allowed border border-[#2A2D31]"
+                    : "cursor-pointer disabled:opacity-50 hover:opacity-90 active:scale-[0.99]"
+                } ${
+                  !isEventCancelled && isLightColor(selectedTheme.color) ? "border border-black/15 shadow-md" : ""
                 }`}
               >
-                {isSubmitting ? (
+                {isEventCancelled ? (
+                  <span>Event Cancelled (View-Only Mode)</span>
+                ) : isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin text-white" />
                     <span>Saving event...</span>
@@ -2941,7 +3142,7 @@ export function EventCreateStudio({
             </div>
           </div>
         </form>
-      </main>
+      </div>
 
       {/* Timezone Selection Modal */}
       {showTimezoneModal && (
@@ -3634,6 +3835,74 @@ export function EventCreateStudio({
                 </button>
               </div>
             </div>
+
+            {/* Custom Lines Text Inputs when Custom Mode is Active */}
+            {formData.posterTextMode === "custom" && (
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2.5">
+                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Custom Banner Text Lines
+                </span>
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
+                      Line 1 (Heading / Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.posterLine1 || ""}
+                      placeholder="e.g. EVENT TITLE"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterLine1: val,
+                          name: !prev.name || prev.name === prev.posterLine1 ? val : prev.name,
+                          showPosterText: true,
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-bold uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
+                      Line 2 (Sub-heading)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.posterLine2 || ""}
+                      placeholder="e.g. SUB-HEADING"
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterLine2: e.target.value,
+                          showPosterText: true,
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-semibold uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
+                      Line 3 (Details / Badge)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.posterLine3 || ""}
+                      placeholder="e.g. Date • Venue • Details"
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterLine3: e.target.value,
+                          showPosterText: true,
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Snap Position Row */}
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">

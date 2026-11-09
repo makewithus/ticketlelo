@@ -499,7 +499,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   }, [eventId, initialEvent?.id, props.event?.id]);
 
   const activeEvent = currentEvent || initialEvent || props.event || {};
-  const themeColor = activeEvent?.themeColor || "#FE760B";
+  const themeColor =
+    props.themeColor ||
+    (activeEvent?.theme === "minimal" || activeEvent?.themeName?.toLowerCase() === "minimal"
+      ? "#FE760B"
+      : activeEvent?.themeColor || activeEvent?.themeHex || "#FE760B");
 
   // Registration Closure & Capacity Controls (Computed authoritatively in real time)
   const isEventCancelled = Boolean(
@@ -889,12 +893,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     setIsLoggingIn(true);
 
     try {
-      console.log("LOGGING IN EXISTING USER");
-
       // Login with email and password
       const user = await login(tempFormData.email, loginPassword);
-      console.log("LOGIN SUCCESSFUL:", user.id);
-
       setShowLoginModal(false);
 
       const isPaidEvent = tempFormData.isPaid;
@@ -1160,18 +1160,6 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         auth.currentUser?.displayName ||
         "Attendee";
       fullName = typeof fullName === "string" ? fullName.trim() : "Attendee";
-
-      // Log extracted values for debugging
-      console.log("=".repeat(50));
-      console.log("FORM SUBMISSION - Extracted Data:");
-      console.log("Email field found:", emailField?.name || emailField?.label, emailField?.id);
-      console.log("Email from form:", email);
-      console.log(" Phone field found:", phoneField?.name || phoneField?.label, phoneField?.id);
-      console.log(" Phone from form:", phone);
-      console.log(" Name field found:", nameField?.name || nameField?.label, nameField?.id);
-      console.log(" Name from form:", fullName);
-      console.log(" Full form data:", formData);
-      console.log("=".repeat(50));
 
       // Email is required for ticket delivery & account identity
       if (!email || email === "") {
@@ -2193,7 +2181,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <button
               type="submit"
               disabled={isLoading || paymentProcessing}
-              className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-white disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-lg shadow-[#FE760B]/20 flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer active:scale-[0.99]"
+              style={{
+                backgroundColor: props.themeColor || currentEvent?.themeColor || currentEvent?.themeHex || "#FE760B",
+              }}
+              className="w-full hover:brightness-110 text-white disabled:opacity-50 disabled:cursor-not-allowed font-bold h-12 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base mt-4 cursor-pointer active:scale-[0.99]"
             >
               {isLoading || paymentProcessing ? (
                 <>

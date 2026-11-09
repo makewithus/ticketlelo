@@ -47,8 +47,9 @@ export function EventBanner({
 
   // Derive visual theme look with diverse fallback if not explicitly set
   const resolveFallbackTheme = () => {
+    if (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal") return "minimal";
     if (event?.themeColor || event?.themeHex) return event.themeColor || event.themeHex;
-    if (event?.theme && event.theme !== "minimal") return event.theme;
+    if (event?.theme) return event.theme;
     const cat = String(event?.category || "").toLowerCase();
     const title = String(event?.title || event?.name || "").toLowerCase();
     if (cat.includes("gaming") || title.includes("gaming") || title.includes("esport")) return "pink";

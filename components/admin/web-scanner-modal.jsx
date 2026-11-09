@@ -75,6 +75,8 @@ export function WebScannerModal({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [cameraError, setCameraError] = useState(null);
 
+  const isCancelled = Boolean(event?.isCancelled || event?.status === "cancelled");
+
   // If a specific targetGuest was clicked from the guest list, pre-verify / display them
   useEffect(() => {
     if (targetGuest && isOpen) {
@@ -94,6 +96,10 @@ export function WebScannerModal({
   if (!isOpen) return null;
 
   const handleVerifyTicket = async (rawInput) => {
+    if (isCancelled) {
+      toast.error("This event is cancelled. Check-in operations are disabled.");
+      return;
+    }
     const ticketQuery = String(rawInput || "").trim();
     if (!ticketQuery || isVerifying) return;
 
@@ -185,6 +191,10 @@ export function WebScannerModal({
   };
 
   const handleOneClickCheckInTarget = async () => {
+    if (isCancelled) {
+      toast.error("This event is cancelled. Check-in operations are disabled.");
+      return;
+    }
     if (!verifiedGuest?.id) return;
     setIsVerifying(true);
     try {
@@ -261,6 +271,14 @@ export function WebScannerModal({
             {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
           </button>
         </div>
+
+        {/* Cancelled Banner */}
+        {isCancelled && (
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2.5">
+            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+            <span>This event has been cancelled. Check-in operations are stopped.</span>
+          </div>
+        )}
 
         {/* Mode Selector */}
         {!verifiedGuest && (

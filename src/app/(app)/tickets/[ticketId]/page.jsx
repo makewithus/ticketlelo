@@ -22,21 +22,39 @@ import { parseFirestoreDate } from "@/lib/date-utils";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { TicketDetailSkeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 export default function TicketViewPage({ params }) {
   const unwrappedParams = use(params);
   const ticketId = unwrappedParams.ticketId;
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Safe SSR hydration - avoids hydration mismatch
   const [ticketData, setTicketData] = useState(null);
   const [eventData, setEventData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
+    let hasCached = false;
+    try {
+      const cached = getCachedItem(`ticket_${ticketId}`);
+      if (cached && isMounted) {
+        if (cached.ticket) setTicketData(cached.ticket);
+        if (cached.event) setEventData(cached.event);
+        if (cached.ticket) {
+          hasCached = true;
+          setLoading(false);
+        }
+      }
+    } catch {}
+
     async function fetchTicket() {
       try {
-        setLoading(true);
+        if (!hasCached) {
+          setLoading(true);
+        }
         const res = await fetch(`/api/tickets/${ticketId}`);
         const data = await res.json();
         if (!res.ok || !data.success) {
@@ -45,6 +63,7 @@ export default function TicketViewPage({ params }) {
         if (isMounted) {
           setTicketData(data.ticket);
           setEventData(data.event);
+          setCachedItem(`ticket_${ticketId}`, { ticket: data.ticket, event: data.event }, 15 * 60 * 1000);
           setError(null);
         }
       } catch (err) {
@@ -105,8 +124,8 @@ export default function TicketViewPage({ params }) {
 
   const isWide = eventData?.ticketDesign === "wide";
 
-  if (loading) {
-    return <BrandLoader message="Loading..." fullScreen />;
+  if (loading && !ticketData) {
+    return <TicketDetailSkeleton />;
   }
 
   if (error || !ticketData) {

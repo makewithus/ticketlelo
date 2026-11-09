@@ -127,22 +127,78 @@ export async function POST(request) {
       `Your entry pass: ${ticketId}. Show your QR at the entrance.`,
     )}&location=${encodeURIComponent(venue)}&dates=${calDateStr}/${calDateStr}`;
 
-    // Generate scannable QR Code buffer for email embedding
-    const qrPayload = registration.qrCode || persistedTicket?.qrCodeUrl || ticketId;
-    const qrBuffer = await QRCode.toBuffer(String(qrPayload), {
-      width: 320,
-      margin: 1,
-      color: { dark: "#000000", light: "#ffffff" },
-    });
+    // Extract or generate scannable QR code image and buffer for email embedding and PDF
+    const rawQr = registration.qrCode || persistedTicket?.qrCodeUrl || "";
+    let scannablePayload =
+      registration.qrPayload ||
+      persistedTicket?.qrPayload ||
+      ticketId ||
+      "TICKETLELO";
+
+    // If payload is malformed or excessively long, fallback to ticketId
+    if (
+      typeof scannablePayload !== "string" ||
+      scannablePayload.startsWith("data:") ||
+      scannablePayload.length > 500
+    ) {
+      scannablePayload = ticketId;
+    }
+
+    let qrBuffer = null;
+    let qrDataUrl = "";
+
+    // If existing QR code is already a data URL (e.g. data:image/png;base64,...), decode directly to Buffer
+    if (typeof rawQr === "string" && rawQr.startsWith("data:image/")) {
+      try {
+        const base64Data = rawQr.replace(/^data:image\/\w+;base64,/, "");
+        qrBuffer = Buffer.from(base64Data, "base64");
+        qrDataUrl = rawQr;
+      } catch (decodeErr) {
+        console.warn("[send-ticket-email] Could not decode existing QR data URL, regenerating:", decodeErr);
+        qrBuffer = null;
+      }
+    }
+
+    // If no buffer yet (rawQr was not a data URL or decode failed), generate fresh QR code from payload
+    if (!qrBuffer) {
+      try {
+        qrBuffer = await QRCode.toBuffer(String(scannablePayload), {
+          width: 320,
+          margin: 1,
+          color: { dark: "#000000", light: "#ffffff" },
+        });
+        qrDataUrl = `data:image/png;base64,${qrBuffer.toString("base64")}`;
+      } catch (qrErr) {
+        console.warn("[send-ticket-email] QR code generation failed with payload, falling back to ticketId:", qrErr);
+        try {
+          qrBuffer = await QRCode.toBuffer(String(ticketId), {
+            width: 320,
+            margin: 1,
+            color: { dark: "#000000", light: "#ffffff" },
+          });
+          qrDataUrl = `data:image/png;base64,${qrBuffer.toString("base64")}`;
+        } catch (fatalQrErr) {
+          console.error("[send-ticket-email] Fatal QR generation fallback failed:", fatalQrErr);
+          qrBuffer = Buffer.alloc(0);
+          qrDataUrl = "";
+        }
+      }
+    }
 
     // Generate PDF ticket attachment
-    const pdfBlob = await generatePDFTicket(
-      { ...registration, ticketId, qrCode: qrPayload },
-      event,
-      qrPayload,
-    );
-    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
-    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    let pdfBuffer;
+    try {
+      const pdfBlob = await generatePDFTicket(
+        { ...registration, ticketId, qrCode: qrDataUrl },
+        event,
+        qrDataUrl,
+      );
+      const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+      pdfBuffer = Buffer.from(pdfArrayBuffer);
+    } catch (pdfErr) {
+      console.error("[send-ticket-email] Failed to generate PDF ticket:", pdfErr);
+      throw new Error(`Failed to generate PDF ticket: ${pdfErr?.message || "Unknown error"}`);
+    }
 
     // Prepare attachments
     const attachments = [

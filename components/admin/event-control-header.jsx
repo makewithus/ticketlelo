@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Ticket, ArrowUpRight } from "lucide-react";
+import { Ticket, ArrowUpRight, AlertTriangle, Clock } from "lucide-react";
 import { getEvent } from "@/lib/firestore";
 
 export function EventControlHeader({
@@ -12,6 +12,8 @@ export function EventControlHeader({
   eventSlug = "tech-fest-2026",
   eventId = null,
   isLive = true,
+  isCancelled: propIsCancelled = null,
+  isCancellationPending: propIsCancelPending = null,
   extraActions = null,
 }) {
   const searchParams = useSearchParams();
@@ -31,6 +33,16 @@ export function EventControlHeader({
   const [resolvedSlug, setResolvedSlug] = useState(
     eventSlug !== "tech-fest-2026" ? eventSlug : ""
   );
+  const [eventCancelled, setEventCancelled] = useState(Boolean(propIsCancelled));
+  const [eventCancelPending, setEventCancelPending] = useState(Boolean(propIsCancelPending));
+
+  useEffect(() => {
+    if (propIsCancelled !== null) setEventCancelled(Boolean(propIsCancelled));
+  }, [propIsCancelled]);
+
+  useEffect(() => {
+    if (propIsCancelPending !== null) setEventCancelPending(Boolean(propIsCancelPending));
+  }, [propIsCancelPending]);
 
   useEffect(() => {
     if (eventTitle && eventTitle !== "Tech Fest 2026") {
@@ -57,6 +69,8 @@ export function EventControlHeader({
             if (ev.name || ev.title) setResolvedTitle(ev.name || ev.title);
             if (ev.slug) setResolvedSlug(ev.slug);
             else setResolvedSlug(ev.id);
+            setEventCancelled(Boolean(ev.isCancelled || ev.status === "cancelled"));
+            setEventCancelPending(Boolean(ev.cancellationRequest?.status === "pending"));
           }
         })
         .catch(() => {});
@@ -75,13 +89,14 @@ export function EventControlHeader({
     { name: "Blasts", href: getHref("/admin/messages") },
     { name: "Insights", href: getHref("/admin/analytics") },
     { name: "Payouts", href: getHref("/admin/payments") },
+    { name: "Support", href: getHref("/admin/support") },
     { name: "More", href: getHref("/admin/customize") },
   ];
 
   return (
     <div className="w-full text-[#061A3F] dark:text-white selection:bg-[#FE760B] selection:text-white">
       {/* ── 1. Breadcrumbs & Event Header matching All Images ── */}
-      <div className="mb-6">
+      <div className="mb-4">
         <Link
           href="/admin/dashboard"
           className="inline-flex items-center gap-1.5 text-xs text-[#FE760B] font-semibold hover:underline mb-1.5 transition-colors"
@@ -91,16 +106,26 @@ export function EventControlHeader({
         </Link>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-bold text-[#061A3F] dark:text-white tracking-tight">
               {resolvedTitle}
             </h1>
-            {isLive && (
+            {eventCancelled ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 text-[11px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                CANCELLED
+              </span>
+            ) : eventCancelPending ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-bold animate-pulse">
+                <Clock size={11} />
+                CANCELLATION UNDER REVIEW
+              </span>
+            ) : isLive ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/30 text-[11px] font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />
                 LIVE
               </span>
-            )}
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -118,6 +143,35 @@ export function EventControlHeader({
           </div>
         </div>
       </div>
+
+      {/* ── Cancelled / Under Review Sticky Alert Banner ── */}
+      {eventCancelled && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-white flex items-start gap-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <h4 className="text-sm font-bold text-rose-400">
+              This event has been cancelled — View-Only Mode
+            </h4>
+            <p className="text-xs text-rose-200/80 leading-relaxed">
+              Registrations and ticket sales are permanently closed. You can view all attendee records, transactions, and analytics, but no further actions, edits, or check-ins can be made.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {eventCancelPending && !eventCancelled && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-white flex items-start gap-3 shadow-xs">
+          <Clock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <h4 className="text-sm font-bold text-amber-400">
+              Cancellation Ticket Under Super Admin Review
+            </h4>
+            <p className="text-xs text-amber-200/80 leading-relaxed">
+              Your cancellation request for this paid event has been submitted to Super Admin for verification. The event operations remain locked until reviewed.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── 2. Event Subtabs matching All Images ── */}
       <div className="border-b border-[#D9DBE0] dark:border-[#2A2D31] mb-6 overflow-x-auto no-scrollbar">

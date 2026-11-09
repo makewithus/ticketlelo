@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { SuperAdminTableSkeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 const AVATAR_COLORS = [
   "bg-[#FE760B]", // Orange (like TO in Image 1)
@@ -32,6 +34,12 @@ function getInitials(name = "") {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
   return name.slice(0, 2).toUpperCase() || "OR";
+}
+
+function formatCollege(col = "") {
+  if (!col) return "college";
+  const cleaned = String(col).replace(/^\[+\s*|\s*\]+$/g, "").trim();
+  return cleaned || "college";
 }
 
 function formatApprovedDate(dateVal) {
@@ -82,8 +90,17 @@ function renderEventStatusBadge(eventStatus) {
 }
 
 export function OrganisersManagement() {
-  const [organisers, setOrganisers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Synchronous cache hydration for instant display
+  const [organisers, setOrganisers] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedItem("superadmin_organisers");
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => organisers.length === 0);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all"); // 'all' | 'paid' | 'free' | 'live' | 'duplicates'
   const [page, setPage] = useState(1);
@@ -196,6 +213,7 @@ export function OrganisersManagement() {
 
         if (isSubscribed) {
           setOrganisers(list);
+          setCachedItem("superadmin_organisers", list, 15 * 60 * 1000);
         }
       } catch (err) {
         console.error("Failed to load approved organisers:", err);
@@ -329,10 +347,10 @@ export function OrganisersManagement() {
     toast.success(`Opening email client for ${item.loginEmail} (email copied)`);
   };
 
-  if (isLoading) {
+  if (isLoading && organisers.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[65vh] w-full">
-        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
+      <div className="space-y-6">
+        <SuperAdminTableSkeleton />
         <p className="sr-only">Loading...</p>
       </div>
     );
@@ -450,7 +468,7 @@ export function OrganisersManagement() {
                               {item.name}
                             </div>
                             <div className="text-[11px] text-[#71767B] truncate">
-                              [{item.college || "college"}]
+                              {formatCollege(item.college)}
                             </div>
                           </div>
                         </div>
@@ -596,7 +614,7 @@ export function OrganisersManagement() {
                           {item.name}
                         </div>
                         <div className="text-[11px] text-[#71767B] truncate">
-                          [{item.college || "college"}]
+                          {formatCollege(item.college)}
                         </div>
                       </div>
                     </div>

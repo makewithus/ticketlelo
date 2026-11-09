@@ -1,5 +1,39 @@
 rules_version = '2';
 
+// ===============================================================
+// TicketLelo — Production Security Rules
+// ===============================================================
+// Assumed Data Models & Access Summary:
+// - users: Private user profile, role, phone, and payout details. Owner read/create/update (role protected), SuperAdmin all.
+// - organizations: Organizer collectives/organizations. Public read, members update, SuperAdmin delete.
+// - events: Public event listings. Managed by creator / assigned organiser / organization members / SuperAdmin.
+// - subEvents: Public schedule / track / workshop items. Managed by Organisers / SuperAdmin.
+// - combos: Public combo tickets and fest passes. Managed by Organisers / SuperAdmin.
+// - registrations: Client registration intake (restricted fields, pending status). Read by attendee / organiser / SuperAdmin.
+// - reservations: Ticket reservations / seat holds. SuperAdmin writes only.
+// - orders: Payment / ticketing orders. SuperAdmin writes only.
+// - tickets: Issued tickets with QR signatures. SuperAdmin writes only (Admin SDK).
+// - payments: Financial payment tracking records. SuperAdmin writes only.
+// - ambassadorPrograms: Campus ambassador campaigns. Public read, Organisers manage.
+// - ambassadors: Ambassador profile & tracking. Read by owner / organiser / SuperAdmin.
+// - commissions & ambassadorCommissions: Ambassador commissions ledger. Read by ambassador / organiser / SuperAdmin.
+// - payoutBatches: Payout batch approvals. Organisers and SuperAdmin.
+// - certificates: Verification metadata public; PII protected to recipient / organiser / SuperAdmin (DEF-022).
+// - merchandise: Creator store items. Public read, Organiser/SuperAdmin write.
+// - hostingRequests: Organiser applications. Public create, requester / organiser / SuperAdmin read.
+// - customForms: Registration custom forms. Public read, Organisers manage.
+// - coupons: Discount & promo codes. Public read, Organisers manage.
+// - messages & messageReceipts: Event notification messages & delivery receipts. Organisers manage.
+// - plans & planOrders: Pricing plans and subscriptions. SuperAdmin manage.
+// - analytics: Event analytics aggregates. Organiser / SuperAdmin read.
+// - supportTickets: Support inquiries. Organizer reads own, SuperAdmin reads/writes all.
+// - cancellationRequests: Event cancellation workflows. Organizer reads/creates own, SuperAdmin reads/writes all.
+// - siteSettings: Platform configuration. Public read for homepage, countdown, general. SuperAdmin writes all.
+// - Internal financial & server collections: settlements, connectedAccounts, counters, ledgerEntries,
+//   financialAuditLogs, offlineScanSyncs, paymentRefunds, paymentSplits, marketplaceCommissions,
+//   emailJobs, emailQuotaLedger, emailSuppression, scheduledJobs, webhookEvents, passwordResetCodes. SuperAdmin only.
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
@@ -42,12 +76,6 @@ service cloud.firestore {
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true
         ))
       );
-    }
-
-    function isAmbassador() {
-      return isAuthenticated() &&
-             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == "ambassador");
     }
 
     function isOwner(userId) {
@@ -258,6 +286,12 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    match /ambassadorCommissions/{commissionId} {
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid == resource.data.get('ambassadorId', '') || isOrganiser() || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
     match /payoutBatches/{batchId} {
       allow read, write: if isOrganiser() || isSuperAdmin();
     }
@@ -328,10 +362,154 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isSuperAdmin();
     }
+
+    match /planOrders/{orderId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
     
     match /analytics/{analyticsId} {
       allow read: if isOrganiser() || isSuperAdmin();
       allow write: if isSuperAdmin();
+    }
+
+    // ===== Support Tickets =====
+    match /supportTickets/{ticketId} {
+      // Organizers can read their own support tickets; Super Admin can read all
+      allow read: if isSuperAdmin() || (isAuthenticated() && (
+        resource.data.get('userId', '') == request.auth.uid ||
+        resource.data.get('organiserId', '') == request.auth.uid ||
+        resource.data.get('organizerId', '') == request.auth.uid ||
+        ('email' in request.auth.token && request.auth.token.email != null && (
+          resource.data.get('organizerEmail', '') == request.auth.token.email ||
+          resource.data.get('organizerEmail', '').lower() == request.auth.token.email.lower() ||
+          resource.data.get('email', '') == request.auth.token.email ||
+          resource.data.get('email', '').lower() == request.auth.token.email.lower()
+        ))
+      ));
+      
+      // Authenticated users/organizers can create tickets for themselves; Super Admin can create any
+      allow create: if isSuperAdmin() || (isAuthenticated() && (
+        request.resource.data.get('userId', '') == request.auth.uid ||
+        request.resource.data.get('organiserId', '') == request.auth.uid ||
+        request.resource.data.get('organizerId', '') == request.auth.uid ||
+        ('email' in request.auth.token && request.auth.token.email != null && (
+          request.resource.data.get('organizerEmail', '') == request.auth.token.email ||
+          request.resource.data.get('email', '') == request.auth.token.email
+        ))
+      ));
+      
+      // All other mutations reserved exclusively for Super Admin or backend Admin SDK
+      allow update, delete: if isSuperAdmin();
+
+      // Support Ticket Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isSuperAdmin() || (isAuthenticated() && (
+          get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.get('userId', '') == request.auth.uid ||
+          get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.get('organiserId', '') == request.auth.uid ||
+          get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.get('organizerId', '') == request.auth.uid ||
+          ('email' in request.auth.token && request.auth.token.email != null && (
+            get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.get('organizerEmail', '') == request.auth.token.email ||
+            get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.get('email', '') == request.auth.token.email
+          ))
+        ));
+        allow write: if isSuperAdmin();
+      }
+    }
+
+    // ===== Cancellation Requests =====
+    match /cancellationRequests/{requestId} {
+      // Organizers can read their own cancellation requests; Super Admin can read all
+      allow read: if isSuperAdmin() || (isAuthenticated() && (
+        resource.data.get('userId', '') == request.auth.uid ||
+        resource.data.get('organiserId', '') == request.auth.uid ||
+        resource.data.get('organizerId', '') == request.auth.uid ||
+        ('email' in request.auth.token && request.auth.token.email != null && (
+          resource.data.get('organizerEmail', '') == request.auth.token.email ||
+          resource.data.get('organizerEmail', '').lower() == request.auth.token.email.lower() ||
+          resource.data.get('email', '') == request.auth.token.email ||
+          resource.data.get('email', '').lower() == request.auth.token.email.lower()
+        ))
+      ));
+
+      // Organizers can submit cancellation requests for their events
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() ||
+        isOrganiser() ||
+        request.resource.data.get('userId', '') == request.auth.uid ||
+        request.resource.data.get('organiserId', '') == request.auth.uid ||
+        request.resource.data.get('organizerId', '') == request.auth.uid ||
+        ('email' in request.auth.token && request.auth.token.email != null && (
+          request.resource.data.get('organizerEmail', '') == request.auth.token.email ||
+          request.resource.data.get('email', '') == request.auth.token.email
+        ))
+      );
+
+      // Status decisions and resolutions restricted to Super Admin
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // ===== Site Settings =====
+    match /siteSettings/{settingId} {
+      // Public read for published site settings (homepage, countdown, general)
+      allow read: if (settingId in ['homepage', 'countdown', 'general']) || isSuperAdmin();
+      // Settings updates restricted strictly to Super Admin
+      allow write: if isSuperAdmin();
+    }
+
+    // ===== Event Publications Record =====
+    match /eventPublications/{pubId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    // ===== Internal / Financial Ledger / Server Collections =====
+    // Restricted strictly to SuperAdmin; Admin SDK handles server operations.
+    // Client access is blocked to preserve financial immutability and security.
+    match /settlements/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /connectedAccounts/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /counters/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /ledgerEntries/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /financialAuditLogs/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /offlineScanSyncs/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /paymentRefunds/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /paymentSplits/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /marketplaceCommissions/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /emailJobs/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /emailQuotaLedger/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /emailSuppression/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /scheduledJobs/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /webhookEvents/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
+    match /passwordResetCodes/{docId} {
+      allow read, write: if isSuperAdmin();
     }
   }
 }

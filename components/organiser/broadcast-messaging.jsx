@@ -17,6 +17,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 const STATUS_BADGES = {
   draft: {
@@ -440,16 +442,31 @@ function MessageCard({ message, onRetry }) {
 }
 
 export default function BroadcastMessaging({ eventId, userId, eventName }) {
-  const [messages, setMessages] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Instant 0ms cache-first hydration
+  const [messages, setMessages] = useState(() => {
+    if (typeof window !== "undefined" && eventId) {
+      try {
+        return getCachedItem(`broadcast_messages_${eventId}`)?.messages || [];
+      } catch {}
+    }
+    return [];
+  });
+  const [stats, setStats] = useState(() => {
+    if (typeof window !== "undefined" && eventId) {
+      try {
+        return getCachedItem(`broadcast_messages_${eventId}`)?.stats || null;
+      } catch {}
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => messages.length === 0);
   const [error, setError] = useState("");
   const [showCompose, setShowCompose] = useState(false);
   const [filter, setFilter] = useState("all");
 
   const fetchMessages = useCallback(async () => {
     if (!eventId) return;
-    setLoading(true);
+    if (messages.length === 0) setLoading(true);
     setError("");
     try {
       const res = await fetch(`/api/messages/${eventId}`);
@@ -457,12 +474,17 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
       if (!data.success) throw new Error(data.error);
       setMessages(data.messages || []);
       setStats(data.stats);
+      setCachedItem(
+        `broadcast_messages_${eventId}`,
+        { messages: data.messages || [], stats: data.stats },
+        5 * 60 * 1000
+      );
     } catch (err) {
       setError(err.message || "Failed to load messages");
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, messages.length]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -562,9 +584,21 @@ export default function BroadcastMessaging({ eventId, userId, eventName }) {
       </div>
 
       {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[50vh] w-full">
-          <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[50vh]" />
+      {loading && messages.length === 0 ? (
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-48 rounded-md" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-4 w-3/4 rounded-md" />
+              <div className="flex items-center gap-4 pt-2">
+                <Skeleton className="h-3 w-28 rounded-md" />
+                <Skeleton className="h-3 w-24 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">

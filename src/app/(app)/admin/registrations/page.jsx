@@ -34,6 +34,15 @@ import * as XLSX from "xlsx";
 import { GuestDetailsModal } from "@/components/admin/guest-details-modal";
 import { WebScannerModal } from "@/components/admin/web-scanner-modal";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { RegistrationsSkeleton } from "@/components/ui/skeleton";
+import {
+  getCachedOrganiserEvents,
+  setCachedOrganiserEvents,
+  getCachedEvent,
+  setCachedEvent,
+  getCachedRegistrations,
+  setCachedRegistrations,
+} from "@/lib/client-cache";
 
 function formatRelativeTime(ts) {
   if (!ts) return "recently";
@@ -86,11 +95,54 @@ export default function RegistrationsGuestsPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
-  const [event, setEvent] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialEventId = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const p = searchParams.get("eventId");
+      if (p) return p;
+      return localStorage.getItem("admin_selected_event_id") || "";
+    } catch {
+      return "";
+    }
+  }, [searchParams]);
+
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const uId = user?.uid || user?.id;
+        const cached = getCachedOrganiserEvents(uId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId);
+
+  const [event, setEvent] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const idToCheck = initialEventId;
+        if (idToCheck) {
+          const cached = getCachedEvent(idToCheck);
+          if (cached) return cached;
+        }
+      } catch {}
+    }
+    return null;
+  });
+
+  const [registrations, setRegistrations] = useState(() => {
+    if (typeof window !== "undefined" && initialEventId) {
+      try {
+        const cached = getCachedRegistrations(initialEventId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [loading, setLoading] = useState(() => !event);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -140,6 +192,9 @@ export default function RegistrationsGuestsPage() {
           }
         }
         setEvents(uniqueList);
+        if (userId) {
+          setCachedOrganiserEvents(userId, uniqueList);
+        }
 
         let initialId = "";
 
@@ -165,6 +220,7 @@ export default function RegistrationsGuestsPage() {
           const matched = uniqueList.find((e) => e.id === initialId) || uniqueList[0] || null;
           if (matched) {
             setEvent(matched);
+            setCachedEvent(matched.id, matched);
           }
         }
       } catch (err) {
@@ -187,7 +243,10 @@ export default function RegistrationsGuestsPage() {
       return () => clearTimeout(timer);
     }
     const unsub = subscribeToEvent(selectedEventId, (ev) => {
-      if (ev) setEvent(ev);
+      if (ev) {
+        setEvent(ev);
+        setCachedEvent(ev.id, ev);
+      }
     });
     return () => {
       if (typeof unsub === "function") unsub();
@@ -207,6 +266,7 @@ export default function RegistrationsGuestsPage() {
         return timeB - timeA;
       });
       setRegistrations(sorted);
+      setCachedRegistrations(selectedEventId, sorted);
     });
     return () => {
       if (typeof unsub === "function") unsub();
@@ -220,6 +280,8 @@ export default function RegistrationsGuestsPage() {
   const digits = String(rawCap || "").replace(/[^\d]/g, "");
   const parsedCap = digits ? parseInt(digits, 10) : 150;
   const totalCapacity = !isUnlimited && Number.isFinite(parsedCap) && parsedCap > 0 ? parsedCap : 150;
+  const isCancelled = Boolean(event?.isCancelled || event?.status === "cancelled");
+  const isCancellationPending = Boolean(event?.cancellationRequest?.status === "pending");
 
   const checkedInCount = useMemo(() => {
     return registrations.filter(
@@ -324,7 +386,7 @@ export default function RegistrationsGuestsPage() {
   };
 
   if (loading && !event) {
-    return <BrandLoader message="Loading..." fullScreen />;
+    return <RegistrationsSkeleton />;
   }
 
   return (
@@ -335,6 +397,8 @@ export default function RegistrationsGuestsPage() {
         eventTitle={event?.name || "Event Guests"}
         eventSlug={event?.slug || event?.id}
         isLive={event?.status === "live" || event?.isActive}
+        isCancelled={isCancelled}
+        isCancellationPending={isCancellationPending}
       />
 
       {/* ── At a Glance Section with Real Database Counts ── */}
@@ -389,38 +453,63 @@ export default function RegistrationsGuestsPage() {
       {/* ── 3 Action Cards matching Image 3 with glowing hover effects ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-8">
         {/* Invite Guests */}
-        <Link
-          href={`/admin/overview?eventId=${event?.id || ""}`}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#2B59FF]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm hover:shadow-[0_0_28px_rgba(43,89,255,0.4)] hover:scale-[1.01] group cursor-pointer"
-        >
-          <div className="w-11 h-11 rounded-2xl bg-[#2B59FF] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
-            <Mail size={19} className="text-white fill-white/20" />
+        {isCancelled ? (
+          <div
+            className="bg-[#1A1C1F]/60 border border-[#2A2D31] rounded-2xl p-4 flex items-center gap-3.5 opacity-60 cursor-not-allowed"
+            title="Invitations closed for cancelled event"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-[#212327] flex items-center justify-center text-[#9B9EA4] shrink-0">
+              <Mail size={19} />
+            </div>
+            <div>
+              <span className="text-sm font-bold text-[#9B9EA4] block">
+                Invitations Closed
+              </span>
+              <span className="text-[11px] text-[#9B9EA4]/70">Event is cancelled</span>
+            </div>
           </div>
-          <div>
-            <span className="text-sm font-bold text-white group-hover:text-[#2B59FF] transition-colors block">
-              Invite Guests
-            </span>
-            <span className="text-[11px] text-[#9B9EA4]">Share link or email</span>
-          </div>
-        </Link>
+        ) : (
+          <Link
+            href={`/admin/overview?eventId=${event?.id || ""}`}
+            className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#2B59FF]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm hover:shadow-[0_0_28px_rgba(43,89,255,0.4)] hover:scale-[1.01] group cursor-pointer"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-[#2B59FF] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
+              <Mail size={19} className="text-white fill-white/20" />
+            </div>
+            <div>
+              <span className="text-sm font-bold text-white group-hover:text-[#2B59FF] transition-colors block">
+                Invite Guests
+              </span>
+              <span className="text-[11px] text-[#9B9EA4]">Share link or email</span>
+            </div>
+          </Link>
+        )}
 
         {/* Check In Guests - Opens Web Scanner */}
         <button
           type="button"
+          disabled={isCancelled}
           onClick={() => {
+            if (isCancelled) return;
             setTargetScannerGuest(null);
             setShowScannerModal(true);
           }}
-          className="bg-[#1A1C1F] hover:bg-[#212327] border border-[#2A2D31] hover:border-[#22C55E]/50 rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm hover:shadow-[0_0_28px_rgba(34,197,94,0.4)] hover:scale-[1.01] group text-left cursor-pointer"
+          className={`border rounded-2xl p-4 flex items-center gap-3.5 transition-all shadow-sm text-left ${
+            isCancelled
+              ? "bg-[#1A1C1F]/60 border-[#2A2D31] cursor-not-allowed opacity-60"
+              : "bg-[#1A1C1F] hover:bg-[#212327] border-[#2A2D31] hover:border-[#22C55E]/50 hover:shadow-[0_0_28px_rgba(34,197,94,0.4)] hover:scale-[1.01] group cursor-pointer"
+          }`}
         >
-          <div className="w-11 h-11 rounded-2xl bg-[#22C55E] flex items-center justify-center text-white shrink-0 shadow-md group-hover:scale-105 transition-transform">
-            <QrCode size={19} className="text-white" />
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
+            isCancelled ? "bg-[#212327] text-[#9B9EA4]" : "bg-[#22C55E] text-white group-hover:scale-105 transition-transform"
+          }`}>
+            <QrCode size={19} />
           </div>
           <div>
-            <span className="text-sm font-bold text-white group-hover:text-[#22C55E] transition-colors block">
-              Check In Guests
+            <span className={`text-sm font-bold block ${isCancelled ? "text-[#9B9EA4]" : "text-white group-hover:text-[#22C55E] transition-colors"}`}>
+              {isCancelled ? "Check-In Disabled" : "Check In Guests"}
             </span>
-            <span className="text-[11px] text-[#9B9EA4]">Web &amp; mobile camera</span>
+            <span className="text-[11px] text-[#9B9EA4]">{isCancelled ? "Event cancelled" : "Web & mobile camera"}</span>
           </div>
         </button>
 
@@ -445,13 +534,15 @@ export default function RegistrationsGuestsPage() {
 
           {/* Quick Header Actions matching Image 3 (UserPlus, Columns, Download) */}
           <div className="flex items-center gap-1.5 text-[#9B9EA4]">
-            <Link
-              href={`/admin/overview?eventId=${event?.id || ""}`}
-              className="p-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors"
-              title="Invite or Add Guest"
-            >
-              <UserPlus size={16} />
-            </Link>
+            {!isCancelled && (
+              <Link
+                href={`/admin/overview?eventId=${event?.id || ""}`}
+                className="p-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors"
+                title="Invite or Add Guest"
+              >
+                <UserPlus size={16} />
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => toast.info("Displaying full column view")}
@@ -616,54 +707,61 @@ export default function RegistrationsGuestsPage() {
                         Declined
                       </span>
                     ) : isPending ? (
-                      <div className="flex items-center gap-2.5">
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              setRegistrations((prev) =>
-                                prev.map((g) =>
-                                  g.id === guest.id
-                                    ? { ...g, status: "Going", approvalStatus: "approved" }
-                                    : g
-                                )
-                              );
-                              await approveRegistration(guest.id);
-                              toast.success(`${guestName} approved!`);
-                            } catch (err) {
-                              toast.error("Failed to approve guest");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#3DD68C] hover:text-[#52e89f] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#3DD68C]/10"
-                        >
-                          <Check size={13} strokeWidth={2.5} />
-                          <span>Approve</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              setRegistrations((prev) =>
-                                prev.map((g) =>
-                                  g.id === guest.id
-                                    ? { ...g, status: "declined", approvalStatus: "declined" }
-                                    : g
-                                )
-                              );
-                              await declineRegistration(guest.id);
-                              toast.error(`${guestName} declined`);
-                            } catch (err) {
-                              toast.error("Failed to decline guest");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#EF4444] hover:text-[#f87171] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#EF4444]/10"
-                        >
-                          <X size={13} strokeWidth={2.5} />
-                          <span>Decline</span>
-                        </button>
-                      </div>
+                      isCancelled ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          Pending (Locked)
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                setRegistrations((prev) =>
+                                  prev.map((g) =>
+                                    g.id === guest.id
+                                      ? { ...g, status: "Going", approvalStatus: "approved" }
+                                      : g
+                                  )
+                                );
+                                await approveRegistration(guest.id);
+                                toast.success(`${guestName} approved!`);
+                              } catch (err) {
+                                toast.error("Failed to approve guest");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#3DD68C] hover:text-[#52e89f] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#3DD68C]/10"
+                          >
+                            <Check size={13} strokeWidth={2.5} />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                setRegistrations((prev) =>
+                                  prev.map((g) =>
+                                    g.id === guest.id
+                                      ? { ...g, status: "declined", approvalStatus: "declined" }
+                                      : g
+                                  )
+                                );
+                                await declineRegistration(guest.id);
+                                toast.error(`${guestName} declined`);
+                              } catch (err) {
+                                toast.error("Failed to decline guest");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#EF4444] hover:text-[#f87171] transition-colors cursor-pointer py-1 px-1.5 rounded-md hover:bg-[#EF4444]/10"
+                          >
+                            <X size={13} strokeWidth={2.5} />
+                            <span>Decline</span>
+                          </button>
+                        </div>
+                      )
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#183124] text-[#3DD68C] border border-[#3DD68C]/30 text-[11px] font-semibold">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
@@ -674,13 +772,22 @@ export default function RegistrationsGuestsPage() {
                     {/* Quick Identity Verify Button */}
                     <button
                       type="button"
+                      disabled={isCancelled}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isCancelled) {
+                          toast.info("Check-in is disabled because this event is cancelled.");
+                          return;
+                        }
                         setTargetScannerGuest(guest);
                         setShowScannerModal(true);
                       }}
-                      className="p-1.5 rounded-lg bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-[#3DD68C] transition-colors cursor-pointer"
-                      title="Verify identity & check in"
+                      className={`p-1.5 rounded-lg border transition-colors ${
+                        isCancelled
+                          ? "bg-[#212327]/60 border-[#2A2D31] text-[#9B9EA4] opacity-50 cursor-not-allowed"
+                          : "bg-[#212327] hover:bg-[#2A2D31] border-[#2A2D31] text-[#3DD68C] cursor-pointer"
+                      }`}
+                      title={isCancelled ? "Check-in disabled (event cancelled)" : "Verify identity & check in"}
                     >
                       <QrCode size={13} />
                     </button>

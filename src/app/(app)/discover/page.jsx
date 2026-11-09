@@ -42,6 +42,8 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { formatEventDate, getEventLiveStatus } from "@/lib/date-utils";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 
 // Category definitions with icons and matching tag filters
@@ -101,9 +103,17 @@ const PROCEDURAL_PALETTES = [
 export default function DiscoverEventsPage() {
   const { user, loading: authLoading } = useAuth();
 
-  // State
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // State with instant 0ms cache-first hydration
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedItem("discover_events");
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => events.length === 0);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("date-asc");
@@ -161,7 +171,9 @@ export default function DiscoverEventsPage() {
           const data = await res.json();
           const list = data.events || (Array.isArray(data) ? data : []);
           if (isMounted && Array.isArray(list)) {
-            setEvents(deduplicateEvents(list));
+            const deduped = deduplicateEvents(list);
+            setEvents(deduped);
+            setCachedItem("discover_events", deduped, 15 * 60 * 1000);
             setIsLoading(false);
           }
         }
@@ -265,7 +277,9 @@ export default function DiscoverEventsPage() {
                 };
               });
 
-            setEvents(deduplicateEvents(liveEvents));
+            const dedupedLive = deduplicateEvents(liveEvents);
+            setEvents(dedupedLive);
+            setCachedItem("discover_events", dedupedLive, 15 * 60 * 1000);
             setIsLoading(false);
           },
           (err) => {
@@ -779,9 +793,23 @@ export default function DiscoverEventsPage() {
 
       {/* ── Main Events Grid in "Div Format" ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-        {isLoading ? (
-          <div className="w-full min-h-[55vh] flex items-center justify-center">
-            <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[55vh]" />
+        {isLoading && events.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4 animate-fade-in">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm space-y-3 pb-4"
+              >
+                <div className="w-full h-44 bg-slate-100 dark:bg-[#131517]">
+                  <Skeleton className="w-full h-full rounded-none" />
+                </div>
+                <div className="px-4 space-y-2">
+                  <Skeleton className="h-3.5 w-28 rounded-md" />
+                  <Skeleton className="h-5 w-3/4 rounded-lg" />
+                  <Skeleton className="h-3 w-1/2 rounded-md" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : sortedEvents.length === 0 ? (
           /* Empty Search State */

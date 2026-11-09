@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { StyledDropdown } from "@/components/ui/styled-dropdown";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { SuperAdminTableSkeleton } from "@/components/ui/skeleton";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 import {
   Loader2,
   Check,
@@ -98,8 +100,17 @@ function formatFullRequestDate(ts) {
 }
 
 export function HostingRequestManagement() {
-  const [requests, setRequests] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Synchronous cache hydration for instant display
+  const [requests, setRequests] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedItem("superadmin_hosting_requests");
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [isLoading, setIsLoading] = useState(() => requests.length === 0);
   const [processingId, setProcessingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'pending' | 'approved' | 'rejected'
@@ -179,6 +190,7 @@ export function HostingRequestManagement() {
         }
 
         setRequests(safeRequests);
+        setCachedItem("superadmin_hosting_requests", safeRequests, 10 * 60 * 1000);
         setIsLoading(false);
         setIsLiveConnected(true);
       },
@@ -541,12 +553,8 @@ export function HostingRequestManagement() {
     setRejectModalOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[65vh] w-full">
-        <BrandLoader message="Loading..." fullScreen={false} minHeight="min-h-[65vh]" />
-      </div>
-    );
+  if (isLoading && requests.length === 0) {
+    return <SuperAdminTableSkeleton />;
   }
 
   return (

@@ -35,6 +35,8 @@ import { getPublicBaseUrl, getCleanDomain } from "@/lib/app-url";
 import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { MoreSettingsSkeleton } from "@/components/ui/skeleton";
+import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
 
 const TIME_OPTIONS = [
   "12:00 AM", "12:30 AM", "01:00 AM", "01:30 AM", "02:00 AM", "02:30 AM",
@@ -50,15 +52,43 @@ const TIME_OPTIONS = [
 export default function MoreEventSettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeEventId, setActiveEventId] = useState(null);
-  const [currentEvent, setCurrentEvent] = useState(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
+
+  // Instant 0ms cache-first hydration
+  const initialEventId = searchParams?.get("eventId") || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
+  const [activeEventId, setActiveEventId] = useState(initialEventId);
+  const [currentEvent, setCurrentEvent] = useState(() => {
+    if (initialEventId) {
+      try {
+        const cached = getCachedEvent(initialEventId);
+        if (cached) return cached;
+      } catch {}
+    }
+    return null;
+  });
+  const [loadingEvent, setLoadingEvent] = useState(() => !currentEvent);
 
   const isPaidEvent = Boolean(
     currentEvent?.isPaid ||
+      currentEvent?.pricingType === "paid" ||
+      currentEvent?.ticketPricingType === "paid" ||
       (currentEvent?.price &&
         String(currentEvent.price).toLowerCase() !== "free" &&
-        Number(String(currentEvent.price).replace(/[^\d.]/g, "")) > 0)
+        Number(String(currentEvent.price).replace(/[^\d.]/g, "")) > 0) ||
+      (currentEvent?.ticketPrice &&
+        Number(String(currentEvent.ticketPrice).replace(/[^\d.]/g, "")) > 0) ||
+      (currentEvent?.amount &&
+        Number(String(currentEvent.amount).replace(/[^\d.]/g, "")) > 0) ||
+      (Array.isArray(currentEvent?.ticketTypes) &&
+        currentEvent.ticketTypes.some((t) => Number(t?.price || 0) > 0)) ||
+      (Array.isArray(currentEvent?.tiers) &&
+        currentEvent.tiers.some((t) => Number(t?.price || 0) > 0))
+  );
+
+  const isCancelled = Boolean(
+    currentEvent?.isCancelled || currentEvent?.status === "cancelled"
+  );
+  const isCancellationPending = Boolean(
+    currentEvent?.cancellationRequest?.status === "pending"
   );
 
   const [copied, setCopied] = useState(false);
@@ -124,7 +154,9 @@ export default function MoreEventSettingsPage() {
     }
 
     setActiveEventId(eventId);
-    setLoadingEvent(true);
+    if (!currentEvent) {
+      setLoadingEvent(true);
+    }
 
     let isFirstLoad = true;
     let unsub = null;
@@ -137,6 +169,7 @@ export default function MoreEventSettingsPage() {
             if (snap.exists()) {
               const ev = { id: snap.id, ...snap.data() };
               setCurrentEvent(ev);
+              setCachedEvent(eventId, ev);
 
               if (isFirstLoad) {
                 isFirstLoad = false;
@@ -220,7 +253,10 @@ export default function MoreEventSettingsPage() {
       console.warn("Could not bind real-time event listener:", err);
       getEvent(eventId)
         .then((ev) => {
-          if (ev) setCurrentEvent(ev);
+          if (ev) {
+            setCurrentEvent(ev);
+            setCachedEvent(eventId, ev);
+          }
         })
         .finally(() => setLoadingEvent(false));
     }
@@ -623,6 +659,14 @@ export default function MoreEventSettingsPage() {
   // Cancel Event Handler
   const handleConfirmCancelEvent = async () => {
     if (!activeEventId) return;
+
+    // Safety guard: if this is a paid event, it MUST follow the Super Admin approval flow!
+    if (isPaidEvent) {
+      setShowCancelModal(false);
+      setShowCancellationTicketModal(true);
+      return;
+    }
+
     setIsCancelling(true);
     try {
       const updates = {
@@ -639,9 +683,15 @@ export default function MoreEventSettingsPage() {
       setCurrentEvent((prev) => ({ ...prev, ...updates }));
       setShowCancelModal(false);
       toast.success("Event has been cancelled. Registrations are completely closed.");
+
+      // Stop all operations and redirect immediately to the events dashboard (view-only mode)
+      setTimeout(() => {
+        router.push("/admin/dashboard");
+      }, 250);
     } catch (err) {
       console.error("Failed to cancel event:", err);
       toast.error("Failed to cancel event");
+      setShowCancelModal(false);
     } finally {
       setIsCancelling(false);
     }
@@ -704,9 +754,14 @@ export default function MoreEventSettingsPage() {
         },
       }));
 
-      toast.success("Cancellation ticket submitted to Super Admin! You will be notified upon review.");
       setShowCancellationTicketModal(false);
       setCancellationReason("");
+      toast.success("Cancellation ticket submitted to Super Admin for approval!");
+
+      // Stop all operations and redirect immediately to the events dashboard
+      setTimeout(() => {
+        router.push("/admin/dashboard");
+      }, 250);
     } catch (err) {
       console.error("Failed to submit cancellation ticket:", err);
       toast.error(err.message || "Failed to submit cancellation ticket");
@@ -732,13 +787,8 @@ export default function MoreEventSettingsPage() {
     }
   };
 
-  if (loadingEvent) {
-    return (
-      <BrandLoader
-        message="Loading..."
-        fullScreen
-      />
-    );
+  if (loadingEvent && !currentEvent) {
+    return <MoreSettingsSkeleton />;
   }
 
   return (
@@ -749,8 +799,36 @@ export default function MoreEventSettingsPage() {
         eventTitle={currentEvent?.name || currentEvent?.title || "Event Settings"}
         eventSlug={customSlug}
         eventId={activeEventId}
-        isLive={isPublished && !currentEvent?.isCancelled}
+        isLive={isPublished && !isCancelled}
+        isCancelled={isCancelled}
+        isCancellationPending={isCancellationPending}
       />
+
+      {/* ── Cancelled Event Notice (View-Only Mode) ── */}
+      {isCancelled && (
+        <div className="mb-7 p-4 sm:p-5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500 shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-rose-400">
+                This event is Cancelled — View-Only Mode
+              </h4>
+              <p className="text-xs text-rose-200/80 mt-0.5 leading-relaxed">
+                All ticket registrations are closed and operations are stopped. Settings cannot be edited or updated.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/admin/dashboard")}
+            className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-bold text-white border border-[#2A2D31] transition-colors shrink-0 cursor-pointer"
+          >
+            ← Back to Events
+          </button>
+        </div>
+      )}
 
       {/* ── 1. Public link Section ── */}
       <div className="mb-7">
@@ -1249,10 +1327,15 @@ export default function MoreEventSettingsPage() {
             </div>
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => setShowPostponeModal(true)}
-              className="w-full py-2 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold transition-colors cursor-pointer"
+              className={`w-full py-2 px-3 rounded-xl border text-xs font-bold transition-colors ${
+                isCancelled
+                  ? "bg-slate-100 dark:bg-[#212327] border-slate-300 dark:border-[#2A2D31] text-slate-400 dark:text-[#64748B] cursor-not-allowed"
+                  : "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-600 dark:text-amber-400 cursor-pointer"
+              }`}
             >
-              Postpone event
+              {isCancelled ? "Postpone Disabled (Cancelled)" : "Postpone event"}
             </button>
           </div>
 
@@ -1268,39 +1351,41 @@ export default function MoreEventSettingsPage() {
               {isPaidEvent ? (
                 <div>
                   <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase tracking-wider mb-2">
-                    Paid Event (Ticketed)
+                    Paid Event (Super Admin Approval)
                   </div>
                   <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
-                    {currentEvent?.isCancelled
-                      ? "This event has been cancelled with Super Admin approval."
-                      : currentEvent?.cancellationRequest?.status === "pending"
-                      ? `Cancellation ticket under review by Super Admin (${currentEvent.cancellationRequest.reason}).`
-                      : "Paid events require Super Admin approval. Submit a cancellation ticket with a valid reason to Super Admin."}
+                    {isCancelled
+                      ? "This event has been cancelled with Super Admin authorization."
+                      : isCancellationPending
+                      ? `Cancellation ticket under review by Super Admin (${currentEvent?.cancellationRequest?.reason || "Pending"}).`
+                      : "Paid events require Super Admin authorization to protect attendee ticket purchases and refunds."}
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-[#64748B] dark:text-[#9B9EA4] leading-relaxed mb-4">
-                  Marks event as cancelled and immediately closes all registration. No further registrations will be entertained.
+                  {isCancelled
+                    ? "This event is cancelled. Registrations are permanently closed."
+                    : "Marks event as cancelled and immediately closes all registration. Event enters View-Only Mode."}
                 </p>
               )}
             </div>
 
-            {isPaidEvent ? (
-              currentEvent?.isCancelled ? (
+            {isCancelled ? (
+              <button
+                type="button"
+                disabled
+                className="w-full py-2 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-bold cursor-not-allowed opacity-80"
+              >
+                Event Cancelled (Locked)
+              </button>
+            ) : isPaidEvent ? (
+              isCancellationPending ? (
                 <button
                   type="button"
                   disabled
-                  className="w-full py-2 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs font-bold cursor-not-allowed opacity-80"
+                  className="w-full py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold cursor-not-allowed animate-pulse"
                 >
-                  Event Cancelled (Approved)
-                </button>
-              ) : currentEvent?.cancellationRequest?.status === "pending" ? (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold cursor-not-allowed"
-                >
-                  Ticket Under Review
+                  Cancellation Ticket Under Review
                 </button>
               ) : (
                 <button
@@ -1308,7 +1393,7 @@ export default function MoreEventSettingsPage() {
                   onClick={() => setShowCancellationTicketModal(true)}
                   className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Raise cancellation ticket
+                  Raise cancellation ticket (Super Admin)
                 </button>
               )
             ) : (
@@ -1317,7 +1402,7 @@ export default function MoreEventSettingsPage() {
                 onClick={() => setShowCancelModal(true)}
                 className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
               >
-                {currentEvent?.isCancelled ? "Event Cancelled" : "Cancel event"}
+                Cancel event
               </button>
             )}
           </div>
@@ -1565,7 +1650,7 @@ export default function MoreEventSettingsPage() {
       )}
 
       {/* ══════════════════════════════════════════════════
-          MODAL: CANCEL EVENT (FREE EVENT)
+          MODAL: CANCEL EVENT
           ══════════════════════════════════════════════════ */}
       {showCancelModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1578,32 +1663,67 @@ export default function MoreEventSettingsPage() {
               <X size={16} />
             </button>
 
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
-              <AlertTriangle size={24} />
-            </div>
+            {isPaidEvent ? (
+              <>
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500">
+                  <ShieldAlert size={24} />
+                </div>
 
-            <h3 className="text-lg font-bold text-white tracking-tight">Cancel this event?</h3>
-            <p className="text-xs text-[#9B9EA4] leading-relaxed">
-              Cancelling will immediately disable and close registrations on the public event page and embed widgets. A prominent &ldquo;Event Cancelled&rdquo; banner will be displayed to all visitors.
-            </p>
+                <h3 className="text-lg font-bold text-white tracking-tight">Super Admin Approval Required</h3>
+                <p className="text-xs text-[#9B9EA4] leading-relaxed">
+                  This is a paid event with attendee financial transactions. To ensure refund compliance and settlement holds are properly processed, paid event cancellation requires Super Admin authorization.
+                </p>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
-              >
-                Keep Event Active
-              </button>
-              <button
-                type="button"
-                disabled={isCancelling}
-                onClick={handleConfirmCancelEvent}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
-              >
-                {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
-              </button>
-            </div>
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelModal(false)}
+                    className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                  >
+                    Keep Event Active
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCancelModal(false);
+                      setShowCancellationTicketModal(true);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Request Super Admin Approval →</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
+                  <AlertTriangle size={24} />
+                </div>
+
+                <h3 className="text-lg font-bold text-white tracking-tight">Cancel this free event?</h3>
+                <p className="text-xs text-[#9B9EA4] leading-relaxed">
+                  Cancelling will immediately stop all operations, close registrations on the public event page, and place this event into View-Only Mode. You will be redirected to the events list.
+                </p>
+
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelModal(false)}
+                    className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                  >
+                    Keep Event Active
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isCancelling}
+                    onClick={handleConfirmCancelEvent}
+                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

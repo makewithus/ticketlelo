@@ -2,6 +2,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { NextResponse } from "next/server";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
+import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
 
 // POST /api/events/publish  — publish event and generate shareable link
 export async function POST(req) {
@@ -27,6 +28,20 @@ export async function POST(req) {
 
     if (!await canManageEventId(caller, eventId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // Gatekeeper: If paid event, verify organizer's payment account eligibility
+    const isPaidEvent = Boolean(event.isPaid) || Number(event.ticketPrice || event.price || 0) > 0;
+    if (isPaidEvent) {
+      const orgId = String(event.organizerId || event.creatorId || event.userId || caller.uid);
+      const eligibility = await checkOrganizerEligibilityForPaidEvents(orgId);
+      if (!eligibility.eligible && process.env.RAZORPAY_ROUTE_ENABLED === "true") {
+        return NextResponse.json({
+          error: "To publish a paid event, please connect and verify your Razorpay payment account in Payment Settings first.",
+          requiresPaymentSetup: true,
+          reason: eligibility.reason,
+        }, { status: 403 });
+      }
     }
 
     // Build slug: use existing or derive from event name

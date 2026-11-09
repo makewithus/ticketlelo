@@ -15,6 +15,7 @@ import {
   Check,
   ChevronDown,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { parseQRData } from "@/lib/qr";
@@ -707,6 +708,8 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
     return gateStations.find((s) => s.id === selectedStation)?.label || "Main Festival Gate";
   }, [gateStations, selectedStation]);
 
+  const isCancelled = Boolean(currentEvent?.isCancelled || currentEvent?.status === "cancelled");
+
   return (
     <div className="w-full text-white selection:bg-[#FE760B] selection:text-white pb-10">
       {/* ── Standard Navigation Header with Live Event Switcher ── */}
@@ -715,7 +718,8 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
         eventTitle={currentEvent?.name || "Tech Fest 2026"}
         eventSlug={currentEvent?.slug || currentEvent?.id || "tech-fest-2026"}
         eventId={selectedEventId}
-        isLive={currentEvent?.isLive !== false}
+        isLive={currentEvent?.isLive !== false && !isCancelled}
+        isCancelled={isCancelled}
         extraActions={
           <div className="flex items-center gap-2">
             {events.length > 1 && (
@@ -773,8 +777,23 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
         }
       />
 
+      {/* ── Cancelled Event Guard Banner ── */}
+      {isCancelled && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-200 flex items-start gap-3 max-w-5xl mx-auto">
+          <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <h4 className="text-sm font-bold text-rose-400">
+              Check-In Disabled (Event Cancelled)
+            </h4>
+            <p className="text-xs text-rose-200/80 leading-relaxed">
+              This event is cancelled. QR ticket validation, gate scanning, and attendee check-in are permanently stopped. Attendee lists remain visible below in View-Only Mode.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── 3. Main Two-Column Layout strictly matching Image 1 ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-5xl mx-auto w-full">
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-5xl mx-auto w-full ${isCancelled ? 'opacity-60 pointer-events-none select-none' : ''}`}>
         {/* ── Left Column: QR Viewfinder & Controls ── */}
         <div className="w-full flex flex-col items-center">
           {/* Camera / Manual Entry Mode Toggle matching Image 1 */}

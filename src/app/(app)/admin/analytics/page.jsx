@@ -15,6 +15,15 @@ import {
 } from "lucide-react";
 import { EventControlHeader } from "@/components/admin/event-control-header";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { AnalyticsSkeleton } from "@/components/ui/skeleton";
+import {
+  getCachedOrganiserEvents,
+  setCachedOrganiserEvents,
+  getCachedEvent,
+  setCachedEvent,
+  getCachedRegistrations,
+  setCachedRegistrations,
+} from "@/lib/client-cache";
 import { useAuth } from "@/context/auth-context";
 import {
   getEventsByOrganiser,
@@ -74,11 +83,54 @@ export default function AnalyticsInsightsPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
-  const [event, setEvent] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialEventId = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const p = searchParams.get("eventId");
+      if (p) return p;
+      return localStorage.getItem("admin_selected_event_id") || "";
+    } catch {
+      return "";
+    }
+  }, [searchParams]);
+
+  const [events, setEvents] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const uId = user?.uid || user?.id;
+        const cached = getCachedOrganiserEvents(uId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [selectedEventId, setSelectedEventId] = useState(initialEventId);
+
+  const [event, setEvent] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const idToCheck = initialEventId;
+        if (idToCheck) {
+          const cached = getCachedEvent(idToCheck);
+          if (cached) return cached;
+        }
+      } catch {}
+    }
+    return null;
+  });
+
+  const [registrations, setRegistrations] = useState(() => {
+    if (typeof window !== "undefined" && initialEventId) {
+      try {
+        const cached = getCachedRegistrations(initialEventId);
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+
+  const [loading, setLoading] = useState(() => !event);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
 
   const [timeRange, setTimeRange] = useState("all"); // "7d" | "all"
@@ -125,6 +177,9 @@ export default function AnalyticsInsightsPage() {
           }
         }
         setEvents(uniqueList);
+        if (userId) {
+          setCachedOrganiserEvents(userId, uniqueList);
+        }
 
         let initialId = "";
 
@@ -150,6 +205,7 @@ export default function AnalyticsInsightsPage() {
           const matched = uniqueList.find((e) => e.id === initialId) || uniqueList[0] || null;
           if (matched) {
             setEvent(matched);
+            setCachedEvent(matched.id, matched);
           }
         }
       } catch (err) {
@@ -169,7 +225,10 @@ export default function AnalyticsInsightsPage() {
   useEffect(() => {
     if (!selectedEventId) return;
     const unsub = subscribeToEvent(selectedEventId, (ev) => {
-      if (ev) setEvent(ev);
+      if (ev) {
+        setEvent(ev);
+        setCachedEvent(ev.id, ev);
+      }
     });
     return () => {
       if (typeof unsub === "function") unsub();
@@ -190,6 +249,7 @@ export default function AnalyticsInsightsPage() {
         return timeB - timeA;
       });
       setRegistrations(sorted);
+      setCachedRegistrations(selectedEventId, sorted);
     });
     return () => {
       if (typeof unsub === "function") unsub();
@@ -403,7 +463,7 @@ export default function AnalyticsInsightsPage() {
   const isLive = Boolean(event?.isActive !== false);
 
   if (loading && !event) {
-    return <BrandLoader message="Loading..." fullScreen />;
+    return <AnalyticsSkeleton />;
   }
 
   return (
