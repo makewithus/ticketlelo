@@ -25,11 +25,24 @@ export async function POST(request) {
       return NextResponse.json({ error: "Sign in with the email address used for registration" }, { status: 403 });
     }
 
-    const eventRef = adminDb.collection("events").doc(eventId);
-    const [eventSnap, formSnap] = await Promise.all([
+    let eventRef = adminDb.collection("events").doc(eventId);
+    let [eventSnap, formSnap] = await Promise.all([
       eventRef.get(),
       adminDb.collection("customForms").where("eventId", "==", eventId).limit(1).get(),
     ]);
+    let actualEventId = eventId;
+    if (!eventSnap.exists) {
+      // Handle case where eventId passed is actually the event slug
+      const slugQuery = await adminDb.collection("events").where("slug", "==", eventId).limit(1).get();
+      if (!slugQuery.empty) {
+        eventSnap = slugQuery.docs[0];
+        actualEventId = eventSnap.id;
+        eventRef = adminDb.collection("events").doc(actualEventId);
+        if (formSnap.empty) {
+          formSnap = await adminDb.collection("customForms").where("eventId", "==", actualEventId).limit(1).get();
+        }
+      }
+    }
     if (!eventSnap.exists) return NextResponse.json({ error: "Event not found" }, { status: 404 });
     const event = eventSnap.data();
     if (event.status === "cancelled" || event.isCancelled) {
@@ -63,13 +76,32 @@ export async function POST(request) {
       if (!validation.isValid) return NextResponse.json({ error: "Form validation failed", fields: validation.errors }, { status: 400 });
     }
 
-    const identity = crypto.createHash("sha256").update(`${caller.uid}:${eventId}`).digest("hex");
+    const identity = crypto.createHash("sha256").update(`${caller.uid}:${actualEventId}`).digest("hex");
     const registrationRef = adminDb.collection("registrations").doc(identity);
     const ticketId = `TKT-${identity.slice(0, 28).toUpperCase()}`;
     const ticketRef = adminDb.collection("tickets").doc(ticketId);
-    const eventSlug = event.slug || eventId;
-    const qrPayload = generateSignedQRPayload({ eventSlug, ticketId, entitledSubEventIds: [] });
-    const qrCodeUrl = await generateQRCode(qrPayload);
+    const eventSlug = event.slug || actualEventId;
+
+    let qrPayload;
+    try {
+      qrPayload = generateSignedQRPayload({ eventSlug, ticketId, entitledSubEventIds: [] });
+    } catch (qrErr) {
+      console.warn("[register-free] QR payload signing fallback:", qrErr?.message);
+      qrPayload = ticketId;
+    }
+
+    let qrCodeUrl;
+    try {
+      qrCodeUrl = await generateQRCode(qrPayload);
+    } catch (qrCodeErr) {
+      console.warn("[register-free] QR code data URL generation fallback:", qrCodeErr?.message);
+      try {
+        qrCodeUrl = await generateQRCode(ticketId);
+      } catch {
+        qrCodeUrl = "";
+      }
+    }
+
     const fullName = String(formData.fullName || formData.name || caller.decodedToken?.name || "Attendee").trim().slice(0, 120);
     const phone = String(formData.whatsappPhone || formData.phone || "").trim().slice(0, 32);
     const now = Timestamp.now();
@@ -82,7 +114,7 @@ export async function POST(request) {
       if (existingRegistration.exists) {
         return { alreadyRegistered: true, ticketId: existingRegistration.data().ticketId };
       }
-      const current = currentEvent.data();
+      const current = currentEvent.data() || {};
       const capacity = Number(current.globalCapacity || 0);
       const allocated = Number(current.allocatedSeats || 0);
       if (capacity > 0 && allocated >= capacity) throw new Error("Event capacity has been reached");
@@ -92,11 +124,11 @@ export async function POST(request) {
       const initialApprovalStatus = requiresApproval ? "pending" : "approved";
       const initialTicketStatus = requiresApproval ? "Pending Approval" : "Valid";
 
-      transaction.create(ticketRef, {
+      transaction.set(ticketRef, {
         id: ticketId,
         ticketId,
         userId: caller.uid,
-        eventId,
+        eventId: actualEventId,
         eventTitle: event.title || event.name || "Event",
         eventSlug,
         ticketTitle: "Free Admission",
@@ -114,17 +146,18 @@ export async function POST(request) {
         checkIns: {},
         issuedAt: now,
         updatedAt: now,
-      });
-      transaction.create(registrationRef, {
+      }, { merge: true });
+
+      transaction.set(registrationRef, {
         id: identity,
         ticketId,
         userId: caller.uid,
-        eventId,
+        eventId: actualEventId,
         fullName,
         email,
         whatsappPhone: phone,
-        formData,
-        customFieldResponses: formData,
+        formData: formData || {},
+        customFieldResponses: formData || {},
         status: initialStatus,
         approvalStatus: initialApprovalStatus,
         requireApproval: requiresApproval,
@@ -135,7 +168,8 @@ export async function POST(request) {
         qrPayload,
         createdAt: now,
         updatedAt: now,
-      });
+      }, { merge: true });
+
       const updateData = {
         registrationsCount: (current.registrationsCount || 0) + 1,
         ticketsSold: (current.ticketsSold || 0) + 1,
@@ -153,7 +187,7 @@ export async function POST(request) {
     if (error.message === "Event capacity has been reached") {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
-    console.error("[register-free] Registration failed:", error.code || "unexpected-error");
-    return NextResponse.json({ error: "Could not complete free registration" }, { status: 500 });
+    console.error("[register-free] Registration failed:", error?.message || error, error?.stack);
+    return NextResponse.json({ error: error?.message || "Could not complete free registration" }, { status: 500 });
   }
 }

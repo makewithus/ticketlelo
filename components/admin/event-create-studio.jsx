@@ -29,6 +29,7 @@ import {
   Move,
   RotateCcw,
   Edit3,
+  Pencil,
   ChevronLeft,
   ChevronRight,
   Bell,
@@ -46,6 +47,7 @@ import { toast } from "sonner";
 import { IoTicket, IoColorPalette, IoShuffle } from "react-icons/io5";
 import { createEvent, updateEvent } from "@/lib/firestore";
 import { useAuth } from "@/context/auth-context";
+import { setCachedEvent, setCachedOrganiserEvents, getCachedOrganiserEvents } from "@/lib/client-cache";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { TicketGraphic } from "@/components/tickets/ticket-graphic";
 import { WideTicket } from "@/components/tickets/wide-ticket";
@@ -593,7 +595,7 @@ export function EventCreateStudio({
   const initialDates = getInitialDates();
 
   const [formData, setFormData] = useState({
-    name: editingEvent?.name || "",
+    name: editingEvent?.name || editingEvent?.title || "",
     description:
       typeof editingEvent?.description === "string"
         ? editingEvent.description
@@ -814,23 +816,19 @@ export function EventCreateStudio({
     setPinPosition({ x: 50, y: 50 });
   };
 
-  // Draggable & inline-editable text overlay state
+  // Draggable text overlay state
   const [isDraggingText, setIsDraggingText] = useState(false);
   const [isTextSelected, setIsTextSelected] = useState(false);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
   const posterContainerRef = useRef(null);
   const descriptionTextareaRef = useRef(null);
   const dragStartPosRef = useRef({ mouseX: 0, mouseY: 0, textX: 0, textY: 0 });
+  const dragMovedRef = useRef(false);
 
   const handleTextDragStart = (e) => {
-    if (isInlineEditing) return;
     if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
 
-    e.preventDefault();
-    e.stopPropagation();
-    setIsTextSelected(true);
-    setIsDraggingText(true);
-
+    dragMovedRef.current = false;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
@@ -840,6 +838,7 @@ export function EventCreateStudio({
       textX: typeof formData.posterTextX === "number" ? formData.posterTextX : 6,
       textY: typeof formData.posterTextY === "number" ? formData.posterTextY : (formData.coverImage ? 55 : 68),
     };
+    setIsDraggingText(true);
   };
 
   useEffect(() => {
@@ -850,6 +849,14 @@ export function EventCreateStudio({
       const rect = posterContainerRef.current.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      const dist = Math.hypot(
+        clientX - dragStartPosRef.current.mouseX,
+        clientY - dragStartPosRef.current.mouseY
+      );
+      if (dist > 5) {
+        dragMovedRef.current = true;
+      }
 
       const deltaX = ((clientX - dragStartPosRef.current.mouseX) / rect.width) * 100;
       const deltaY = ((clientY - dragStartPosRef.current.mouseY) / rect.height) * 100;
@@ -869,6 +876,9 @@ export function EventCreateStudio({
 
     const handleMouseUp = () => {
       setIsDraggingText(false);
+      if (!dragMovedRef.current) {
+        setShowTypographyModal(true);
+      }
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -1209,14 +1219,15 @@ export function EventCreateStudio({
         eventDateObj = new Date();
       }
 
-      const generatedSlug = (formData.name || "")
+      const canonicalName = (formData.name || "").trim();
+      const generatedSlug = canonicalName
         .toLowerCase()
-        .trim()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "") || `event-${Date.now()}`;
 
       const payload = {
-        name: formData.name.trim(),
+        name: canonicalName,
+        title: canonicalName,
         slug: formData.slug || editingEvent?.slug || generatedSlug,
         customDomain: formData.customDomain || editingEvent?.customDomain || "",
         description: safeDescription.trim(),
@@ -1255,6 +1266,7 @@ export function EventCreateStudio({
         themeColor: selectedTheme.color || "#FE760B",
         themeHex: selectedTheme.color || "#FE760B",
         themeName: selectedTheme.name || "Sunset",
+        pageBg: selectedTheme.pageBg || "#131517",
         ticketBgColor: formData.ticketBgColor || selectedTheme.color || "#FE760B",
         coverImage: formData.coverImage || "",
         visibility: formData.visibility,
@@ -1262,9 +1274,9 @@ export function EventCreateStudio({
         price: formData.isPaid ? `₹${formData.price || 199}` : "Free",
         ticketDesign: formData.ticketDesign || "stub",
         posterTextMode: formData.posterTextMode || "auto",
-        posterLine1: formData.posterLine1 || "",
-        posterLine2: formData.posterLine2 || "",
-        posterLine3: formData.posterLine3 || "",
+        posterLine1: formData.posterTextMode === "custom" ? (formData.posterLine1 || "").trim() : "",
+        posterLine2: formData.posterTextMode === "custom" ? (formData.posterLine2 || "").trim() : "",
+        posterLine3: formData.posterTextMode === "custom" ? (formData.posterLine3 || "").trim() : "",
         posterExtraDetails: formData.posterExtraDetails || "",
         fontFamily: formData.fontFamily || "New Spirit",
         posterFontSize: parseInt(formData.posterFontSize, 10) || 34,
@@ -1312,6 +1324,13 @@ export function EventCreateStudio({
           localStorage.setItem("admin_selected_event_id", savedEvent.id);
           localStorage.setItem(`admin_cached_event_${savedEvent.id}`, JSON.stringify(savedEvent));
           sessionStorage.setItem("admin_last_created_event", JSON.stringify(savedEvent));
+          setCachedEvent(savedEvent.id, savedEvent);
+          const uId = user?.uid || user?.id;
+          if (uId) {
+            const cachedList = getCachedOrganiserEvents(uId) || [];
+            const filtered = cachedList.filter((e) => e.id !== savedEvent.id);
+            setCachedOrganiserEvents(uId, [savedEvent, ...filtered]);
+          }
         } catch {}
       }
 
@@ -1429,28 +1448,18 @@ export function EventCreateStudio({
         >
           {/* ================= LEFT COLUMN: POSTER & THEME ================= */}
           <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-4">
-            {/* Poster Card (Square, 1:1, rounded-3xl) with Draggable & Editable Text Overlay */}
+            {/* Poster Card (Square, 1:1, rounded-3xl) with Draggable Text Overlay */}
             <div
               ref={posterContainerRef}
               onClick={() => {
                 if (formData.showPosterText === false) {
                   setFormData((prev) => ({ ...prev, showPosterText: true }));
-                  setIsTextSelected(true);
-                  setIsInlineEditing(true);
+                  setShowTypographyModal(true);
                 } else if (!formData.name && !formData.posterLine1 && !posterLines.line1) {
-                  setIsTextSelected(true);
-                  setIsInlineEditing(true);
-                } else {
-                  setIsTextSelected(false);
-                  setIsInlineEditing(false);
+                  setShowTypographyModal(true);
                 }
               }}
-              onDoubleClick={() => {
-                setFormData((prev) => ({ ...prev, showPosterText: true }));
-                setIsTextSelected(true);
-                setIsInlineEditing(true);
-              }}
-              className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none cursor-pointer"
+              className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none"
             >
               {formData.coverImage ? (
                 // Custom Uploaded Banner Image
@@ -1464,7 +1473,10 @@ export function EventCreateStudio({
                   {/* Remove image button */}
                   <button
                     type="button"
-                    onClick={removeCoverImage}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeCoverImage();
+                    }}
                     className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition-all border border-white/20 shadow-md cursor-pointer"
                     title="Remove custom image"
                   >
@@ -1502,8 +1514,7 @@ export function EventCreateStudio({
                   onClick={(e) => {
                     e.stopPropagation();
                     setFormData((prev) => ({ ...prev, showPosterText: true }));
-                    setIsTextSelected(true);
-                    setIsInlineEditing(true);
+                    setShowTypographyModal(true);
                   }}
                   className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 hover:bg-black text-white backdrop-blur border border-white/25 text-[11px] font-bold shadow-xl transition-all cursor-pointer hover:scale-105 active:scale-95"
                   title="Click to write text on banner"
@@ -1513,27 +1524,18 @@ export function EventCreateStudio({
                 </button>
               )}
 
-              {/* ── DRAGGABLE & EDITABLE TEXT OVERLAY ── */}
+              {/* ── DRAGGABLE TEXT OVERLAY WITH INSTANT EDIT ACCESS ── */}
               {formData.showPosterText !== false && (
                 <div
                   onMouseDown={handleTextDragStart}
                   onTouchStart={handleTextDragStart}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsTextSelected(true);
+                    setShowTypographyModal(true);
                   }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    setIsTextSelected(true);
-                    setIsInlineEditing(true);
-                  }}
-                  className={`absolute z-20 transition-all ${
-                    isDraggingText ? "cursor-grabbing select-none" : "cursor-grab"
-                  } ${
-                    isTextSelected
-                      ? "ring-2 ring-[#FE760B] ring-offset-2 ring-offset-black/60 shadow-2xl rounded-xl"
-                      : "hover:ring-1 hover:ring-white/40 rounded-xl"
-                  } ${
+                  className={`group/textbox absolute z-20 transition-all ${
+                    isDraggingText ? "cursor-grabbing select-none ring-2 ring-[#FE760B]" : "cursor-grab"
+                  } hover:ring-2 hover:ring-[#FE760B]/70 rounded-xl ${
                     formData.posterTextBg === "badge"
                       ? "bg-black/75 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/20 shadow-xl"
                       : formData.posterTextBg === "solid"
@@ -1544,7 +1546,7 @@ export function EventCreateStudio({
                     left: `${formData.posterTextX ?? 6}%`,
                     top: `${formData.posterTextY ?? (formData.coverImage ? 55 : 68)}%`,
                     width: `${formData.posterTextWidth ?? 85}%`,
-                    maxWidth: "92%",
+                    maxWidth: "calc(100% - 44px)",
                     textAlign: formData.posterAlign || "left",
                     fontFamily:
                       formData.fontFamily === "JetBrains Mono"
@@ -1561,148 +1563,30 @@ export function EventCreateStudio({
                         ? "0 2px 10px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.85)"
                         : "none",
                   }}
-                  title="Click to select, drag to reposition, stretch right handle to resize width, double-click to edit"
+                  title="Click to edit text & typography • Drag to move"
                 >
-                  {/* Floating Action Badge when Selected */}
-                  {isTextSelected && (
-                    <div className="absolute -top-7 left-0 flex items-center gap-1.5 bg-[#FE760B] text-[#131517] px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase shadow-lg whitespace-nowrap z-30 pointer-events-auto">
-                      <Move className="w-2.5 h-2.5 stroke-[3]" />
-                      <span>Drag to move</span>
-                      <span className="opacity-40">•</span>
-                      <span>↔ {formData.posterTextWidth || 85}%</span>
-                      <span className="opacity-40">•</span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsInlineEditing((prev) => !prev);
-                        }}
-                        className="underline hover:text-black font-black cursor-pointer"
-                      >
-                        {isInlineEditing ? "Done" : "Edit Text"}
-                      </button>
-                      <span className="opacity-40">•</span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowTypographyModal(true);
-                        }}
-                        className="hover:text-black font-black cursor-pointer"
-                      >
-                        Settings
-                      </button>
-                    </div>
-                  )}
+                  {/* Hover Pill: Quick indicator that clicking opens the editor */}
+                  <div className="absolute -top-6 left-0 opacity-0 group-hover/textbox:opacity-100 transition-opacity flex items-center gap-1.5 bg-[#FE760B] text-[#131517] px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase shadow-lg whitespace-nowrap z-30 pointer-events-none">
+                    <Pencil className="w-2.5 h-2.5 stroke-[2.5]" />
+                    <span>Click to edit text</span>
+                    <span className="opacity-40">•</span>
+                    <Move className="w-2.5 h-2.5" />
+                    <span>Drag to move</span>
+                  </div>
 
-                  {/* Corner handles & Stretchable Width Handle on Right Edge */}
-                  {isTextSelected && (
-                    <>
-                      <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
-                      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
-                      <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
-                      <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-[#FE760B] rounded-full shadow pointer-events-none" />
+                  {/* Stretchable Horizontal Resize Handle on Right Edge */}
+                  <div
+                    onMouseDown={handleResizeStart}
+                    onTouchStart={handleResizeStart}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-9 rounded-md bg-[#FE760B] text-[#131517] flex items-center justify-center cursor-ew-resize shadow-xl z-30 select-none hover:scale-110 active:scale-95 transition-transform opacity-70 group-hover/textbox:opacity-100"
+                    title="Drag horizontally to stretch or shrink text box width"
+                  >
+                    <span className="text-[10px] font-black leading-none">↔</span>
+                  </div>
 
-                      {/* Stretchable Horizontal Resize Handle (Image 5) */}
-                      <div
-                        onMouseDown={handleResizeStart}
-                        onTouchStart={handleResizeStart}
-                        className="absolute -right-3 top-1/2 -translate-y-1/2 w-4 h-9 rounded-md bg-[#FE760B] text-[#131517] flex items-center justify-center cursor-ew-resize shadow-xl z-30 select-none hover:scale-110 active:scale-95 transition-transform"
-                        title="Drag horizontally to stretch or shrink text box width"
-                      >
-                        <span className="text-[10px] font-black leading-none">↔</span>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Text Content: Inline editing or Display */}
-                  {isInlineEditing ? (
-                    <div className="space-y-1.5 w-full" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="text"
-                        autoFocus
-                        value={formData.posterLine1 ?? posterLines.line1 ?? ""}
-                        placeholder="Line 1 (Heading / Title)"
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterTextMode: "custom",
-                            posterLine1: val,
-                            name: !prev.name || prev.name === prev.posterLine1 ? val : prev.name,
-                            showPosterText: true,
-                          }));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === "Escape") {
-                            setIsInlineEditing(false);
-                          }
-                        }}
-                        className="bg-black/90 border border-[#FE760B] rounded px-2 py-0.5 font-black uppercase text-white outline-none w-full tracking-tight shadow-lg"
-                        style={{
-                          fontSize: `${formData.posterFontSize || 34}px`,
-                        }}
-                      />
-                      <input
-                        type="text"
-                        value={formData.posterLine2 ?? posterLines.line2 ?? ""}
-                        placeholder="Line 2 (Sub-heading)"
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterTextMode: "custom",
-                            posterLine2: val,
-                            showPosterText: true,
-                          }));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === "Escape") {
-                            setIsInlineEditing(false);
-                          }
-                        }}
-                        className="bg-black/90 border border-[#FE760B] rounded px-2 py-0.5 font-black uppercase text-white outline-none w-full tracking-tight shadow-lg"
-                        style={{
-                          fontSize: `${Math.max(
-                            18,
-                            Math.round((formData.posterFontSize || 34) * 0.88),
-                          )}px`,
-                        }}
-                      />
-                      <input
-                        type="text"
-                        value={formData.posterLine3 || ""}
-                        placeholder="Line 3: e.g. Date • Venue • Details"
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            posterTextMode: "custom",
-                            posterLine3: val,
-                            showPosterText: true,
-                          }));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === "Escape") {
-                            setIsInlineEditing(false);
-                          }
-                        }}
-                        className="bg-black/90 border border-[#FE760B]/70 rounded px-2 py-0.5 font-bold uppercase text-white/90 outline-none w-full tracking-tight shadow-lg text-xs"
-                      />
-                      <div className="flex items-center justify-between pt-0.5">
-                        <span className="text-[9px] text-[#FE760B] font-medium">
-                          Drag ↔ right handle to stretch width
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsInlineEditing(false)}
-                          className="text-[10px] bg-[#FE760B] text-[#131517] font-bold px-2 py-0.5 rounded cursor-pointer hover:bg-[#ff8624]"
-                        >
-                          Save Text
-                        </button>
-                      </div>
-                    </div>
-                  ) : posterLines.line1 || formData.name || formData.posterLine1 ? (
+                  {/* Rendered Text Content */}
+                  {posterLines.line1 || formData.name || formData.posterLine1 ? (
                     <div>
                       <span
                         className="block font-black leading-[0.92] tracking-tight uppercase select-none break-words"
@@ -1768,8 +1652,7 @@ export function EventCreateStudio({
                     <div
                       onClick={(e) => {
                         e.stopPropagation();
-                        setIsTextSelected(true);
-                        setIsInlineEditing(true);
+                        setShowTypographyModal(true);
                       }}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/60 hover:bg-black/85 border border-dashed border-white/50 hover:border-[#FE760B] text-white/90 hover:text-white cursor-pointer transition-all shadow-xl backdrop-blur-md group select-none"
                     >
@@ -1785,8 +1668,11 @@ export function EventCreateStudio({
               {/* Camera Upload Button in Bottom-Right Corner matching Image 2 */}
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-3 right-3 z-20 w-10 h-10 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center backdrop-blur border border-white/25 transition-transform hover:scale-105 active:scale-95 shadow-xl cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="absolute bottom-3 right-3 z-30 w-10 h-10 rounded-full bg-black/75 hover:bg-black text-white flex items-center justify-center backdrop-blur border border-white/25 transition-transform hover:scale-105 active:scale-95 shadow-xl cursor-pointer"
                 title="Upload custom banner image (up to 5 MB)"
               >
                 <Camera className="w-5 h-5 text-white" />
@@ -1991,40 +1877,34 @@ export function EventCreateStudio({
                 </button>
               </div>
 
-              {/* Poster Typography & Layout Trigger Button */}
+              {/* Banner Text & Typography Trigger Card */}
               <div
-                className="w-full min-h-[50px] p-2.5 sm:px-3.5 sm:py-2.5 bg-white/[0.08] hover:bg-white/[0.12] backdrop-blur-md rounded-xl border border-white/10 hover:border-white/20 flex items-center justify-between gap-3 shadow-sm transition-all cursor-pointer group"
+                className="w-full min-h-[54px] p-3 sm:px-4 sm:py-3 bg-[#181A1D] hover:bg-[#212327] rounded-2xl border border-[#2A2D31] hover:border-[#FE760B]/50 flex items-center justify-between gap-3 shadow-md transition-all cursor-pointer group"
                 onClick={() => setShowTypographyModal(true)}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold group-hover:scale-105 transition-transform">
                     <Type className="w-4 h-4 text-[#FE760B]" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 truncate">
-                      <span>Typography &amp; Layout</span>
+                    <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-2 truncate">
+                      <span>Banner Text &amp; Typography</span>
                       {formData.showPosterText === false ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFormData((prev) => ({ ...prev, showPosterText: true }));
-                            setIsTextSelected(true);
-                            setIsInlineEditing(true);
-                          }}
-                          className="text-[9px] px-1.5 py-0.5 rounded bg-[#FE760B]/20 text-[#FE760B] font-bold border border-[#FE760B]/40 hover:bg-[#FE760B] hover:text-[#131517] transition-all cursor-pointer"
-                          title="Click to enable banner text"
-                        >
-                          + Enable Text
-                        </button>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-semibold border border-red-500/25">
+                          Hidden
+                        </span>
                       ) : (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-white/60 font-semibold border border-white/10">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FE760B]/15 text-[#FE760B] font-semibold border border-[#FE760B]/30">
                           Active
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-white/50 truncate mt-0.5 font-medium">
-                      {formData.posterTextMode === "auto" ? "Auto Title" : "Custom Lines"} • {formData.posterFontSize || 34}px • {formData.posterAlign || "Left"}
+                    <div className="text-[11px] text-[#9B9EA4] truncate mt-0.5 font-medium">
+                      {formData.showPosterText === false
+                        ? "Click to enable text on your event banner"
+                        : formData.posterTextMode === "custom"
+                        ? `Custom: "${formData.posterLine1 || 'Line 1'}" • ${formData.posterFontSize || 34}px`
+                        : `Auto Title: "${posterLines.line1 || formData.name || 'Event Title'}" • ${formData.posterFontSize || 34}px`}
                     </div>
                   </div>
                 </div>
@@ -2032,11 +1912,15 @@ export function EventCreateStudio({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (formData.showPosterText === false) {
+                      setFormData((prev) => ({ ...prev, showPosterText: true }));
+                    }
                     setShowTypographyModal(true);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-[#FE760B] hover:text-[#131517] text-white text-xs font-bold transition-all border border-white/15 hover:border-[#FE760B] shadow-sm shrink-0 cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] text-xs font-bold transition-all shadow-sm shrink-0 cursor-pointer hover:scale-105 active:scale-95"
                 >
-                  Adjust
+                  <Pencil className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{formData.showPosterText === false ? "Add Text" : "Edit Text"}</span>
                 </button>
               </div>
             </div>
@@ -2055,6 +1939,9 @@ export function EventCreateStudio({
                   setFormData((prev) => ({
                     ...prev,
                     name: val,
+                    title: val,
+                    // If in auto mode, clear any custom posterLines so they don't override the name
+                    ...(prev.posterTextMode !== "custom" ? { posterLine1: "", posterLine2: "" } : {}),
                     showPosterText: true,
                   }));
                 }}
@@ -2653,7 +2540,10 @@ export function EventCreateStudio({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-semibold text-[#FE760B] group-hover:underline">
+                    <span
+                      className="text-xs font-semibold group-hover:underline"
+                      style={{ color: selectedTheme.color }}
+                    >
                       Customize
                     </span>
                     <Edit3 className="w-3.5 h-3.5 text-white/60 group-hover:text-white transition-colors" />
@@ -2685,17 +2575,35 @@ export function EventCreateStudio({
                       }
                       className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                         formData.ticketDesign === "stub"
-                          ? "border-[#FE760B] bg-[#FE760B]/15 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.15)]"
+                          ? "ring-1 shadow-lg"
                           : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
                       }`}
+                      style={
+                        formData.ticketDesign === "stub"
+                          ? {
+                              borderColor: selectedTheme.color,
+                              backgroundColor: `${selectedTheme.color}22`,
+                              boxShadow: `0 0 20px ${selectedTheme.color}25`,
+                            }
+                          : {}
+                      }
                     >
                       <div className="flex items-center justify-between mb-1.5 w-full">
                         <span className="text-xs font-bold text-white flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[#FE760B]" />
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: selectedTheme.color }}
+                          />
                           Stub tickets (Default)
                         </span>
                         {formData.ticketDesign === "stub" ? (
-                          <span className="w-5 h-5 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] shrink-0">
+                          <span
+                            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                            style={{
+                              backgroundColor: selectedTheme.color,
+                              color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
+                            }}
+                          >
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </span>
                         ) : (
@@ -2715,17 +2623,35 @@ export function EventCreateStudio({
                       }
                       className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
                         formData.ticketDesign === "deck" || formData.ticketDesign === "wide"
-                          ? "border-[#FE760B] bg-[#FE760B]/15 ring-1 ring-[#FE760B] shadow-[0_0_20px_rgba(254,118,11,0.15)]"
+                          ? "ring-1 shadow-lg"
                           : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
                       }`}
+                      style={
+                        formData.ticketDesign === "deck" || formData.ticketDesign === "wide"
+                          ? {
+                              borderColor: selectedTheme.color,
+                              backgroundColor: `${selectedTheme.color}22`,
+                              boxShadow: `0 0 20px ${selectedTheme.color}25`,
+                            }
+                          : {}
+                      }
                     >
                       <div className="flex items-center justify-between mb-1.5 w-full">
                         <span className="text-xs font-bold text-white flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-[#3DD68C]" />
+                          <span
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: selectedTheme.color }}
+                          />
                           Deck View tickets
                         </span>
                         {formData.ticketDesign === "deck" || formData.ticketDesign === "wide" ? (
-                          <span className="w-5 h-5 rounded-full bg-[#FE760B] flex items-center justify-center text-[#131517] shrink-0">
+                          <span
+                            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                            style={{
+                              backgroundColor: selectedTheme.color,
+                              color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
+                            }}
+                          >
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
                           </span>
                         ) : (
@@ -2996,8 +2922,8 @@ export function EventCreateStudio({
                             <div className="w-full max-w-[780px]">
                               <StubTicket
                                 event={{
-                                  name: formData.name || "Developer's Night 2026",
-                                  title: formData.name || "Developer's Night 2026",
+                                  name: formData.name || "Event Name",
+                                  title: formData.name || "Event Name",
                                   date: formData.startDate || "2026-11-07",
                                   time: formData.startTime || "12:00 PM",
                                   location: formData.location || "Main Auditorium, Campus",
@@ -3008,8 +2934,8 @@ export function EventCreateStudio({
                                   price: formData.isPaid ? formData.price : "Free",
                                   ticketDesign: "stub",
                                   ticketBgUrl: formData.ticketBgUrl || "",
-                                  posterLine1: formData.posterLine1,
-                                  posterLine2: formData.posterLine2,
+                                  posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
+                                  posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
                                   posterTextMode: formData.posterTextMode,
                                   posterTextColor: formData.posterTextColor,
                                   ticketTextColor: formData.posterTextColor,
@@ -3053,8 +2979,8 @@ export function EventCreateStudio({
                             <div className="w-full max-w-[780px] flex justify-center">
                               <TicketGraphic
                                 ticket={{
-                                  name: formData.name || "Developer's Night 2026",
-                                  title: formData.name || "Developer's Night 2026",
+                                  name: formData.name || "Event Name",
+                                  title: formData.name || "Event Name",
                                   date: formData.startDate || "2026-11-07",
                                   time: formData.startTime || "12:00 PM",
                                   location: formData.location || "Main Auditorium, Campus",
@@ -3071,8 +2997,8 @@ export function EventCreateStudio({
                                   attendeeName: "Rahul Sharma (Attendee)",
                                   guest: "Rahul Sharma (Attendee)",
                                   status: "Valid Pass",
-                                  posterLine1: formData.posterLine1,
-                                  posterLine2: formData.posterLine2,
+                                  posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
+                                  posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
                                   posterTextMode: formData.posterTextMode,
                                   posterTextColor: formData.posterTextColor,
                                   ticketTextColor: formData.posterTextColor,
@@ -3590,8 +3516,8 @@ export function EventCreateStudio({
         isOpen={showFullTicketModal}
         onClose={() => setShowFullTicketModal(false)}
         event={{
-          name: formData.name || "Developer's Night 2026",
-          title: formData.name || "Developer's Night 2026",
+          name: formData.name || "Event Name",
+          title: formData.name || "Event Name",
           date: formData.startDate || "2026-11-07",
           time: formData.startTime || "12:00 PM",
           location: formData.location || "Main Auditorium, Campus",
@@ -3602,8 +3528,8 @@ export function EventCreateStudio({
           price: formData.isPaid ? formData.price : "Free",
           ticketDesign: modalPreviewDesign,
           ticketBgUrl: formData.ticketBgUrl || "",
-          posterLine1: formData.posterLine1,
-          posterLine2: formData.posterLine2,
+          posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
+          posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
           posterTextMode: formData.posterTextMode,
           posterTextColor: formData.posterTextColor,
           ticketTextColor: formData.posterTextColor,
@@ -3745,14 +3671,14 @@ export function EventCreateStudio({
         </div>
       )}
 
-      {/* ── Typography & Poster Text Adjustment Modal (Clean & Crisp Image 4 Style) ── */}
+      {/* ── Banner Text & Typography Adjustment Modal (Spacious, Organized & Convenient) ── */}
       {showTypographyModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150"
           onClick={() => setShowTypographyModal(false)}
         >
           <div
-            className="w-full max-w-md bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-5 sm:p-6 relative space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top Close 'X' Button */}
@@ -3765,25 +3691,25 @@ export function EventCreateStudio({
               <X className="w-4 h-4" />
             </button>
 
-            {/* Top Icon */}
-            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-white">
-              <Type className="w-5 h-5 text-[#FE760B]" />
+            {/* Header: Icon, Title & Description */}
+            <div className="flex items-start gap-3.5 pr-8">
+              <div className="w-11 h-11 rounded-2xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
+                <Type className="w-5 h-5 text-[#FE760B]" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Banner Text &amp; Typography
+                </h3>
+                <p className="text-xs text-[#9B9EA4] leading-relaxed mt-0.5">
+                  Easily write headline text, customize font styles, adjust size, and position on your event banner.
+                </p>
+              </div>
             </div>
 
-            {/* Title & Description */}
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-white">
-                Ticket &amp; Poster Typography &amp; Layout
-              </h3>
-              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
-                Customize title mode, text size, alignment, backdrop effect, and stretchable width for your event poster.
-              </p>
-            </div>
-
-            {/* Display toggle & Mode row */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white">Display on Poster</span>
+            {/* Banner Display Visibility & Mode Switcher */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">
+              <div className="flex items-center justify-between sm:justify-start gap-2.5">
+                <span className="text-xs font-semibold text-white">Banner Overlay</span>
                 <button
                   type="button"
                   onClick={() =>
@@ -3792,24 +3718,25 @@ export function EventCreateStudio({
                       showPosterText: prev.showPosterText === false ? true : false,
                     }))
                   }
-                  className={`p-1 rounded-md border text-xs transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                     formData.showPosterText !== false
                       ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
-                      : "border-[#2A2D31] text-[#9B9EA4]"
+                      : "bg-[#181A1D] border-[#2A2D31] text-[#9B9EA4] hover:text-white"
                   }`}
                   title={formData.showPosterText !== false ? "Hide text overlay" : "Show text overlay"}
                 >
                   <Eye className="w-3.5 h-3.5" />
+                  <span>{formData.showPosterText !== false ? "Visible" : "Hidden"}</span>
                 </button>
               </div>
 
-              <div className="flex items-center rounded-lg bg-[#181A1D] p-0.5 border border-[#2A2D31]">
+              <div className="flex items-center rounded-xl bg-[#141619] p-1 border border-[#2A2D31]">
                 <button
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, posterTextMode: "auto" }))}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                  onClick={() => setFormData((prev) => ({ ...prev, posterTextMode: "auto", showPosterText: true }))}
+                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     formData.posterTextMode === "auto"
-                      ? "bg-[#FE760B] text-[#131517]"
+                      ? "bg-[#FE760B] text-[#131517] shadow-sm"
                       : "text-[#9B9EA4] hover:text-white"
                   }`}
                 >
@@ -3817,17 +3744,19 @@ export function EventCreateStudio({
                 </button>
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const auto = getPosterLines(formData.name || "");
                     setFormData((prev) => ({
                       ...prev,
                       posterTextMode: "custom",
-                      posterLine1: prev.posterLine1 || posterLines.line1,
-                      posterLine2: prev.posterLine2 || posterLines.line2,
-                    }))
-                  }
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                      posterLine1: prev.posterLine1 || auto.line1 || prev.name || "",
+                      posterLine2: prev.posterLine2 || auto.line2 || "",
+                      showPosterText: true,
+                    }));
+                  }}
+                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                     formData.posterTextMode === "custom"
-                      ? "bg-[#FE760B] text-[#131517]"
+                      ? "bg-[#FE760B] text-[#131517] shadow-sm"
                       : "text-[#9B9EA4] hover:text-white"
                   }`}
                 >
@@ -3836,22 +3765,117 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Custom Lines Text Inputs when Custom Mode is Active */}
+            {/* Mode 1: Auto Title (Synced with Event Name) */}
+            {formData.posterTextMode === "auto" && (
+              <div className="p-4 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[#FE760B]" />
+                    Auto Title (Synced with Event Name)
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30">
+                    Live Synced
+                  </span>
+                </div>
+                <p className="text-xs text-[#9B9EA4] leading-relaxed">
+                  Your banner headline automatically mirrors your main Event Name and splits into balanced lines.
+                </p>
+                <div className="p-3 rounded-xl bg-[#181A1D] border border-[#2A2D31] space-y-1.5">
+                  <div className="text-[10px] text-[#9B9EA4] font-medium uppercase tracking-wider">
+                    Current Banner Headline Preview
+                  </div>
+                  <div className="font-black text-sm text-white tracking-tight uppercase">
+                    {posterLines.line1 || formData.name || "(Enter event name on the right)"}
+                  </div>
+                  {posterLines.line2 && (
+                    <div className="font-black text-xs text-[#FE760B] tracking-tight uppercase">
+                      {posterLines.line2}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
+                    <span>Line 3 (Optional Details / Badge)</span>
+                    <span className="text-[10px] text-white/40">Date, venue, or tagline</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.posterLine3 || ""}
+                    placeholder="e.g. Nov 15 • KIET Campus • Free Entry"
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        posterLine3: e.target.value,
+                        showPosterText: true,
+                      }))
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-[#9B9EA4]">Want custom headline text?</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const auto = getPosterLines(formData.name || "");
+                      setFormData((prev) => ({
+                        ...prev,
+                        posterTextMode: "custom",
+                        posterLine1: prev.posterLine1 || auto.line1 || prev.name || "",
+                        posterLine2: prev.posterLine2 || auto.line2 || "",
+                        showPosterText: true,
+                      }));
+                    }}
+                    className="text-xs text-[#FE760B] hover:underline font-bold cursor-pointer"
+                  >
+                    Switch to Custom Lines →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Custom Lines (Write your own headline & subtitle) */}
             {formData.posterTextMode === "custom" && (
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2.5">
-                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Custom Banner Text Lines
-                </span>
-                <div className="space-y-2">
+              <div className="p-4 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-2">
+                    <Type className="w-4 h-4 text-[#FE760B]" />
+                    Custom Banner Lines
+                  </span>
+                  {formData.name && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const auto = getPosterLines(formData.name || "");
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterLine1: auto.line1 || prev.name || "",
+                          posterLine2: auto.line2 || "",
+                          showPosterText: true,
+                        }));
+                        toast.success("Copied headline and subtitle from event name!");
+                      }}
+                      className="text-[11px] text-[#FE760B] hover:text-[#ff8624] font-bold flex items-center gap-1 cursor-pointer hover:underline"
+                      title="Copy current event name into Line 1 & Line 2"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Copy from Event Name</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3">
                   <div>
-                    <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
-                      Line 1 (Heading / Title)
+                    <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
+                      <span>Headline (Line 1) *</span>
+                      <span className="text-[10px] text-white/40">Large main text</span>
                     </label>
                     <input
                       type="text"
                       value={formData.posterLine1 || ""}
-                      placeholder="e.g. EVENT TITLE"
+                      placeholder="e.g. ANNUAL TECH CONCLAVE"
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
@@ -3861,17 +3885,19 @@ export function EventCreateStudio({
                           showPosterText: true,
                         }));
                       }}
-                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-bold uppercase"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-sm font-extrabold uppercase tracking-tight transition-colors shadow-inner"
                     />
                   </div>
+
                   <div>
-                    <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
-                      Line 2 (Sub-heading)
+                    <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
+                      <span>Subtitle (Line 2)</span>
+                      <span className="text-[10px] text-white/40">Secondary headline</span>
                     </label>
                     <input
                       type="text"
                       value={formData.posterLine2 || ""}
-                      placeholder="e.g. SUB-HEADING"
+                      placeholder="e.g. INNOVATING THE FUTURE"
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -3879,17 +3905,19 @@ export function EventCreateStudio({
                           showPosterText: true,
                         }))
                       }
-                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-semibold uppercase"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-bold uppercase tracking-tight transition-colors"
                     />
                   </div>
+
                   <div>
-                    <label className="text-[10px] text-[#9B9EA4] font-medium block mb-1">
-                      Line 3 (Details / Badge)
+                    <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
+                      <span>Details / Tagline (Line 3 - Optional)</span>
+                      <span className="text-[10px] text-white/40">Date, venue, or badge</span>
                     </label>
                     <input
                       type="text"
                       value={formData.posterLine3 || ""}
-                      placeholder="e.g. Date • Venue • Details"
+                      placeholder="e.g. NOV 15 • MAIN AUDITORIUM • 9:00 AM"
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -3897,143 +3925,189 @@ export function EventCreateStudio({
                           showPosterText: true,
                         }))
                       }
-                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
                     />
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Snap Position Row */}
-            <div className="flex items-center justify-between p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">
-              <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
-                <Move className="w-3.5 h-3.5 text-[#FE760B]" />
-                Drag text or snap:
-              </span>
-              <div className="flex items-center gap-1.5">
-                {[
-                  { label: "Top", y: 8 },
-                  { label: "Center", y: 42 },
-                  { label: "Bottom", y: 68 },
-                ].map((item) => (
+            {/* Position & Alignment Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+                <span className="text-xs text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                  <Move className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Position on Banner
+                </span>
+                <div className="grid grid-cols-4 gap-1">
+                  {[
+                    { label: "Top", y: 8 },
+                    { label: "Center", y: 42 },
+                    { label: "Bottom", y: 68 },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          posterTextX: 6,
+                          posterTextY: item.y,
+                        }))
+                      }
+                      className={`py-1.5 text-xs rounded-lg font-bold border transition-colors cursor-pointer ${
+                        formData.posterTextY === item.y
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                          : "bg-[#181A1D] border-[#2A2D31] text-white hover:bg-[#2A2D31]"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                   <button
-                    key={item.label}
                     type="button"
+                    title="Reset position"
                     onClick={() =>
                       setFormData((prev) => ({
                         ...prev,
                         posterTextX: 6,
-                        posterTextY: item.y,
+                        posterTextY: prev.coverImage ? 55 : 68,
                       }))
                     }
-                    className={`px-2.5 py-1 text-xs rounded-lg font-semibold border transition-colors ${
-                      formData.posterTextY === item.y
-                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
-                        : "bg-[#181A1D] border-[#2A2D31] text-white hover:bg-[#2A2D31]"
-                    }`}
+                    className="py-1.5 rounded-lg border border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#181A1D] transition-colors flex items-center justify-center cursor-pointer"
                   >
-                    {item.label}
+                    <RotateCcw className="w-3.5 h-3.5" />
                   </button>
-                ))}
-                <button
-                  type="button"
-                  title="Reset text position"
-                  onClick={() =>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+                <span className="text-xs text-[#9B9EA4] font-semibold">Text Alignment</span>
+                <div className="grid grid-cols-3 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
+                  {[
+                    { align: "left", label: "Left", icon: AlignLeft },
+                    { align: "center", label: "Center", icon: AlignCenter },
+                    { align: "right", label: "Right", icon: AlignRight },
+                  ].map(({ align, label, icon: Icon }) => (
+                    <button
+                      key={align}
+                      type="button"
+                      title={label}
+                      onClick={() => setFormData((prev) => ({ ...prev, posterAlign: align }))}
+                      className={`py-1.5 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                        (formData.posterAlign || "left") === align
+                          ? "bg-[#FE760B] text-[#131517] font-bold"
+                          : "text-[#9B9EA4] hover:text-white"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Size & Width Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Text Box Width */}
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                    Box Width
+                  </span>
+                  <span className="font-mono text-[#FE760B] text-xs font-bold">
+                    {formData.posterTextWidth || 85}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="92"
+                  value={formData.posterTextWidth || 85}
+                  onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      posterTextX: 6,
-                      posterTextY: prev.coverImage ? 55 : 68,
+                      posterTextWidth: parseInt(e.target.value, 10),
                     }))
                   }
-                  className="p-1.5 rounded-lg border border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#181A1D] transition-colors"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
+                  className="w-full accent-[#FE760B] cursor-pointer"
+                />
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { label: "70%", val: 70 },
+                    { label: "85%", val: 85 },
+                    { label: "92%", val: 92 },
+                  ].map((w) => (
+                    <button
+                      key={w.label}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, posterTextWidth: w.val }))}
+                      className={`py-1 text-[11px] rounded-lg font-semibold border transition-colors cursor-pointer ${
+                        (formData.posterTextWidth || 85) === w.val
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                          : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
+                      }`}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Stretchable Text Box Width Slider (Image 5 Requirement) */}
-            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Stretchable Text Box Width
-                </span>
-                <span className="font-mono text-white text-xs font-bold">
-                  {formData.posterTextWidth || 85}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="30"
-                max="92"
-                value={formData.posterTextWidth || 85}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    posterTextWidth: parseInt(e.target.value, 10),
-                  }))
-                }
-                className="w-full accent-[#FE760B] cursor-pointer"
-              />
-              <div className="flex items-center justify-between text-[10px] text-[#71767B]">
-                <span>Narrow (wraps text to more lines)</span>
-                <span>Wide (keeps on one line)</span>
-              </div>
-            </div>
-
-            {/* Font Size Slider & Presets */}
-            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Font Size
-                </span>
-                <span className="font-mono text-white text-xs font-bold">
-                  {formData.posterFontSize || 34}px
-                </span>
-              </div>
-              <input
-                type="range"
-                min="20"
-                max="56"
-                step="2"
-                value={formData.posterFontSize || 34}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    posterFontSize: parseInt(e.target.value, 10),
-                  }))
-                }
-                className="w-full accent-[#FE760B] cursor-pointer"
-              />
-              <div className="flex items-center gap-1.5">
-                {[
-                  { label: "S (26px)", val: 26 },
-                  { label: "M (32px)", val: 32 },
-                  { label: "L (36px)", val: 36 },
-                  { label: "XL (42px)", val: 42 },
-                ].map((preset) => (
-                  <button
-                    key={preset.label}
-                    type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, posterFontSize: preset.val }))}
-                    className={`flex-1 py-1 text-xs rounded-lg font-semibold border transition-colors ${
-                      formData.posterFontSize === preset.val
-                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
-                        : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+              {/* Font Size */}
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                    Font Size
+                  </span>
+                  <span className="font-mono text-[#FE760B] text-xs font-bold">
+                    {formData.posterFontSize || 34}px
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="20"
+                  max="56"
+                  step="2"
+                  value={formData.posterFontSize || 34}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      posterFontSize: parseInt(e.target.value, 10),
+                    }))
+                  }
+                  className="w-full accent-[#FE760B] cursor-pointer"
+                />
+                <div className="grid grid-cols-4 gap-1">
+                  {[
+                    { label: "S", val: 26 },
+                    { label: "M", val: 32 },
+                    { label: "L", val: 36 },
+                    { label: "XL", val: 42 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, posterFontSize: preset.val }))}
+                      className={`py-1 text-[11px] rounded-lg font-semibold border transition-colors cursor-pointer ${
+                        formData.posterFontSize === preset.val
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                          : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
+                      }`}
+                    >
+                      {preset.label} ({preset.val})
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Font Family Selection */}
-            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+            <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                <span className="text-[#9B9EA4] font-semibold flex items-center gap-1.5">
                   <Type className="w-3.5 h-3.5 text-[#FE760B]" />
                   Font Family
                 </span>
@@ -4041,7 +4115,7 @@ export function EventCreateStudio({
                   {formData.fontFamily || "New Spirit"}
                 </span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
                 {[
                   { id: "New Spirit", name: "New Spirit", fontClass: "font-serif" },
                   { id: "Inter", name: "Inter", fontClass: "font-sans" },
@@ -4065,160 +4139,107 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Align & Backdrop Row (Mobile-Friendly Responsive) */}
+            {/* Backdrop & Color Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
-                <span className="text-xs text-[#9B9EA4] font-medium">Text Alignment</span>
-                <div className="flex items-center rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
-                  {[
-                    { align: "left", label: "Left", icon: AlignLeft },
-                    { align: "center", label: "Center", icon: AlignCenter },
-                    { align: "right", label: "Right", icon: AlignRight },
-                  ].map(({ align, label, icon: Icon }) => (
-                    <button
-                      key={align}
-                      type="button"
-                      title={label}
-                      onClick={() => setFormData((prev) => ({ ...prev, posterAlign: align }))}
-                      className={`flex-1 py-1.5 rounded flex items-center justify-center transition-colors cursor-pointer ${
-                        (formData.posterAlign || "left") === align
-                          ? "bg-[#FE760B] text-[#131517]"
-                          : "text-[#9B9EA4] hover:text-white"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
-                <span className="text-xs text-[#9B9EA4] font-medium">Text Backdrop</span>
+              {/* Text Backdrop */}
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-semibold">Backdrop Effect</span>
                 <div className="grid grid-cols-4 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
-                  {["shadow", "badge", "solid", "none"].map((b) => (
+                  {[
+                    { id: "none", label: "Clean" },
+                    { id: "shadow", label: "Shadow" },
+                    { id: "badge", label: "Glass" },
+                    { id: "solid", label: "Solid" },
+                  ].map((b) => (
                     <button
-                      key={b}
+                      key={b.id}
                       type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, posterTextBg: b }))}
-                      className={`py-1.5 text-[11px] font-semibold capitalize rounded transition-colors text-center cursor-pointer truncate ${
-                        (formData.posterTextBg || "shadow") === b
+                      onClick={() => setFormData((prev) => ({ ...prev, posterTextBg: b.id }))}
+                      className={`py-1.5 text-[11px] font-semibold rounded transition-colors text-center cursor-pointer truncate ${
+                        (formData.posterTextBg || "shadow") === b.id
                           ? "bg-[#FE760B] text-[#131517] font-bold"
                           : "text-[#9B9EA4] hover:text-white"
                       }`}
                     >
-                      {b === "badge" ? "Glass" : b}
+                      {b.label}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Text Color Selection */}
-            <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-              <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
-                <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
-                Text Color
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {[
-                  { id: "auto", label: "Theme Auto" },
-                  { id: "light", label: "White" },
-                  { id: "dark", label: "Dark" },
-                  { id: "#FDE003", label: "Gold" },
-                  { id: "#FE760B", label: "Orange" },
-                  { id: "#14B8A6", label: "Teal" },
-                ].map((col) => {
-                  const isSel = (formData.posterTextColor || "auto") === col.id;
-                  return (
-                    <button
-                      key={col.id}
-                      type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, posterTextColor: col.id }))}
-                      className={`px-2.5 py-1 text-xs rounded-lg font-semibold border transition-colors ${
-                        isSel
-                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
-                          : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
-                      }`}
-                    >
-                      {col.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Custom Hex Color */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="text"
-                  maxLength={7}
-                  placeholder="#FFFFFF"
-                  value={customTextColorHex ? `#${customTextColorHex}` : ""}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/^#/, "").toUpperCase();
-                    setCustomTextColorHex(raw);
-                  }}
-                  className="flex-1 px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs font-mono text-white outline-none focus:border-[#FE760B]"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (customTextColorHex) {
-                      const full = normalizeHex(customTextColorHex);
-                      setFormData((prev) => ({ ...prev, posterTextColor: full }));
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  Apply
-                </button>
+              {/* Text Color */}
+              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+                <span className="text-xs text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Text Color
+                </span>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {[
+                    { id: "auto", label: "Auto" },
+                    { id: "light", label: "White" },
+                    { id: "dark", label: "Dark" },
+                    { id: "#FDE003", label: "Gold" },
+                    { id: "#FE760B", label: "Orange" },
+                    { id: "#14B8A6", label: "Teal" },
+                  ].map((col) => {
+                    const isSel = (formData.posterTextColor || "auto") === col.id;
+                    return (
+                      <button
+                        key={col.id}
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, posterTextColor: col.id }))}
+                        className={`px-2 py-1 text-[11px] rounded-lg font-semibold border transition-colors cursor-pointer ${
+                          isSel
+                            ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                            : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
+                        }`}
+                      >
+                        {col.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* Custom Lines Inputs (if mode is custom) */}
-            {formData.posterTextMode === "custom" && (
-              <div className="p-3 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-                <span className="text-xs text-white font-semibold block">Custom Poster Lines</span>
-                <div>
-                  <label className="text-[10px] text-[#9B9EA4] block mb-1">Line 1 (Heading)</label>
-                  <input
-                    type="text"
-                    value={formData.posterLine1}
-                    placeholder="Enter headline"
-                    onChange={(e) => setFormData((prev) => ({ ...prev, posterLine1: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs font-bold text-white outline-none focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-[#9B9EA4] block mb-1">Line 2 (Sub-heading)</label>
-                  <input
-                    type="text"
-                    value={formData.posterLine2}
-                    placeholder="Enter sub-heading"
-                    onChange={(e) => setFormData((prev) => ({ ...prev, posterLine2: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs font-bold text-white outline-none focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-[#9B9EA4] block mb-1">Line 3 (Extra Details / Tagline)</label>
-                  <input
-                    type="text"
-                    value={formData.posterLine3 || ""}
-                    placeholder="e.g. KIET CAMPUS • AUDITORIUM • 9 AM"
-                    onChange={(e) => setFormData((prev) => ({ ...prev, posterLine3: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-xs text-white outline-none focus:border-[#FE760B]"
-                  />
-                </div>
-              </div>
-            )}
+            {/* Custom Hex Color Option */}
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+              <span className="text-[11px] text-[#9B9EA4] font-medium shrink-0">Custom Hex:</span>
+              <input
+                type="text"
+                maxLength={7}
+                placeholder="#FFFFFF"
+                value={customTextColorHex ? `#${customTextColorHex}` : ""}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/^#/, "").toUpperCase();
+                  setCustomTextColorHex(raw);
+                }}
+                className="flex-1 px-2.5 py-1 rounded-lg border border-[#2A2D31] bg-[#181A1D] text-xs font-mono text-white outline-none focus:border-[#FE760B]"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (customTextColorHex) {
+                    const full = normalizeHex(customTextColorHex);
+                    setFormData((prev) => ({ ...prev, posterTextColor: full }));
+                    toast.success(`Applied color ${full}`);
+                  }
+                }}
+                className="px-3 py-1 bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Apply
+              </button>
+            </div>
 
-            {/* Confirm Button */}
+            {/* Confirm & Close Button */}
             <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setShowTypographyModal(false)}
-                className="w-full py-3 rounded-2xl bg-white text-[#131517] font-semibold text-sm hover:bg-gray-100 transition-colors shadow-lg cursor-pointer"
+                className="w-full py-3 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
               >
-                Confirm
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Apply &amp; Done</span>
               </button>
             </div>
           </div>

@@ -37,21 +37,25 @@ const LOGO_SRC = "/logo/ticketlelo-logo-nav.png";
 export default function DashboardPage() {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
-  // Synchronous cache hydration for instant display
-  const [registrations, setRegistrations] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = getCachedItem(`user_regs_${user?.id}`);
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
+  // Safe SSR hydration - avoids hydration mismatch
+  const [registrations, setRegistrations] = useState([]);
   const [events, setEvents] = useState(new Map());
-  const [isLoading, setIsLoading] = useState(() => registrations.length === 0);
+  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("All");
   const [viewMode, setViewMode] = useState("deck");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const cached = getCachedItem(`user_regs_${user.id}`);
+      if (Array.isArray(cached) && cached.length > 0) {
+        setRegistrations(cached);
+        setIsLoading(false);
+      }
+    } catch {}
+  }, [user?.id]);
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {

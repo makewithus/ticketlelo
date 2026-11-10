@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Ticket, ArrowUpRight, AlertTriangle, Clock } from "lucide-react";
 import { getEvent } from "@/lib/firestore";
+import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
 
 export function EventControlHeader({
   activeTab = "Overview",
-  eventTitle = "Tech Fest 2026",
-  eventSlug = "tech-fest-2026",
+  eventTitle = "",
+  eventSlug = "",
   eventId = null,
   isLive = true,
   isCancelled: propIsCancelled = null,
@@ -29,10 +30,21 @@ export function EventControlHeader({
 
   const currentEventId = eventId || urlEventId || storedEventId;
 
-  const [resolvedTitle, setResolvedTitle] = useState(eventTitle);
-  const [resolvedSlug, setResolvedSlug] = useState(
-    eventSlug !== "tech-fest-2026" ? eventSlug : ""
-  );
+  const [resolvedTitle, setResolvedTitle] = useState(() => {
+    if (eventTitle && eventTitle !== "Tech Fest 2026") return eventTitle;
+    if (typeof window !== "undefined") {
+      const id = eventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
+      if (id) {
+        const cached = getCachedEvent(id);
+        if (cached?.name || cached?.title) return (cached.name || cached.title).trim();
+      }
+    }
+    return eventTitle || "";
+  });
+  const [resolvedSlug, setResolvedSlug] = useState(() => {
+    if (eventSlug && eventSlug !== "tech-fest-2026") return eventSlug;
+    return "";
+  });
   const [eventCancelled, setEventCancelled] = useState(Boolean(propIsCancelled));
   const [eventCancelPending, setEventCancelPending] = useState(Boolean(propIsCancelPending));
 
@@ -45,13 +57,13 @@ export function EventControlHeader({
   }, [propIsCancelPending]);
 
   useEffect(() => {
-    if (eventTitle && eventTitle !== "Tech Fest 2026") {
+    if (eventTitle) {
       setResolvedTitle(eventTitle);
     }
   }, [eventTitle]);
 
   useEffect(() => {
-    if (eventSlug && eventSlug !== "tech-fest-2026") {
+    if (eventSlug) {
       setResolvedSlug(eventSlug);
     }
   }, [eventSlug]);
@@ -63,10 +75,22 @@ export function EventControlHeader({
           localStorage.setItem("admin_selected_event_id", currentEventId);
         } catch {}
       }
+
+      // Fast cache check
+      const cached = getCachedEvent(currentEventId);
+      if (cached && (cached.name || cached.title)) {
+        setResolvedTitle((cached.name || cached.title).trim());
+        if (cached.slug) setResolvedSlug(cached.slug);
+      }
+
       getEvent(currentEventId)
         .then((ev) => {
           if (ev) {
-            if (ev.name || ev.title) setResolvedTitle(ev.name || ev.title);
+            const canonical = (ev.name || ev.title || "").trim();
+            if (canonical) {
+              setResolvedTitle(canonical);
+              setCachedEvent(currentEventId, ev);
+            }
             if (ev.slug) setResolvedSlug(ev.slug);
             else setResolvedSlug(ev.id);
             setEventCancelled(Boolean(ev.isCancelled || ev.status === "cancelled"));

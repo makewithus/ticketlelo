@@ -119,55 +119,13 @@ export default function EventOverviewPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  // Instant 0ms cache-first hydration
-  const initialEventId = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    try {
-      const p = searchParams.get("eventId");
-      if (p) return p;
-      return localStorage.getItem("admin_selected_event_id") || "";
-    } catch {
-      return "";
-    }
-  }, [searchParams]);
-
-  const [events, setEvents] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const uId = user?.uid || user?.id;
-        const cached = getCachedOrganiserEvents(uId);
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
-
+  // Safe SSR hydration - avoids hydration mismatch
+  const initialEventId = searchParams.get("eventId") || "";
+  const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
-
-  const [event, setEvent] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const idToCheck = initialEventId;
-        if (idToCheck) {
-          const cached = getCachedEvent(idToCheck);
-          if (cached) return cached;
-        }
-      } catch {}
-    }
-    return null;
-  });
-
-  const [registrations, setRegistrations] = useState(() => {
-    if (typeof window !== "undefined" && initialEventId) {
-      try {
-        const cached = getCachedRegistrations(initialEventId);
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
-
-  const [loading, setLoading] = useState(() => !event);
+  const [event, setEvent] = useState(null);
+  const [registrations, setRegistrations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [isUpdatingLive, setIsUpdatingLive] = useState(false);
@@ -632,12 +590,13 @@ export default function EventOverviewPage() {
 
   // Theme & Poster Typography
   const selectedTheme = getThemeLook(event?.themeColor || event?.theme || "#FE760B");
+  const canonicalEventTitle = (event?.name || event?.title || "Event Name").trim();
 
   const posterLines = getPosterLines(
-    event?.name || "Event Name",
+    canonicalEventTitle,
     event?.posterTextMode || "auto",
-    event?.posterLine1,
-    event?.posterLine2
+    event?.posterTextMode === "custom" ? event?.posterLine1 : "",
+    event?.posterTextMode === "custom" ? event?.posterLine2 : ""
   );
 
   // Parse formatted date and time
@@ -707,7 +666,7 @@ export default function EventOverviewPage() {
       {/* ── Standard Navigation Header with Live Event Switcher ── */}
       <EventControlHeader
         activeTab="Overview"
-        eventTitle={event.name}
+        eventTitle={canonicalEventTitle}
         eventSlug={event.slug || event.id}
         eventId={event.id}
         isLive={isLive}
@@ -741,7 +700,7 @@ export default function EventOverviewPage() {
                           ev.id === selectedEventId ? "bg-[#FE760B]/10 text-[#FE760B] font-bold" : "text-white"
                         }`}
                       >
-                        <span className="truncate">{ev.name}</span>
+                        <span className="truncate">{ev.name || ev.title || "Untitled Event"}</span>
                         {ev.id === selectedEventId && <Check className="w-3.5 h-3.5 shrink-0" />}
                       </button>
                     ))}
@@ -844,7 +803,7 @@ export default function EventOverviewPage() {
 
             {/* Event Title */}
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mb-2">
-              {event.name}
+              {canonicalEventTitle}
             </h2>
 
             {/* Date & Location Rows */}
@@ -925,7 +884,7 @@ export default function EventOverviewPage() {
                 </a>
                 {/* X / Twitter */}
                 <a
-                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(fullPublicUrl)}&text=${encodeURIComponent(event.name)}`}
+                  href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(fullPublicUrl)}&text=${encodeURIComponent(canonicalEventTitle)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
@@ -949,7 +908,7 @@ export default function EventOverviewPage() {
                 </a>
                 {/* WhatsApp */}
                 <a
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Register for ${event.name}: ${fullPublicUrl}`)}`}
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Register for ${canonicalEventTitle}: ${fullPublicUrl}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1.5 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
@@ -1389,7 +1348,7 @@ export default function EventOverviewPage() {
             <Users className="w-8 h-8 text-[#9B9EA4] mx-auto mb-2.5 opacity-60" />
             <h3 className="text-sm font-bold text-white mb-1">No Registrations Yet</h3>
             <p className="text-xs text-[#9B9EA4] max-w-sm mx-auto mb-4">
-              When guests register for &ldquo;{event.name}&rdquo;, their ticket details and check-in status will appear here in real time.
+              When guests register for &ldquo;{canonicalEventTitle}&rdquo;, their ticket details and check-in status will appear here in real time.
             </p>
             <button
               type="button"

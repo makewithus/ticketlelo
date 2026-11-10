@@ -103,17 +103,9 @@ const PROCEDURAL_PALETTES = [
 export default function DiscoverEventsPage() {
   const { user, loading: authLoading } = useAuth();
 
-  // State with instant 0ms cache-first hydration
-  const [events, setEvents] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = getCachedItem("discover_events");
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
-  const [isLoading, setIsLoading] = useState(() => events.length === 0);
+  // Safe SSR hydration - avoids hydration mismatch
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("date-asc");
@@ -146,6 +138,15 @@ export default function DiscoverEventsPage() {
   useEffect(() => {
     let isMounted = true;
     let unsubscribeFirestore = null;
+
+    // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
+    try {
+      const cached = getCachedItem("discover_events");
+      if (Array.isArray(cached) && cached.length > 0 && isMounted) {
+        setEvents(cached);
+        setIsLoading(false);
+      }
+    } catch {}
 
     function deduplicateEvents(list) {
       if (!Array.isArray(list)) return [];

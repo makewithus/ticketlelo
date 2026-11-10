@@ -83,21 +83,24 @@ const SETTLEMENT_STATUS_STYLES = {
 
 export default function SuperAdminPaymentsPage() {
   const [activeTab, setActiveTab] = useState("overview"); // "overview" | "settlements" | "commissions" | "reconcile"
-  // Financial summary & trends with instant 0ms cache hydration
-  const [summary, setSummary] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const cached = getCachedItem("superadmin_payments_summary");
-        if (cached) return cached;
-      } catch {}
-    }
-    return null;
-  });
-  const [loading, setLoading] = useState(() => !summary);
+  // Safe SSR hydration - avoids hydration mismatch
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [trendData, setTrendData] = useState([]);
   const [reconReports, setReconReports] = useState([]);
   const [runningRecon, setRunningRecon] = useState(false);
+
+  // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
+  useEffect(() => {
+    try {
+      const cached = getCachedItem("superadmin_payments_summary");
+      if (cached) {
+        setSummary(cached);
+        setLoading(false);
+      }
+    } catch {}
+  }, []);
 
   // Settlements state
   const [settlements, setSettlements] = useState([]);

@@ -61,12 +61,12 @@ export function EventBanner({
 
   const themeLook = getThemeLook(resolveFallbackTheme());
 
-  const eventTitle = event?.title || event?.name || "Event";
+  const eventTitle = (event?.name || event?.title || "Event").trim();
   const posterLines = getPosterLines(
     eventTitle,
     event?.posterTextMode || "auto",
-    event?.posterLine1,
-    event?.posterLine2
+    event?.posterTextMode === "custom" ? event?.posterLine1 : "",
+    event?.posterTextMode === "custom" ? event?.posterLine2 : ""
   );
 
   const aspectClass =

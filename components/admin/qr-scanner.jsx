@@ -715,8 +715,8 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
       {/* ── Standard Navigation Header with Live Event Switcher ── */}
       <EventControlHeader
         activeTab="Check-In"
-        eventTitle={currentEvent?.name || "Tech Fest 2026"}
-        eventSlug={currentEvent?.slug || currentEvent?.id || "tech-fest-2026"}
+        eventTitle={currentEvent?.name || currentEvent?.title || ""}
+        eventSlug={currentEvent?.slug || currentEvent?.id || ""}
         eventId={selectedEventId}
         isLive={currentEvent?.isLive !== false && !isCancelled}
         isCancelled={isCancelled}

@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { IoTicket } from "react-icons/io5";
 import { updateEvent } from "@/lib/firestore";
+import { setCachedEvent, setCachedOrganiserEvents, getCachedOrganiserEvents } from "@/lib/client-cache";
 
 const THEME_PALETTE = [
   { name: "Orange", hex: "#FE760B" },
@@ -182,8 +183,23 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
 
       await updateEvent(event.id, payload);
 
+      const updatedEvent = { ...event, ...payload };
+      setCachedEvent(event.id, updatedEvent);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`admin_cached_event_${event.id}`, JSON.stringify(updatedEvent));
+        } catch {}
+      }
+
+      const uId = event.createdBy || event.userId || event.organiserId;
+      if (uId) {
+        const cachedList = getCachedOrganiserEvents(uId) || [];
+        const filtered = cachedList.filter((e) => e.id !== event.id);
+        setCachedOrganiserEvents(uId, [updatedEvent, ...filtered]);
+      }
+
       if (typeof onEventUpdated === "function") {
-        onEventUpdated({ ...event, ...payload });
+        onEventUpdated(updatedEvent);
       }
 
       toast.success("Event updated successfully!");

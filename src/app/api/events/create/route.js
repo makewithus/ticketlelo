@@ -84,8 +84,11 @@ export async function POST(req) {
     if (!hostName && caller?.decodedToken?.name) hostName = caller.decodedToken.name;
     if (!hostPhotoUrl && caller?.decodedToken?.picture) hostPhotoUrl = caller.decodedToken.picture;
 
+    const canonicalName = (sanitized.name || sanitized.title || "").trim();
     const eventData = {
       ...sanitized,
+      name: canonicalName,
+      title: canonicalName,
       id: eventId,
       slug: sanitized.slug || generatedSlug,
       createdBy: creatorId,

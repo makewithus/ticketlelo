@@ -384,8 +384,14 @@ export default function PublicEventBySlugPage() {
 
   const priceDisplay = event.price !== undefined && event.price !== "" ? (event.price.toString().startsWith("₹") ? event.price : `₹${event.price}`) : "Free";
 
+  const eventTitle = (event.name || event.title || "Event").trim();
   const themeLook = getThemeLook(event.themeColor || event.theme || "#FE760B");
-  const posterLines = getPosterLines(event.title || event.name || "Event");
+  const posterLines = getPosterLines(
+    eventTitle,
+    event.posterTextMode || "auto",
+    event.posterTextMode === "custom" ? event.posterLine1 : "",
+    event.posterTextMode === "custom" ? event.posterLine2 : ""
+  );
 
   // Sanitize out stale generic defaults like "School of Engineering" or "support@ticketlelo.com"
   const cleanOrgName =
@@ -633,7 +639,7 @@ export default function PublicEventBySlugPage() {
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
-                  {event.title || event.name}
+                  {eventTitle}
                 </h1>
 
                 {/* HOSTED BY Section */}
@@ -745,7 +751,7 @@ export default function PublicEventBySlugPage() {
               <div className="prose max-w-none text-slate-600 dark:text-[#9B9EA4] text-sm sm:text-base leading-relaxed whitespace-pre-line">
                 {event.description || (
                   <p>
-                    Welcome to {event.title || event.name || "this event"}! Register to reserve your entry pass. Upon completing your registration, you will receive an official PDF ticket containing your signed QR code for rapid contactless entry.
+                    Welcome to {eventTitle}! Register to reserve your entry pass. Upon completing your registration, you will receive an official PDF ticket containing your signed QR code for rapid contactless entry.
                   </p>
                 )}
               </div>
@@ -898,7 +904,7 @@ export default function PublicEventBySlugPage() {
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(event.title || event.name || "Event")}`;
+                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(eventTitle)}`;
                 }}
                 className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
@@ -908,7 +914,7 @@ export default function PublicEventBySlugPage() {
               <button
                 type="button"
                 onClick={() => {
-                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(event.title || event.name || "Event")}`;
+                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(eventTitle)}`;
                 }}
                 className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
@@ -935,7 +941,7 @@ export default function PublicEventBySlugPage() {
 
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                    Register for {event.title || event.name}
+                    Register for {eventTitle}
                   </h3>
                   <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5">
                     Fill in your details below to generate your entry ticket and credentials.

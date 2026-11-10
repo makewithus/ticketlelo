@@ -55,18 +55,21 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   const userId = user?.id || user?.uid;
 
-  // Instant 0ms cache-first hydration
-  const [events, setEvents] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const uId = user?.id || user?.uid;
-        const cached = getCachedOrganiserEvents(uId);
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
-  const [loading, setLoading] = useState(() => events.length === 0);
+  // Safe SSR hydration - avoids hydration mismatch
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const cached = getCachedOrganiserEvents(userId);
+      if (Array.isArray(cached) && cached.length > 0) {
+        setEvents(cached);
+        setLoading(false);
+      }
+    } catch {}
+  }, [userId]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {

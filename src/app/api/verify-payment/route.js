@@ -78,12 +78,29 @@ export async function POST(request) {
     if (!eventSnap.exists) return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
     const event = eventSnap.data();
     const entitlements = resolveTicketEntitlements(order.ticketConfig);
-    const qrPayload = generateSignedQRPayload({
-      eventSlug: event.slug || order.eventId,
-      ticketId,
-      entitledSubEventIds: entitlements.entitledSubEventIds,
-    });
-    const qrCodeUrl = await generateQRCode(qrPayload);
+    let qrPayload;
+    try {
+      qrPayload = generateSignedQRPayload({
+        eventSlug: event.slug || order.eventId,
+        ticketId,
+        entitledSubEventIds: entitlements.entitledSubEventIds,
+      });
+    } catch (qrErr) {
+      console.warn("[verify-payment] QR signing fallback:", qrErr?.message);
+      qrPayload = ticketId;
+    }
+
+    let qrCodeUrl;
+    try {
+      qrCodeUrl = await generateQRCode(qrPayload);
+    } catch (qrCodeErr) {
+      console.warn("[verify-payment] QR code generation fallback:", qrCodeErr?.message);
+      try {
+        qrCodeUrl = await generateQRCode(ticketId);
+      } catch {
+        qrCodeUrl = "";
+      }
+    }
     const buyer = order.registrationData || {};
     const now = Timestamp.now();
 

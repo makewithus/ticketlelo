@@ -63,6 +63,11 @@ export async function PATCH(request, { params }) {
       ...updates,
       updatedAt: new Date(),
     };
+    if (cleaned.name && !cleaned.title) {
+      cleaned.title = cleaned.name;
+    } else if (cleaned.title && !cleaned.name) {
+      cleaned.name = cleaned.title;
+    }
     delete cleaned.id;
 
     const safeUpdates = await sanitizeAndOffloadImages(cleaned, eventId);

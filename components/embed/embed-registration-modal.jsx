@@ -23,7 +23,7 @@ export function EmbedRegistrationModal({
 
   if (!isOpen) return null;
 
-  const eventTitle = event?.name || event?.title || "Tech Fest 2026";
+  const eventTitle = (event?.name || event?.title || "Event Pass").trim();
   const isCustomIframe =
     event?.embedRegistrationMode === "custom_iframe" &&
     Boolean(event?.customFormEmbedUrl);

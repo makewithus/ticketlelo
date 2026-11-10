@@ -83,54 +83,13 @@ export default function AnalyticsInsightsPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  const initialEventId = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    try {
-      const p = searchParams.get("eventId");
-      if (p) return p;
-      return localStorage.getItem("admin_selected_event_id") || "";
-    } catch {
-      return "";
-    }
-  }, [searchParams]);
-
-  const [events, setEvents] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const uId = user?.uid || user?.id;
-        const cached = getCachedOrganiserEvents(uId);
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
-
+  // Safe SSR hydration - avoids hydration mismatch
+  const initialEventId = searchParams.get("eventId") || "";
+  const [events, setEvents] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState(initialEventId);
-
-  const [event, setEvent] = useState(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const idToCheck = initialEventId;
-        if (idToCheck) {
-          const cached = getCachedEvent(idToCheck);
-          if (cached) return cached;
-        }
-      } catch {}
-    }
-    return null;
-  });
-
-  const [registrations, setRegistrations] = useState(() => {
-    if (typeof window !== "undefined" && initialEventId) {
-      try {
-        const cached = getCachedRegistrations(initialEventId);
-        if (Array.isArray(cached) && cached.length > 0) return cached;
-      } catch {}
-    }
-    return [];
-  });
-
-  const [loading, setLoading] = useState(() => !event);
+  const [event, setEvent] = useState(null);
+  const [registrations, setRegistrations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
 
   const [timeRange, setTimeRange] = useState("all"); // "7d" | "all"
@@ -471,7 +430,7 @@ export default function AnalyticsInsightsPage() {
       {/* ── Standard Navigation Header with Real Event & Switcher ── */}
       <EventControlHeader
         activeTab="Insights"
-        eventTitle={event?.name || event?.title || "Event Insights"}
+        eventTitle={event?.name || event?.title || ""}
         eventSlug={event?.slug || event?.id || ""}
         eventId={selectedEventId}
         isLive={isLive}

@@ -154,9 +154,9 @@ export default function BlastsPage() {
     }
   }, [eventIdParam]);
 
-  const activeEventId = currentEvent?.id || eventIdParam || "tech-fest-2026";
-  const eventTitle = currentEvent?.name || currentEvent?.title || "Tech Fest 2026";
-  const eventSlug = currentEvent?.slug || "tech-fest-2026";
+  const activeEventId = currentEvent?.id || eventIdParam || "";
+  const eventTitle = currentEvent?.name || currentEvent?.title || "";
+  const eventSlug = currentEvent?.slug || "";
   const recipientCount =
     currentEvent?.totalRegistrations || currentEvent?.attendeesCount || 86;
 

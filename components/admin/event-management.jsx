@@ -33,7 +33,7 @@ import { useAuth } from "@/context/auth-context";
 import { PLANS } from "@/lib/plans";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCachedOrganiserEvents, setCachedOrganiserEvents } from "@/lib/client-cache";
+import { getCachedOrganiserEvents, setCachedOrganiserEvents, setCachedEvent } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
 
@@ -182,6 +182,10 @@ export function EventManagement() {
   }, [userId, loadEvents, checkEventCreationEligibility]);
 
   const handleEdit = (event) => {
+    try {
+      localStorage.setItem("admin_selected_event_id", event.id);
+      setCachedEvent(event.id, event);
+    } catch {}
     router.push(`/admin/create-event?eventId=${event.id}`);
   };
 
@@ -535,7 +539,7 @@ export function EventManagement() {
 
                           {/* Event Title */}
                           <h3 className={`text-base sm:text-lg font-bold transition-colors truncate ${isCancelled ? "text-white/80 line-through decoration-rose-500/50" : "text-white group-hover:text-[#FE760B]"}`}>
-                            {event.name}
+                            {event.name || event.title || "Untitled Event"}
                           </h3>
 
                           {/* Venue / Location */}
@@ -585,7 +589,10 @@ export function EventManagement() {
                           <button
                             type="button"
                             onClick={() => {
-                              try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                              try {
+                                localStorage.setItem("admin_selected_event_id", event.id);
+                                setCachedEvent(event.id, event);
+                              } catch {}
                               router.push(`/admin/overview?eventId=${event.id}`);
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -597,7 +604,10 @@ export function EventManagement() {
                           <button
                             type="button"
                             onClick={() => {
-                              try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                              try {
+                                localStorage.setItem("admin_selected_event_id", event.id);
+                                setCachedEvent(event.id, event);
+                              } catch {}
                               router.push(`/admin/scanner?eventId=${event.id}`);
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
@@ -609,7 +619,10 @@ export function EventManagement() {
                           <button
                             type="button"
                             onClick={() => {
-                              try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                              try {
+                                localStorage.setItem("admin_selected_event_id", event.id);
+                                setCachedEvent(event.id, event);
+                              } catch {}
                               router.push(`/admin/overview?eventId=${event.id}`);
                             }}
                             className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white text-xs font-semibold border border-[#2A2D31] hover:border-[#FE760B]/40 transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -622,7 +635,10 @@ export function EventManagement() {
                         <button
                           type="button"
                           onClick={() => {
-                            try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                            try {
+                              localStorage.setItem("admin_selected_event_id", event.id);
+                              setCachedEvent(event.id, event);
+                            } catch {}
                             router.push(`/admin/registrations?eventId=${event.id}`);
                           }}
                           className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-white text-xs font-semibold border border-[#2A2D31] hover:border-[#3DD68C]/40 transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -634,7 +650,10 @@ export function EventManagement() {
                         <button
                           type="button"
                           onClick={() => {
-                            try { localStorage.setItem("admin_selected_event_id", event.id); } catch {}
+                            try {
+                              localStorage.setItem("admin_selected_event_id", event.id);
+                              setCachedEvent(event.id, event);
+                            } catch {}
                             router.push(`/admin/analytics?eventId=${event.id}`);
                           }}
                           className="px-3.5 py-1.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] hover:border-[#2B59FF]/40 transition-colors flex items-center gap-1.5 cursor-pointer"

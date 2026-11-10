@@ -53,19 +53,11 @@ export default function MoreEventSettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Instant 0ms cache-first hydration
-  const initialEventId = searchParams?.get("eventId") || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
+  // Safe SSR hydration - avoids hydration mismatch
+  const initialEventId = searchParams?.get("eventId") || null;
   const [activeEventId, setActiveEventId] = useState(initialEventId);
-  const [currentEvent, setCurrentEvent] = useState(() => {
-    if (initialEventId) {
-      try {
-        const cached = getCachedEvent(initialEventId);
-        if (cached) return cached;
-      } catch {}
-    }
-    return null;
-  });
-  const [loadingEvent, setLoadingEvent] = useState(() => !currentEvent);
+  const [currentEvent, setCurrentEvent] = useState(null);
+  const [loadingEvent, setLoadingEvent] = useState(true);
 
   const isPaidEvent = Boolean(
     currentEvent?.isPaid ||
@@ -154,6 +146,13 @@ export default function MoreEventSettingsPage() {
     }
 
     setActiveEventId(eventId);
+    try {
+      const cached = getCachedEvent(eventId);
+      if (cached) {
+        setCurrentEvent(cached);
+        setLoadingEvent(false);
+      }
+    } catch {}
     if (!currentEvent) {
       setLoadingEvent(true);
     }
@@ -796,7 +795,7 @@ export default function MoreEventSettingsPage() {
       {/* ── Standard Navigation Header (More Tab active) ── */}
       <EventControlHeader
         activeTab="More"
-        eventTitle={currentEvent?.name || currentEvent?.title || "Event Settings"}
+        eventTitle={currentEvent?.name || currentEvent?.title || ""}
         eventSlug={customSlug}
         eventId={activeEventId}
         isLive={isPublished && !isCancelled}
