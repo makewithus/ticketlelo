@@ -10,6 +10,8 @@ import {
   Check,
   X,
   KeyRound,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -108,6 +110,9 @@ export function OrganisersManagement() {
   const [openActionId, setOpenActionId] = useState(null);
   const [resetModalData, setResetModalData] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [deleteModalData, setDeleteModalData] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteEventsOption, setDeleteEventsOption] = useState(false);
 
   useEffect(() => {
     if (!openActionId) return;
@@ -190,6 +195,9 @@ export function OrganisersManagement() {
 
           return {
             id: doc.id,
+            hostingRequestId: doc.id,
+            organiserId: d.organiserId || null,
+            userId: d.organiserId || null,
             name: d.name || d.organizerName || "Organiser",
             college: d.college || "college",
             eventTitle: d.eventTitle || matchingEvent?.name || "Event",
@@ -345,6 +353,61 @@ export function OrganisersManagement() {
     const subject = encodeURIComponent(`TicketLelo Organizer - ${item.eventTitle || "Your Event"}`);
     window.open(`mailto:${item.loginEmail}?subject=${subject}`, "_blank");
     toast.success(`Opening email client for ${item.loginEmail} (email copied)`);
+  };
+
+  const handleDeleteOrganiser = async () => {
+    if (!deleteModalData) return;
+    setIsDeleting(true);
+    const toastId = toast.loading(`Deleting organiser ${deleteModalData.name}...`);
+    try {
+      let headers = { "Content-Type": "application/json" };
+      try {
+        if (auth?.currentUser) {
+          const token = await auth.currentUser.getIdToken();
+          if (token) headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (_) {}
+
+      const res = await fetch("/api/superadmin/organisers", {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({
+          id: deleteModalData.id,
+          email: deleteModalData.loginEmail,
+          hostingRequestId: deleteModalData.hostingRequestId || deleteModalData.id,
+          userId: deleteModalData.userId || deleteModalData.organiserId,
+          deleteEvents: deleteEventsOption,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete organiser");
+      }
+
+      // Remove from local list
+      const targetEmail = (deleteModalData.loginEmail || "").toLowerCase().trim();
+      const targetId = deleteModalData.id;
+      setOrganisers((prev) => {
+        const next = prev.filter((item) => {
+          if (item.id === targetId) return false;
+          if (targetEmail && targetEmail !== "—" && (item.loginEmail || "").toLowerCase().trim() === targetEmail) {
+            return false;
+          }
+          return true;
+        });
+        setCachedItem("superadmin_organisers", next, 15 * 60 * 1000);
+        return next;
+      });
+
+      toast.success(`Organiser "${deleteModalData.name}" has been deleted`, { id: toastId });
+      setDeleteModalData(null);
+    } catch (err) {
+      console.error("Delete organiser error:", err);
+      toast.error(err.message || "Failed to delete organiser", { id: toastId });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (isLoading && organisers.length === 0) {
@@ -576,6 +639,21 @@ export function OrganisersManagement() {
                             >
                               Email organiser
                             </button>
+
+                            <div className="h-px bg-[#2A2D31] my-1" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDeleteModalData(item);
+                                setDeleteEventsOption(false);
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-2 group"
+                            >
+                              <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:scale-105 transition-transform" />
+                              <span>Delete organiser</span>
+                            </button>
                           </div>
                         )}
                       </td>
@@ -679,6 +757,21 @@ export function OrganisersManagement() {
                             className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
                           >
                             Email organiser
+                          </button>
+
+                          <div className="h-px bg-[#2A2D31] my-1" />
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setDeleteModalData(item);
+                              setDeleteEventsOption(false);
+                            }}
+                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-2 group"
+                          >
+                            <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:scale-105 transition-transform" />
+                            <span>Delete organiser</span>
                           </button>
                         </div>
                       )}
@@ -847,6 +940,113 @@ export function OrganisersManagement() {
                 className="px-4 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FE760B]/90 text-xs font-bold text-[#131517] transition-colors cursor-pointer"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-6 shadow-2xl space-y-5">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 text-red-500 flex items-center justify-center shrink-0 border border-red-500/20">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Delete Organiser</h3>
+                  <p className="text-xs text-[#9B9EA4]">
+                    This action will permanently delete this organiser.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteModalData(null)}
+                className="text-[#9B9EA4] hover:text-white p-1 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Organiser Summary Card */}
+            <div className="bg-[#212327]/80 rounded-xl p-3.5 border border-[#2A2D31] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white">
+                  {deleteModalData.name}
+                </span>
+                <span className="text-[11px] text-[#71767B]">
+                  {formatCollege(deleteModalData.college)}
+                </span>
+              </div>
+              <div className="text-xs font-mono text-[#D0D0D1] truncate">
+                {deleteModalData.loginEmail}
+              </div>
+              {deleteModalData.eventTitle && (
+                <div className="text-xs text-[#9B9EA4] pt-1.5 border-t border-[#2A2D31]/60 flex items-center justify-between">
+                  <span className="truncate max-w-[240px]">Event: {deleteModalData.eventTitle}</span>
+                  <span className="text-[11px] font-mono text-white">{Number(deleteModalData.tickets || 0).toLocaleString()} tix</span>
+                </div>
+              )}
+            </div>
+
+            {/* Warning Notice */}
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div className="text-xs text-red-200/90 leading-relaxed">
+                The organiser account and hosting permissions will be removed immediately.
+              </div>
+            </div>
+
+            {/* Optional: Delete associated events checkbox */}
+            <label className="flex items-start gap-3 p-3 rounded-xl bg-[#212327]/40 border border-[#2A2D31] cursor-pointer hover:bg-[#212327]/70 transition-colors">
+              <input
+                type="checkbox"
+                checked={deleteEventsOption}
+                onChange={(e) => setDeleteEventsOption(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-[#2A2D31] bg-[#1A1C1F] text-[#FE760B] focus:ring-0 cursor-pointer accent-[#FE760B]"
+              />
+              <div className="text-xs text-[#D0D0D1] leading-relaxed">
+                <span className="font-semibold text-white block">Also permanently delete associated events</span>
+                <span className="text-[11px] text-[#71767B]">
+                  If unchecked, events will be unpublished and saved as draft instead of being erased.
+                </span>
+              </div>
+            </label>
+
+            {/* Actions */}
+            <div className="pt-2 border-t border-[#2A2D31] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteModalData(null)}
+                className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#D0D0D1] hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteOrganiser}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Organiser</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

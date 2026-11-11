@@ -159,6 +159,28 @@ export default function AccountPage() {
               />
             </Link>
 
+            {/* Desktop Dashboard Navigation Links */}
+            <div className="hidden md:flex items-center gap-1 bg-[#1A1C1F] border border-[#2A2D31] p-1 rounded-xl text-xs font-semibold">
+              <Link
+                href="/dashboard"
+                className="px-3 py-1.5 rounded-lg text-[#9B9EA4] hover:text-white transition-colors"
+              >
+                Overview
+              </Link>
+              <Link
+                href="/my-tickets"
+                className="px-3 py-1.5 rounded-lg text-[#9B9EA4] hover:text-white transition-colors"
+              >
+                My Tickets
+              </Link>
+              <Link
+                href="/account"
+                className="px-3 py-1.5 rounded-lg bg-[#FE760B] text-white shadow-xs font-bold"
+              >
+                Account Settings
+              </Link>
+            </div>
+
             <nav className="flex items-center gap-4 sm:gap-6">
               <Link
                 href="/"

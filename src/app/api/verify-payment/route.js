@@ -10,13 +10,13 @@ import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
 import { getDefaultPaymentProvider } from "@/lib/payments/provider-registry";
 import { recordPaymentCaptureLedger } from "@/lib/payments/ledger";
 import { scheduleSettlementForOrder } from "@/lib/payments/settlement-engine";
+import { sendTicketDeliveryEmail } from "@/src/app/api/send-ticket-email/route";
 
 const deterministicId = (orderId) => crypto.createHash("sha256").update(orderId).digest("hex");
 
 export async function POST(request) {
   try {
     const caller = await getAuthenticatedUser(request);
-    if (!caller) return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     if (!adminDb) return NextResponse.json({ success: false, error: "Payment service unavailable" }, { status: 503 });
 
     const { razorpay_order_id: orderId, razorpay_payment_id: paymentId, razorpay_signature: signature, eventId } = await request.json();
@@ -29,7 +29,9 @@ export async function POST(request) {
     const orderSnap = await orderRef.get();
     if (!orderSnap.exists) return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
     const order = orderSnap.data();
-    if (order.userId !== caller.uid) return NextResponse.json({ success: false, error: "Order access denied" }, { status: 403 });
+    if (caller && caller.uid && order.userId !== caller.uid) {
+      return NextResponse.json({ success: false, error: "Order access denied" }, { status: 403 });
+    }
     if (eventId && eventId !== order.eventId) return NextResponse.json({ success: false, error: "Order event mismatch" }, { status: 400 });
     if (order.status === "paid" && order.ticketId) {
       return NextResponse.json({ success: true, alreadyVerified: true, ticketId: order.ticketId });
@@ -249,7 +251,23 @@ export async function POST(request) {
       console.warn("[verify-payment] Ledger or split recording warning:", ledgerErr.message);
     }
 
-    return NextResponse.json({ success: true, message: "Payment verified and ticket issued", ticketId });
+    // Automatically trigger ticket delivery confirmation email
+    const isFirstTime = Boolean(order.isFirstTimeUser);
+    try {
+      await sendTicketDeliveryEmail({
+        ticketId,
+        isFirstTimeUser: isFirstTime,
+      });
+    } catch (emailErr) {
+      console.warn("[verify-payment] Delivery email enqueue warning:", emailErr?.message);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Payment verified and ticket issued",
+      ticketId,
+      isFirstTimeUser: isFirstTime,
+    });
   } catch (error) {
     const status = error.message === "Capacity reservation has expired" ? 409 : 500;
     console.error("[verify-payment] Verification failed:", error.code || "unexpected-error");

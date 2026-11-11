@@ -259,7 +259,10 @@ function UnifiedLoginContent() {
       }
 
       const digitsPhone = phone.replace(/\D/g, "").slice(0, 10);
-      const userData = await signup(email, password, fullName.trim(), digitsPhone);
+      const userData = await signup(email, password, fullName.trim(), digitsPhone, {
+        hasSetPassword: true,
+        isFirstTimeUser: false,
+      });
       const role = userData?.role || "user";
       handleAuthSuccess(role, userData?.fullName || fullName);
     } catch (err) {

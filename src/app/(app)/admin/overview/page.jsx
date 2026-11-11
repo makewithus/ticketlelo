@@ -191,17 +191,30 @@ export default function EventOverviewPage() {
     const loadEvents = async () => {
       if (!user) return;
       try {
-        const userId = user.uid || user.id;
-        let list = await getEventsByOrganiser(userId);
-        if (!list || list.length === 0) {
-          const all = await getAllEvents();
-          list = (all || []).filter(
-            (e) =>
-              e.createdBy === userId ||
-              e.userId === userId ||
-              e.organiserId === userId ||
-              e.organizerId === userId
-          );
+        const userId = user.uid || user.id || "";
+        const emailLower = (user.email || "").toLowerCase().trim();
+        const isSuperAdmin =
+          user.role === "superAdmin" ||
+          user.role === "superadmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+
+        let list = [];
+        if (isSuperAdmin) {
+          // Super admin has full platform access to all events of all organisers
+          list = (await getAllEvents()) || [];
+        } else {
+          list = await getEventsByOrganiser(userId);
+          if (!list || list.length === 0) {
+            const all = await getAllEvents();
+            list = (all || []).filter(
+              (e) =>
+                e.createdBy === userId ||
+                e.userId === userId ||
+                e.organiserId === userId ||
+                e.organizerId === userId
+            );
+          }
         }
 
         // If a specific event is requested via paramId (e.g. newly created event), include it
@@ -272,6 +285,9 @@ export default function EventOverviewPage() {
           if (matchedEvt) {
             setEvent(matchedEvt);
             setCachedEvent(matchedEvt.id, matchedEvt);
+          }
+          if (paramId && paramId !== initialId) {
+            router.replace(`/admin/overview?eventId=${initialId}`);
           }
         }
       } catch (err) {
@@ -454,8 +470,8 @@ export default function EventOverviewPage() {
 
   // Public URL — dynamically matches active Vercel or .in production domain, never localhost
   const publicSlug = event?.slug || event?.id || "event";
-  const publicUrl = getPublicEventDisplayUrl(publicSlug, "register");
-  const fullPublicUrl = getPublicEventUrl(publicSlug, "register");
+  const publicUrl = getPublicEventDisplayUrl(publicSlug, "event");
+  const fullPublicUrl = getPublicEventUrl(publicSlug, "event");
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(fullPublicUrl);
@@ -841,7 +857,7 @@ export default function EventOverviewPage() {
                   </span>
                 ) : (
                   <Link
-                    href={`/register/${publicSlug}`}
+                    href={`/e/${publicSlug}`}
                     className="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-black font-bold text-xs transition-colors shrink-0 text-center"
                   >
                     Register

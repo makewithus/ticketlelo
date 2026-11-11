@@ -94,7 +94,16 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
     const loadEvents = async () => {
       try {
         let eventsList = [];
-        if (user?.uid) {
+        const emailLower = (user?.email || "").toLowerCase().trim();
+        const isSuperAdmin =
+          user?.role === "superAdmin" ||
+          user?.role === "superadmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+
+        if (isSuperAdmin) {
+          eventsList = (await getAllEvents()) || [];
+        } else if (user?.uid) {
           try {
             const userId = user.uid;
             let list = await getEventsByOrganiser(userId);

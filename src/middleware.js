@@ -29,7 +29,7 @@ export function middleware(request) {
   }
 
   const response = NextResponse.next();
-  response.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
   return response;
 }
 

@@ -136,17 +136,30 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
       if (!user) return;
       try {
         setLoading(true);
-        const userId = user.uid || user.id;
-        let list = await getEventsByOrganiser(userId);
-        if (!list || list.length === 0) {
-          const all = await getAllEvents();
-          list = (all || []).filter(
-            (e) =>
-              e.createdBy === userId ||
-              e.userId === userId ||
-              e.organiserId === userId ||
-              e.organizerId === userId
-          );
+        const emailLower = (user.email || "").toLowerCase().trim();
+        const isSuperAdmin =
+          user.role === "superAdmin" ||
+          user.role === "superadmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+
+        let list = [];
+        if (isSuperAdmin) {
+          // Super admin has full platform access to all events of all organisers
+          list = (await getAllEvents()) || [];
+        } else {
+          const userId = user.uid || user.id;
+          list = await getEventsByOrganiser(userId);
+          if (!list || list.length === 0) {
+            const all = await getAllEvents();
+            list = (all || []).filter(
+              (e) =>
+                e.createdBy === userId ||
+                e.userId === userId ||
+                e.organiserId === userId ||
+                e.organizerId === userId
+            );
+          }
         }
 
         if (!isMounted) return;

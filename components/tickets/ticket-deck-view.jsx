@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   Download,
   Ticket,
+  Eye,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { TicketGraphic } from "./ticket-graphic";
@@ -386,10 +387,16 @@ export function TicketDeckView({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="mt-5 lg:mt-6 pt-4 lg:pt-5 border-t border-[#D9DBE0] dark:border-[#2A2D31]">
+                <div className="mt-5 lg:mt-6 pt-4 lg:pt-5 border-t border-[#D9DBE0] dark:border-[#2A2D31] flex flex-col sm:flex-row gap-2.5">
+                  <button
+                    onClick={() => setShowFullModal(true)}
+                    className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold text-xs sm:text-sm lg:text-base py-2.5 sm:py-3 lg:py-3.5 px-3.5 sm:px-4 lg:px-5 rounded-xl lg:rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
+                  >
+                    <Eye className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> View Ticket
+                  </button>
                   <button
                     onClick={handleDownloadPdf}
-                    className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs sm:text-sm lg:text-base py-2.5 sm:py-3 lg:py-3.5 px-3.5 sm:px-4 lg:px-5 rounded-xl lg:rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
+                    className="flex-1 bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-800 dark:text-white font-bold text-xs sm:text-sm lg:text-base py-2.5 sm:py-3 lg:py-3.5 px-3.5 sm:px-4 lg:px-5 rounded-xl lg:rounded-2xl flex items-center justify-center gap-2 transition-colors cursor-pointer border border-slate-200 dark:border-[#2A2D31]"
                   >
                     <Download className="w-3.5 h-3.5 lg:w-4 lg:h-4" /> Download PDF Ticket
                   </button>

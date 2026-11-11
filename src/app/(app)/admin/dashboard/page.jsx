@@ -92,21 +92,25 @@ export default function AdminDashboardPage() {
       if (userId) {
         let evts = [];
         try {
-          // Always load this specific organiser's events for their personal dashboard
-          const userEvents = await getEventsByOrganiser(userId);
-          if (Array.isArray(userEvents) && userEvents.length > 0) {
-            evts = userEvents;
-          } else if (userRole === "superAdmin") {
-            // If superAdmin, filter platform events down to events created by this user
-            const all = await getAllEvents();
-            evts = (all || []).filter(
-              (ev) =>
-                ev?.createdBy === userId ||
-                ev?.userId === userId ||
-                ev?.organiserId === userId ||
-                ev?.organizerId === userId ||
-                (ev?.organiserEmail && ev.organiserEmail.toLowerCase() === emailLower)
-            );
+          if (isSuperAdmin) {
+            // Super Admin has full platform access to all events of all organisers
+            evts = (await getAllEvents()) || [];
+          } else {
+            // Always load this specific organiser's events for their personal dashboard
+            const userEvents = await getEventsByOrganiser(userId);
+            if (Array.isArray(userEvents) && userEvents.length > 0) {
+              evts = userEvents;
+            } else {
+              const all = await getAllEvents();
+              evts = (all || []).filter(
+                (ev) =>
+                  ev?.createdBy === userId ||
+                  ev?.userId === userId ||
+                  ev?.organiserId === userId ||
+                  ev?.organizerId === userId ||
+                  (ev?.organiserEmail && ev.organiserEmail.toLowerCase() === emailLower)
+              );
+            }
           }
         } catch (evtErr) {
           console.warn("Could not load events:", evtErr);

@@ -15,9 +15,32 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Database service unavailable" }, { status: 503 });
     }
 
-    const doc = await adminDb.collection("events").doc(eventId).get();
+    let doc = await adminDb.collection("events").doc(eventId).get();
     if (!doc.exists) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      // 1. Try querying by slug
+      const slugSnap = await adminDb.collection("events").where("slug", "==", eventId).limit(1).get();
+      if (!slugSnap.empty) {
+        doc = slugSnap.docs[0];
+      } else {
+        // 2. Try checking if eventId is a hosting request id with a linked eventId
+        try {
+          const hrDoc = await adminDb.collection("hostingRequests").doc(eventId).get();
+          if (hrDoc.exists) {
+            const hrData = hrDoc.data();
+            const linkedId = hrData.eventId || hrData.eventDocId;
+            if (linkedId) {
+              const linkedDoc = await adminDb.collection("events").doc(linkedId).get();
+              if (linkedDoc.exists) {
+                doc = linkedDoc;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!doc || !doc.exists) {
+      return NextResponse.json({ error: "Event not found", event: null }, { status: 404 });
     }
 
     const data = doc.data();

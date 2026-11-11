@@ -50,17 +50,29 @@ export function RegistrationManagement() {
       if (!user) return;
       
       try {
-        const userId = user.uid || user.id;
-        let allEvents = await getEventsByOrganiser(userId);
-        if (!allEvents || allEvents.length === 0) {
-          const all = await getAllEvents();
-          allEvents = (all || []).filter(
-            (e) =>
-              e.createdBy === userId ||
-              e.userId === userId ||
-              e.organiserId === userId ||
-              e.organizerId === userId
-          );
+        const emailLower = (user.email || "").toLowerCase().trim();
+        const isSuperAdmin =
+          user.role === "superAdmin" ||
+          user.role === "superadmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+
+        let allEvents = [];
+        if (isSuperAdmin) {
+          allEvents = (await getAllEvents()) || [];
+        } else {
+          const userId = user.uid || user.id;
+          allEvents = await getEventsByOrganiser(userId);
+          if (!allEvents || allEvents.length === 0) {
+            const all = await getAllEvents();
+            allEvents = (all || []).filter(
+              (e) =>
+                e.createdBy === userId ||
+                e.userId === userId ||
+                e.organiserId === userId ||
+                e.organizerId === userId
+            );
+          }
         }
         
         // Auto-select the organiser's event

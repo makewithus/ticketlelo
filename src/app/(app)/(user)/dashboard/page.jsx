@@ -196,6 +196,29 @@ export default function DashboardPage() {
             <Link href="/" className="flex items-center gap-2 group shrink-0">
               <img src={LOGO_SRC} alt="TicketLelo" className="h-6 sm:h-[30px] w-auto object-contain" />
             </Link>
+
+            {/* Desktop Dashboard Navigation Links */}
+            <div className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-1 rounded-xl text-xs font-semibold">
+              <Link
+                href="/dashboard"
+                className="px-3 py-1.5 rounded-lg bg-[#FE760B] text-white shadow-xs font-bold"
+              >
+                Overview
+              </Link>
+              <Link
+                href="/my-tickets"
+                className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                My Tickets
+              </Link>
+              <Link
+                href="/account"
+                className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Account Settings
+              </Link>
+            </div>
+
             <Link
               href="/discover"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] dark:hover:text-white transition-colors"
@@ -208,13 +231,22 @@ export default function DashboardPage() {
             {(user?.role === "superAdmin" ||
               (user?.email || "").toLowerCase().trim() === "adil4ticketlelo@gmail.com" ||
               (user?.email || "").toLowerCase().trim() === "superadmin@ticketlelo.com") ? (
-              <Link
-                href="/superadmin"
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 hover:bg-[#FE760B]/20 border border-[#FE760B]/30 px-3 py-1.5 rounded-xl transition-colors"
-              >
-                <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
-                <span>Super Admin Suite</span>
-              </Link>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link
+                  href="/superadmin"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 hover:bg-[#FE760B]/20 border border-[#FE760B]/30 px-3 py-1.5 rounded-xl transition-colors"
+                >
+                  <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Super Admin Suite</span>
+                </Link>
+                <Link
+                  href="/admin/dashboard"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] bg-slate-100 dark:bg-[#1A1C1F] hover:bg-slate-200 dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] px-3 py-1.5 rounded-xl transition-colors"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Organiser Portal</span>
+                </Link>
+              </div>
             ) : (user?.role === "organiser" || user?.isAdmin) ? (
               <Link
                 href="/admin/dashboard"
@@ -279,7 +311,7 @@ export default function DashboardPage() {
             <div className="p-4 space-y-6 flex-1 overflow-y-auto">
               <div>
                 <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
-                  My Hub
+                  My Dashboard
                 </p>
                 <nav className="space-y-1">
                   <Link
@@ -287,8 +319,17 @@ export default function DashboardPage() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
                   >
+                    <Layers className="w-4 h-4 text-[#FE760B] shrink-0" />
+                    <span>Overview</span>
+                  </Link>
+
+                  <Link
+                    href="/my-tickets"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                  >
                     <Ticket className="w-4 h-4 text-[#FE760B] shrink-0" />
-                    <span>My Tickets</span>
+                    <span>My Tickets ({registrations.length})</span>
                   </Link>
 
                   <Link
@@ -386,6 +427,11 @@ export default function DashboardPage() {
           {/* Welcome Header Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4 opacity-0 animate-fade-in-up">
             <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/20">
+                  Account Dashboard • Overview
+                </span>
+              </div>
               <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Welcome, <span className="text-[#FE760B]">{user.fullName || "Guest"}</span>
               </h1>
@@ -421,6 +467,48 @@ export default function DashboardPage() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Quick Metrics Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5 opacity-0 animate-fade-in-up">
+            <Link
+              href="/my-tickets"
+              className="group bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/40 rounded-2xl p-3.5 sm:p-4 shadow-xs transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Total Passes</p>
+                <Ticket className="w-4 h-4 text-[#FE760B] group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-1">{registrations.length}</p>
+              <p className="text-[11px] text-[#FE760B] mt-1 font-semibold flex items-center gap-1">View all in My Tickets &rarr;</p>
+            </Link>
+
+            <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-3.5 sm:p-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Active Passes</p>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-emerald-500 mt-1">{unusedCount}</p>
+              <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-1">Confirmed &amp; ready</p>
+            </div>
+
+            <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-3.5 sm:p-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Pending</p>
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-amber-500 mt-1">{pendingCount}</p>
+              <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-1">Awaiting approval</p>
+            </div>
+
+            <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-3.5 sm:p-4 shadow-xs">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Used / Past</p>
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-slate-400 mt-1">{usedCount}</p>
+              <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-1">Admitted events</p>
+            </div>
           </div>
 
           {/* VIEW: DECK VIEW */}

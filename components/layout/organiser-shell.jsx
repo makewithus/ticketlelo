@@ -84,22 +84,27 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
   const hasUser = Boolean(user);
 
   useEffect(() => {
-    if (!loading && !hasUser) {
+    if (loading) return;
+    if (!hasUser) {
       router.push("/login");
       return;
     }
-    if (!loading && hasUser && !hasAdminAccess && !allowAnyUser) {
+    if (hasUser && !hasAdminAccess && !allowAnyUser) {
+      const emailLower = (user?.email || "").toLowerCase().trim();
+      const isSuper =
+        emailLower === "adil4ticketlelo@gmail.com" ||
+        emailLower === "superadmin@ticketlelo.com";
+      if (isSuper || user?.role === "organiser") return;
+
       router.push("/dashboard");
     }
-  }, [loading, hasUser, hasAdminAccess, allowAnyUser, router]);
+  }, [loading, hasUser, hasAdminAccess, allowAnyUser, router, user?.email, user?.role]);
 
   // Close menus on route change
-  const [prevPath, setPrevPath] = useState(pathname);
-  if (prevPath !== pathname) {
-    setPrevPath(pathname);
+  useEffect(() => {
     setMobileMenuOpen(false);
     setProfileDropdownOpen(false);
-  }
+  }, [pathname]);
 
   // Lock body scroll when mobile menu drawer is open
   useEffect(() => {

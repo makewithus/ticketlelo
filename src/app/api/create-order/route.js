@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { configuredPaymentSecret } from "@/lib/payment-security";
@@ -5,7 +6,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { calculateOrderPricing } from "@/lib/pricing";
 import { reserveTicketCapacity, releaseCapacityReservation } from "@/lib/capacity-reservation";
 import { validateCouponCode } from "@/lib/coupons";
-import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
+import { adminAuth, adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
 import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
 import { resolveCommissionRule, calculateCommissionBreakdown } from "@/lib/payments/commission-engine";
@@ -14,10 +15,17 @@ import { resolveCommissionRule, calculateCommissionBreakdown } from "@/lib/payme
  * Server-Authoritative Razorpay Order Creation
  * Computes price server-side, validates coupons, reserves capacity, and creates gateway order (P07, SEC-03, SEC-04).
  */
+function parseSafePrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : Math.max(0, val);
+  if (!val) return 0;
+  const cleaned = String(val).replace(/[^0-9.]/g, "");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : Math.max(0, num);
+}
+
 export async function POST(request) {
   try {
     const caller = await getAuthenticatedUser(request);
-    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     const {
       eventId,
       ticketId, // comboId or subEventId or "general"
@@ -33,9 +41,62 @@ export async function POST(request) {
     if (!adminDb || !isFirebaseAdminReady()) {
       return NextResponse.json({ error: "Checkout service unavailable" }, { status: 503 });
     }
-    const safeEmail = String(registrationData.email || "").trim().toLowerCase();
-    if (!caller.email || safeEmail !== caller.email.trim().toLowerCase()) {
-      return NextResponse.json({ error: "Checkout email must match the signed-in account" }, { status: 403 });
+
+    const safeEmail = String(
+      registrationData.email ||
+      Object.values(registrationData?.formData || {}).find((val) => typeof val === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) ||
+      caller?.email ||
+      ""
+    ).trim().toLowerCase();
+
+    if (!safeEmail) {
+      return NextResponse.json({ error: "A valid email address is required for checkout" }, { status: 400 });
+    }
+
+    let userUid = caller?.uid;
+    let isFirstTimeUser = false;
+
+    if (caller) {
+      if (caller.email && safeEmail !== caller.email.trim().toLowerCase()) {
+        return NextResponse.json({ error: "Checkout email must match the signed-in account" }, { status: 403 });
+      }
+    } else {
+      // Guest checkout: check or create user account in Firebase Auth
+      try {
+        const existingUser = await adminAuth.getUserByEmail(safeEmail);
+        userUid = existingUser.uid;
+        try {
+          const userDoc = await adminDb.collection("users").doc(userUid).get();
+          if (userDoc.exists && userDoc.data().hasSetPassword === false) {
+            isFirstTimeUser = true;
+          }
+        } catch {}
+      } catch (authErr) {
+        if (authErr.code === "auth/user-not-found") {
+          isFirstTimeUser = true;
+          const initialPassword = crypto.randomBytes(32).toString("base64url");
+          const fullName = String(registrationData.fullName || registrationData.name || "Attendee").trim().slice(0, 120);
+          const newUser = await adminAuth.createUser({
+            email: safeEmail,
+            displayName: fullName,
+            password: initialPassword,
+          });
+          userUid = newUser.uid;
+          await adminDb.collection("users").doc(userUid).set({
+            id: userUid,
+            email: safeEmail,
+            fullName,
+            whatsappPhone: String(registrationData.whatsappPhone || registrationData.phone || "").slice(0, 32),
+            createdAt: Timestamp.now(),
+            isAdmin: false,
+            role: "user",
+            hasSetPassword: false,
+            isFirstTimeUser: true,
+          }, { merge: true });
+        } else {
+          throw authErr;
+        }
+      }
     }
 
     const qty = Number(quantity);
@@ -57,14 +118,14 @@ export async function POST(request) {
 
     // 2. Resolve Ticket / Combo Configuration & Base Price Server-Side
     let ticketConfig = null;
-    let basePrice = Number(event.ticketPrice || event.price || event.amount || 0);
+    let basePrice = parseSafePrice(event.ticketPrice ?? event.price ?? event.amount ?? 0);
 
     if (ticketId && ticketId !== "general") {
       // Check if it's a combo / fest pass
       const comboSnap = await adminDb.collection("combos").doc(ticketId).get();
       if (comboSnap.exists && comboSnap.data().parentEventId === eventId && comboSnap.data().isActive !== false) {
         ticketConfig = { id: comboSnap.id, ...comboSnap.data() };
-        basePrice = Number(ticketConfig.price || 0);
+        basePrice = parseSafePrice(ticketConfig.price ?? 0);
       } else {
         // Check if it's an individual sub-event
         const subSnap = await adminDb.collection("subEvents").doc(ticketId).get();
@@ -77,7 +138,7 @@ export async function POST(request) {
             price: sub.standalonePrice,
             tierType: "single",
           };
-          basePrice = Number(sub.standalonePrice || 0);
+          basePrice = parseSafePrice(sub.standalonePrice ?? 0);
         }
       }
     }
@@ -178,13 +239,14 @@ export async function POST(request) {
       reservationId: reservation?.id || null,
       referralCode: referralCode || null,
       registrationData: {
-        userId: caller.uid,
-        fullName: String(registrationData.fullName || caller.decodedToken?.name || "Attendee").slice(0, 120),
+        userId: userUid,
+        fullName: String(registrationData.fullName || caller?.decodedToken?.name || "Attendee").slice(0, 120),
         email: safeEmail,
         whatsappPhone: String(registrationData.whatsappPhone || registrationData.phone || "").slice(0, 32),
         formData: registrationData.formData && typeof registrationData.formData === "object" ? registrationData.formData : {},
       },
-      userId: caller.uid,
+      userId: userUid,
+      isFirstTimeUser,
       status: "pending", // "pending" | "paid" | "failed" | "refunded"
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),

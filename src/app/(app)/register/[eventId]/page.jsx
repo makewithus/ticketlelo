@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -30,6 +30,7 @@ import { EventPageSkeleton } from "@/components/ui/skeleton";
 import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import { getEvent, subscribeToEvent } from "@/lib/firestore";
+import { getMajorEventBySlug } from "@/lib/events-engine";
 import { resolveEventTheme } from "@/lib/theme-utils";
 import { getSubEventsForEvent } from "@/lib/sub-events";
 import { getCombosForEvent } from "@/lib/combos";
@@ -39,6 +40,7 @@ import { formatEventDate } from "@/lib/date-utils";
 
 export default function RegisterPage() {
   const { eventId } = useParams();
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   // Safe SSR hydration - avoids hydration mismatch
   const [event, setEvent] = useState(null);
@@ -91,52 +93,77 @@ export default function RegisterPage() {
 
     (async () => {
       try {
+        // Resolve event by ID or Slug
+        let resolvedDoc = await getEvent(eventId).catch(() => null);
+        if (!resolvedDoc) {
+          resolvedDoc = await getMajorEventBySlug(eventId).catch(() => null);
+        }
+
+        // If event resolved and has a public slug, redirect directly to /e/[slug] for full public event experience
+        if (resolvedDoc?.slug) {
+          router.replace(`/e/${resolvedDoc.slug}`);
+          return;
+        }
+
+        const targetEventId = resolvedDoc?.id || eventId;
+
         // Fetch sub-events and combos initially
         const [subEventsData, combosData] = await Promise.all([
-          getSubEventsForEvent(eventId).catch(() => []),
-          getCombosForEvent(eventId).catch(() => []),
+          getSubEventsForEvent(targetEventId).catch(() => []),
+          getCombosForEvent(targetEventId).catch(() => []),
         ]);
 
+        if (!isMounted) return;
         setSubEvents(Array.isArray(subEventsData) ? subEventsData : []);
         setCombos(Array.isArray(combosData) ? combosData : []);
 
+        if (resolvedDoc) {
+          setEvent(resolvedDoc);
+          setCachedEvent(targetEventId, resolvedDoc);
+          setIsLoading(false);
+        }
+
         // Real-time listener for instant theme & details synchronization
         unsub = subscribeToEvent(
-          eventId,
+          targetEventId,
           (docData) => {
-            if (docData) {
+            if (docData && isMounted) {
               setEvent(docData);
-              setCachedEvent(eventId, docData);
+              setCachedEvent(targetEventId, docData);
+              setIsLoading(false);
             }
-            setIsLoading(false);
           },
           async (err) => {
             console.warn("Real-time listener failed, falling back to static getEvent:", err);
-            const fallback = await getEvent(eventId).catch(() => null);
-            if (fallback) setEvent(fallback);
-            setIsLoading(false);
+            const fallback = await getEvent(targetEventId).catch(() => null);
+            if (fallback && isMounted) {
+              setEvent(fallback);
+              setIsLoading(false);
+            }
           }
         );
 
-        // Immediate initial load to guarantee instant render without waiting for snapshot
-        const initial = await getEvent(eventId).catch(() => null);
-        if (initial) {
-          setEvent(initial);
-          setCachedEvent(eventId, initial);
-          setIsLoading(false);
+        if (!resolvedDoc) {
+          const initial = await getEvent(targetEventId).catch(() => null);
+          if (initial && isMounted) {
+            setEvent(initial);
+            setCachedEvent(targetEventId, initial);
+            setIsLoading(false);
+          }
         }
       } catch (error) {
         console.error("Failed to load event data:", error);
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     })();
 
     return () => {
+      isMounted = false;
       if (typeof unsub === "function") {
         unsub();
       }
     };
-  }, [eventId]);
+  }, [eventId, router]);
 
   // Derive theme properties with canonical Minimal Theme as default / when selected
   const theme = useMemo(() => resolveEventTheme(event), [event]);

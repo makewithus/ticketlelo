@@ -749,40 +749,25 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             </div>
 
             <div className="space-y-4 mb-6">
-              <p className="text-[#D0D0D1]">
-                You can now access the{" "}
-                <strong className="text-[#FE760B]">User Portal</strong> with
-                your credentials:
+              <p className="text-sm text-[#D0D0D1] leading-relaxed">
+                You&apos;re successfully registered for this event. Your ticket confirmation has been sent to your email.
+              </p>
+              <p className="text-xs sm:text-sm text-[#E1E4EA] font-medium leading-relaxed">
+                To access your ticket and manage all your registrations, set up your TicketLelo password using the link sent to your email.
               </p>
 
-              <div className="bg-[#212327] p-4 rounded-xl border border-[#2A2D31] space-y-3">
-                <div>
-                  <p className="text-xs text-[#9B9EA4] mb-1">EMAIL</p>
-                  <p className="font-mono text-sm text-[#FE760B]">
-                    {userCredentials.email}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-[#9B9EA4] mb-1">PHONE NUMBER</p>
-                  <p className="font-mono text-sm text-[#FE760B]">
-                    {userCredentials.phone}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-[#FE760B]/10 border border-[#FE760B]/30 rounded-lg p-3">
-                <p className="text-xs text-[#FE760B]">
-                  <strong>Note:</strong> Use these credentials to sign in to
-                  the User Portal and view all your tickets.
+              <div className="bg-[#131517] border border-[#2A2D31] rounded-xl p-3.5 flex items-center gap-3">
+                <p className="text-xs font-medium text-[#D0D0D1]">
+                  Check your inbox for your ticket confirmation email.
                 </p>
               </div>
             </div>
 
             <Button
               onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-semibold h-11 rounded-xl cursor-pointer"
+              className="w-full bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-bold h-11 rounded-xl cursor-pointer"
             >
-              Got it!
+              Got It
             </Button>
           </div>
         </div>

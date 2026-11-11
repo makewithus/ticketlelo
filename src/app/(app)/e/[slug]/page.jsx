@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -45,10 +45,9 @@ import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration
 import { formatEventDate, parseFirestoreDate } from "@/lib/date-utils";
 import { VenueMap } from "@/components/common/venue-map";
 import { useAuth } from "@/context/auth-context";
-import { getThemeLook } from "@/lib/theme-utils";
+import { getThemeLook, resolveEventTheme } from "@/lib/theme-utils";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { AnimatedRadialBackground } from "@/components/effects/AnimatedRadialBackground";
 import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
 
 export default function PublicEventBySlugPage() {
@@ -178,42 +177,57 @@ export default function PublicEventBySlugPage() {
           }
         }
 
-        // Fetch real registrations for this event to get actual attendees and Google profile pics
+        // Fetch real registrations only if authorized organizer or superAdmin
         let enrichedRegistrations = [];
-        try {
-          const regQ = query(
-            collection(db, "registrations"),
-            where("eventId", "==", eventData.id)
-          );
-          const regSnap = await getDocs(regQ);
-          const rawRegs = regSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const emailLower = (user?.email || "").toLowerCase().trim();
+        const canReadRegistrations = Boolean(
+          user &&
+          (user.role === "superAdmin" ||
+            user.role === "superadmin" ||
+            emailLower === "adil4ticketlelo@gmail.com" ||
+            emailLower === "superadmin@ticketlelo.com" ||
+            user.uid === eventData.organizerId ||
+            user.uid === eventData.createdBy ||
+            user.id === eventData.organizerId ||
+            user.id === eventData.createdBy)
+        );
 
-          const attendeeUserIds = [...new Set(rawRegs.map((r) => r.userId).filter(Boolean))];
-          const attendeeUserMap = {};
-          if (attendeeUserIds.length > 0) {
-            await Promise.all(
-              attendeeUserIds.map(async (uid) => {
-                try {
-                  const aDoc = await getDoc(doc(db, "users", uid));
-                  if (aDoc.exists()) {
-                    attendeeUserMap[uid] = aDoc.data();
-                  }
-                } catch {}
-              })
+        if (canReadRegistrations) {
+          try {
+            const regQ = query(
+              collection(db, "registrations"),
+              where("eventId", "==", eventData.id)
             );
-          }
+            const regSnap = await getDocs(regQ);
+            const rawRegs = regSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-          enrichedRegistrations = rawRegs.map((r) => {
-            const uData = r.userId ? attendeeUserMap[r.userId] : null;
-            return {
-              ...r,
-              photoURL: r.photoURL || uData?.photoURL || "",
-              fullName: r.fullName || r.name || uData?.fullName || "Guest Attendee",
-              email: r.email || uData?.email || "",
-            };
-          });
-        } catch (regErr) {
-          console.warn("Could not fetch registrations:", regErr);
+            const attendeeUserIds = [...new Set(rawRegs.map((r) => r.userId).filter(Boolean))];
+            const attendeeUserMap = {};
+            if (attendeeUserIds.length > 0) {
+              await Promise.all(
+                attendeeUserIds.map(async (uid) => {
+                  try {
+                    const aDoc = await getDoc(doc(db, "users", uid));
+                    if (aDoc.exists()) {
+                      attendeeUserMap[uid] = aDoc.data();
+                    }
+                  } catch {}
+                })
+              );
+            }
+
+            enrichedRegistrations = rawRegs.map((r) => {
+              const uData = r.userId ? attendeeUserMap[r.userId] : null;
+              return {
+                ...r,
+                photoURL: r.photoURL || uData?.photoURL || "",
+                fullName: r.fullName || r.name || uData?.fullName || "Guest Attendee",
+                email: r.email || uData?.email || "",
+              };
+            });
+          } catch (regErr) {
+            console.warn("Could not fetch registrations:", regErr);
+          }
         }
 
         if (isMounted) {
@@ -254,6 +268,9 @@ export default function PublicEventBySlugPage() {
           if (snap.exists()) {
             const data = { id: snap.id, ...snap.data() };
             setEvent((prev) => ({ ...(prev || {}), ...data }));
+            if (slug) {
+              setCachedEvent(slug, data);
+            }
           }
         },
         (err) => console.warn("Real-time event sync warning:", err?.message)
@@ -262,24 +279,39 @@ export default function PublicEventBySlugPage() {
       console.warn("Could not bind real-time event listener:", err);
     }
 
-    try {
-      const q = query(
-        collection(db, "registrations"),
-        where("eventId", "==", event.id)
-      );
-      unsubRegs = onSnapshot(
-        q,
-        (snap) => {
-          const freshRegs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setRegistrations((prev) => {
-            if (prev.length === freshRegs.length) return prev;
-            return freshRegs;
-          });
-        },
-        (err) => console.warn("Real-time registrations sync warning:", err?.message)
-      );
-    } catch (err) {
-      console.warn("Could not bind real-time registrations listener:", err);
+    const emailLower = (user?.email || "").toLowerCase().trim();
+    const canListenRegistrations = Boolean(
+      user &&
+      (user.role === "superAdmin" ||
+        user.role === "superadmin" ||
+        emailLower === "adil4ticketlelo@gmail.com" ||
+        emailLower === "superadmin@ticketlelo.com" ||
+        user.uid === event.organizerId ||
+        user.uid === event.createdBy ||
+        user.id === event.organizerId ||
+        user.id === event.createdBy)
+    );
+
+    if (canListenRegistrations) {
+      try {
+        const q = query(
+          collection(db, "registrations"),
+          where("eventId", "==", event.id)
+        );
+        unsubRegs = onSnapshot(
+          q,
+          (snap) => {
+            const freshRegs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            setRegistrations((prev) => {
+              if (prev.length === freshRegs.length) return prev;
+              return freshRegs;
+            });
+          },
+          (err) => console.warn("Real-time registrations sync warning:", err?.message)
+        );
+      } catch (err) {
+        console.warn("Could not bind real-time registrations listener:", err);
+      }
     }
 
     return () => {
@@ -385,7 +417,34 @@ export default function PublicEventBySlugPage() {
   const priceDisplay = event.price !== undefined && event.price !== "" ? (event.price.toString().startsWith("₹") ? event.price : `₹${event.price}`) : "Free";
 
   const eventTitle = (event.name || event.title || "Event").trim();
-  const themeLook = getThemeLook(event.themeColor || event.theme || "#FE760B");
+  const eventTheme = useMemo(() => resolveEventTheme(event), [event]);
+  const themeAccent = eventTheme?.color || eventTheme?.hex || event?.themeColor || "#FE760B";
+  const pageBg =
+    eventTheme?.pageBg ||
+    (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal"
+      ? "#432E01"
+      : "#131517");
+  const themeLook = getThemeLook(event.themeColor || event.theme || themeAccent);
+
+  // Dynamic full-page background synchronization matching organizer's chosen theme
+  useEffect(() => {
+    if (typeof document !== "undefined" && pageBg) {
+      const prevHtmlBg = document.documentElement.style.backgroundColor;
+      const prevBodyBg = document.body.style.backgroundColor;
+
+      document.documentElement.style.backgroundColor = pageBg;
+      document.body.style.backgroundColor = pageBg;
+      document.documentElement.style.setProperty("--event-page-bg", pageBg);
+      document.documentElement.style.setProperty("--event-theme-accent", themeAccent);
+
+      return () => {
+        document.documentElement.style.backgroundColor = prevHtmlBg;
+        document.body.style.backgroundColor = prevBodyBg;
+        document.documentElement.style.removeProperty("--event-page-bg");
+        document.documentElement.style.removeProperty("--event-theme-accent");
+      };
+    }
+  }, [pageBg, themeAccent]);
   const posterLines = getPosterLines(
     eventTitle,
     event.posterTextMode || "auto",
@@ -457,10 +516,12 @@ export default function PublicEventBySlugPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#08090B] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors overflow-x-clip w-full max-w-full">
-      {/* ── Animated Futuristic RGB Radial Light-Streak Background ── */}
-      <AnimatedRadialBackground />
-
+    <div
+      className="min-h-screen text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors duration-300 overflow-x-clip w-full max-w-full"
+      style={{
+        backgroundColor: pageBg,
+      }}
+    >
       {/* Top Navigation - Transparent & seamless without harsh dividing line */}
       <header className="sticky top-0 z-40 bg-transparent border-b border-transparent px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 transition-colors max-w-full overflow-hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
@@ -592,13 +653,24 @@ export default function PublicEventBySlugPage() {
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
                 isClosedForRegistration
                   ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                  : "bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20"
+                  : ""
               }`}
+              style={
+                !isClosedForRegistration
+                  ? {
+                      backgroundColor: `${themeAccent}18`,
+                      borderColor: `${themeAccent}35`,
+                      color: themeAccent,
+                      borderWidth: "1px",
+                    }
+                  : undefined
+              }
             >
               <span
                 className={`w-2 h-2 rounded-full ${
-                  isClosedForRegistration ? "bg-red-500" : "bg-emerald-500 dark:bg-[#3DD68C] animate-pulse"
+                  isClosedForRegistration ? "bg-red-500" : "animate-pulse"
                 }`}
+                style={!isClosedForRegistration ? { backgroundColor: themeAccent } : undefined}
               />
               {isClosedForRegistration
                 ? "● Registration closed"
@@ -628,12 +700,28 @@ export default function PublicEventBySlugPage() {
 
               <div className="relative z-10 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/20 dark:border-[#FE760B]/30 text-[#FE760B] dark:text-[#FF9A4D] text-xs font-semibold uppercase tracking-wider">
-                    <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: `${themeAccent}15`,
+                      borderColor: `${themeAccent}30`,
+                      color: themeAccent,
+                      borderWidth: "1px",
+                    }}
+                  >
+                    <Ticket className="w-3.5 h-3.5" style={{ color: themeAccent }} />
                     <span>Official event pass</span>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20 text-xs font-semibold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                    style={{
+                      backgroundColor: `${themeAccent}15`,
+                      borderColor: `${themeAccent}30`,
+                      color: themeAccent,
+                      borderWidth: "1px",
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: themeAccent }} />
                     <span>Happening now</span>
                   </div>
                 </div>
@@ -653,7 +741,10 @@ export default function PublicEventBySlugPage() {
                       className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/20 shadow-xs shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FE760B] to-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+                    <div
+                      className="w-10 h-10 rounded-full text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs"
+                      style={{ backgroundColor: themeAccent }}
+                    >
                       {(organizerName || "Host").slice(0, 2).toUpperCase()}
                     </div>
                   )}
@@ -662,14 +753,23 @@ export default function PublicEventBySlugPage() {
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {organizerName}
                       </span>
-                      <span className="inline-flex items-center text-[10px] bg-emerald-500/10 dark:bg-[#3DD68C]/15 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20 dark:border-[#3DD68C]/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                      <span
+                        className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-mono font-bold"
+                        style={{
+                          backgroundColor: `${themeAccent}15`,
+                          borderColor: `${themeAccent}30`,
+                          color: themeAccent,
+                          borderWidth: "1px",
+                        }}
+                      >
                         Verified
                       </span>
                     </div>
                     {organizerEmail && (
                       <a
                         href={`mailto:${organizerEmail}`}
-                        className="text-[11px] text-[#FE760B] hover:underline truncate block font-medium"
+                        className="text-[11px] hover:underline truncate block font-medium"
+                        style={{ color: themeAccent }}
                       >
                         {organizerEmail}
                       </a>
@@ -695,7 +795,15 @@ export default function PublicEventBySlugPage() {
 
               {/* Venue Location */}
               <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-start gap-3.5 hover:border-[#FE760B]/30 transition-colors shadow-sm">
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#3DD68C] border border-emerald-500/20 shrink-0">
+                <div
+                  className="p-2.5 rounded-xl shrink-0"
+                  style={{
+                    backgroundColor: `${themeAccent}15`,
+                    borderColor: `${themeAccent}30`,
+                    color: themeAccent,
+                    borderWidth: "1px",
+                  }}
+                >
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -886,7 +994,7 @@ export default function PublicEventBySlugPage() {
             {/* Interactive Venue Map */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg px-1">
-                <Navigation className="w-5 h-5 text-emerald-600 dark:text-[#3DD68C]" />
+                <Navigation className="w-5 h-5" style={{ color: themeAccent }} />
                 <h2>Venue & navigation</h2>
               </div>
               <VenueMap
@@ -981,7 +1089,7 @@ export default function PublicEventBySlugPage() {
               {/* User email badge if signed in */}
               {user && (
                 <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-3 py-2 mb-4">
-                  <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: themeAccent }} />
                   <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                     {user?.fullName || user?.name || "Attendee"}
                   </span>
@@ -1022,6 +1130,7 @@ export default function PublicEventBySlugPage() {
                 <DynamicRegistrationForm
                   eventId={event.id}
                   event={event}
+                  themeColor={themeAccent}
                   subEvents={subEvents}
                   combos={combos}
                   defaultReferralCode={referralCode}
@@ -1031,7 +1140,7 @@ export default function PublicEventBySlugPage() {
               {/* Micro Trust Strip */}
               <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#2A2D31] flex items-center justify-between text-[11px] text-slate-500 dark:text-[#9B9EA4]">
                 <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-[#3DD68C]" />
+                  <ShieldCheck className="w-3.5 h-3.5" style={{ color: themeAccent }} />
                   100% secure checkout
                 </span>
                 <span>TicketLelo verified</span>

@@ -63,7 +63,13 @@ export function EventManagement() {
 
 
   const userId = user?.id;
-  const userRole = user?.role;
+  const emailLower = (user?.email || "").toLowerCase().trim();
+  const isSuperAdmin =
+    user?.role === "superAdmin" ||
+    user?.role === "superadmin" ||
+    emailLower === "adil4ticketlelo@gmail.com" ||
+    emailLower === "superadmin@ticketlelo.com";
+  const userRole = isSuperAdmin ? "superAdmin" : user?.role;
 
   const checkEventCreationEligibility = useCallback(async () => {
     if (!userId) return;

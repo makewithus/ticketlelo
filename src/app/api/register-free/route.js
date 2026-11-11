@@ -1,28 +1,118 @@
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
 import { validateFormSubmission } from "@/lib/form-validator";
 import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
+import { sendTicketDeliveryEmail } from "@/src/app/api/send-ticket-email/route";
 
 export async function POST(request) {
   try {
     const caller = await getAuthenticatedUser(request);
-    if (!caller) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     if (!adminDb) return NextResponse.json({ error: "Registration service unavailable" }, { status: 503 });
 
     const { eventId, formData = {} } = await request.json();
     if (typeof eventId !== "string" || !eventId || !formData || typeof formData !== "object" || Array.isArray(formData)) {
       return NextResponse.json({ error: "A valid event and form response are required" }, { status: 400 });
     }
-    const email = String(caller.email || "").trim().toLowerCase();
-    const submittedEmail = String(formData.email || Object.values(formData).find((value) => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) || "").trim().toLowerCase();
+
+    const callerEmail = String(caller?.email || "").trim().toLowerCase();
+    const submittedEmail = String(
+      formData.email ||
+      Object.values(formData).find((value) => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) ||
+      ""
+    ).trim().toLowerCase();
+
+    let email = callerEmail;
     if (!email) {
-      return NextResponse.json({ error: "Sign in with a valid email to register" }, { status: 401 });
-    }
-    if (submittedEmail && submittedEmail !== email) {
+      if (!submittedEmail) {
+        return NextResponse.json({ error: "A valid email address is required to register" }, { status: 400 });
+      }
+      email = submittedEmail;
+    } else if (submittedEmail && submittedEmail !== email) {
       return NextResponse.json({ error: "Sign in with the email address used for registration" }, { status: 403 });
+    }
+
+    const fullName = String(
+      formData.fullName || formData.name || caller?.decodedToken?.name || "Attendee"
+    ).trim().slice(0, 120);
+    const phone = String(formData.whatsappPhone || formData.phone || "").trim().slice(0, 32);
+
+    // Resolve user UID and first-time status
+    let userUid = caller?.uid;
+    let isFirstTimeUser = false;
+    let setupToken = "";
+
+    if (userUid) {
+      // Authenticated user
+      try {
+        const userDoc = await adminDb.collection("users").doc(userUid).get();
+        if (userDoc.exists) {
+          const uData = userDoc.data();
+          if (uData.hasSetPassword === false || uData.isFirstTimeUser === true) {
+            isFirstTimeUser = true;
+          }
+        }
+      } catch (checkErr) {
+        console.warn("[register-free] User doc check error:", checkErr?.message);
+      }
+    } else {
+      // Guest visitor: check if an account exists in Firebase Auth
+      try {
+        const existingUser = await adminAuth.getUserByEmail(email);
+        userUid = existingUser.uid;
+        try {
+          const userDoc = await adminDb.collection("users").doc(userUid).get();
+          if (userDoc.exists) {
+            const uData = userDoc.data();
+            if (uData.hasSetPassword === false) {
+              isFirstTimeUser = true;
+            }
+          }
+        } catch {}
+      } catch (authErr) {
+        if (authErr.code === "auth/user-not-found") {
+          // New guest user: create account in Firebase Auth
+          isFirstTimeUser = true;
+          const initialSecret = crypto.randomBytes(32).toString("base64url");
+          const newUser = await adminAuth.createUser({
+            email,
+            displayName: fullName,
+            password: initialSecret,
+          });
+          userUid = newUser.uid;
+
+          // Create initial user doc in Firestore
+          await adminDb.collection("users").doc(userUid).set({
+            id: userUid,
+            email,
+            fullName,
+            whatsappPhone: phone,
+            createdAt: Timestamp.now(),
+            isAdmin: false,
+            role: "user",
+            hasSetPassword: false,
+            isFirstTimeUser: true,
+          }, { merge: true });
+        } else {
+          throw authErr;
+        }
+      }
+    }
+
+    // Generate setup token if first-time user
+    if (isFirstTimeUser) {
+      setupToken = crypto.randomBytes(24).toString("hex");
+      const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days validity
+      await adminDb.collection("accountSetupTokens").doc(email).set({
+        token: setupToken,
+        email,
+        userId: userUid,
+        createdAt: Date.now(),
+        expiresAt,
+        used: false,
+      }, { merge: true });
     }
 
     let eventRef = adminDb.collection("events").doc(eventId);
@@ -68,7 +158,15 @@ export async function POST(request) {
       return NextResponse.json({ error: "Event registration is not open" }, { status: 409 });
     }
     const form = formSnap.empty ? null : formSnap.docs[0].data();
-    if (event.isPaid === true || form?.isPaid === true || Number(event.ticketPrice || event.price || event.amount || form?.amount || 0) > 0) {
+    const parseSafePrice = (val) => {
+      if (typeof val === "number") return isNaN(val) ? 0 : Math.max(0, val);
+      if (!val) return 0;
+      const cleaned = String(val).replace(/[^0-9.]/g, "");
+      const num = parseFloat(cleaned);
+      return isNaN(num) ? 0 : Math.max(0, num);
+    };
+    const eventNumericPrice = parseSafePrice(event.ticketPrice ?? event.price ?? event.amount ?? form?.amount ?? 0);
+    if (event.isPaid === true || form?.isPaid === true || eventNumericPrice > 0) {
       return NextResponse.json({ error: "This event requires paid checkout" }, { status: 409 });
     }
     if (form?.fields && Array.isArray(form.fields)) {
@@ -76,7 +174,7 @@ export async function POST(request) {
       if (!validation.isValid) return NextResponse.json({ error: "Form validation failed", fields: validation.errors }, { status: 400 });
     }
 
-    const identity = crypto.createHash("sha256").update(`${caller.uid}:${actualEventId}`).digest("hex");
+    const identity = crypto.createHash("sha256").update(`${userUid}:${actualEventId}`).digest("hex");
     const registrationRef = adminDb.collection("registrations").doc(identity);
     const ticketId = `TKT-${identity.slice(0, 28).toUpperCase()}`;
     const ticketRef = adminDb.collection("tickets").doc(ticketId);
@@ -102,8 +200,6 @@ export async function POST(request) {
       }
     }
 
-    const fullName = String(formData.fullName || formData.name || caller.decodedToken?.name || "Attendee").trim().slice(0, 120);
-    const phone = String(formData.whatsappPhone || formData.phone || "").trim().slice(0, 32);
     const now = Timestamp.now();
 
     const result = await adminDb.runTransaction(async (transaction) => {
@@ -127,7 +223,7 @@ export async function POST(request) {
       transaction.set(ticketRef, {
         id: ticketId,
         ticketId,
-        userId: caller.uid,
+        userId: userUid,
         eventId: actualEventId,
         eventTitle: event.title || event.name || "Event",
         eventSlug,
@@ -151,7 +247,7 @@ export async function POST(request) {
       transaction.set(registrationRef, {
         id: identity,
         ticketId,
-        userId: caller.uid,
+        userId: userUid,
         eventId: actualEventId,
         fullName,
         email,
@@ -182,7 +278,20 @@ export async function POST(request) {
       return { alreadyRegistered: false, ticketId, requiresApproval };
     });
 
-    return NextResponse.json({ success: true, ...result });
+    // Enqueue branded confirmation email directly from the server
+    if (!result.requiresApproval) {
+      try {
+        await sendTicketDeliveryEmail({
+          ticketId: result.ticketId,
+          isFirstTimeUser,
+          setupToken,
+        });
+      } catch (emailErr) {
+        console.warn("[register-free] Background email delivery enqueue warning:", emailErr?.message);
+      }
+    }
+
+    return NextResponse.json({ success: true, ...result, isFirstTimeUser });
   } catch (error) {
     if (error.message === "Event capacity has been reached") {
       return NextResponse.json({ error: error.message }, { status: 409 });

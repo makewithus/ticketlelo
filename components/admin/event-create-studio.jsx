@@ -1271,7 +1271,9 @@ export function EventCreateStudio({
         coverImage: formData.coverImage || "",
         visibility: formData.visibility,
         isPaid: Boolean(formData.isPaid),
-        price: formData.isPaid ? `₹${formData.price || 199}` : "Free",
+        price: formData.isPaid ? `₹${parseFloat(String(formData.price || 199).replace(/[^0-9.]/g, "")) || 199}` : "Free",
+        ticketPrice: formData.isPaid ? (parseFloat(String(formData.price || 199).replace(/[^0-9.]/g, "")) || 199) : 0,
+        amount: formData.isPaid ? (parseFloat(String(formData.price || 199).replace(/[^0-9.]/g, "")) || 199) : 0,
         ticketDesign: formData.ticketDesign || "stub",
         posterTextMode: formData.posterTextMode || "auto",
         posterLine1: formData.posterTextMode === "custom" ? (formData.posterLine1 || "").trim() : "",
@@ -3691,25 +3693,22 @@ export function EventCreateStudio({
               <X className="w-4 h-4" />
             </button>
 
-            {/* Header: Icon, Title & Description */}
-            <div className="flex items-start gap-3.5 pr-8">
-              <div className="w-11 h-11 rounded-2xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
+            {/* Header: Icon & Title */}
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-10 h-10 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
                 <Type className="w-5 h-5 text-[#FE760B]" />
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                  Banner Text &amp; Typography
+                  Banner Typography
                 </h3>
-                <p className="text-xs text-[#9B9EA4] leading-relaxed mt-0.5">
-                  Easily write headline text, customize font styles, adjust size, and position on your event banner.
-                </p>
               </div>
             </div>
 
             {/* Banner Display Visibility & Mode Switcher */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-[#212327] border border-[#2A2D31]">
-              <div className="flex items-center justify-between sm:justify-start gap-2.5">
-                <span className="text-xs font-semibold text-white">Banner Overlay</span>
+            <div className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white">Overlay</span>
                 <button
                   type="button"
                   onClick={() =>
@@ -3718,7 +3717,7 @@ export function EventCreateStudio({
                       showPosterText: prev.showPosterText === false ? true : false,
                     }))
                   }
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                     formData.showPosterText !== false
                       ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
                       : "bg-[#181A1D] border-[#2A2D31] text-[#9B9EA4] hover:text-white"
@@ -3730,11 +3729,11 @@ export function EventCreateStudio({
                 </button>
               </div>
 
-              <div className="flex items-center rounded-xl bg-[#141619] p-1 border border-[#2A2D31]">
+              <div className="flex items-center rounded-lg bg-[#141619] p-0.5 border border-[#2A2D31]">
                 <button
                   type="button"
                   onClick={() => setFormData((prev) => ({ ...prev, posterTextMode: "auto", showPosterText: true }))}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                     formData.posterTextMode === "auto"
                       ? "bg-[#FE760B] text-[#131517] shadow-sm"
                       : "text-[#9B9EA4] hover:text-white"
@@ -3754,7 +3753,7 @@ export function EventCreateStudio({
                       showPosterText: true,
                     }));
                   }}
-                  className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
                     formData.posterTextMode === "custom"
                       ? "bg-[#FE760B] text-[#131517] shadow-sm"
                       : "text-[#9B9EA4] hover:text-white"
@@ -3765,85 +3764,33 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Mode 1: Auto Title (Synced with Event Name) */}
+            {/* Mode 1: Auto Title (Only Line 3 for optional badge / details) */}
             {formData.posterTextMode === "auto" && (
-              <div className="p-4 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#FE760B]" />
-                    Auto Title (Synced with Event Name)
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30">
-                    Live Synced
-                  </span>
-                </div>
-                <p className="text-xs text-[#9B9EA4] leading-relaxed">
-                  Your banner headline automatically mirrors your main Event Name and splits into balanced lines.
-                </p>
-                <div className="p-3 rounded-xl bg-[#181A1D] border border-[#2A2D31] space-y-1.5">
-                  <div className="text-[10px] text-[#9B9EA4] font-medium uppercase tracking-wider">
-                    Current Banner Headline Preview
-                  </div>
-                  <div className="font-black text-sm text-white tracking-tight uppercase">
-                    {posterLines.line1 || formData.name || "(Enter event name on the right)"}
-                  </div>
-                  {posterLines.line2 && (
-                    <div className="font-black text-xs text-[#FE760B] tracking-tight uppercase">
-                      {posterLines.line2}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
-                    <span>Line 3 (Optional Details / Badge)</span>
-                    <span className="text-[10px] text-white/40">Date, venue, or tagline</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.posterLine3 || ""}
-                    placeholder="e.g. Nov 15 • KIET Campus • Free Entry"
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        posterLine3: e.target.value,
-                        showPosterText: true,
-                      }))
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-[#9B9EA4]">Want custom headline text?</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const auto = getPosterLines(formData.name || "");
-                      setFormData((prev) => ({
-                        ...prev,
-                        posterTextMode: "custom",
-                        posterLine1: prev.posterLine1 || auto.line1 || prev.name || "",
-                        posterLine2: prev.posterLine2 || auto.line2 || "",
-                        showPosterText: true,
-                      }));
-                    }}
-                    className="text-xs text-[#FE760B] hover:underline font-bold cursor-pointer"
-                  >
-                    Switch to Custom Lines →
-                  </button>
-                </div>
+              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                <label className="text-xs text-[#9B9EA4] font-medium block mb-1.5">
+                  Line 3 (Badge / Details)
+                </label>
+                <input
+                  type="text"
+                  value={formData.posterLine3 || ""}
+                  placeholder="e.g. Nov 15 • Main Auditorium • Free Entry"
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      posterLine3: e.target.value,
+                      showPosterText: true,
+                    }))
+                  }
+                  className="w-full px-3.5 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
+                />
               </div>
             )}
 
-            {/* Mode 2: Custom Lines (Write your own headline & subtitle) */}
+            {/* Mode 2: Custom Lines */}
             {formData.posterTextMode === "custom" && (
-              <div className="p-4 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-3">
+              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-2">
-                    <Type className="w-4 h-4 text-[#FE760B]" />
-                    Custom Banner Lines
-                  </span>
+                  <span className="text-xs font-semibold text-white">Custom Lines</span>
                   {formData.name && (
                     <button
                       type="button"
@@ -3855,22 +3802,20 @@ export function EventCreateStudio({
                           posterLine2: auto.line2 || "",
                           showPosterText: true,
                         }));
-                        toast.success("Copied headline and subtitle from event name!");
+                        toast.success("Copied event name");
                       }}
-                      className="text-[11px] text-[#FE760B] hover:text-[#ff8624] font-bold flex items-center gap-1 cursor-pointer hover:underline"
-                      title="Copy current event name into Line 1 & Line 2"
+                      className="text-[11px] text-[#FE760B] hover:text-[#ff8624] font-semibold flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      <span>Copy from Event Name</span>
+                      <span>Copy Event Name</span>
                     </button>
                   )}
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div>
-                    <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
-                      <span>Headline (Line 1) *</span>
-                      <span className="text-[10px] text-white/40">Large main text</span>
+                    <label className="text-[11px] text-[#9B9EA4] font-medium block mb-1">
+                      Line 1 (Headline)
                     </label>
                     <input
                       type="text"
@@ -3885,14 +3830,13 @@ export function EventCreateStudio({
                           showPosterText: true,
                         }));
                       }}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-sm font-extrabold uppercase tracking-tight transition-colors shadow-inner"
+                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-bold uppercase tracking-tight transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
-                      <span>Subtitle (Line 2)</span>
-                      <span className="text-[10px] text-white/40">Secondary headline</span>
+                    <label className="text-[11px] text-[#9B9EA4] font-medium block mb-1">
+                      Line 2 (Subtitle)
                     </label>
                     <input
                       type="text"
@@ -3905,14 +3849,13 @@ export function EventCreateStudio({
                           showPosterText: true,
                         }))
                       }
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-bold uppercase tracking-tight transition-colors"
+                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs font-semibold uppercase tracking-tight transition-colors"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] text-[#9B9EA4] font-semibold block mb-1.5 flex items-center justify-between">
-                      <span>Details / Tagline (Line 3 - Optional)</span>
-                      <span className="text-[10px] text-white/40">Date, venue, or badge</span>
+                    <label className="text-[11px] text-[#9B9EA4] font-medium block mb-1">
+                      Line 3 (Badge / Details)
                     </label>
                     <input
                       type="text"
@@ -3925,7 +3868,7 @@ export function EventCreateStudio({
                           showPosterText: true,
                         }))
                       }
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
+                      className="w-full px-3 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
                     />
                   </div>
                 </div>
@@ -3934,10 +3877,10 @@ export function EventCreateStudio({
 
             {/* Position & Alignment Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-                <span className="text-xs text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
                   <Move className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Position on Banner
+                  Position
                 </span>
                 <div className="grid grid-cols-4 gap-1">
                   {[
@@ -3981,8 +3924,8 @@ export function EventCreateStudio({
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-                <span className="text-xs text-[#9B9EA4] font-semibold">Text Alignment</span>
+              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-medium">Alignment</span>
                 <div className="grid grid-cols-3 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
                   {[
                     { align: "left", label: "Left", icon: AlignLeft },
@@ -4010,9 +3953,9 @@ export function EventCreateStudio({
             {/* Size & Width Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Text Box Width */}
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                  <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
                     Box Width
                   </span>
@@ -4056,9 +3999,9 @@ export function EventCreateStudio({
               </div>
 
               {/* Font Size */}
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                  <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
                     Font Size
                   </span>
@@ -4105,9 +4048,9 @@ export function EventCreateStudio({
             </div>
 
             {/* Font Family Selection */}
-            <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
+            <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
                   <Type className="w-3.5 h-3.5 text-[#FE760B]" />
                   Font Family
                 </span>
@@ -4142,8 +4085,8 @@ export function EventCreateStudio({
             {/* Backdrop & Color Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Text Backdrop */}
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
-                <span className="text-xs text-[#9B9EA4] font-semibold">Backdrop Effect</span>
+              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-medium">Backdrop</span>
                 <div className="grid grid-cols-4 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
                   {[
                     { id: "none", label: "Clean" },
@@ -4168,10 +4111,10 @@ export function EventCreateStudio({
               </div>
 
               {/* Text Color */}
-              <div className="p-3.5 rounded-2xl bg-[#212327] border border-[#2A2D31] space-y-2">
-                <span className="text-xs text-[#9B9EA4] font-semibold flex items-center gap-1.5">
+              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+                <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
                   <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Text Color
+                  Color
                 </span>
                 <div className="flex items-center gap-1 flex-wrap">
                   {[

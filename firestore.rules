@@ -511,5 +511,8 @@ service cloud.firestore {
     match /passwordResetCodes/{docId} {
       allow read, write: if isSuperAdmin();
     }
+    match /accountSetupTokens/{docId} {
+      allow read, write: if isSuperAdmin();
+    }
   }
 }

@@ -103,17 +103,30 @@ export default function AnalyticsInsightsPage() {
       if (!user) return;
       try {
         setLoading(true);
-        const userId = user.uid || user.id;
-        let list = await getEventsByOrganiser(userId);
-        if (!list || list.length === 0) {
-          const all = await getAllEvents();
-          list = (all || []).filter(
-            (e) =>
-              e.createdBy === userId ||
-              e.userId === userId ||
-              e.organiserId === userId ||
-              e.organizerId === userId
-          );
+        const userId = user.uid || user.id || "";
+        const emailLower = (user.email || "").toLowerCase().trim();
+        const isSuperAdmin =
+          user.role === "superAdmin" ||
+          user.role === "superadmin" ||
+          emailLower === "adil4ticketlelo@gmail.com" ||
+          emailLower === "superadmin@ticketlelo.com";
+
+        let list = [];
+        if (isSuperAdmin) {
+          // Super admin has full platform access to all events of all organisers
+          list = (await getAllEvents()) || [];
+        } else {
+          list = await getEventsByOrganiser(userId);
+          if (!list || list.length === 0) {
+            const all = await getAllEvents();
+            list = (all || []).filter(
+              (e) =>
+                e.createdBy === userId ||
+                e.userId === userId ||
+                e.organiserId === userId ||
+                e.organizerId === userId
+            );
+          }
         }
 
         const paramId = searchParams.get("eventId");
@@ -149,10 +162,10 @@ export default function AnalyticsInsightsPage() {
           try {
             cachedId = localStorage.getItem("admin_selected_event_id");
           } catch {}
-          if (cachedId && list.some((e) => e.id === cachedId)) {
+          if (cachedId && uniqueList.some((e) => e.id === cachedId)) {
             initialId = cachedId;
-          } else if (list.length > 0) {
-            initialId = list[0].id;
+          } else if (uniqueList.length > 0) {
+            initialId = uniqueList[0].id;
           }
         }
 
@@ -165,6 +178,9 @@ export default function AnalyticsInsightsPage() {
           if (matched) {
             setEvent(matched);
             setCachedEvent(matched.id, matched);
+          }
+          if (paramId && paramId !== initialId) {
+            router.replace(`/admin/analytics?eventId=${initialId}`);
           }
         }
       } catch (err) {

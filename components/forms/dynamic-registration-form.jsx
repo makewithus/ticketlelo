@@ -161,6 +161,14 @@ function sanitizeCustomFields(fields = []) {
     });
 }
 
+export function parseEventPrice(val) {
+  if (typeof val === "number") return isNaN(val) ? 0 : Math.max(0, val);
+  if (!val) return 0;
+  const cleaned = String(val).replace(/[^0-9.]/g, "");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : Math.max(0, num);
+}
+
 export function DynamicRegistrationForm({ eventId, event: initialEvent, initialForm, ...props }) {
   const router = useRouter();
   const { user: authUser } = useAuth();
@@ -182,6 +190,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [isPendingApproval, setIsPendingApproval] = useState(false);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
   const [formLoadError, setFormLoadError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -193,6 +202,26 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponData, setCouponData] = useState(null);
   const [couponError, setCouponError] = useState("");
+
+  const activeEvent = currentEvent || initialEvent || props.event;
+  const eventNumericPrice = parseEventPrice(
+    activeEvent?.ticketPrice ??
+    activeEvent?.price ??
+    activeEvent?.amount ??
+    customForm?.amount ??
+    0
+  );
+  const isPaidEvent = Boolean(
+    activeEvent?.isPaid === true ||
+    customForm?.isPaid === true ||
+    eventNumericPrice > 0
+  );
+  const basePayableAmount = isPaidEvent
+    ? (eventNumericPrice > 0 ? eventNumericPrice : (parseEventPrice(customForm?.amount) || 199))
+    : 0;
+  const finalPayableAmount = couponData?.finalAmount !== undefined
+    ? parseEventPrice(couponData.finalAmount)
+    : basePayableAmount;
 
   // Helper to build initial form values with user pre-population
   const buildInitialData = (fields) => {
@@ -275,12 +304,18 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     const applyFormUpdate = (formDoc) => {
       if (!formDoc || !Array.isArray(formDoc.fields)) return;
       const sanitizedFields = sanitizeCustomFields(formDoc.fields);
+      const activeEv = currentEvent || initialEvent || props.event;
+      const evNumericPrice = parseEventPrice(activeEv?.ticketPrice ?? activeEv?.price ?? activeEv?.amount ?? 0);
+      const formIsPaid = Boolean(formDoc.isPaid ?? activeEv?.isPaid ?? (evNumericPrice > 0));
+      const formAmount = parseEventPrice(formDoc.amount ?? evNumericPrice ?? 0);
 
       setCustomForm((prev) => ({
         ...(prev || {}),
         id: formDoc.id,
         ...formDoc,
         fields: sanitizedFields,
+        isPaid: formIsPaid,
+        amount: formAmount > 0 ? formAmount : (prev?.amount || evNumericPrice || 0),
       }));
 
       // Merge formData so user inputs in existing fields are preserved
@@ -377,8 +412,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         });
       });
       const sanitizedFields = sanitizeCustomFields(compiled);
-      const isPaid = Boolean(evData.isPaid ?? ((evData.price || evData.ticketPrice) > 0));
-      const amount = Number(evData.price ?? evData.ticketPrice ?? 0);
+      const evNumericPrice = parseEventPrice(evData.ticketPrice ?? evData.price ?? evData.amount ?? 0);
+      const isPaid = Boolean(evData.isPaid ?? (evNumericPrice > 0));
+      const amount = evNumericPrice;
       applyFormUpdate({
         id: `ev_form_${evData.id}`,
         eventId: evData.id,
@@ -446,18 +482,33 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       console.warn("Could not bind real-time event listener:", err);
     }
 
-    // 2. Listen to live registrations count
-    try {
-      const q = query(collection(db, "registrations"), where("eventId", "==", targetId));
-      unsubRegs = onSnapshot(
-        q,
-        (snap) => {
-          setLiveRegistrationsCount(snap.size);
-        },
-        (err) => console.warn("Real-time registrations subscription warning:", err?.message)
-      );
-    } catch (err) {
-      console.warn("Could not bind real-time registrations listener:", err);
+    // 2. Listen to live registrations count only if caller is organizer/superAdmin
+    const emailLower = (authUser?.email || "").toLowerCase().trim();
+    const canListenRegistrations = Boolean(
+      authUser &&
+      (authUser.role === "superAdmin" ||
+        authUser.role === "superadmin" ||
+        emailLower === "adil4ticketlelo@gmail.com" ||
+        emailLower === "superadmin@ticketlelo.com" ||
+        authUser.uid === initialEvent?.organizerId ||
+        authUser.uid === initialEvent?.createdBy ||
+        authUser.id === initialEvent?.organizerId ||
+        authUser.id === initialEvent?.createdBy)
+    );
+
+    if (canListenRegistrations) {
+      try {
+        const q = query(collection(db, "registrations"), where("eventId", "==", targetId));
+        unsubRegs = onSnapshot(
+          q,
+          (snap) => {
+            setLiveRegistrationsCount(snap.size);
+          },
+          (err) => console.warn("Real-time registrations subscription warning:", err?.message)
+        );
+      } catch (err) {
+        console.warn("Could not bind real-time registrations listener:", err);
+      }
     }
 
     // 3. Real-time listener for customForms collection by eventId
@@ -498,7 +549,6 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     };
   }, [eventId, initialEvent?.id, props.event?.id]);
 
-  const activeEvent = currentEvent || initialEvent || props.event || {};
   const themeColor =
     props.themeColor ||
     (activeEvent?.theme === "minimal" || activeEvent?.themeName?.toLowerCase() === "minimal"
@@ -644,16 +694,17 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         } else {
           // No custom form fields exist - use default fallback form
           console.log("No custom form fields found (prefetched), using default form");
+          const evPrice = parseEventPrice(activeEvent?.ticketPrice ?? activeEvent?.price ?? activeEvent?.amount ?? 0);
           const defaultForm = {
             ...(initialForm || {}),
             eventId: eventId,
             fields: DEFAULT_FALLBACK_FIELDS,
             theme: {
               logo: null,
-              color: "#10b981",
+              color: props.themeColor || activeEvent?.themeColor || activeEvent?.themeHex || "#FE760B",
             },
-            isPaid: event?.isPaid ?? ((event?.price || event?.ticketPrice) > 0),
-            amount: event?.price ?? event?.ticketPrice ?? 199,
+            isPaid: Boolean(activeEvent?.isPaid || evPrice > 0),
+            amount: evPrice > 0 ? evPrice : 199,
             enableCoupons: true,
             status: "published",
             isDefault: true,
@@ -669,6 +720,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     async function loadForm() {
       try {
         setFormLoadError(null);
+        const evPrice = parseEventPrice(activeEvent?.ticketPrice ?? activeEvent?.price ?? activeEvent?.amount ?? 0);
 
         // 1. First attempt fast direct load from Firestore client
         try {
@@ -679,6 +731,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             const formToUse = {
               ...directForm,
               fields: sanitizedFields,
+              isPaid: Boolean(directForm.isPaid ?? activeEvent?.isPaid ?? (evPrice > 0)),
+              amount: parseEventPrice(directForm.amount) || evPrice || 199,
             };
             setCustomForm(formToUse);
             setFormData(buildInitialData(sanitizedFields));
@@ -713,6 +767,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           const formToUse = {
             ...data.form,
             fields: sanitizedFields,
+            isPaid: Boolean(data.form.isPaid ?? activeEvent?.isPaid ?? (evPrice > 0)),
+            amount: parseEventPrice(data.form.amount) || evPrice || 199,
           };
           setCustomForm(formToUse);
           setFormData(buildInitialData(sanitizedFields));
@@ -725,10 +781,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             fields: DEFAULT_FALLBACK_FIELDS,
             theme: {
               logo: null,
-              color: "#10b981",
+              color: props.themeColor || activeEvent?.themeColor || activeEvent?.themeHex || "#FE760B",
             },
-            isPaid: event?.isPaid ?? ((event?.price || event?.ticketPrice) > 0),
-            amount: event?.price ?? event?.ticketPrice ?? 199,
+            isPaid: Boolean(activeEvent?.isPaid || evPrice > 0),
+            amount: evPrice > 0 ? evPrice : 199,
             enableCoupons: true,
             status: "published",
             isDefault: true,
@@ -756,11 +812,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     if (eventId) {
       loadForm();
     }
-  }, [eventId, retryCount, initialForm]);
+  }, [eventId, retryCount, initialForm, activeEvent]);
 
   // Load Razorpay script
   useEffect(() => {
-    if (customForm?.isPaid) {
+    if (isPaidEvent) {
       const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
       if (!existingScript) {
         const script = document.createElement("script");
@@ -769,7 +825,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         document.body.appendChild(script);
       }
     }
-  }, [customForm?.isPaid]);
+  }, [isPaidEvent]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -834,7 +890,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       return;
     }
 
-    if (!customForm?.amount) {
+    if (!basePayableAmount || basePayableAmount <= 0) {
       toast.error("This event is free. No coupon needed!");
       return;
     }
@@ -849,7 +905,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         body: JSON.stringify({
           couponCode: couponCode.trim(),
           eventId,
-          amount: customForm.amount,
+          amount: basePayableAmount,
         }),
       });
 
@@ -1011,7 +1067,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           },
         },
         theme: {
-          color: customForm?.theme?.color || "#10b981",
+          color: customForm?.theme?.color || props.themeColor || activeEvent?.themeColor || activeEvent?.themeHex || "#FE760B",
         },
       };
 
@@ -1042,8 +1098,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     try {
       const dataToSend = payloadData || tempFormData?.formData || {};
       const token =
-        (await auth.currentUser?.getIdToken?.(true).catch(() => null)) ||
-        (await user?.getIdToken?.(true).catch(() => null));
+        (await auth.currentUser?.getIdToken?.().catch(() => null)) ||
+        (await user?.getIdToken?.().catch(() => null));
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -1054,25 +1110,24 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
+      setIsFirstTimeUser(Boolean(result.isFirstTimeUser));
       const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
       setIsPendingApproval(requiresApproval);
       if (requiresApproval) {
         toast.info("Registration submitted! Organiser approval is required.");
       } else {
         const attendeeName = dataToSend.fullName || tempFormData?.fullName || user.fullName || user.email;
-        const emailSent = await sendRegistrationConfirmation(
+        sendRegistrationConfirmation(
           user.email,
           attendeeName,
           event?.name || "Event",
           result.ticketId
-        );
+        ).catch((err) => console.warn("[Email] Background confirmation delivery:", err));
         toast.success(
           result.alreadyRegistered
             ? "You are already registered for this event"
             : "Registration successful"
         );
-        if (!emailSent)
-          toast.info("Sign in to your attendee dashboard to view your ticket");
       }
       setShowSuccessModal(true);
     } catch (error) {
@@ -1253,8 +1308,6 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           }
         : null;
 
-      const isPaidEvent = customForm?.isPaid && customForm?.amount > 0;
-
       // Store form data for state persistence
       const submissionContext = {
         email,
@@ -1265,57 +1318,25 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         customForm,
         formData: payloadFormData,
         isPaid: isPaidEvent,
+        amount: finalPayableAmount,
       };
       setTempFormData(submissionContext);
 
       if (isPaidEvent) {
-        let checkoutUser = existingUser;
-        if (!checkoutUser) {
-          const secretBytes = new Uint8Array(32);
-          window.crypto.getRandomValues(secretBytes);
-          const oneTimeSecret = Array.from(secretBytes, (byte) =>
-            byte.toString(16).padStart(2, "0")
-          ).join("");
-          try {
-            checkoutUser = await signup(
-              email,
-              oneTimeSecret,
-              fullName || email,
-              phone || ""
-            );
-            await sendPasswordResetEmail(auth, email);
-          } catch (accountError) {
-            if (
-              accountError.code === "auth/email-already-in-use" ||
-              /already exists/i.test(accountError.message || "")
-            ) {
-              setShowLoginModal(true);
-              setIsLoading(false);
-              return;
-            }
-            throw accountError;
-          }
-        }
         await handlePaymentFlow(
           email,
           phone,
           fullName,
-          checkoutUser,
+          existingUser,
           payloadFormData
         );
       } else if (existingUser) {
         await registerExistingUser(existingUser, payloadFormData);
       } else {
-        const secretBytes = new Uint8Array(32);
-        window.crypto.getRandomValues(secretBytes);
-        const oneTimeSecret = Array.from(secretBytes, (byte) =>
-          byte.toString(16).padStart(2, "0")
-        ).join("");
-        await createAccountAndRegister(
+        await registerGuestUser(
           email,
           phone,
           fullName,
-          oneTimeSecret,
           payloadFormData
         );
       }
@@ -1323,6 +1344,65 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       console.error("Registration error:", error);
       toast.error(error.message || "Registration failed. Please try again.");
       setIsLoading(false);
+    }
+  };
+
+  // Register unauthenticated visitor as guest
+  const registerGuestUser = async (
+    email,
+    phone,
+    fullName,
+    payloadData = null
+  ) => {
+    try {
+      setIsLoading(true);
+      const dataToSend = payloadData || tempFormData?.formData || {};
+      const fullFormData = {
+        ...dataToSend,
+        email,
+        fullName: fullName || dataToSend.fullName || email,
+        whatsappPhone: phone || dataToSend.whatsappPhone || dataToSend.phone || "",
+      };
+
+      const response = await fetch("/api/register-free", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId,
+          formData: fullFormData,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Registration failed");
+
+      const isFirst = Boolean(result.isFirstTimeUser);
+      setIsFirstTimeUser(isFirst);
+
+      const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
+      setIsPendingApproval(requiresApproval);
+
+      if (requiresApproval) {
+        toast.info("Registration submitted! Organiser approval is required.");
+      } else {
+        await sendRegistrationConfirmation(
+          email,
+          fullName || email,
+          event?.name || "Event",
+          result.ticketId
+        );
+        toast.success(
+          result.alreadyRegistered
+            ? "You are already registered for this event"
+            : "Registration successful"
+        );
+      }
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error("Guest registration failed:", error?.message || error);
+      toast.error(error?.message || "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setPaymentProcessing(false);
     }
   };
 
@@ -1338,9 +1418,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       setPaymentProcessing(true);
       const dataToSend = payloadData || tempFormData?.formData || {};
 
+      const token =
+        (await auth.currentUser?.getIdToken?.(true).catch(() => null)) ||
+        (await existingUser?.getIdToken?.(true).catch(() => null));
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch("/api/create-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           eventId,
           registrationData: {
@@ -1387,9 +1473,12 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             console.log(" Payment successful");
 
             // Verify payment
+            const verifyHeaders = { "Content-Type": "application/json" };
+            if (token) verifyHeaders["Authorization"] = `Bearer ${token}`;
+
             const verifyResponse = await fetch("/api/verify-payment", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: verifyHeaders,
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -1401,6 +1490,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
+              setIsFirstTimeUser(Boolean(verifyData.isFirstTimeUser));
               const emailSent = verifyData.ticketId
                 ? await sendRegistrationConfirmation(
                     email,
@@ -1441,7 +1531,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           },
         },
         theme: {
-          color: customForm?.theme?.color || "#10b981",
+          color: customForm?.theme?.color || props.themeColor || activeEvent?.themeColor || activeEvent?.themeHex || "#FE760B",
         },
       };
 
@@ -1482,11 +1572,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         fullName || email,
         phone || ""
       );
-      await sendPasswordResetEmail(auth, email);
       const dataToSend = payloadData || tempFormData?.formData || {};
       const token =
-        (await auth.currentUser?.getIdToken?.(true).catch(() => null)) ||
-        (await user?.getIdToken?.(true).catch(() => null));
+        (await auth.currentUser?.getIdToken?.().catch(() => null)) ||
+        (await user?.getIdToken?.().catch(() => null));
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -1505,17 +1594,13 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       if (requiresApproval) {
         toast.info("Registration submitted! Organiser approval is required.");
       } else {
-        const emailSent = await sendRegistrationConfirmation(
+        sendRegistrationConfirmation(
           email,
           user.fullName || fullName || email,
           event?.name || "Event",
           result.ticketId
-        );
-        toast.success(
-          emailSent
-            ? "Registration complete and ticket sent"
-            : "Registration complete. Sign in to view your ticket"
-        );
+        ).catch((err) => console.warn("[Email] Background confirmation delivery:", err));
+        toast.success("Registration complete! Your ticket has been generated.");
       }
       setShowSuccessModal(true);
     } catch (error) {
@@ -2105,9 +2190,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           </div>
 
           {/* Coupon Code (only show for paid events) */}
-          {customForm.isPaid &&
-            customForm.amount > 0 &&
-            customForm.enableCoupons && (
+          {isPaidEvent &&
+            finalPayableAmount > 0 &&
+            customForm?.enableCoupons !== false && (
               <div className="space-y-1.5 w-full">
                 <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
                   Coupon code
@@ -2191,13 +2276,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>{paymentProcessing ? "Processing Payment..." : "Registering..."}</span>
                 </>
-              ) : customForm?.isPaid && customForm?.amount > 0 ? (
+              ) : isPaidEvent ? (
                 <span>
-                  {couponData ? (
-                    `Pay ₹${couponData.finalAmount} & register`
-                  ) : (
-                    `Pay ₹${customForm.amount} & register`
-                  )}
+                  {`Pay ₹${finalPayableAmount} & register`}
                 </span>
               ) : (
                 <span>Register</span>
@@ -2367,32 +2448,33 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90dvh] overflow-y-auto animate-scale-in text-white">
+          <div className="bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90dvh] overflow-y-auto animate-scale-in text-white">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#2A2D31]">
               <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  className="w-11 h-11 rounded-xl flex items-center justify-center"
                   style={{
-                    backgroundColor: isPendingApproval ? "rgba(253,224,3,0.15)" : `${themeColor}15`,
-                    borderColor: isPendingApproval ? "rgba(253,224,3,0.35)" : `${themeColor}35`,
-                    color: isPendingApproval ? "#FDE003" : themeColor,
+                    backgroundColor: isPendingApproval ? "rgba(253,224,3,0.15)" : "rgba(61,214,140,0.15)",
+                    borderColor: isPendingApproval ? "rgba(253,224,3,0.35)" : "rgba(61,214,140,0.35)",
+                    color: isPendingApproval ? "#FDE003" : "#3DD68C",
                   }}
                 >
                   <CheckCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">
-                    {isPendingApproval ? "Registration Submitted" : "Registration Complete"}
+                  <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                    {isPendingApproval ? "Registration Submitted" : "Registration Successful!"}
                   </h3>
                   <p className="text-xs text-[#9B9EA4]">
-                    {isPendingApproval ? "Pending organiser review" : "Your ticket is ready"}
+                    {isPendingApproval ? "Pending organiser review" : "Your spot is confirmed"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowSuccessModal(false)}
                 className="p-1.5 hover:bg-[#212327] rounded-lg text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2400,39 +2482,29 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
             {/* Content */}
             <div className="space-y-4">
-              {/* Ticket Info */}
-              <div
-                className="rounded-xl p-4 border"
-                style={{
-                  backgroundColor: isPendingApproval ? "rgba(253,224,3,0.08)" : `${themeColor}12`,
-                  borderColor: isPendingApproval ? "rgba(253,224,3,0.25)" : `${themeColor}30`,
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <CheckCircle
-                    className="w-5 h-5 shrink-0 mt-0.5"
-                    style={{ color: isPendingApproval ? "#FDE003" : themeColor }}
-                  />
-                  <div className="flex-1">
-                    <p
-                      className="font-bold text-sm mb-1"
-                      style={{ color: isPendingApproval ? "#FDE003" : themeColor }}
-                    >
-                      {isPendingApproval ? "Application Pending Organiser Approval" : "Registration Confirmed"}
-                    </p>
-                    <p className="text-xs text-[#D0D0D1]">
-                      {isPendingApproval
-                        ? "This event requires approval from the organiser. You will be able to view and use your ticket once your application has been approved."
-                        : "Your pass has been generated. You can view or download it from your attendee dashboard."}
-                    </p>
-                  </div>
-                </div>
+              {/* Description Body */}
+              <div className="space-y-2 text-sm text-[#D0D0D1] leading-relaxed">
+                <p>
+                  You&apos;re successfully registered for this event. Your ticket confirmation has been sent to your email.
+                </p>
+                {isFirstTimeUser ? (
+                  <p className="text-xs sm:text-sm text-[#E1E4EA] font-medium pt-1">
+                    To access your ticket and manage all your registrations, set up your TicketLelo password using the link sent to your email.
+                  </p>
+                ) : (
+                  <p className="text-xs sm:text-sm text-[#D0D0D1] pt-1">
+                    To access your ticket and manage all your registrations, log in with your TicketLelo password using your registered email address.
+                  </p>
+                )}
               </div>
 
-              {/* Info Message */}
-              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-4">
-                <p className="text-xs text-[#D0D0D1] leading-relaxed">
-                  <strong className="text-white">What&apos;s next?</strong> Sign in to your attendee dashboard with your registered email to view available tickets and QR passes.
+              {/* Additional message box with Mail icon */}
+              <div className="bg-[#131517] border border-[#2A2D31] rounded-xl p-3.5 sm:p-4 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center shrink-0 text-[#FE760B]">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <p className="text-xs font-medium text-[#D0D0D1]">
+                  Check your inbox for your ticket confirmation email.
                 </p>
               </div>
             </div>
@@ -2441,26 +2513,24 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#2A2D31]">
               <button
                 type="button"
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  toast.info(
-                    "Please sign in with your credentials to access your dashboard",
-                    { duration: 4000 }
-                  );
-                  router.push("/login");
-                }}
-                style={{ backgroundColor: themeColor }}
-                className="flex-1 h-11 sm:h-12 text-[#131517] font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm cursor-pointer hover:brightness-105"
-              >
-                Sign In to Dashboard
-              </button>
-              <button
-                type="button"
                 onClick={() => setShowSuccessModal(false)}
-                className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+                style={{ backgroundColor: themeColor || "#FE760B" }}
+                className="flex-1 h-11 sm:h-12 text-[#131517] font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm cursor-pointer hover:brightness-105 active:scale-[0.99]"
               >
-                Close
+                Got It
               </button>
+              {effectiveUser && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    router.push("/dashboard");
+                  }}
+                  className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+                >
+                  View Dashboard
+                </button>
+              )}
             </div>
           </div>
         </div>

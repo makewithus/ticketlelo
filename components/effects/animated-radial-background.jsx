@@ -99,6 +99,8 @@ export function AnimatedRadialBackground({
   speed = 1.0,
   showNoise = true,
   className = "",
+  baseBg = "#08090B",
+  accentColor = "#FE760B",
   children,
 }) {
   const canvasRef = useRef(null);
@@ -379,17 +381,17 @@ export function AnimatedRadialBackground({
       const fx = (focalPoint?.x ?? defaultFocalX) * width;
       const fy = (focalPoint?.y ?? defaultFocalY) * height;
 
-      // Fill base background: deep cinematic black / dark charcoal
+      // Fill base background: deep cinematic black / dark charcoal or event theme background
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "#08090B";
+      ctx.fillStyle = baseBg || "#08090B";
       ctx.fillRect(0, 0, width, height);
 
       // Subtle atmospheric focal backlight (matches the central depth in reference)
       const focalGlow = ctx.createRadialGradient(fx, fy, 10, fx, fy, Math.max(width, height) * 0.45);
-      focalGlow.addColorStop(0, "rgba(254, 118, 11, 0.05)");
+      focalGlow.addColorStop(0, accentColor ? `${accentColor}18` : "rgba(254, 118, 11, 0.05)");
       focalGlow.addColorStop(0.25, "rgba(0, 180, 255, 0.025)");
-      focalGlow.addColorStop(0.65, "rgba(8, 9, 11, 0.6)");
-      focalGlow.addColorStop(1, "rgba(8, 9, 11, 1)");
+      focalGlow.addColorStop(0.65, baseBg || "rgba(8, 9, 11, 0.6)");
+      focalGlow.addColorStop(1, baseBg || "rgba(8, 9, 11, 1)");
       ctx.fillStyle = focalGlow;
       ctx.fillRect(0, 0, width, height);
 
@@ -437,7 +439,7 @@ export function AnimatedRadialBackground({
         cancelAnimationFrame(animFrameId);
       }
     };
-  }, [focalPoint, streakCount, speed, reducedMotion]);
+  }, [focalPoint, streakCount, speed, reducedMotion, baseBg, accentColor]);
 
   return (
     <div
