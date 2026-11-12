@@ -109,3 +109,4 @@ describe("Email URLs & Ticket Deck Proportions Verification", () => {
     assert.ok(loginContent.includes("isUserNotFound && initialEmail"), "Auto-transitions to signup if account does not exist");
   });
 });
+
