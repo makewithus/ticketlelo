@@ -24,8 +24,30 @@ export async function GET(request) {
       query = query.where("organizerId", "==", caller.uid);
     }
 
-    const snap = await query.orderBy("createdAt", "desc").get();
+    let snap;
+    try {
+      snap = await query.orderBy("createdAt", "desc").get();
+    } catch (queryErr) {
+      // Fallback if composite index on (organizerId, createdAt desc) is pending or not yet built
+      console.warn("[api/organizer/programs GET] Composite index not ready, falling back to in-memory sort:", queryErr?.message);
+      snap = await query.get();
+    }
+
     const programs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Ensure sorted descending by createdAt in memory regardless of index state
+    programs.sort((a, b) => {
+      const getMs = (val) => {
+        if (!val) return 0;
+        if (typeof val?.toMillis === "function") return val.toMillis();
+        if (typeof val?.toDate === "function") return val.toDate().getTime();
+        if (val instanceof Date) return val.getTime();
+        if (typeof val === "number") return val;
+        const parsed = new Date(val).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      return getMs(b.createdAt) - getMs(a.createdAt);
+    });
 
     return NextResponse.json({ success: true, programs });
   } catch (err) {

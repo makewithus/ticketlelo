@@ -275,5 +275,30 @@ Adil Mohammed,adil@example.com,9876543210,CUSAT
       const pubProgRoute = path.join(root, "src/app/api/programs/[programId]/route.js");
       assert.equal(fs.existsSync(pubProgRoute), true, "Public program info route must exist");
     });
+
+    test("Composite index and in-memory sort fallback exist for ambassadorPrograms", () => {
+      const indexesPath = path.join(root, "firestore.indexes.json");
+      const indexesData = JSON.parse(fs.readFileSync(indexesPath, "utf-8"));
+      const programIndex = indexesData.indexes.find(
+        (idx) =>
+          idx.collectionGroup === "ambassadorPrograms" &&
+          idx.fields?.some((f) => f.fieldPath === "organizerId") &&
+          idx.fields?.some((f) => f.fieldPath === "createdAt")
+      );
+      assert.ok(programIndex, "ambassadorPrograms must have composite index in firestore.indexes.json");
+
+      const routePath = path.join(root, "src/app/api/organizer/programs/route.js");
+      const routeContent = fs.readFileSync(routePath, "utf-8");
+      assert.match(
+        routeContent,
+        /Composite index not ready|in-memory sort/i,
+        "organizer programs route must implement resilient fallback"
+      );
+      assert.match(
+        routeContent,
+        /programs\.sort\(/,
+        "organizer programs route must perform in-memory sort by createdAt"
+      );
+    });
   });
 });
