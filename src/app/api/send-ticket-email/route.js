@@ -4,13 +4,14 @@ import fs from "fs";
 import crypto from "crypto";
 import QRCode from "qrcode";
 import { generatePDFTicket } from "@/lib/tickets";
-import { getAuthenticatedUser } from "@/lib/auth-server";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 import { adminDb } from "@/lib/firebase-admin";
 import { parseFirestoreDate } from "@/lib/date-utils";
 import { enqueueEmail } from "@/lib/email/queue";
 import { buildTicketPassEmail } from "@/lib/email/templates/ticket-pass";
 import { EmailPriority, EmailType } from "@/lib/email/types";
 import { getEmailConfig } from "@/lib/email/config";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 function getEmailBaseUrl() {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
@@ -19,7 +20,7 @@ function getEmailBaseUrl() {
 }
 
 function formatDateDisplay(rawDate) {
-  if (!rawDate) return "Thu, 29 Oct 2026";
+  if (!rawDate) return "Date to be announced";
   const d = parseFirestoreDate(rawDate);
   if (d && !isNaN(d.getTime())) {
     try {
@@ -33,7 +34,7 @@ function formatDateDisplay(rawDate) {
       return String(rawDate);
     }
   }
-  return typeof rawDate === "string" ? rawDate : "Thu, 29 Oct 2026";
+  return typeof rawDate === "string" ? rawDate : "Date to be announced";
 }
 
 /**
@@ -95,12 +96,12 @@ export async function sendTicketDeliveryEmail({
     throw new Error("Event not found");
   }
 
-  const eventTitle = event.name || event.title || "Tech Fest 2026";
+  const eventTitle = event.name || event.title || registration.eventName || "Event Pass";
   const guestName = registration.fullName || registration.buyerName || "Attendee";
-  const venue = event.venue || event.location || "Main Auditorium, School of Engineering";
-  const formattedDate = formatDateDisplay(event.date || event.startDate);
-  const formattedTime = event.time || event.startTime || "12:00 – 5:00 PM IST";
-  const tierName = registration.tierName || registration.subEventName || "General";
+  const venue = event.venue || event.location || registration.venue || "Venue to be announced";
+  const formattedDate = formatDateDisplay(event.date || event.startDate || registration.eventDate);
+  const formattedTime = event.time || event.startTime || registration.eventTime || "";
+  const tierName = registration.tierName || registration.subEventName || registration.ticketTier || "General";
   const isPaid = Boolean(event.isPaid || registration.price || registration.amount);
   const priceValue = registration.price || registration.amount || event.price || 0;
   const priceDisplay = isPaid ? `₹${priceValue}` : "Free";
@@ -267,12 +268,14 @@ export async function sendTicketDeliveryEmail({
 
     if (!finalSetupToken) {
       finalSetupToken = crypto.randomBytes(24).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(finalSetupToken).digest("hex");
       const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days validity
       if (adminDb && ownerEmail) {
         try {
           await adminDb.collection("accountSetupTokens").doc(ownerEmail).set(
             {
               token: finalSetupToken,
+              tokenHash,
               email: ownerEmail,
               ticketId,
               userId: ownerUid || null,
@@ -356,51 +359,80 @@ export async function sendTicketDeliveryEmail({
 }
 
 /**
- * API Route: Generate PDF ticket and queue delivery via Resend
+ * API Route: Resend PDF ticket and queue delivery via Resend
  * POST /api/send-ticket-email
  * Body: { ticketId }
+ *
+ * Requirements:
+ * - SEC-7: Must require authenticated ownership or authorized organizer/admin to prevent anonymous email bombing.
+ * - SEC-3 / R82: Rate limiting on resend requests.
  */
 export async function POST(request) {
   try {
+    const clientIp = getClientIp(request);
+    const ipLimit = checkRateLimit({
+      key: `resend_email_ip:${clientIp}`,
+      limit: 6,
+      windowMs: 5 * 60 * 1000, // 6 requests per 5 minutes per IP
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many email requests from this network. Please try again in a few minutes." },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const { ticketId } = body;
-    if (!ticketId || !adminDb) {
+    if (!ticketId || typeof ticketId !== "string" || !adminDb) {
       return NextResponse.json({ error: "ticketId is required" }, { status: 400 });
     }
 
+    // Require authentication (SEC-7)
     const caller = await getAuthenticatedUser(request);
+    if (!caller) {
+      return NextResponse.json(
+        { error: "Authentication required to request ticket email delivery." },
+        { status: 401 }
+      );
+    }
 
-    // If caller is authenticated, verify ownership or admin role
-    if (caller) {
-      const ticketSnapshot = await adminDb.collection("tickets").doc(ticketId).get();
-      const registrationSnapshot = await adminDb
-        .collection("registrations")
-        .where("ticketId", "==", ticketId)
-        .limit(1)
-        .get();
+    const ticketSnapshot = await adminDb.collection("tickets").doc(ticketId).get();
+    const registrationSnapshot = await adminDb
+      .collection("registrations")
+      .where("ticketId", "==", ticketId)
+      .limit(1)
+      .get();
 
-      if (!ticketSnapshot.exists && registrationSnapshot.empty) {
-        return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
-      }
+    if (!ticketSnapshot.exists && registrationSnapshot.empty) {
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+    }
 
-      const persistedTicket = ticketSnapshot.exists ? ticketSnapshot.data() : null;
-      const registration = registrationSnapshot.empty
-        ? persistedTicket
-        : { id: registrationSnapshot.docs[0].id, ...registrationSnapshot.docs[0].data() };
+    const persistedTicket = ticketSnapshot.exists ? ticketSnapshot.data() : null;
+    const registration = registrationSnapshot.empty
+      ? persistedTicket
+      : { id: registrationSnapshot.docs[0].id, ...registrationSnapshot.docs[0].data() };
 
-      const ownerUid = registration.userId || persistedTicket?.userId;
-      const ownerEmail = String(
-        registration.email || registration.buyerEmail || persistedTicket?.buyerEmail || "",
-      ).toLowerCase();
-      const callerEmail = String(caller.email || "").toLowerCase();
+    const ownerUid = registration.userId || persistedTicket?.userId;
+    const ownerEmail = String(
+      registration.email || registration.buyerEmail || persistedTicket?.buyerEmail || "",
+    ).toLowerCase().trim();
+    const callerEmail = String(caller.email || "").toLowerCase().trim();
+    const callerEmailVerified = caller.decodedToken?.email_verified === true;
 
-      const isOwner =
-        (ownerUid && ownerUid === caller.uid) ||
-        (caller.decodedToken?.email_verified === true && ownerEmail && ownerEmail === callerEmail);
+    const isOwner =
+      Boolean(ownerUid && ownerUid === caller.uid) ||
+      Boolean(callerEmailVerified && ownerEmail && ownerEmail === callerEmail);
 
-      if (!isOwner && caller.role !== "superAdmin") {
-        return NextResponse.json({ error: "Ticket access denied" }, { status: 403 });
-      }
+    const isSuperAdmin = caller.role === "superAdmin";
+    let isOrganiser = false;
+    const eventId = registration.eventId || persistedTicket?.eventId;
+    if (!isOwner && !isSuperAdmin && eventId) {
+      isOrganiser = await canManageEventId(caller, eventId);
+    }
+
+    if (!isOwner && !isOrganiser && !isSuperAdmin) {
+      return NextResponse.json({ error: "Ticket access denied" }, { status: 403 });
     }
 
     const result = await sendTicketDeliveryEmail({ ticketId });

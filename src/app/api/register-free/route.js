@@ -6,13 +6,29 @@ import { getAuthenticatedUser } from "@/lib/auth-server";
 import { validateFormSubmission } from "@/lib/form-validator";
 import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
 import { sendTicketDeliveryEmail } from "@/src/app/api/send-ticket-email/route";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { resolveReferralCode, isSelfReferral } from "@/lib/creator-campus/referral-registry";
+import { awardPointsForRegistration } from "@/lib/creator-campus/points-engine";
 
 export async function POST(request) {
   try {
+    const clientIp = getClientIp(request);
+    const ipLimit = checkRateLimit({
+      key: `register_ip:${clientIp}`,
+      limit: 25,
+      windowMs: 5 * 60 * 1000, // 25 registrations per 5 min per IP
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many registration attempts. Please try again in a few minutes." },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSeconds) } }
+      );
+    }
+
     const caller = await getAuthenticatedUser(request);
     if (!adminDb) return NextResponse.json({ error: "Registration service unavailable" }, { status: 503 });
 
-    const { eventId, formData = {} } = await request.json();
+    const { eventId, formData = {}, referralCode = null } = await request.json();
     if (typeof eventId !== "string" || !eventId || !formData || typeof formData !== "object" || Array.isArray(formData)) {
       return NextResponse.json({ error: "A valid event and form response are required" }, { status: 400 });
     }
@@ -32,6 +48,18 @@ export async function POST(request) {
       email = submittedEmail;
     } else if (submittedEmail && submittedEmail !== email) {
       return NextResponse.json({ error: "Sign in with the email address used for registration" }, { status: 403 });
+    }
+
+    const emailLimit = checkRateLimit({
+      key: `register_email:${email}`,
+      limit: 10,
+      windowMs: 5 * 60 * 1000,
+    });
+    if (!emailLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many registrations for this email address. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(emailLimit.retryAfterSeconds) } }
+      );
     }
 
     const fullName = String(
@@ -76,43 +104,83 @@ export async function POST(request) {
           // New guest user: create account in Firebase Auth
           isFirstTimeUser = true;
           const initialSecret = crypto.randomBytes(32).toString("base64url");
-          const newUser = await adminAuth.createUser({
-            email,
-            displayName: fullName,
-            password: initialSecret,
-          });
-          userUid = newUser.uid;
+          try {
+            const newUser = await adminAuth.createUser({
+              email,
+              displayName: fullName,
+              password: initialSecret,
+            });
+            userUid = newUser.uid;
+          } catch (createErr) {
+            if (createErr.code === "auth/email-already-exists") {
+              // Concurrency safety (BUG-4)
+              const concurrentUser = await adminAuth.getUserByEmail(email);
+              userUid = concurrentUser.uid;
+              try {
+                const uDoc = await adminDb.collection("users").doc(userUid).get();
+                if (uDoc.exists && uDoc.data()?.hasSetPassword === false) {
+                  isFirstTimeUser = true;
+                } else {
+                  isFirstTimeUser = false;
+                }
+              } catch {
+                isFirstTimeUser = false;
+              }
+            } else {
+              throw createErr;
+            }
+          }
 
-          // Create initial user doc in Firestore
-          await adminDb.collection("users").doc(userUid).set({
-            id: userUid,
-            email,
-            fullName,
-            whatsappPhone: phone,
-            createdAt: Timestamp.now(),
-            isAdmin: false,
-            role: "user",
-            hasSetPassword: false,
-            isFirstTimeUser: true,
-          }, { merge: true });
+          // Create initial user doc in Firestore if not already created
+          try {
+            await adminDb.collection("users").doc(userUid).set({
+              id: userUid,
+              email,
+              fullName,
+              whatsappPhone: phone,
+              createdAt: Timestamp.now(),
+              isAdmin: false,
+              role: "user",
+              hasSetPassword: false,
+              isFirstTimeUser: true,
+            }, { merge: true });
+          } catch (uDocErr) {
+            console.warn("[register-free] User doc creation warning:", uDocErr?.message);
+          }
         } else {
           throw authErr;
         }
       }
     }
 
-    // Generate setup token if first-time user
+    // Generate or reuse setup token if first-time user (BUG-2)
     if (isFirstTimeUser) {
-      setupToken = crypto.randomBytes(24).toString("hex");
-      const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days validity
-      await adminDb.collection("accountSetupTokens").doc(email).set({
-        token: setupToken,
-        email,
-        userId: userUid,
-        createdAt: Date.now(),
-        expiresAt,
-        used: false,
-      }, { merge: true });
+      let reuseExisting = false;
+      try {
+        const existingTokenDoc = await adminDb.collection("accountSetupTokens").doc(email).get();
+        if (existingTokenDoc.exists) {
+          const tokData = existingTokenDoc.data() || {};
+          if (tokData.used !== true && Number(tokData.expiresAt) > Date.now()) {
+            setupToken = tokData.token || "";
+            reuseExisting = Boolean(setupToken);
+          }
+        }
+      } catch {}
+
+      if (!reuseExisting) {
+        setupToken = crypto.randomBytes(24).toString("hex");
+        const tokenHash = crypto.createHash("sha256").update(setupToken).digest("hex");
+        const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days validity
+        await adminDb.collection("accountSetupTokens").doc(email).set({
+          token: setupToken,
+          tokenHash,
+          email,
+          userId: userUid,
+          createdAt: Date.now(),
+          expiresAt,
+          used: false,
+        }, { merge: true });
+      }
     }
 
     let eventRef = adminDb.collection("events").doc(eventId);
@@ -202,6 +270,41 @@ export async function POST(request) {
 
     const now = Timestamp.now();
 
+    // Validate Creator Campus referral code server-side
+    let referralAttribution = null;
+    let validatedReferralCode = null;
+    if (referralCode && typeof referralCode === "string" && referralCode.trim()) {
+      try {
+        const resolved = await resolveReferralCode(referralCode.trim());
+        if (resolved && resolved.status === "active") {
+          let connectionValid = true;
+          if (resolved.programId && resolved.programId !== "legacy") {
+            const relSnap = await adminDb
+              .collection("programEvents")
+              .doc(`${resolved.programId}_${actualEventId}`)
+              .get();
+            if (!relSnap.exists || relSnap.data().status !== "connected" || relSnap.data().referralEnabled !== true) {
+              connectionValid = false;
+            }
+          }
+
+          const buyerObj = { email, userId: userUid };
+          const ambObj = { email: resolved.email, userId: resolved.userId };
+          if (connectionValid && !isSelfReferral(buyerObj, ambObj)) {
+            validatedReferralCode = resolved.code;
+            referralAttribution = {
+              ambassadorId: resolved.ambassadorId,
+              programId: resolved.programId,
+              userId: resolved.userId,
+              referralCode: resolved.code,
+            };
+          }
+        }
+      } catch (refErr) {
+        console.warn("[register-free] Referral validation warning:", refErr?.message);
+      }
+    }
+
     const result = await adminDb.runTransaction(async (transaction) => {
       const [existingRegistration, currentEvent] = await Promise.all([
         transaction.get(registrationRef),
@@ -262,6 +365,8 @@ export async function POST(request) {
         entitledSubEventIds: [],
         qrCode: qrCodeUrl,
         qrPayload,
+        referralCode: validatedReferralCode,
+        referralAttribution: referralAttribution || null,
         createdAt: now,
         updatedAt: now,
       }, { merge: true });
@@ -278,7 +383,27 @@ export async function POST(request) {
       return { alreadyRegistered: false, ticketId, requiresApproval };
     });
 
-    // Enqueue branded confirmation email directly from the server
+    // Award points for free registration if referral attribution exists and not already registered
+    if (!result.alreadyRegistered && referralAttribution?.ambassadorId && referralAttribution?.programId) {
+      try {
+        await awardPointsForRegistration({
+          ambassadorId: referralAttribution.ambassadorId,
+          userId: referralAttribution.userId,
+          programId: referralAttribution.programId,
+          eventId: actualEventId,
+          orderId: null,
+          registrationId: result.ticketId,
+          referralCode: referralAttribution.referralCode,
+          isPaid: false,
+          ticketCount: 1,
+        });
+      } catch (ptsErr) {
+        console.warn("[register-free] Points awarding warning:", ptsErr?.message);
+      }
+    }
+
+    // Enqueue branded confirmation email directly from the server (BUG-1, R30)
+    let emailStatus = "skipped";
     if (!result.requiresApproval) {
       try {
         await sendTicketDeliveryEmail({
@@ -286,17 +411,27 @@ export async function POST(request) {
           isFirstTimeUser,
           setupToken,
         });
+        emailStatus = "queued";
       } catch (emailErr) {
         console.warn("[register-free] Background email delivery enqueue warning:", emailErr?.message);
+        emailStatus = "failed";
       }
     }
 
-    return NextResponse.json({ success: true, ...result, isFirstTimeUser });
+    return NextResponse.json({
+      success: true,
+      ...result,
+      isFirstTimeUser,
+      emailStatus,
+    });
   } catch (error) {
     if (error.message === "Event capacity has been reached") {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
-    console.error("[register-free] Registration failed:", error?.message || error, error?.stack);
-    return NextResponse.json({ error: error?.message || "Could not complete free registration" }, { status: 500 });
+    console.error("[register-free] Registration failed:", error?.message || error);
+    return NextResponse.json(
+      { error: "Could not complete free registration. Please check the details and try again." },
+      { status: 500 }
+    );
   }
 }

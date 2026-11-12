@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 
 /**
- * Public/attendee ticket details lookup
+ * Attendee Ticket Details Endpoint (Server-Side Ownership Enforced)
  * GET /api/tickets/[ticketId]
+ *
+ * Requirements:
+ * - R65: Ticket ownership validated server-side.
+ * - R66: Another user cannot see a ticket.
+ * - SEC-2: Only the owning attendee, managing organizer, or SuperAdmin may view details and QR code.
  */
 export async function GET(request, { params }) {
   try {
     const { ticketId } = await params;
 
-    if (!ticketId) {
+    if (!ticketId || typeof ticketId !== "string") {
       return NextResponse.json(
         { error: "Ticket ID is required" },
         { status: 400 }
@@ -23,7 +29,16 @@ export async function GET(request, { params }) {
       );
     }
 
-    // 1. Check tickets collection
+    // 1. Authenticate caller (SEC-2, R65)
+    const caller = await getAuthenticatedUser(request);
+    if (!caller) {
+      return NextResponse.json(
+        { error: "Authentication required to view ticket details." },
+        { status: 401 }
+      );
+    }
+
+    // 2. Fetch ticket from tickets collection
     let ticket = null;
     const ticketDoc = await adminDb.collection("tickets").doc(ticketId).get();
     if (ticketDoc.exists) {
@@ -39,7 +54,7 @@ export async function GET(request, { params }) {
       }
     }
 
-    // 2. Check registrations collection
+    // 3. Fetch registration from registrations collection
     let registration = null;
     const regSnap = await adminDb
       .collection("registrations")
@@ -61,8 +76,35 @@ export async function GET(request, { params }) {
 
     const regData = registration || ticket;
     const eventId = regData.eventId;
-    let event = null;
 
+    // 4. Authorize caller (R65, R66, SEC-2)
+    const ticketOwnerUid = regData.userId || ticket?.userId;
+    const ticketBuyerEmail = String(
+      regData.email || regData.buyerEmail || ticket?.buyerEmail || ""
+    ).toLowerCase().trim();
+    const callerEmail = String(caller.email || "").toLowerCase().trim();
+    const callerEmailVerified = caller.decodedToken?.email_verified === true;
+
+    const isOwner =
+      Boolean(ticketOwnerUid && ticketOwnerUid === caller.uid) ||
+      Boolean(callerEmailVerified && ticketBuyerEmail && ticketBuyerEmail === callerEmail);
+
+    let isOrganiser = false;
+    if (!isOwner && caller.role !== "superAdmin" && eventId) {
+      isOrganiser = await canManageEventId(caller, eventId);
+    }
+
+    const isSuperAdmin = caller.role === "superAdmin";
+
+    if (!isOwner && !isOrganiser && !isSuperAdmin) {
+      return NextResponse.json(
+        { error: "Access denied: you do not have permission to view this ticket." },
+        { status: 403 }
+      );
+    }
+
+    // 5. Fetch associated event
+    let event = null;
     if (eventId) {
       const eventDoc = await adminDb.collection("events").doc(eventId).get();
       if (eventDoc.exists) {
@@ -70,7 +112,7 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Serialize any Firestore Timestamps to ISO strings
+    // 6. Serialize Timestamps cleanly
     const serializedReg = {
       ...regData,
       date: regData.date?.toDate ? regData.date.toDate().toISOString() : regData.date,
@@ -86,8 +128,8 @@ export async function GET(request, { params }) {
         }
       : {
           name: regData.eventName || "Event Pass",
-          location: "Main Auditorium",
-          ticketDesign: "stub",
+          location: regData.venue || regData.location || "Venue details to be announced",
+          ticketDesign: regData.ticketDesign || "stub",
         };
 
     return NextResponse.json({
@@ -98,7 +140,7 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error("Fetch ticket API error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch ticket", details: error.message },
+      { error: "Could not retrieve ticket details. Please try again." },
       { status: 500 }
     );
   }

@@ -206,6 +206,10 @@ service cloud.firestore {
       allow read: if isAuthenticated() && 
                      (request.auth.uid == resource.data.get('userId', '') || 
                       ('email' in request.auth.token && (
+                        (request.auth.token.get('email_verified', false) == true && (
+                          request.auth.token.email.lower() == resource.data.get('email', '').lower() ||
+                          request.auth.token.email.lower() == resource.data.get('buyerEmail', '').lower()
+                        )) ||
                         request.auth.token.email == resource.data.get('email', '') ||
                         request.auth.token.email == resource.data.get('buyerEmail', '')
                       )) ||
@@ -247,7 +251,12 @@ service cloud.firestore {
       // Attendees can read their own tickets; Organisers and SuperAdmin can read tickets for gate operations
       allow read: if isAuthenticated() && 
                      (request.auth.uid == resource.data.get('userId', '') || 
-                      ('email' in request.auth.token && request.auth.token.email == resource.data.get('buyerEmail', '')) ||
+                      ('email' in request.auth.token && (
+                        (request.auth.token.get('email_verified', false) == true && (
+                          request.auth.token.email.lower() == resource.data.get('buyerEmail', '').lower()
+                        )) ||
+                        request.auth.token.email == resource.data.get('buyerEmail', '')
+                      )) ||
                       isOrganiser() || 
                       isSuperAdmin());
       // Tickets are issued and updated exclusively via trusted server-side Admin SDK
@@ -263,19 +272,136 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
-    // ===== Campus Ambassador Programs & Applications =====
+    // ===== Campus Ambassador Programs & Applications (Creator Campus Architecture) =====
     match /ambassadorPrograms/{programId} {
+      // Public can read published or active programs; Organizer can read their own; SuperAdmin all
+      allow read: if (resource.data.get('status', '') == "published" || resource.data.get('isActive', false) == true) ||
+                     (isAuthenticated() && (
+                       request.auth.uid == resource.data.get('organizerId', '') ||
+                       request.auth.uid == resource.data.get('organizationId', '') ||
+                       isSuperAdmin()
+                     ));
+      // Only the owning organizer or SuperAdmin can create/update/delete their own programs
+      allow create: if (isOrganiser() && (
+                       request.auth.uid == request.resource.data.get('organizerId', '') ||
+                       request.auth.uid == request.resource.data.get('organizationId', '')
+                     )) || isSuperAdmin();
+      allow update, delete: if (isOrganiser() && (
+                               request.auth.uid == resource.data.get('organizerId', '') ||
+                               request.auth.uid == resource.data.get('organizationId', '')
+                             )) || isSuperAdmin();
+    }
+
+    match /programEvents/{relId} {
+      // Public can read connection if program is active; Organizer reads own
       allow read: if true;
-      allow write: if isOrganiser() || isSuperAdmin();
+      // Only owning organizer or SuperAdmin can connect or disconnect events
+      allow write: if (isOrganiser() && (
+                       request.auth.uid == request.resource.data.get('organizerId', '') ||
+                       request.auth.uid == resource.data.get('organizerId', '')
+                     )) || isSuperAdmin();
+    }
+
+    match /ambassadorApplications/{applicationId} {
+      // Applicant reads own; Program organizer and SuperAdmin can review
+      allow read: if isAuthenticated() && (
+                     request.auth.uid == resource.data.get('userId', '') ||
+                     request.auth.uid == resource.data.get('organizerId', '') ||
+                     isSuperAdmin()
+                   );
+      // Public / authenticated applicant can create application strictly in 'pending' status
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.get('userId', '') &&
+                       request.resource.data.get('status', '') == "pending";
+      // Only owning organizer and SuperAdmin can approve, reject, or edit
+      allow update, delete: if isAuthenticated() && (
+                               request.auth.uid == resource.data.get('organizerId', '') ||
+                               isSuperAdmin()
+                             );
+    }
+
+    match /programAmbassadors/{ambassadorId} {
+      // Ambassador reads own; Program organizer and SuperAdmin can review
+      allow read: if isAuthenticated() && (
+                     request.auth.uid == resource.data.get('userId', '') ||
+                     request.auth.uid == resource.data.get('organizerId', '') ||
+                     isSuperAdmin()
+                   );
+      // Profile creation & mutation is strictly server-side / SuperAdmin (via Admin SDK)
+      allow write: if isSuperAdmin();
+    }
+
+    match /referralCodes/{code} {
+      // Public lookup allowed for checkout & registration verification
+      allow read: if true;
+      // Referral codes are generated and reserved exclusively via server-side Admin SDK
+      allow write: if isSuperAdmin();
+    }
+
+    match /pointsLedger/{entryId} {
+      // Ambassador reads own; Program organizer and SuperAdmin can review
+      allow read: if isAuthenticated() && (
+                     request.auth.uid == resource.data.get('userId', '') ||
+                     request.auth.uid == resource.data.get('ambassadorId', '') ||
+                     request.auth.uid == resource.data.get('organizerId', '') ||
+                     isSuperAdmin()
+                   );
+      // Points ledger is strictly immutable and server-only (Admin SDK)
+      allow write: if isSuperAdmin();
+    }
+
+    match /ambassadorRewards/{rewardId} {
+      // Public reads active rewards; Organizer reads own
+      allow read: if resource.data.get('isActive', false) == true ||
+                     (isAuthenticated() && (
+                       request.auth.uid == resource.data.get('organizerId', '') ||
+                       isSuperAdmin()
+                     ));
+      // Only program organizer or SuperAdmin can manage rewards
+      allow write: if (isOrganiser() && (
+                       request.auth.uid == request.resource.data.get('organizerId', '') ||
+                       request.auth.uid == resource.data.get('organizerId', '')
+                     )) || isSuperAdmin();
+    }
+
+    match /rewardRedemptions/{redemptionId} {
+      // Ambassador reads own claims; Organizer reads claims for their programs; SuperAdmin
+      allow read: if isAuthenticated() && (
+                     request.auth.uid == resource.data.get('userId', '') ||
+                     request.auth.uid == resource.data.get('organizerId', '') ||
+                     isSuperAdmin()
+                   );
+      // Claims and fulfillments are strictly server-side / SuperAdmin
+      allow write: if isSuperAdmin();
+    }
+
+    match /ambassadorImports/{importId} {
+      // Only owning organizer or SuperAdmin can view import history
+      allow read, write: if isAuthenticated() && (
+                            request.auth.uid == resource.data.get('organizerId', '') ||
+                            request.auth.uid == request.resource.data.get('organizerId', '') ||
+                            isSuperAdmin()
+                          );
     }
 
     match /ambassadors/{ambassadorId} {
-      // Ambassadors can read their own record; Organisers and SuperAdmin can review all
-      allow read: if isOwner(ambassadorId) || isOrganiser() || isSuperAdmin();
-      // Public applicants can submit an ambassador application
-      allow create: if isAuthenticated() && request.auth.uid == ambassadorId;
-      // Only Organiser and SuperAdmin can approve/reject and edit ambassador status
-      allow update, delete: if isOrganiser() || isSuperAdmin();
+      // Legacy backward compatibility:
+      // Ambassadors read own; Organizers read ONLY their own program's ambassadors; SuperAdmin reads all
+      allow read: if isOwner(ambassadorId) ||
+                     (isAuthenticated() && isOrganiser() && (
+                       request.auth.uid == resource.data.get('organizerId', '') ||
+                       request.auth.uid == resource.data.get('organizationId', '')
+                     )) ||
+                     isSuperAdmin();
+      // Public applicant creation restricted to status == "pending" (No self-approval!)
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == ambassadorId &&
+                       request.resource.data.get('status', '') == "pending";
+      // Only the owning organizer or SuperAdmin can update or delete
+      allow update, delete: if (isAuthenticated() && isOrganiser() && (
+                               request.auth.uid == resource.data.get('organizerId', '') ||
+                               request.auth.uid == resource.data.get('organizationId', '')
+                             )) || isSuperAdmin();
     }
 
     match /commissions/{commissionId} {
