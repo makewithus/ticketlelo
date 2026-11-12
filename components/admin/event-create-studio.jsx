@@ -42,6 +42,8 @@ import {
   Plus,
   ChevronsUpDown,
   AlertTriangle,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { IoTicket, IoColorPalette, IoShuffle } from "react-icons/io5";
@@ -51,6 +53,7 @@ import { setCachedEvent, setCachedOrganiserEvents, getCachedOrganiserEvents } fr
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { TicketGraphic } from "@/components/tickets/ticket-graphic";
 import { WideTicket } from "@/components/tickets/wide-ticket";
+import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
 import { TicketFullPreviewModal } from "@/components/tickets/ticket-full-preview-modal";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { normalizeHex, isLightColor } from "@/lib/ticket-theme";
@@ -168,16 +171,6 @@ const ARTWORK_PRESETS = [
   },
 ];
 
-const TIMEZONE_OPTIONS = [
-  { tz: "GMT+05:30", city: "Kolkata", label: "India Standard Time (IST)" },
-  { tz: "GMT+00:00", city: "London", label: "Greenwich Mean Time (GMT/UTC)" },
-  { tz: "GMT-05:00", city: "New York", label: "Eastern Time (EST)" },
-  { tz: "GMT-08:00", city: "San Francisco", label: "Pacific Time (PST)" },
-  { tz: "GMT+01:00", city: "Berlin", label: "Central European Time (CET)" },
-  { tz: "GMT+04:00", city: "Dubai", label: "Gulf Standard Time (GST)" },
-  { tz: "GMT+08:00", city: "Singapore", label: "Singapore Time (SGT)" },
-  { tz: "GMT+09:00", city: "Tokyo", label: "Japan Standard Time (JST)" },
-];
 
 // 30-minute interval time options from 12:00 am to 11:30 pm matching Image 2
 const TIME_OPTIONS = (() => {
@@ -662,7 +655,8 @@ export function EventCreateStudio({
   const isEventCancelled = Boolean(editingEvent?.isCancelled || editingEvent?.status === "cancelled");
 
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
-  const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+  const [showEventPagePreviewModal, setShowEventPagePreviewModal] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState("desktop");
   const [showFurtherInstructions, setShowFurtherInstructions] = useState(Boolean(editingEvent?.locationInstructions));
   const [artworkPresetIdx, setArtworkPresetIdx] = useState(0);
 
@@ -704,8 +698,8 @@ export function EventCreateStudio({
       return {
         name: editingEvent.locationVenue,
         address: editingEvent.locationAddress || editingEvent.location,
-        lat: editingEvent.latitude || editingEvent.locationPin?.lat || 28.6139,
-        lng: editingEvent.longitude || editingEvent.locationPin?.lng || 77.2090,
+        lat: editingEvent.latitude || editingEvent.locationPin?.lat || null,
+        lng: editingEvent.longitude || editingEvent.locationPin?.lng || null,
       };
     }
     return null;
@@ -759,8 +753,8 @@ export function EventCreateStudio({
             id: `custom-${Date.now()}`,
             name: q,
             address: "Custom venue entered by organiser",
-            lat: places[0]?.lat || 28.6139,
-            lng: places[0]?.lng || 77.2090,
+            lat: places.length > 0 && places[0].lat ? places[0].lat : null,
+            lng: places.length > 0 && places[0].lng ? places[0].lng : null,
             isCustom: true,
           };
           setLocationSuggestions(places.length > 0 ? [...places, customEntry] : [customEntry]);
@@ -773,8 +767,8 @@ export function EventCreateStudio({
                     id: "custom-fallback",
                     name: q,
                     address: "Use custom entered venue",
-                    lat: 28.6139,
-                    lng: 77.2090,
+                    lat: null,
+                    lng: null,
                     isCustom: true,
                   },
                 ]
@@ -790,8 +784,8 @@ export function EventCreateStudio({
                   id: "custom-fallback",
                   name: q,
                   address: "Use custom entered venue",
-                  lat: 28.6139,
-                  lng: 77.2090,
+                  lat: null,
+                  lng: null,
                   isCustom: true,
                 },
               ]
@@ -808,8 +802,8 @@ export function EventCreateStudio({
     setSelectedLocationVenue({
       name,
       address,
-      lat: item.lat || 28.6139,
-      lng: item.lng || 77.2090,
+      lat: item.lat ?? null,
+      lng: item.lng ?? null,
       isVerified: item.isVerified || false,
       category: item.category || "Venue",
     });
@@ -961,6 +955,88 @@ export function EventCreateStudio({
     typeof formData.description === "string"
       ? formData.description
       : (formData.description?.text || "");
+
+  // Memoized tickets for Deck View preview in Studio matching Image 4
+  const studioDeckTickets = useMemo(() => {
+    const currentTicket = {
+      id: "studio-current-event",
+      title: formData.name || "Event Name",
+      name: formData.name || "Event Name",
+      date: formData.startDate || "Thu, 12 Nov 2026",
+      time: formData.startTime || "06:00 PM",
+      venue: formData.locationVenue || formData.location || "Main Auditorium, Campus",
+      location: formData.locationVenue || formData.location || "Main Auditorium, Campus",
+      theme: formData.theme,
+      themeColor: selectedTheme.color,
+      themeHex: selectedTheme.color,
+      ticketBgColor: formData.ticketBgColor || selectedTheme.color,
+      ticketBgUrl: formData.ticketBgUrl || "",
+      price: formData.isPaid ? formData.price : 0,
+      ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+      ticketType: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+      ticketId: "TKT-1793-DEMO-DECK",
+      guest: "Rahul Sharma (Attendee)",
+      attendeeName: "Rahul Sharma (Attendee)",
+      status: "Valid Pass",
+      entryLabel: "SCAN AT ENTRY",
+      posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
+      posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
+      posterTextMode: formData.posterTextMode,
+      posterTextColor: formData.posterTextColor,
+      ticketTextColor: formData.posterTextColor,
+      posterFontSize: formData.posterFontSize,
+      posterAlign: formData.posterAlign,
+      posterTextY: formData.posterTextY,
+      posterTextBg: formData.posterTextBg,
+      showPosterText: formData.showPosterText,
+    };
+
+    return [
+      {
+        id: "deck-sample-green",
+        title: "Test Event for Developers",
+        theme: "robotics",
+        themeColor: "#10B981",
+        date: "Mon, 12 Oct 2026",
+        time: "11:00 AM",
+        venue: "Innovation Lab",
+        ticketType: "EXPO PASS",
+        guest: "Adil M",
+        ticketId: "TKT-ROBOTICS-004",
+        entryLabel: "SCAN AT ENTRY",
+        price: 99,
+      },
+      {
+        id: "deck-sample-yellow",
+        title: "Honey Singh Concert",
+        theme: "yellow",
+        themeColor: "#EAB308",
+        date: "Wed, 28 Oct 2026",
+        time: "07:00 PM",
+        venue: "Open Arena Grounds",
+        ticketType: "FAN PIT PASS",
+        guest: "Adil M",
+        ticketId: "TKT-CONCERT-183",
+        entryLabel: "SCAN AT ENTRY",
+        price: 999,
+      },
+      {
+        id: "deck-sample-purple",
+        title: "Praroha Gaming",
+        theme: "gaming",
+        themeColor: "#8B5CF6",
+        date: "Sat, 07 Nov 2026",
+        time: "10:00 AM",
+        venue: "School of Engineering",
+        ticketType: "VIP PASS",
+        guest: "Adil M",
+        ticketId: "TKT-PRAROHA-001",
+        entryLabel: "SCAN AT ENTRY",
+        price: 0,
+      },
+      currentTicket,
+    ];
+  }, [formData, selectedTheme]);
 
   // Compress and optimize image to WebP/JPEG using client canvas (instant upload, minimal memory & fits Firestore < 100KB)
   const compressImageFile = (file, maxWidth = 800, maxHeight = 800, quality = 0.72) => {
@@ -1397,7 +1473,7 @@ export function EventCreateStudio({
     >
       {/* Main Studio Body: 2 Columns */}
       <div className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="mb-6 flex items-center justify-between text-xs text-white/70">
+        <div className="mb-6 flex items-center justify-between gap-3 text-xs text-white/70">
           <button
             type="button"
             onClick={() => {
@@ -1409,13 +1485,25 @@ export function EventCreateStudio({
             <ArrowLeft className="w-4 h-4 text-[#FE760B]" />
             <span className="font-medium">Back to Events</span>
           </button>
-          <span className="font-semibold text-white/80 tracking-wide">
-            {isEventCancelled
-              ? "Event Cancelled (View Only)"
-              : editingEvent
-              ? "Edit Event Studio"
-              : "Create Event Studio"}
-          </span>
+
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setShowEventPagePreviewModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-xs font-semibold text-white transition-all cursor-pointer hover:border-[#FE760B]/60 shadow-sm"
+              title="Preview how attendees will see the published event page"
+            >
+              <Eye className="w-3.5 h-3.5 text-[#FE760B]" />
+              <span>Preview Event Page</span>
+            </button>
+            <span className="font-semibold text-white/80 tracking-wide hidden sm:inline-block">
+              {isEventCancelled
+                ? "Event Cancelled (View Only)"
+                : editingEvent
+                ? "Edit Event Studio"
+                : "Create Event Studio"}
+            </span>
+          </div>
         </div>
 
         {/* Cancelled Event Warning Banner */}
@@ -1446,10 +1534,10 @@ export function EventCreateStudio({
         )}
         <form
           onSubmit={handleFormSubmit}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start"
         >
           {/* ================= LEFT COLUMN: POSTER & THEME ================= */}
-          <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-4">
+          <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-4 lg:sticky lg:top-20 w-full">
             {/* Poster Card (Square, 1:1, rounded-3xl) with Draggable Text Overlay */}
             <div
               ref={posterContainerRef}
@@ -1461,7 +1549,7 @@ export function EventCreateStudio({
                   setShowTypographyModal(true);
                 }
               }}
-              className="w-full max-w-[360px] aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none"
+              className="w-full max-w-[420px] lg:max-w-none aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none"
             >
               {formData.coverImage ? (
                 // Custom Uploaded Banner Image
@@ -1690,14 +1778,14 @@ export function EventCreateStudio({
             </div>
 
             {/* Helper text directly underneath square cover artwork */}
-            <div className="w-full max-w-[360px] px-1 pt-0.5">
+            <div className="w-full max-w-[420px] lg:max-w-none px-1 pt-0.5">
               <p className="text-[11px] text-white/50 leading-relaxed">
                 Square cover artwork: JPEG, PNG or WebP up to 5 MB
               </p>
             </div>
 
             {/* Theme & Artwork Bar matching User Screenshot */}
-            <div className="w-full max-w-[360px] space-y-2.5 pt-1">
+            <div className="w-full max-w-[420px] lg:max-w-none space-y-2.5 pt-1">
               <div className="flex items-stretch gap-2 relative">
                 {/* Theme Selector Pill Dropdown Trigger */}
                 <div className="relative flex-1 min-w-0">
@@ -1929,10 +2017,13 @@ export function EventCreateStudio({
           </div>
 
           {/* ================= RIGHT COLUMN: EVENT DETAILS ================= */}
-          <div className="lg:col-span-7 flex flex-col space-y-4">
+          <div className="lg:col-span-7 flex flex-col space-y-4 w-full">
 
-            {/* Event Name Input (Large Display typography matching Image 2 & screenshot) */}
-            <div className="pt-1">
+            {/* Event Name Input (Cleanly labeled & aligned with top of poster card) */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-white/50 block">
+                Event Name *
+              </label>
               <input
                 type="text"
                 value={formData.name}
@@ -1949,16 +2040,16 @@ export function EventCreateStudio({
                 }}
                 placeholder="Event Name"
                 required
-                className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl lg:text-5xl font-black text-white placeholder:text-white/30 !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight"
+                className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl lg:text-5xl font-black text-white placeholder:text-white/25 !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight leading-tight"
               />
             </div>
 
-            {/* Date & Time Card + Dedicated Timezone Box matching Screenshot */}
-            <div className={`rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-md relative transition-all ${
+            {/* Date & Time Card */}
+            <div className={`rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/10 p-3.5 sm:p-4 shadow-md relative transition-all ${
               showStartTimePicker || showEndTimePicker || showStartCalendar || showEndCalendar ? "z-40" : "z-10"
             }`}>
-              {/* Left Side: Start and End rows connected by vertical timeline line */}
-              <div className="flex-1 space-y-2 relative">
+              {/* Start and End rows connected by vertical timeline line */}
+              <div className="w-full space-y-2.5 relative">
                 {/* Vertical timeline connector line */}
                 <div className="absolute left-[4.5px] top-[14px] bottom-[14px] w-px bg-white/25 pointer-events-none" />
 
@@ -2126,23 +2217,6 @@ export function EventCreateStudio({
                   </div>
                 </div>
               </div>
-
-              {/* Right Side: Dedicated Timezone Card matching screenshot */}
-              <div
-                onClick={() => setShowTimezoneModal(true)}
-                className="rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 p-2.5 sm:p-3 flex flex-col justify-center items-start shrink-0 min-w-[125px] sm:min-w-[135px] transition-colors cursor-pointer group"
-                title="Click to change timezone"
-              >
-                <div className="flex items-center gap-1.5 text-white/70 group-hover:text-white">
-                  <Globe className="w-3.5 h-3.5" />
-                  <span className="text-[11px] font-semibold tracking-wide">
-                    {formData.timezone || "GMT+05:30"}
-                  </span>
-                </div>
-                <span className="text-[11px] text-white/60 group-hover:text-white/80 mt-0.5 truncate max-w-[120px]">
-                  {formData.timezoneCity || "Kolkata"}
-                </span>
-              </div>
             </div>
 
             {/* Location Card matching screenshot */}
@@ -2279,7 +2353,7 @@ export function EventCreateStudio({
                         onChange={(e) =>
                           setFormData((prev) => ({ ...prev, locationInstructions: e.target.value }))
                         }
-                        placeholder="e.g., Gate 2 entry, Auditorium on 3rd floor, Parking available in basement..."
+                        placeholder="Enter directions, landmark, or entry instructions..."
                         className="w-full px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/30 resize-none transition-colors"
                       />
                     </div>
@@ -2961,58 +3035,23 @@ export function EventCreateStudio({
                         </div>
                       )}
 
-                      {/* Render Deck View Pass if in "both" or "deck" mode */}
+                      {/* Render Deck View Pass if in "both" or "deck" mode matching Image 4 */}
                       {(previewTab === "both" || previewTab === "deck") && (
-                        <div className="space-y-1.5">
-                          {previewTab === "both" && (
-                            <div className="flex items-center justify-between text-xs px-1 text-white/60 pt-2 border-t border-white/10">
-                              <span className="font-semibold text-white">Deck View (Pass)</span>
-                              <span className="text-[11px] text-[#FE760B]">Click pass to view full length</span>
-                            </div>
-                          )}
-                          <div
-                            onClick={() => {
-                              setModalPreviewDesign("deck");
-                              setShowFullTicketModal(true);
-                            }}
-                            className="pt-1 pb-1 overflow-hidden flex justify-center cursor-pointer transition-transform hover:scale-[1.005] w-full max-w-full"
-                            title="Click to view full length deck pass"
-                          >
-                            <div className="w-full max-w-[780px] flex justify-center">
-                              <TicketGraphic
-                                ticket={{
-                                  name: formData.name || "Event Name",
-                                  title: formData.name || "Event Name",
-                                  date: formData.startDate || "2026-11-07",
-                                  time: formData.startTime || "12:00 PM",
-                                  location: formData.location || "Main Auditorium, Campus",
-                                  venue: formData.location || "Main Auditorium, Campus",
-                                  theme: formData.theme,
-                                  themeColor: selectedTheme.color,
-                                  themeHex: selectedTheme.color,
-                                  ticketBgColor: formData.ticketBgColor || selectedTheme.color,
-                                  ticketBgUrl: formData.ticketBgUrl || "",
-                                  price: formData.isPaid ? formData.price : "Free",
-                                  ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-                                  ticketType: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-                                  ticketId: "TKT-1793-DEMO-DECK",
-                                  attendeeName: "Rahul Sharma (Attendee)",
-                                  guest: "Rahul Sharma (Attendee)",
-                                  status: "Valid Pass",
-                                  posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
-                                  posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
-                                  posterTextMode: formData.posterTextMode,
-                                  posterTextColor: formData.posterTextColor,
-                                  ticketTextColor: formData.posterTextColor,
-                                  posterFontSize: formData.posterFontSize,
-                                  posterAlign: formData.posterAlign,
-                                  posterTextY: formData.posterTextY,
-                                  posterTextBg: formData.posterTextBg,
-                                  showPosterText: formData.showPosterText,
-                                }}
-                                horizontal={true}
-                              />
-                            </div>
+                        <div className={`space-y-2.5 ${previewTab === "both" ? "mt-6 pt-5 border-t border-white/10" : ""}`}>
+                          <div className="flex items-center justify-between text-xs px-1 text-white/60">
+                            <span className="font-semibold text-white flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-[#FE760B]" />
+                              <span>Deck View (Interactive Collectible Passes)</span>
+                            </span>
+                            <span className="text-[11px] text-[#FE760B]">Tap cards to bring forward • Click to inspect</span>
+                          </div>
+
+                          <div className="w-full flex justify-center items-center py-4 px-2 overflow-hidden bg-black/40 rounded-2xl border border-white/10 shadow-inner">
+                            <TicketDeckView
+                              initialTickets={studioDeckTickets}
+                              showStackOnly={true}
+                              compact={true}
+                            />
                           </div>
                         </div>
                       )}
@@ -3072,58 +3111,285 @@ export function EventCreateStudio({
         </form>
       </div>
 
-      {/* Timezone Selection Modal */}
-      {showTimezoneModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#2D1F03] border border-white/15 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-scale-in">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Globe className="w-5 h-5 text-[#FE760B]" />
-                <h3 className="text-base font-bold text-white">Select Timezone</h3>
+      {/* ── Live Event Page Preview Modal (Simulates Published Attendee Experience) ── */}
+      {showEventPagePreviewModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center p-2 sm:p-4 lg:p-6 animate-in fade-in duration-150"
+          onClick={() => setShowEventPagePreviewModal(false)}
+        >
+          <div
+            className="w-full max-w-5xl bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl flex flex-col h-[94vh] overflow-hidden text-white relative animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top Control Bar */}
+            <div className="px-5 py-3.5 border-b border-[#26292E] bg-[#141619] flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#3DD68C] animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">
+                    Live Attendee View Preview
+                  </span>
+                </div>
+                <span className="text-[11px] px-2.5 py-0.5 rounded-md bg-white/[0.06] text-white/60 font-mono hidden sm:inline-block">
+                  /e/{formData.name ? formData.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") : "preview-event"}
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowTimezoneModal(false)}
-                className="text-white/60 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <div className="divide-y divide-white/10 max-h-80 overflow-y-auto rounded-xl border border-white/10">
-              {TIMEZONE_OPTIONS.map((item) => {
-                const isSelected =
-                  formData.timezone === item.tz && formData.timezoneCity === item.city;
-                return (
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Device Switcher */}
+                <div className="flex items-center rounded-xl bg-black/40 p-1 border border-white/10">
                   <button
-                    key={`${item.tz}-${item.city}`}
                     type="button"
-                    onClick={() => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        timezone: item.tz,
-                        timezoneCity: item.city,
-                      }));
-                      setShowTimezoneModal(false);
-                      toast.success(`Timezone set to ${item.city} (${item.tz})`);
-                    }}
-                    className={`w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.08] transition-colors cursor-pointer ${
-                      isSelected ? "bg-white/[0.12]" : ""
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      previewDevice === "desktop"
+                        ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                        : "text-white/60 hover:text-white"
                     }`}
                   >
-                    <div>
-                      <div className="text-sm font-semibold text-white flex items-center gap-2">
-                        <span>{item.city}</span>
-                        <span className="text-xs font-mono font-normal text-white/60">({item.tz})</span>
-                      </div>
-                      <div className="text-xs text-white/60 mt-0.5">{item.label}</div>
-                    </div>
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-[#FE760B] stroke-[3]" />
-                    )}
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Desktop</span>
                   </button>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      previewDevice === "mobile"
+                        ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Mobile (390px)</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowEventPagePreviewModal(false)}
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  title="Close Preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Viewport */}
+            <div className="flex-1 overflow-y-auto bg-[#0D0F11] p-3 sm:p-6 lg:p-8 flex justify-center custom-scrollbar">
+              <div
+                className={`w-full transition-all duration-300 ${
+                  previewDevice === "mobile"
+                    ? "max-w-[400px] bg-[#141619] rounded-3xl border-4 border-[#2A2D31] p-4 sm:p-5 shadow-2xl my-2 space-y-5"
+                    : "max-w-4xl space-y-6"
+                }`}
+              >
+                {/* Simulated Public Navigation Header */}
+                <div className="flex items-center justify-between py-2 border-b border-white/10 text-xs">
+                  <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/logo/ticketlelo-logo-nav.png"
+                      alt="TicketLelo"
+                      className="h-5 w-auto object-contain"
+                    />
+                    <span className="text-[10px] text-white/50">• Public Event Page</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-white/60">Events</span>
+                    <span className="text-[#FE760B] font-semibold">Discover</span>
+                  </div>
+                </div>
+
+                {/* Hero Banner Section */}
+                <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-[#2A2D31] shadow-2xl aspect-[16/9] w-full bg-[#181A1D]">
+                  {formData.coverImage ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={formData.coverImage}
+                      alt="Event Cover"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full relative flex flex-col justify-between p-6 sm:p-8 overflow-hidden"
+                      style={{ backgroundColor: selectedTheme.bg }}
+                    >
+                      <div
+                        className="absolute -top-12 -right-12 w-48 h-48 sm:w-64 sm:h-64 rounded-full pointer-events-none"
+                        style={{ backgroundColor: selectedTheme.sun }}
+                      />
+                      <div
+                        className="absolute inset-0 opacity-20 pointer-events-none"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(#000 1.5px, transparent 1.5px), linear-gradient(90deg, #000 1.5px, transparent 1.5px)",
+                          backgroundSize: "20px 20px",
+                        }}
+                      />
+                      <div className="relative z-10">
+                        <span className="px-3 py-1 rounded-full bg-black/40 text-white text-xs font-bold uppercase tracking-wider backdrop-blur-sm border border-white/10">
+                          Upcoming Event
+                        </span>
+                      </div>
+                      <div className="relative z-10 space-y-1">
+                        <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white uppercase tracking-tight">
+                          {formData.name || "Event Name"}
+                        </h1>
+                        {formData.posterLine3 && (
+                          <p className="text-xs sm:text-sm text-white/80 font-medium">
+                            {formData.posterLine3}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Event Core Details Bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-2xl bg-[#1A1C1F] border border-[#26292E] flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0">
+                      <Calendar className="w-5 h-5 text-[#FE760B]" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-[#9B9EA4] uppercase tracking-wider font-semibold block">Date &amp; Time</span>
+                      <p className="text-xs sm:text-sm font-bold text-white truncate">
+                        {formatDisplayDate(formData.startDate)}
+                      </p>
+                      <p className="text-[11px] text-white/60">
+                        {formData.startTime} - {formData.endTime}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#1A1C1F] border border-[#26292E] flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0">
+                      <MapPin className="w-5 h-5 text-[#FE760B]" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-[#9B9EA4] uppercase tracking-wider font-semibold block">Location</span>
+                      <p className="text-xs sm:text-sm font-bold text-white truncate">
+                        {formData.locationVenue || formData.location || "Venue TBA"}
+                      </p>
+                      <p className="text-[11px] text-white/60 truncate">
+                        {formData.locationAddress || (formData.locationType === "virtual" ? "Online Stream / Meet" : "Campus Location")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#1A1C1F] border border-[#26292E] flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0">
+                      <Ticket className="w-5 h-5 text-[#FE760B]" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-[#9B9EA4] uppercase tracking-wider font-semibold block">Admission</span>
+                      <p className="text-xs sm:text-sm font-bold text-white truncate">
+                        {formData.isPaid ? `₹${formData.price || 0}` : "Free Entry"}
+                      </p>
+                      <p className="text-[11px] text-white/60">
+                        {formData.limitCapacity ? `Limited to ${formData.capacity} guests` : "Open Registration"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2-Column Main Content & Registration Simulation */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  {/* Left Column: Description & Venue Map */}
+                  <div className="lg:col-span-7 space-y-5">
+                    {/* Description Card */}
+                    <div className="p-5 sm:p-6 rounded-3xl bg-[#1A1C1F] border border-[#26292E] space-y-3">
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <span>About This Event</span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-white/80 leading-relaxed whitespace-pre-wrap">
+                        {safeDescription || "The organizer has not published a detailed description yet. Join the event to connect with students and campus attendees!"}
+                      </p>
+                    </div>
+
+                    {/* Venue & Map preview */}
+                    {formData.locationType === "in-person" && (
+                      <div className="p-5 sm:p-6 rounded-3xl bg-[#1A1C1F] border border-[#26292E] space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-[#FE760B]" />
+                            <span>Venue &amp; Campus Map</span>
+                          </h3>
+                          <span className="text-[10px] text-[#3DD68C] font-mono">Live Navigation Verified</span>
+                        </div>
+                        <div className="relative h-48 w-full rounded-2xl overflow-hidden border border-[#2A2D31] bg-[#121417]">
+                          <iframe
+                            title="Interactive Venue Map Preview"
+                            width="100%"
+                            height="100%"
+                            style={{ border: 0 }}
+                            loading="lazy"
+                            src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                              (formData.locationVenue || formData.location || "New Delhi") + (formData.locationAddress ? `, ${formData.locationAddress}` : "")
+                            )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                            className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Registration Card Simulation */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="p-5 sm:p-6 rounded-3xl bg-[#1A1C1F] border border-[#26292E] space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-[#9B9EA4] tracking-wider block">Pass Type</span>
+                          <span className="text-base font-black text-white">
+                            {formData.isPaid ? "VIP / General Ticket" : "Free Event Pass"}
+                          </span>
+                        </div>
+                        <span className="text-xl font-black text-[#FE760B]">
+                          {formData.isPaid ? `₹${formData.price || 0}` : "FREE"}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <span className="text-xs font-semibold text-white/90 block">Attendee Registration Preview</span>
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            disabled
+                            placeholder="Full Name (e.g. Rahul Sharma)"
+                            className="w-full px-3 py-2 rounded-xl bg-[#121417] border border-[#2A2D31] text-xs text-white/60"
+                          />
+                          <input
+                            type="email"
+                            disabled
+                            placeholder="Student College Email ID"
+                            className="w-full px-3 py-2 rounded-xl bg-[#121417] border border-[#2A2D31] text-xs text-white/60"
+                          />
+                          <input
+                            type="tel"
+                            disabled
+                            placeholder="Phone Number for Ticket QR"
+                            className="w-full px-3 py-2 rounded-xl bg-[#121417] border border-[#2A2D31] text-xs text-white/60"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-3.5 rounded-2xl bg-[#FE760B] text-[#131517] font-black text-sm tracking-wide shadow-lg opacity-90 cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+                        >
+                          <Ticket className="w-4 h-4" />
+                          <span>{formData.isPaid ? "Proceed to Checkout" : "Claim Free Ticket"}</span>
+                        </button>
+
+                        <p className="text-[10px] text-center text-[#9B9EA4]">
+                          Preview Mode — Real attendees will receive their e-ticket instantly via email &amp; dashboard.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -3131,24 +3397,35 @@ export function EventCreateStudio({
 
       {/* Location Modal */}
       {showLocationModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl animate-scale-in">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-[#181A1D] border border-[#26292E] rounded-3xl p-6 sm:p-7 max-w-lg w-full space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-150 text-white max-h-[90vh] overflow-y-auto">
+            {/* Top Close 'X' Button */}
+            <button
+              type="button"
+              onClick={() => setShowLocationModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-[#9B9EA4] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header: Icon + Title & Description */}
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-10 h-10 rounded-2xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
                 <MapPin className="w-5 h-5 text-[#FE760B]" />
-                <h3 className="text-base font-bold text-white">Event Location</h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowLocationModal(false)}
-                className="text-[#9B9EA4] hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Event Location
+                </h3>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  Select an in-person venue or virtual meeting link
+                </p>
+              </div>
             </div>
 
             {/* Toggle Mode: In Person vs Virtual */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#141619] border border-[#2A2D31]">
               <button
                 type="button"
                 onClick={() =>
@@ -3157,10 +3434,10 @@ export function EventCreateStudio({
                     locationType: "in-person",
                   }))
                 }
-                className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-all ${
+                className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   formData.locationType === "in-person"
-                    ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
-                    : "bg-[#212327] text-[#9B9EA4] border-[#2A2D31]"
+                    ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white"
                 }`}
               >
                 <MapPin className="w-3.5 h-3.5" />
@@ -3174,10 +3451,10 @@ export function EventCreateStudio({
                     locationType: "virtual",
                   }))
                 }
-                className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-all ${
+                className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   formData.locationType === "virtual"
-                    ? "bg-[#2B59FF] text-white border-[#2B59FF]"
-                    : "bg-[#212327] text-[#9B9EA4] border-[#2A2D31]"
+                    ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                    : "text-[#9B9EA4] hover:text-white"
                 }`}
               >
                 <Video className="w-3.5 h-3.5" />
@@ -3282,8 +3559,8 @@ export function EventCreateStudio({
                               handleSelectLocationItem({
                                 name: locationInput.trim(),
                                 address: "Custom venue entered by organiser",
-                                lat: 28.6139,
-                                lng: 77.2090,
+                                lat: null,
+                                lng: null,
                                 isCustom: true,
                               })
                             }
@@ -3357,7 +3634,10 @@ export function EventCreateStudio({
                             `https://maps.google.com/maps?q=${encodeURIComponent(
                               selectedLocationVenue.lat && selectedLocationVenue.lng
                                 ? `${selectedLocationVenue.lat},${selectedLocationVenue.lng}`
-                                : (selectedLocationVenue.name || "") + (selectedLocationVenue.address ? `, ${selectedLocationVenue.address}` : "")
+                                : (selectedLocationVenue.name || "") +
+                                  (selectedLocationVenue.address && !selectedLocationVenue.address.includes("Custom venue")
+                                    ? `, ${selectedLocationVenue.address}`
+                                    : "")
                             )}&t=&z=15&ie=UTF8&iwloc=&output=embed`
                           }
                           className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
@@ -3371,7 +3651,9 @@ export function EventCreateStudio({
                           </span>
                           <span className="text-[#3DD68C] font-bold flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C] animate-pulse" />
-                            {selectedLocationVenue.lat ? `${Number(selectedLocationVenue.lat).toFixed(4)}° N, ${Number(selectedLocationVenue.lng).toFixed(4)}° E` : "Verified Coordinates"}
+                            {selectedLocationVenue.lat && selectedLocationVenue.lng
+                              ? `${Number(selectedLocationVenue.lat).toFixed(4)}° N, ${Number(selectedLocationVenue.lng).toFixed(4)}° E`
+                              : "Real-Time Location Mapped"}
                           </span>
                         </div>
                       </div>
@@ -3415,18 +3697,19 @@ export function EventCreateStudio({
               </div>
             )}
 
-            <div className="flex gap-3 pt-3">
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={handleLocationSave}
-                className="flex-1 h-10 rounded-xl bg-[#FE760B] text-[#131517] font-semibold text-xs hover:bg-[#FE760B]/90 transition-colors"
+                className="flex-1 py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-xs transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
               >
-                Save Location
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Save Location</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowLocationModal(false)}
-                className="px-4 h-10 rounded-xl bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs transition-colors"
+                className="px-5 py-3.5 rounded-2xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -3493,20 +3776,21 @@ export function EventCreateStudio({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDescriptionModal(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                className="flex-1 py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
               >
-                Cancel
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Save Description</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowDescriptionModal(false)}
-                className="px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs sm:text-sm transition-all shadow-md active:scale-95 cursor-pointer"
+                className="px-5 py-3.5 rounded-2xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer"
               >
-                Done
+                Cancel
               </button>
             </div>
           </div>
@@ -3550,46 +3834,51 @@ export function EventCreateStudio({
         design={modalPreviewDesign}
       />
 
-      {/* Max Capacity Dialog matching Image 4 */}
+      {/* Max Capacity Dialog */}
       {showCapacityModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150"
           onClick={() => setShowCapacityModal(false)}
         >
           <div
-            className="w-full max-w-[380px] bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 relative space-y-5 animate-in fade-in zoom-in-95 duration-150 text-white"
+            className="w-full max-w-[420px] bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 sm:p-7 relative space-y-5 animate-in fade-in zoom-in-95 duration-150 text-white"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top Close 'X' Button */}
             <button
               type="button"
               onClick={() => setShowCapacityModal(false)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-[#9B9EA4] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               title="Close modal"
             >
               <X className="w-4 h-4" />
             </button>
 
-            {/* Top Icon */}
-            <div className="w-11 h-11 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-white">
-              <Upload className="w-5 h-5 rotate-180 text-white" />
-            </div>
-
-            {/* Title & Description */}
-            <div>
-              <h3 className="text-base font-bold text-white">
-                Max Capacity
-              </h3>
-              <p className="text-xs text-[#9B9EA4] leading-relaxed mt-1">
-                Close registration when reaching the capacity. Only approved guests count towards it.
-              </p>
+            {/* Header: Icon + Title & Description */}
+            <div className="flex items-center gap-3 pr-8">
+              <div className="w-10 h-10 rounded-2xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
+                <Users className="w-5 h-5 text-[#FE760B]" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  Max Capacity
+                </h3>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  Cap registrations once capacity limit is reached
+                </p>
+              </div>
             </div>
 
             {/* Limit Event Capacity Toggle */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs sm:text-sm font-medium text-white">
-                Limit Event Capacity
-              </span>
+            <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex items-center justify-between">
+              <div>
+                <span className="text-xs sm:text-sm font-semibold text-white block">
+                  Limit Event Capacity
+                </span>
+                <span className="text-[11px] text-[#9B9EA4]">
+                  Stop issuing tickets when full
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() =>
@@ -3599,7 +3888,7 @@ export function EventCreateStudio({
                   }))
                 }
                 className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                  formData.limitCapacity ? "bg-[#3DD68C]" : "bg-[#2A2D31]"
+                  formData.limitCapacity ? "bg-[#FE760B]" : "bg-[#2A2D31]"
                 }`}
                 style={formData.limitCapacity ? { backgroundColor: selectedTheme.color } : {}}
               >
@@ -3613,9 +3902,9 @@ export function EventCreateStudio({
 
             {/* Max Capacity input (visible if limitCapacity is true) */}
             {formData.limitCapacity && (
-              <div className="flex items-center justify-between animate-in fade-in duration-100">
-                <span className="text-xs sm:text-sm font-medium text-white">
-                  Max Capacity
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex items-center justify-between animate-in fade-in duration-100">
+                <span className="text-xs sm:text-sm font-semibold text-white">
+                  Max Seats / Attendees
                 </span>
                 <input
                   type="number"
@@ -3628,16 +3917,21 @@ export function EventCreateStudio({
                       capacity: e.target.value,
                     }))
                   }
-                  className="w-24 px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#212327] text-white text-center font-bold text-sm outline-none focus:ring-1 focus:ring-white"
+                  className="w-24 px-3 py-1.5 rounded-xl border border-[#2A2D31] bg-[#181A1D] text-white text-center font-bold text-sm outline-none focus:border-[#FE760B]"
                 />
               </div>
             )}
 
             {/* Over-Capacity Waitlist Toggle */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-xs sm:text-sm font-medium text-white">
-                Over-Capacity Waitlist
-              </span>
+            <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex items-center justify-between">
+              <div>
+                <span className="text-xs sm:text-sm font-semibold text-white block">
+                  Over-Capacity Waitlist
+                </span>
+                <span className="text-[11px] text-[#9B9EA4]">
+                  Queue attendees if sold out
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() =>
@@ -3659,35 +3953,43 @@ export function EventCreateStudio({
               </button>
             </div>
 
-            {/* Confirm button */}
-            <div className="pt-2">
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowCapacityModal(false)}
-                className="w-full py-3 rounded-2xl bg-white text-[#131517] font-semibold text-sm hover:bg-gray-100 transition-colors shadow-lg cursor-pointer"
+                className="flex-1 py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
               >
-                Confirm
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Save Capacity</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCapacityModal(false)}
+                className="px-5 py-3.5 rounded-2xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer"
+              >
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Banner Text & Typography Adjustment Modal (Spacious, Organized & Convenient) ── */}
+      {/* ── Banner Text & Typography Adjustment Modal (Spacious, Organized & Consistent) ── */}
       {showTypographyModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150"
           onClick={() => setShowTypographyModal(false)}
         >
           <div
-            className="w-full max-w-lg bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-5 sm:p-6 relative space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-xl bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl p-6 sm:p-7 relative space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white max-h-[92vh] overflow-y-auto custom-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Top Close 'X' Button */}
             <button
               type="button"
               onClick={() => setShowTypographyModal(false)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-[#9B9EA4] hover:text-white flex items-center justify-center transition-colors cursor-pointer"
               title="Close modal"
             >
               <X className="w-4 h-4" />
@@ -3695,20 +3997,26 @@ export function EventCreateStudio({
 
             {/* Header: Icon & Title */}
             <div className="flex items-center gap-3 pr-8">
-              <div className="w-10 h-10 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
+              <div className="w-10 h-10 rounded-2xl bg-[#FE760B]/15 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shrink-0 font-bold">
                 <Type className="w-5 h-5 text-[#FE760B]" />
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                   Banner Typography
                 </h3>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  Configure headline overlay, placement, font styling, and colors
+                </p>
               </div>
             </div>
 
-            {/* Banner Display Visibility & Mode Switcher */}
-            <div className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-white">Overlay</span>
+            {/* 1. Visibility & Mode Selector Card */}
+            <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-semibold text-white block">Banner Text Overlay</span>
+                  <span className="text-[11px] text-[#9B9EA4]">Show or hide title text on the cover</span>
+                </div>
                 <button
                   type="button"
                   onClick={() =>
@@ -3717,80 +4025,95 @@ export function EventCreateStudio({
                       showPosterText: prev.showPosterText === false ? true : false,
                     }))
                   }
-                  className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
                     formData.showPosterText !== false
-                      ? "bg-[#FE760B]/15 border-[#FE760B] text-[#FE760B]"
+                      ? "bg-[#FE760B] text-[#131517] border-[#FE760B] shadow-sm"
                       : "bg-[#181A1D] border-[#2A2D31] text-[#9B9EA4] hover:text-white"
                   }`}
-                  title={formData.showPosterText !== false ? "Hide text overlay" : "Show text overlay"}
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>{formData.showPosterText !== false ? "Visible" : "Hidden"}</span>
                 </button>
               </div>
 
-              <div className="flex items-center rounded-lg bg-[#141619] p-0.5 border border-[#2A2D31]">
-                <button
-                  type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, posterTextMode: "auto", showPosterText: true }))}
-                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                    formData.posterTextMode === "auto"
-                      ? "bg-[#FE760B] text-[#131517] shadow-sm"
-                      : "text-[#9B9EA4] hover:text-white"
-                  }`}
-                >
-                  Auto Title
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const auto = getPosterLines(formData.name || "");
-                    setFormData((prev) => ({
-                      ...prev,
-                      posterTextMode: "custom",
-                      posterLine1: prev.posterLine1 || auto.line1 || prev.name || "",
-                      posterLine2: prev.posterLine2 || auto.line2 || "",
-                      showPosterText: true,
-                    }));
-                  }}
-                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                    formData.posterTextMode === "custom"
-                      ? "bg-[#FE760B] text-[#131517] shadow-sm"
-                      : "text-[#9B9EA4] hover:text-white"
-                  }`}
-                >
-                  Custom Lines
-                </button>
+              <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-white">Title Generation</span>
+                <div className="flex items-center rounded-xl bg-[#141619] p-1 border border-[#2A2D31]">
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, posterTextMode: "auto", showPosterText: true }))}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      formData.posterTextMode === "auto"
+                        ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                        : "text-[#9B9EA4] hover:text-white"
+                    }`}
+                  >
+                    Auto Title
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const auto = getPosterLines(formData.name || "");
+                      setFormData((prev) => ({
+                        ...prev,
+                        posterTextMode: "custom",
+                        posterLine1: prev.posterLine1 || auto.line1 || prev.name || "",
+                        posterLine2: prev.posterLine2 || auto.line2 || "",
+                        showPosterText: true,
+                      }));
+                    }}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      formData.posterTextMode === "custom"
+                        ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                        : "text-[#9B9EA4] hover:text-white"
+                    }`}
+                  >
+                    Custom Lines
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Mode 1: Auto Title (Only Line 3 for optional badge / details) */}
-            {formData.posterTextMode === "auto" && (
-              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                <label className="text-xs text-[#9B9EA4] font-medium block mb-1.5">
-                  Line 3 (Badge / Details)
-                </label>
-                <input
-                  type="text"
-                  value={formData.posterLine3 || ""}
-                  placeholder="e.g. Nov 15 • Main Auditorium • Free Entry"
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      posterLine3: e.target.value,
-                      showPosterText: true,
-                    }))
-                  }
-                  className="w-full px-3.5 py-2 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
-                />
-              </div>
-            )}
+            {/* 2. Text Content Lines Card */}
+            {formData.posterTextMode === "auto" ? (
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] space-y-2.5">
+                <div className="p-2.5 rounded-xl bg-[#181A1D] border border-white/5 text-xs space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-[#9B9EA4] tracking-wider">
+                    Auto-Parsed from Event Name
+                  </div>
+                  <div className="text-white font-bold truncate">
+                    Line 1: &quot;{posterLines.line1 || formData.name || "Event Title"}&quot;
+                  </div>
+                  {posterLines.line2 && (
+                    <div className="text-white/80 font-semibold truncate">
+                      Line 2: &quot;{posterLines.line2}&quot;
+                    </div>
+                  )}
+                </div>
 
-            {/* Mode 2: Custom Lines */}
-            {formData.posterTextMode === "custom" && (
-              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-2.5">
+                <div>
+                  <label className="text-[11px] text-[#9B9EA4] font-medium block mb-1">
+                    Line 3 (Badge / Details / Schedule - Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.posterLine3 || ""}
+                    placeholder="e.g. Annual Cultural & Tech Fest • Free Entry"
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        posterLine3: e.target.value,
+                        showPosterText: true,
+                      }))
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#181A1D] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs transition-colors"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white">Custom Lines</span>
+                  <span className="text-xs font-bold text-white">Custom Headline Lines</span>
                   {formData.name && (
                     <button
                       type="button"
@@ -3802,7 +4125,7 @@ export function EventCreateStudio({
                           posterLine2: auto.line2 || "",
                           showPosterText: true,
                         }));
-                        toast.success("Copied event name");
+                        toast.success("Copied from Event Name");
                       }}
                       className="text-[11px] text-[#FE760B] hover:text-[#ff8624] font-semibold flex items-center gap-1 cursor-pointer"
                     >
@@ -3820,7 +4143,7 @@ export function EventCreateStudio({
                     <input
                       type="text"
                       value={formData.posterLine1 || ""}
-                      placeholder="e.g. ANNUAL TECH CONCLAVE"
+                      placeholder="Enter event headline"
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
@@ -3841,7 +4164,7 @@ export function EventCreateStudio({
                     <input
                       type="text"
                       value={formData.posterLine2 || ""}
-                      placeholder="e.g. INNOVATING THE FUTURE"
+                      placeholder="Enter event subtitle"
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -3860,7 +4183,7 @@ export function EventCreateStudio({
                     <input
                       type="text"
                       value={formData.posterLine3 || ""}
-                      placeholder="e.g. NOV 15 • MAIN AUDITORIUM • 9:00 AM"
+                      placeholder="Enter schedule and venue highlights"
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
@@ -3875,14 +4198,49 @@ export function EventCreateStudio({
               </div>
             )}
 
-            {/* Position & Alignment Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+            {/* 3. Font Family Selection */}
+            <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-[#FE760B]" />
+                  Font Family
+                </span>
+                <span className="font-semibold text-white text-xs">
+                  {formData.fontFamily || "New Spirit"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  { id: "New Spirit", name: "New Spirit", fontClass: "font-serif" },
+                  { id: "Inter", name: "Inter", fontClass: "font-sans" },
+                  { id: "Outfit", name: "Outfit", fontClass: "font-sans font-bold" },
+                  { id: "Roboto", name: "Roboto", fontClass: "font-sans" },
+                  { id: "JetBrains Mono", name: "Mono", fontClass: "font-mono" },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, fontFamily: f.id }))}
+                    className={`h-9 px-2 text-xs rounded-xl border text-center transition-all cursor-pointer flex items-center justify-center ${
+                      (formData.fontFamily || "New Spirit") === f.id
+                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold shadow-sm"
+                        : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white hover:bg-[#25282D]"
+                    }`}
+                  >
+                    <span className={f.fontClass}>{f.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Position & Alignment Row (Balanced equal-height cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex flex-col justify-between space-y-2">
                 <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
                   <Move className="w-3.5 h-3.5 text-[#FE760B]" />
                   Position
                 </span>
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[
                     { label: "Top", y: 8 },
                     { label: "Center", y: 42 },
@@ -3898,10 +4256,10 @@ export function EventCreateStudio({
                           posterTextY: item.y,
                         }))
                       }
-                      className={`py-1.5 text-xs rounded-lg font-bold border transition-colors cursor-pointer ${
+                      className={`h-8 text-xs rounded-xl font-bold border transition-colors cursor-pointer flex items-center justify-center ${
                         formData.posterTextY === item.y
-                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
-                          : "bg-[#181A1D] border-[#2A2D31] text-white hover:bg-[#2A2D31]"
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B] shadow-sm"
+                          : "bg-[#181A1D] border-[#2A2D31] text-white hover:bg-[#25282D]"
                       }`}
                     >
                       {item.label}
@@ -3917,16 +4275,16 @@ export function EventCreateStudio({
                         posterTextY: prev.coverImage ? 55 : 68,
                       }))
                     }
-                    className="py-1.5 rounded-lg border border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#181A1D] transition-colors flex items-center justify-center cursor-pointer"
+                    className="h-8 rounded-xl border border-[#2A2D31] text-[#9B9EA4] hover:text-white hover:bg-[#181A1D] transition-colors flex items-center justify-center cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex flex-col justify-between space-y-2">
                 <span className="text-xs text-[#9B9EA4] font-medium">Alignment</span>
-                <div className="grid grid-cols-3 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
+                <div className="grid grid-cols-3 rounded-xl bg-[#181A1D] p-1 border border-[#2A2D31] gap-1.5">
                   {[
                     { align: "left", label: "Left", icon: AlignLeft },
                     { align: "center", label: "Center", icon: AlignCenter },
@@ -3937,9 +4295,9 @@ export function EventCreateStudio({
                       type="button"
                       title={label}
                       onClick={() => setFormData((prev) => ({ ...prev, posterAlign: align }))}
-                      className={`py-1.5 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                      className={`h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                         (formData.posterAlign || "left") === align
-                          ? "bg-[#FE760B] text-[#131517] font-bold"
+                          ? "bg-[#FE760B] text-[#131517] font-bold shadow-sm"
                           : "text-[#9B9EA4] hover:text-white"
                       }`}
                     >
@@ -3950,10 +4308,10 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Size & Width Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 5. Size & Width Row (Balanced equal-height cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
               {/* Text Box Width */}
-              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
@@ -3976,7 +4334,7 @@ export function EventCreateStudio({
                   }
                   className="w-full accent-[#FE760B] cursor-pointer"
                 />
-                <div className="grid grid-cols-3 gap-1">
+                <div className="grid grid-cols-3 gap-1.5">
                   {[
                     { label: "70%", val: 70 },
                     { label: "85%", val: 85 },
@@ -3986,9 +4344,9 @@ export function EventCreateStudio({
                       key={w.label}
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, posterTextWidth: w.val }))}
-                      className={`py-1 text-[11px] rounded-lg font-semibold border transition-colors cursor-pointer ${
+                      className={`h-8 text-[11px] rounded-xl font-bold border transition-colors cursor-pointer flex items-center justify-center ${
                         (formData.posterTextWidth || 85) === w.val
-                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B] shadow-sm"
                           : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
                       }`}
                     >
@@ -3999,7 +4357,7 @@ export function EventCreateStudio({
               </div>
 
               {/* Font Size */}
-              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex flex-col justify-between space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
@@ -4023,7 +4381,7 @@ export function EventCreateStudio({
                   }
                   className="w-full accent-[#FE760B] cursor-pointer"
                 />
-                <div className="grid grid-cols-4 gap-1">
+                <div className="grid grid-cols-4 gap-1.5">
                   {[
                     { label: "S", val: 26 },
                     { label: "M", val: 32 },
@@ -4034,9 +4392,9 @@ export function EventCreateStudio({
                       key={preset.label}
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, posterFontSize: preset.val }))}
-                      className={`py-1 text-[11px] rounded-lg font-semibold border transition-colors cursor-pointer ${
+                      className={`h-8 text-[11px] rounded-xl font-bold border transition-colors cursor-pointer flex items-center justify-center ${
                         formData.posterFontSize === preset.val
-                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                          ? "bg-[#FE760B] text-[#131517] border-[#FE760B] shadow-sm"
                           : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
                       }`}
                     >
@@ -4047,47 +4405,12 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Font Family Selection */}
-            <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#9B9EA4] font-medium flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Font Family
-                </span>
-                <span className="font-semibold text-white text-xs">
-                  {formData.fontFamily || "New Spirit"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
-                {[
-                  { id: "New Spirit", name: "New Spirit", fontClass: "font-serif" },
-                  { id: "Inter", name: "Inter", fontClass: "font-sans" },
-                  { id: "Outfit", name: "Outfit", fontClass: "font-sans font-bold" },
-                  { id: "Roboto", name: "Roboto", fontClass: "font-sans" },
-                  { id: "JetBrains Mono", name: "Mono", fontClass: "font-mono" },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, fontFamily: f.id }))}
-                    className={`py-1.5 px-2 text-xs rounded-xl border text-center transition-all cursor-pointer ${
-                      (formData.fontFamily || "New Spirit") === f.id
-                        ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold"
-                        : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
-                    }`}
-                  >
-                    <span className={f.fontClass}>{f.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Backdrop & Color Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* 6. Backdrop & Color Row (Balanced equal-height cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
               {/* Text Backdrop */}
-              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
-                <span className="text-xs text-[#9B9EA4] font-medium">Backdrop</span>
-                <div className="grid grid-cols-4 rounded-lg bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex flex-col justify-between space-y-2">
+                <span className="text-xs text-[#9B9EA4] font-medium">Backdrop Style</span>
+                <div className="grid grid-cols-4 rounded-xl bg-[#181A1D] p-1 border border-[#2A2D31] gap-1">
                   {[
                     { id: "none", label: "Clean" },
                     { id: "shadow", label: "Shadow" },
@@ -4098,9 +4421,9 @@ export function EventCreateStudio({
                       key={b.id}
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, posterTextBg: b.id }))}
-                      className={`py-1.5 text-[11px] font-semibold rounded transition-colors text-center cursor-pointer truncate ${
+                      className={`py-1.5 text-[11px] font-bold rounded-lg transition-colors text-center cursor-pointer truncate ${
                         (formData.posterTextBg || "shadow") === b.id
-                          ? "bg-[#FE760B] text-[#131517] font-bold"
+                          ? "bg-[#FE760B] text-[#131517] shadow-sm"
                           : "text-[#9B9EA4] hover:text-white"
                       }`}
                     >
@@ -4111,12 +4434,12 @@ export function EventCreateStudio({
               </div>
 
               {/* Text Color */}
-              <div className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-[#212327]/80 border border-[#2A2D31] flex flex-col justify-between space-y-2">
                 <span className="text-xs text-[#9B9EA4] font-medium flex items-center gap-1.5">
                   <Palette className="w-3.5 h-3.5 text-[#FE760B]" />
-                  Color
+                  Color Preset
                 </span>
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="grid grid-cols-6 gap-1">
                   {[
                     { id: "auto", label: "Auto" },
                     { id: "light", label: "White" },
@@ -4131,9 +4454,9 @@ export function EventCreateStudio({
                         key={col.id}
                         type="button"
                         onClick={() => setFormData((prev) => ({ ...prev, posterTextColor: col.id }))}
-                        className={`px-2 py-1 text-[11px] rounded-lg font-semibold border transition-colors cursor-pointer ${
+                        className={`py-1.5 text-[10px] font-bold rounded-lg border transition-colors cursor-pointer text-center truncate ${
                           isSel
-                            ? "bg-[#FE760B] text-[#131517] border-[#FE760B]"
+                            ? "bg-[#FE760B] text-[#131517] border-[#FE760B] shadow-sm"
                             : "bg-[#181A1D] border-[#2A2D31] text-gray-300 hover:text-white"
                         }`}
                       >
@@ -4145,20 +4468,23 @@ export function EventCreateStudio({
               </div>
             </div>
 
-            {/* Custom Hex Color Option */}
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+            {/* 7. Custom Hex Color Option */}
+            <div className="flex items-center gap-2 p-3 rounded-2xl bg-[#212327]/80 border border-[#2A2D31]">
               <span className="text-[11px] text-[#9B9EA4] font-medium shrink-0">Custom Hex:</span>
-              <input
-                type="text"
-                maxLength={7}
-                placeholder="#FFFFFF"
-                value={customTextColorHex ? `#${customTextColorHex}` : ""}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/^#/, "").toUpperCase();
-                  setCustomTextColorHex(raw);
-                }}
-                className="flex-1 px-2.5 py-1 rounded-lg border border-[#2A2D31] bg-[#181A1D] text-xs font-mono text-white outline-none focus:border-[#FE760B]"
-              />
+              <div className="flex-1 flex items-center gap-1 bg-[#181A1D] px-2.5 py-1 rounded-xl border border-[#2A2D31] focus-within:border-[#FE760B]">
+                <span className="text-xs text-[#FE760B] font-mono font-bold">#</span>
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="FFFFFF"
+                  value={customTextColorHex ? customTextColorHex.replace(/^#/, "") : ""}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/^#/, "").toUpperCase();
+                    setCustomTextColorHex(raw);
+                  }}
+                  className="w-full bg-transparent text-xs font-mono text-white outline-none font-bold uppercase"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -4168,18 +4494,18 @@ export function EventCreateStudio({
                     toast.success(`Applied color ${full}`);
                   }
                 }}
-                className="px-3 py-1 bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-1.5 bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] text-xs font-extrabold rounded-xl transition-colors cursor-pointer shadow-sm"
               >
                 Apply
               </button>
             </div>
 
-            {/* Confirm & Close Button */}
+            {/* 8. Confirm & Close Button */}
             <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setShowTypographyModal(false)}
-                className="w-full py-3 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99]"
+                className="w-full py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
                 <span>Apply &amp; Done</span>

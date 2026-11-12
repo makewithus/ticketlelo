@@ -259,7 +259,7 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
               <div className="text-xl sm:text-2xl font-black text-white">
                 ₹{summary ? (summary.totalPlatformFeesPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "0.00"}
               </div>
-              <p className="text-[10px] text-[#9E9E9F] mt-1">TicketLelo marketplace commission</p>
+              <p className="text-[10px] text-[#9E9E9F] mt-1">TicketLelo platform fee</p>
             </div>
 
             <div className="p-4 sm:p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] shadow-lg">
@@ -740,7 +740,7 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
                   <span className="text-sm sm:text-base font-bold text-amber-400 font-mono mt-0.5 block">
                     -₹{(selectedSettlementRecord.platformFeePaise / 100).toFixed(2)}
                   </span>
-                  <span className="text-[10px] text-[#9E9E9F]">Marketplace fee</span>
+                  <span className="text-[10px] text-[#9E9E9F]">Platform fee</span>
                 </div>
 
                 <div>

@@ -25,21 +25,85 @@ export async function GET(request, { params }) {
 
     const connections = relSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-    // Fetch organizer's all available events for connection picker
-    const eventsSnap = await adminDb
+    // Fetch program details to check title / organizer
+    let programData = null;
+    try {
+      const progDoc = await adminDb.collection("ambassadorPrograms").doc(programId).get();
+      if (progDoc.exists) {
+        programData = progDoc.data();
+      }
+    } catch (pErr) {
+      console.warn("Could not load program info:", pErr?.message);
+    }
+
+    const availableEventsMap = new Map();
+
+    // 1. Fetch organizer's events
+    let eventsSnap = await adminDb
       .collection("events")
       .where("createdBy", "==", caller.uid)
       .get();
 
-    const availableEvents = eventsSnap.docs.map((d) => ({
-      id: d.id,
-      name: d.data().name || d.data().title || "Untitled Event",
-      slug: d.data().slug || d.id,
-      date: d.data().date || d.data().startDate || null,
-      isActive: d.data().isActive ?? true,
-    }));
+    if (eventsSnap.empty) {
+      eventsSnap = await adminDb
+        .collection("events")
+        .where("organizerId", "==", caller.uid)
+        .get();
+    }
 
-    return NextResponse.json({ success: true, connections, availableEvents });
+    eventsSnap.docs.forEach((d) => {
+      const ed = d.data();
+      if (ed.status !== "deleted") {
+        availableEventsMap.set(d.id, {
+          id: d.id,
+          name: ed.name || ed.title || "Untitled Event",
+          title: ed.name || ed.title || "Untitled Event",
+          slug: ed.customSlug || ed.slug || d.id,
+          date: ed.date || ed.startDate || null,
+          isActive: ed.isActive ?? true,
+        });
+      }
+    });
+
+    // 2. Also search for events matching the program title (e.g. "Praroha" matches "Praroha Gaming")
+    if (programData) {
+      const progTitle = (programData.title || programData.name || "").trim().toLowerCase();
+      if (progTitle) {
+        try {
+          const allEvtsSnap = await adminDb.collection("events").get();
+          allEvtsSnap.docs.forEach((d) => {
+            const ed = d.data();
+            const eName = (ed.name || ed.title || "").trim().toLowerCase();
+            if (
+              ed.status !== "deleted" &&
+              (eName.includes(progTitle) || progTitle.includes(eName))
+            ) {
+              if (!availableEventsMap.has(d.id)) {
+                availableEventsMap.set(d.id, {
+                  id: d.id,
+                  name: ed.name || ed.title || "Untitled Event",
+                  title: ed.name || ed.title || "Untitled Event",
+                  slug: ed.customSlug || ed.slug || d.id,
+                  date: ed.date || ed.startDate || null,
+                  isActive: ed.isActive ?? true,
+                });
+              }
+            }
+          });
+        } catch (matchErr) {
+          console.warn("Could not match title events:", matchErr?.message);
+        }
+      }
+    }
+
+    const availableEvents = Array.from(availableEventsMap.values());
+
+    return NextResponse.json({
+      success: true,
+      connections,
+      connectedEvents: connections,
+      availableEvents,
+    });
   } catch (err) {
     console.error("[api/organizer/programs/[programId]/events GET] Error:", err);
     return NextResponse.json({ error: err.message || "Failed to list connected events" }, { status: 500 });
@@ -54,10 +118,24 @@ export async function POST(request, { params }) {
     }
     const { programId } = await params;
     const body = await request.json();
-    const { action } = body;
+    let { action } = body;
+
+    // Auto-infer action if not explicitly supplied
+    if (!action) {
+      if (body.eventId && (body.enableReferral !== undefined || body.referralEnabled !== undefined)) {
+        action = "toggle";
+      } else if (body.eventId || (Array.isArray(body.eventIds) && body.eventIds.length > 0)) {
+        action = "connect";
+      }
+    }
 
     if (action === "connect") {
-      const { eventIds = [] } = body;
+      const eventIds = Array.isArray(body.eventIds)
+        ? body.eventIds
+        : body.eventId
+        ? [body.eventId]
+        : [];
+
       const connected = await connectEventsToProgram({
         programId,
         eventIds,
@@ -73,7 +151,8 @@ export async function POST(request, { params }) {
       });
       return NextResponse.json({ success: true, disconnected: eventId });
     } else if (action === "toggle") {
-      const { eventId, referralEnabled } = body;
+      const { eventId } = body;
+      const referralEnabled = body.referralEnabled !== undefined ? body.referralEnabled : body.enableReferral;
       await toggleEventReferral({
         programId,
         eventId,
@@ -89,3 +168,4 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to update event connections" }, { status: 500 });
   }
 }
+

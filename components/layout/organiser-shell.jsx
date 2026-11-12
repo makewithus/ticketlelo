@@ -265,19 +265,19 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
           </div>
 
           {/* Right Side: Live Clock + Theme Toggle + Activity Bell + Create Event CTA + Avatar */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
+          <div className="flex items-center gap-2 sm:gap-3.5">
             {/* Live Clock */}
             {timeStr && (
               <span
-                className="text-[12px] sm:text-[13px] font-sans font-medium text-[#9B9EA4] tracking-normal tabular-nums select-none hidden md:inline-block"
+                className="text-[12px] sm:text-[13px] font-sans font-medium text-[#9B9EA4] tracking-normal tabular-nums select-none hidden lg:inline-block"
                 suppressHydrationWarning
               >
                 {timeStr}
               </span>
             )}
 
-            {/* Theme Toggle (Light / Dark Mode matching Image 1) */}
-            <ThemeToggle inline />
+            {/* Theme Toggle (Compact on mobile, clean everywhere) */}
+            <ThemeToggle inline compact className="h-8 w-8" />
 
             {/* Activity Notifications Bell */}
             <Link
@@ -288,11 +288,11 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
               <Bell className="w-4 h-4" />
             </Link>
 
-            {/* Create Event CTA (clean transparent text link, no orange bg, no border, no plus icon) */}
+            {/* Create Event CTA (clean transparent text link, hidden on small mobile, accessible via mobile drawer) */}
             <Link
               href="/admin/create-event"
               prefetch={false}
-              className={`text-xs font-medium transition-colors cursor-pointer ${
+              className={`text-xs font-medium transition-colors cursor-pointer hidden sm:inline-block ${
                 pathname === "/admin/create-event"
                   ? "text-white font-semibold"
                   : "text-[#D0D0D1] hover:text-white"
@@ -385,7 +385,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
         <div className="fixed inset-0 z-50 md:hidden">
           {/* Backdrop Overlay */}
           <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-fade-in"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity animate-fade-in"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />

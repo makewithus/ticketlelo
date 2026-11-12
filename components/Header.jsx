@@ -44,7 +44,11 @@ export default function Header() {
 
           <nav className="flex items-center gap-2.5 sm:gap-4 text-xs sm:text-sm font-medium">
             <Link
-              href="/"
+              href={
+                user?.role === "organiser" || user?.role === "superAdmin" || user?.isAdmin
+                  ? "/admin/dashboard"
+                  : "/discover"
+              }
               className="text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               Events

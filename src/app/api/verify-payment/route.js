@@ -30,8 +30,12 @@ export async function POST(request) {
     const orderSnap = await orderRef.get();
     if (!orderSnap.exists) return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
     const order = orderSnap.data();
-    if (caller && caller.uid && order.userId !== caller.uid) {
-      return NextResponse.json({ success: false, error: "Order access denied" }, { status: 403 });
+    if (caller && caller.uid && order.userId && order.userId !== caller.uid) {
+      const orderEmail = String(order.registrationData?.email || "").toLowerCase();
+      const callerEmail = String(caller.email || "").toLowerCase();
+      if (!orderEmail || !callerEmail || orderEmail !== callerEmail) {
+        return NextResponse.json({ success: false, error: "Order access denied" }, { status: 403 });
+      }
     }
     if (eventId && eventId !== order.eventId) return NextResponse.json({ success: false, error: "Order event mismatch" }, { status: 400 });
     if (order.status === "paid" && order.ticketId) {
@@ -105,6 +109,10 @@ export async function POST(request) {
       }
     }
     const buyer = order.registrationData || {};
+    const effectiveUserId = order.userId || caller?.uid || buyer.userId || null;
+    const effectiveEmail = String(buyer.email || order.registrationData?.email || caller?.email || "").toLowerCase();
+    const effectiveName = buyer.fullName || order.registrationData?.fullName || caller?.decodedToken?.name || "Attendee";
+    const effectivePhone = buyer.whatsappPhone || buyer.phone || order.registrationData?.whatsappPhone || "";
     const now = Timestamp.now();
 
     await adminDb.runTransaction(async (transaction) => {
@@ -130,7 +138,7 @@ export async function POST(request) {
         ticketId,
         orderId,
         paymentId,
-        userId: caller.uid,
+        userId: effectiveUserId,
         eventId: order.eventId,
         eventTitle: event.title || event.name || "Event",
         eventSlug: event.slug || order.eventId,
@@ -138,9 +146,9 @@ export async function POST(request) {
         quantity: order.quantity || 1,
         entitledSubEventIds: entitlements.entitledSubEventIds,
         entitledTrackNames: entitlements.entitledTrackNames,
-        buyerName: buyer.fullName || "Attendee",
-        buyerEmail: String(buyer.email || caller.email).toLowerCase(),
-        buyerPhone: buyer.whatsappPhone || "",
+        buyerName: effectiveName,
+        buyerEmail: effectiveEmail,
+        buyerPhone: effectivePhone,
         amountPaid: order.pricing?.finalPayable || 0,
         pricingBreakdown: order.pricing || null,
         ticketDesign: event.ticketDesign || "stub",
@@ -155,11 +163,11 @@ export async function POST(request) {
         id: registrationId,
         ticketId,
         orderId,
-        userId: caller.uid,
+        userId: effectiveUserId,
         eventId: order.eventId,
-        fullName: buyer.fullName || "Attendee",
-        email: String(buyer.email || caller.email).toLowerCase(),
-        whatsappPhone: buyer.whatsappPhone || "",
+        fullName: effectiveName,
+        email: effectiveEmail,
+        whatsappPhone: effectivePhone,
         formData: buyer.formData || {},
         status: "Unused",
         paymentStatus: "paid",
@@ -183,37 +191,10 @@ export async function POST(request) {
       });
     });
 
-    // 8. Marketplace Split Allocation & Double-Entry Financial Ledger
+    // 8. Independent Settlement & Double-Entry Financial Ledger
     try {
       const organizerSharePaise = Number(order.organizerSharePaise || (expectedPaise - Math.round(Number(order.pricing?.platformFee || 0) * 100)));
       const platformCommissionPaise = Number(order.platformCommissionPaise || Math.round(Number(order.pricing?.platformFee || 0) * 100));
-
-      let splitResults = null;
-      if (order.isRouteTransfer && order.connectedAccountId && organizerSharePaise > 0) {
-        const provider = getDefaultPaymentProvider();
-        splitResults = await provider.createTransferOrSplit(paymentId, [{
-          accountId: order.connectedAccountId,
-          amountPaise: organizerSharePaise,
-          currency: "INR",
-          notes: { orderId, bookingId: ticketId, eventId: order.eventId }
-        }]).catch(err => {
-          console.error("[verify-payment] Route transfer execution error:", err.message);
-          return null;
-        });
-
-        await adminDb.collection("paymentSplits").doc(`split_${orderId}`).set({
-          paymentId,
-          orderId,
-          organizerId: order.organizerId || null,
-          connectedAccountId: order.connectedAccountId,
-          grossAmountPaise: expectedPaise,
-          organizerAmountPaise: organizerSharePaise,
-          platformCommissionPaise,
-          transferStatus: splitResults ? "PROCESSED" : "FAILED",
-          providerTransferId: splitResults?.[0]?.transferId || null,
-          transferredAt: new Date().toISOString()
-        }, { merge: true });
-      }
 
       // Commit balanced double-entry accounting ledger
       await recordPaymentCaptureLedger({
@@ -244,12 +225,13 @@ export async function POST(request) {
 
       await orderRef.update({
         paymentStatus: "CAPTURED",
-        transferStatus: splitResults ? "TRANSFERRED" : (order.isRouteTransfer ? "TRANSFER_FAILED" : "NOT_APPLICABLE"),
+        transferStatus: "NOT_APPLICABLE",
+        settlementStatus: "SCHEDULED",
         capturedPaymentId: paymentId,
         updatedAt: Timestamp.now()
       });
     } catch (ledgerErr) {
-      console.warn("[verify-payment] Ledger or split recording warning:", ledgerErr.message);
+      console.warn("[verify-payment] Ledger or settlement recording warning:", ledgerErr.message);
     }
 
     // Award Creator Campus Ambassador Points (P08 / Phase 7 & 8)
@@ -291,7 +273,13 @@ export async function POST(request) {
     });
   } catch (error) {
     const status = error.message === "Capacity reservation has expired" ? 409 : 500;
-    console.error("[verify-payment] Verification failed:", error.code || "unexpected-error");
-    return NextResponse.json({ success: false, error: status === 409 ? error.message : "Payment could not be verified" }, { status });
+    console.error("[verify-payment] Verification failed:", error.message || error, error.stack);
+    return NextResponse.json(
+      {
+        success: false,
+        error: status === 409 ? error.message : (error.message || "Payment could not be verified"),
+      },
+      { status }
+    );
   }
 }

@@ -1,0 +1,279 @@
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  generateReferralCode,
+  normalizeReferralCode,
+  isValidReferralCodeFormat,
+  checkSelfReferral,
+} from "../../lib/creator-campus/referral-registry.js";
+import {
+  calculateEarnedPoints,
+  DEFAULT_POINTS_RULES,
+} from "../../lib/creator-campus/points-engine.js";
+import {
+  sanitizeCellValue,
+  parseAndSanitizeCsv,
+} from "../../lib/creator-campus/bulk-importer.js";
+
+describe("Creator Campus Ambassador Program — Test Suite", () => {
+  const root = process.cwd();
+
+  // ── 1. Referral Code Format & Validation ──
+  describe("1. Referral Code Generation & Format (XXXX-NNNN)", () => {
+    test("Generates valid uppercase canonical format XXXX-NNNN", () => {
+      const code1 = generateReferralCode("Adil Mohammed");
+      assert.match(code1, /^[A-Z0-9]{4}-\d{4}$/, "Code must match XXXX-NNNN format");
+
+      const code2 = generateReferralCode("A");
+      assert.match(code2, /^[A-Z0-9]{4}-\d{4}$/, "Short names must be padded to 4 letters");
+
+      const code3 = generateReferralCode("");
+      assert.match(code3, /^[A-Z0-9]{4}-\d{4}$/, "Empty names fall back to default prefix");
+    });
+
+    test("Normalizes codes to uppercase and trims whitespace", () => {
+      assert.equal(normalizeReferralCode("  adil-1042  "), "ADIL-1042");
+      assert.equal(normalizeReferralCode("cusat-9999"), "CUSAT-9999");
+      assert.equal(normalizeReferralCode(null), "");
+    });
+
+    test("Validates code format accurately", () => {
+      assert.equal(isValidReferralCodeFormat("ADIL-1042"), true);
+      assert.equal(isValidReferralCodeFormat("TEST-0001"), true);
+      assert.equal(isValidReferralCodeFormat("ADIL1042"), false, "Missing hyphen must be rejected");
+      assert.equal(isValidReferralCodeFormat("ADI-1042"), false, "Less than 4 letters must be rejected");
+      assert.equal(isValidReferralCodeFormat("ADILL-1042"), false, "More than 4 letters must be rejected");
+      assert.equal(isValidReferralCodeFormat("ADIL-104"), false, "Less than 4 digits must be rejected");
+    });
+
+    test("Detects and blocks self-referral attempts", () => {
+      const amb = {
+        userId: "user_adil_123",
+        email: "adil@cusat.ac.in",
+        phone: "+919876543210",
+      };
+
+      assert.equal(checkSelfReferral(amb, { userId: "user_adil_123" }), true);
+      assert.equal(checkSelfReferral(amb, { email: "ADIL@CUSAT.AC.IN" }), true);
+      assert.equal(checkSelfReferral(amb, { phone: "9876543210" }), true);
+      assert.equal(checkSelfReferral(amb, { userId: "other_user", email: "other@example.com" }), false);
+    });
+  });
+
+  // ── 2. Points Engine & Calculations ──
+  describe("2. Points Calculation & Rules", () => {
+    test("Calculates correct base points for free tickets", () => {
+      const res = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+        rules: { freeRegistrationPoints: 5, paidRegistrationPoints: 15 },
+      });
+      assert.equal(res.basePoints, 5);
+      assert.equal(res.totalPoints, 5);
+    });
+
+    test("Applies paid rate for paid orders with ticket count multiplication", () => {
+      const res = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 3,
+        rules: { freeRegistrationPoints: 5, paidRegistrationPoints: 20 },
+      });
+      // 20 * 3 = 60
+      assert.equal(res.basePoints, 60);
+      assert.equal(res.totalPoints, 60);
+    });
+
+    test("Unlocks milestone bonuses when registration count crosses threshold", () => {
+      const res = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 1,
+        currentRegistrationsCount: 4, // 4 -> 5 crosses threshold 5
+        rules: {
+          paidRegistrationPoints: 10,
+          milestones: [{ threshold: 5, bonusPoints: 25 }],
+        },
+      });
+      assert.equal(res.basePoints, 10);
+      assert.equal(res.bonusPoints, 25);
+      assert.equal(res.totalPoints, 35);
+      assert.equal(res.achievedMilestone, 5);
+    });
+
+    test("Handles missing or null program rules with secure defaults", () => {
+      const resFree = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+      });
+      assert.equal(resFree.basePoints, DEFAULT_POINTS_RULES.freeRegistrationPoints);
+
+      const resPaid = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 2,
+      });
+      assert.equal(resPaid.basePoints, DEFAULT_POINTS_RULES.paidRegistrationPoints * 2);
+    });
+  });
+
+  // ── 3. Bulk Importer & Formula Injection Sanitization ──
+  describe("3. Bulk Importer Security & Formula Injection Sanitization", () => {
+    test("Sanitizes formulas starting with '=', '+', '-', '@', tab, and carriage return", () => {
+      assert.equal(sanitizeCellValue("=SUM(A1:B10)"), "'=SUM(A1:B10)");
+      assert.equal(sanitizeCellValue("+cmd|' /C calc'!A0"), "'+cmd|' /C calc'!A0");
+      assert.equal(sanitizeCellValue("-1+1"), "'-1+1");
+      assert.equal(sanitizeCellValue("@SUM(1,2)"), "'@SUM(1,2)");
+      assert.equal(sanitizeCellValue("\tmalicious"), "'\tmalicious");
+      assert.equal(sanitizeCellValue("Normal Text"), "Normal Text");
+    });
+
+    test("Parses CSV rows correctly with formula protection", () => {
+      const csvData = `fullName,email,whatsappPhone,college
+Adil Mohammed,adil@example.com,9876543210,CUSAT
+=HYPERLINK("http://evil.com"),evil@example.com,9876543211,CUSAT`;
+
+      const rows = parseAndSanitizeCsv(csvData);
+      assert.equal(rows.length, 2);
+      assert.equal(rows[0].fullName, "Adil Mohammed");
+      assert.equal(rows[0].email, "adil@example.com");
+      assert.equal(rows[1].fullName.startsWith("'="), true, "Formula must be escaped with single quote");
+    });
+  });
+
+  // ── 4. Firestore Security Rules Inspection ──
+  describe("4. Firestore Security Rules Audit & Isolation", () => {
+    const rulesPath = path.join(root, "firestore.rules");
+    const rulesContent = fs.readFileSync(rulesPath, "utf-8");
+
+    test("Strictly scopes ambassadorPrograms by organizerId", () => {
+      assert.match(rulesContent, /match \/ambassadorPrograms\/\{programId\}/, "Must define ambassadorPrograms collection");
+      assert.match(rulesContent, /request\.auth\.uid == resource\.data\.get\(['"]organizerId['"]/, "Must scope programs by organizerId");
+    });
+
+    test("Blocks client self-approval on ambassadorApplications", () => {
+      assert.match(rulesContent, /match \/ambassadorApplications\/\{applicationId\}/, "Must define ambassadorApplications");
+      assert.match(rulesContent, /request\.resource\.data\.get\(['"]status['"],\s*['"]['"]\)\s*==\s*['"]pending['"]|request\.resource\.data\.status == ['"]pending['"]/, "Must force client creates to pending status");
+    });
+
+    test("Locks pointsLedger, programAmbassadors, and referralCodes from client writes", () => {
+      assert.match(rulesContent, /match \/pointsLedger\/\{entryId\}/, "Must define pointsLedger rules");
+      assert.match(rulesContent, /match \/programAmbassadors\/\{ambassadorId\}/, "Must define programAmbassadors rules");
+      assert.match(rulesContent, /match \/referralCodes\/\{code\w*\}/, "Must define referralCodes rules");
+    });
+  });
+
+  // ── 5. Payment & Order Attribution Hooks ──
+  describe("5. Order Creation & Verification Attribution Hooks", () => {
+    const createOrderPath = path.join(root, "src/app/api/create-order/route.js");
+    const createOrderContent = fs.readFileSync(createOrderPath, "utf-8");
+
+    test("Validates and attaches referral attribution in create-order", () => {
+      assert.match(createOrderContent, /referralCode/, "Must accept referralCode in order request");
+      assert.match(createOrderContent, /referralAttribution/, "Must attach referralAttribution to order document");
+    });
+
+    test("Safely checks eventDoc.exists as a boolean property in create-order", () => {
+      assert.doesNotMatch(createOrderContent, /eventDoc\.exists\(\)/, "Must not call eventDoc.exists() as function");
+      assert.match(createOrderContent, /!eventDoc\.exists|eventDoc\.exists === true/, "Must check eventDoc.exists as boolean property");
+    });
+
+    const verifyPaymentPath = path.join(root, "src/app/api/verify-payment/route.js");
+    const verifyPaymentContent = fs.readFileSync(verifyPaymentPath, "utf-8");
+
+    test("Awards points on payment capture in verify-payment", () => {
+      assert.match(verifyPaymentContent, /awardPointsForRegistration/, "Must invoke awardPointsForRegistration on capture");
+    });
+
+    const registerFreePath = path.join(root, "src/app/api/register-free/route.js");
+    const registerFreeContent = fs.readFileSync(registerFreePath, "utf-8");
+
+    test("Awards points on free event registration in register-free", () => {
+      assert.match(registerFreeContent, /awardPointsForRegistration/, "Must invoke awardPointsForRegistration for free ticket");
+    });
+
+    const webhookPath = path.join(root, "src/app/api/webhooks/razorpay/route.js");
+    const webhookContent = fs.readFileSync(webhookPath, "utf-8");
+
+    test("Reverses points on order refund webhook", () => {
+      assert.match(webhookContent, /reversePointsForOrder/, "Must invoke reversePointsForOrder on refund");
+    });
+  });
+
+  // ── 6. UI & Route Completeness ──
+  describe("6. UI Routes & Navigation Completeness", () => {
+    test("Organizer shell includes Campus Ambassadors link", () => {
+      const shellPath = path.join(root, "components/layout/organiser-shell.jsx");
+      const shellContent = fs.readFileSync(shellPath, "utf-8");
+      assert.match(shellContent, /\/admin\/programs/, "Shell must link to /admin/programs");
+    });
+
+    test("Organizer Program Management Hub page exists", () => {
+      const progHubPath = path.join(root, "src/app/(app)/admin/programs/[programId]/page.jsx");
+      assert.equal(fs.existsSync(progHubPath), true, "Program Hub page must exist");
+    });
+
+    test("Modernized Ambassador Dashboard exists and enforces privacy", () => {
+      const ambDashPath = path.join(root, "src/app/(app)/(user)/ambassador/dashboard/page.jsx");
+      assert.equal(fs.existsSync(ambDashPath), true, "Ambassador dashboard must exist");
+      const ambDashContent = fs.readFileSync(ambDashPath, "utf-8");
+      assert.doesNotMatch(ambDashContent, /Total verified visits/, "Must not display click counts");
+      assert.doesNotMatch(ambDashContent, /Gross ticket volume/, "Must not display raw revenue numbers");
+      assert.match(ambDashContent, /totalPoints/, "Must display points balance");
+    });
+
+    test("Public and Embed Leaderboard pages exist", () => {
+      const pubLeaderPath = path.join(root, "src/app/(app)/leaderboard/[programId]/page.jsx");
+      const embedLeaderPath = path.join(root, "src/app/(app)/embed/leaderboard/[programId]/page.jsx");
+      assert.equal(fs.existsSync(pubLeaderPath), true, "Public leaderboard route must exist");
+      assert.equal(fs.existsSync(embedLeaderPath), true, "Embed leaderboard route must exist");
+    });
+
+    test("Dynamic registration form does not boot user to home screen on payment errors or cancel", () => {
+      const formPath = path.join(root, "components/forms/dynamic-registration-form.jsx");
+      const formContent = fs.readFileSync(formPath, "utf-8");
+      assert.doesNotMatch(formContent, /router\.push\(["']\/["']\)/, "Must not redirect to root '/' on payment failures");
+    });
+
+    test("Create Program form presents Program Title field and handles title/name parity", () => {
+      const createPagePath = path.join(root, "src/app/(app)/admin/programs/page.jsx");
+      const createPageContent = fs.readFileSync(createPagePath, "utf-8");
+      assert.match(createPageContent, /Program Title/, "Create modal must display 'Program Title' label");
+      assert.match(createPageContent, /title:\s*programTitle/, "Must submit title field in POST body");
+
+      const apiRoutePath = path.join(root, "src/app/api/organizer/programs/route.js");
+      const apiRouteContent = fs.readFileSync(apiRoutePath, "utf-8");
+      assert.match(apiRouteContent, /body\?\.title\s*\|\|\s*body\?\.name/, "API route must support both title and name");
+    });
+
+    test("Date parsing supports DD/MM/YYYY, DD-MM-YYYY and prevents Invalid Date Timestamp errors", async () => {
+      const { parseFirestoreDate } = await import("../../lib/date-utils.js");
+      const d1 = parseFirestoreDate("13/11/2026");
+      assert.ok(d1 instanceof Date);
+      assert.equal(d1.getFullYear(), 2026);
+      assert.equal(d1.getMonth(), 10); // November (0-indexed)
+      assert.equal(d1.getDate(), 13);
+
+      const d2 = parseFirestoreDate("15-11-2026");
+      assert.ok(d2 instanceof Date);
+      assert.equal(d2.getFullYear(), 2026);
+      assert.equal(d2.getMonth(), 10);
+      assert.equal(d2.getDate(), 15);
+
+      const d3 = parseFirestoreDate("2026-11-13");
+      assert.ok(d3 instanceof Date);
+      assert.equal(d3.getFullYear(), 2026);
+      assert.equal(d3.getDate(), 13);
+    });
+
+    test("Universal authFetch and getAuthToken utilities exist in lib/auth.js", async () => {
+      const authModule = await import("../../lib/auth.js");
+      assert.equal(typeof authModule.getAuthToken, "function");
+      assert.equal(typeof authModule.authFetch, "function");
+    });
+
+    test("Public program info endpoint /api/programs/[programId] exists", () => {
+      const pubProgRoute = path.join(root, "src/app/api/programs/[programId]/route.js");
+      assert.equal(fs.existsSync(pubProgRoute), true, "Public program info route must exist");
+    });
+  });
+});

@@ -1,7 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense, memo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -100,26 +101,13 @@ const PROCEDURAL_PALETTES = [
   },
 ];
 
-export default function DiscoverEventsPage() {
-  const { user, loading: authLoading } = useAuth();
-
-  // Safe SSR hydration - avoids hydration mismatch
-  const [events, setEvents] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("date-asc");
-  const [previewEvent, setPreviewEvent] = useState(null);
-  const [copiedId, setCopiedId] = useState(null);
-  const [currentTime, setCurrentTime] = useState("");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
-
-  // Live IST Clock
+// Isolated Live IST Clock component so 1-second interval does not trigger page re-renders
+const LiveISTClock = memo(function LiveISTClock() {
+  const [time, setTime] = useState("");
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTime(
+      setTime(
         now.toLocaleTimeString("en-US", {
           hour: "numeric",
           minute: "2-digit",
@@ -133,6 +121,76 @@ export default function DiscoverEventsPage() {
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  if (!time) return null;
+  return (
+    <span className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] bg-slate-100 dark:bg-[#1A1C1F] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#2A2D31]">
+      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+      {time}
+    </span>
+  );
+});
+
+// Structural equality check to avoid redundant state updates
+function areEventsIdentical(prev, next) {
+  if (!Array.isArray(prev) || !Array.isArray(next)) return false;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    if ((prev[i]?.id || prev[i]?.slug) !== (next[i]?.id || next[i]?.slug)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function DiscoverEventsPageContent() {
+  const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const refCode = searchParams?.get("ref") || searchParams?.get("referralCode") || "";
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // Safe SSR hydration - avoids hydration mismatch
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("date-asc");
+  const [previewEvent, setPreviewEvent] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+
+  // Referral code attribution and instant target event resolution
+  useEffect(() => {
+    if (!refCode || !refCode.trim()) return;
+    let isMounted = true;
+
+    // Immediately cache referral code in client storage and cookie
+    try {
+      const normalized = refCode.trim().toUpperCase();
+      localStorage.setItem("ticketlelo_ref_code", normalized);
+      document.cookie = `ticketlelo_ref_code=${encodeURIComponent(normalized)}; path=/; max-age=2592000; SameSite=Lax`;
+    } catch (_) {}
+
+    // Resolve target event associated with this referral code
+    fetch(`/api/referral/validate?code=${encodeURIComponent(refCode.trim())}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        if (data?.valid && data?.targetUrl) {
+          setIsRedirecting(true);
+          router.replace(data.targetUrl);
+        }
+      })
+      .catch((err) => {
+        console.warn("[discover] Referral target resolution notice:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refCode, router]);
 
   // Fetch real-time active events from database & API
   useEffect(() => {
@@ -173,7 +231,10 @@ export default function DiscoverEventsPage() {
           const list = data.events || (Array.isArray(data) ? data : []);
           if (isMounted && Array.isArray(list)) {
             const deduped = deduplicateEvents(list);
-            setEvents(deduped);
+            setEvents((prev) => {
+              if (areEventsIdentical(prev, deduped)) return prev;
+              return deduped;
+            });
             setCachedItem("discover_events", deduped, 15 * 60 * 1000);
             setIsLoading(false);
           }
@@ -279,7 +340,10 @@ export default function DiscoverEventsPage() {
               });
 
             const dedupedLive = deduplicateEvents(liveEvents);
-            setEvents(dedupedLive);
+            setEvents((prev) => {
+              if (areEventsIdentical(prev, dedupedLive)) return prev;
+              return dedupedLive;
+            });
             setCachedItem("discover_events", dedupedLive, 15 * 60 * 1000);
             setIsLoading(false);
           },
@@ -465,6 +529,22 @@ export default function DiscoverEventsPage() {
     return { total, freeCount, campusCount };
   }, [events]);
 
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#131517] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/15 text-[#FE760B] flex items-center justify-center mb-4 animate-pulse">
+          <Compass className="w-7 h-7" />
+        </div>
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+          Redirecting to event registration...
+        </h2>
+        <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1">
+          Applying referral code <span className="font-mono font-bold text-[#FE760B]">{refCode}</span>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#131517] text-slate-900 dark:text-white transition-colors selection:bg-[#FE760B] selection:text-white overflow-x-clip w-full max-w-full relative">
       {/* ── Top Navigation Bar ── */}
@@ -485,7 +565,11 @@ export default function DiscoverEventsPage() {
 
             <nav className="hidden md:flex items-center gap-2">
               <Link
-                href="/"
+                href={
+                  user?.role === "organiser" || user?.role === "superAdmin" || user?.isAdmin
+                    ? "/admin/dashboard"
+                    : "/discover"
+                }
                 className="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-all"
               >
                 Events
@@ -508,12 +592,7 @@ export default function DiscoverEventsPage() {
 
           {/* Right Controls: IST Clock + Theme Toggle + Auth */}
           <div className="flex items-center gap-2.5 sm:gap-4">
-            {currentTime && (
-              <span className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] bg-slate-100 dark:bg-[#1A1C1F] px-3 py-1.5 rounded-xl border border-slate-200 dark:border-[#2A2D31]">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                {currentTime}
-              </span>
-            )}
+            <LiveISTClock />
 
             <ThemeToggle inline />
 
@@ -626,35 +705,20 @@ export default function DiscoverEventsPage() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-2xl h-48 bg-gradient-to-b from-[#FE760B]/15 via-[#FE760B]/5 to-transparent blur-3xl pointer-events-none rounded-full" />
 
         <div className="relative text-center max-w-3xl mx-auto space-y-4">
-          <motion.h1
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15]"
-          >
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
             Experience Every Moment. <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-[#FE760B] via-[#FF8A2B] to-[#FDE003] bg-clip-text text-transparent">
               Participate Live.
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-sm sm:text-base text-slate-600 dark:text-[#9B9EA4] max-w-2xl mx-auto font-normal leading-relaxed"
-          >
+          <p className="text-sm sm:text-base text-slate-600 dark:text-[#9B9EA4] max-w-2xl mx-auto font-normal leading-relaxed">
             Browse curated developer meetups, collegiate tech fests, esports showdowns, and workshops across India. Tear off digital passes and reserve your spot instantly.
-          </motion.p>
+          </p>
 
-          {/* Quick Metrics Cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-3 max-w-2xl mx-auto text-left w-full"
-          >
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden">
+          {/* Quick Metrics Cards - fixed min-heights to eliminate layout shift */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-3 max-w-2xl mx-auto text-left w-full">
+            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
                 <Flame className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
                 <span className="truncate">Live Events</span>
@@ -664,7 +728,7 @@ export default function DiscoverEventsPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
                 <Ticket className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate">Free Entry</span>
@@ -674,7 +738,7 @@ export default function DiscoverEventsPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
                 <GraduationCap className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span className="truncate">Campus &amp; Hubs</span>
@@ -684,7 +748,7 @@ export default function DiscoverEventsPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
                 <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
                 <span className="truncate">Pass Delivery</span>
@@ -693,7 +757,7 @@ export default function DiscoverEventsPage() {
                 Instant QR
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -839,238 +903,232 @@ export default function DiscoverEventsPage() {
             </button>
           </motion.div>
         ) : (
-          /* Event Cards Grid */
-          <motion.div
-            layout
+          /* Event Cards Grid - stable, non-jumping CSS grid */
+          <div
+            id="events-grid"
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            <AnimatePresence>
-              {sortedEvents.map((ev, index) => {
-                const palette = PROCEDURAL_PALETTES[index % PROCEDURAL_PALETTES.length];
-                const dateDisplay = formatEventDate(ev.startDate || ev.date);
-                const timing = getEventLiveStatus(ev);
-                const isPaid = ev.isPaid || (ev.price && String(ev.price).toLowerCase() !== "free" && ev.price !== 0 && ev.price !== "0");
-                const priceLabel = isPaid ? (typeof ev.price === "number" ? `₹${ev.price}` : String(ev.price).startsWith("₹") ? ev.price : `₹${ev.price}`) : "Free";
-                const hasBanner = Boolean(ev.bannerUrl || ev.coverImage);
+            {sortedEvents.map((ev, index) => {
+              const palette = PROCEDURAL_PALETTES[index % PROCEDURAL_PALETTES.length];
+              const dateDisplay = formatEventDate(ev.startDate || ev.date);
+              const timing = getEventLiveStatus(ev);
+              const isPaid = ev.isPaid || (ev.price && String(ev.price).toLowerCase() !== "free" && ev.price !== 0 && ev.price !== "0");
+              const priceLabel = isPaid ? (typeof ev.price === "number" ? `₹${ev.price}` : String(ev.price).startsWith("₹") ? ev.price : `₹${ev.price}`) : "Free";
+              const hasBanner = Boolean(ev.bannerUrl || ev.coverImage);
+              const stableKey = ev.id || ev.slug || `event-${index}`;
+              const eventHref = `/e/${ev.slug || ev.id}${refCode ? `?ref=${encodeURIComponent(refCode)}#register` : ""}`;
 
-                // Robust capacity calculation - eliminates any possible NaN
-                const rawCap = ev.capacity ?? ev.totalTickets ?? ev.maxCapacity;
-                const rawCapStr = String(rawCap ?? "").trim().toLowerCase();
-                const isExplicitUnlimited =
-                  rawCapStr === "unlimited" ||
-                  rawCapStr === "open" ||
-                  rawCapStr === "open access" ||
-                  ev.isUnlimitedCapacity === true;
+              // Robust capacity calculation - eliminates any possible NaN
+              const rawCap = ev.capacity ?? ev.totalTickets ?? ev.maxCapacity;
+              const rawCapStr = String(rawCap ?? "").trim().toLowerCase();
+              const isExplicitUnlimited =
+                rawCapStr === "unlimited" ||
+                rawCapStr === "open" ||
+                rawCapStr === "open access" ||
+                ev.isUnlimitedCapacity === true;
 
-                let capacityLabel = "Open Access";
-                let progressPercent = 0;
-                let spotsLeft = null;
+              let capacityLabel = "Open Access";
+              let progressPercent = 0;
+              let spotsLeft = null;
 
-                if (isExplicitUnlimited) {
-                  capacityLabel = "Open Access";
-                  progressPercent = 0;
-                } else {
-                  const digits = String(rawCap ?? "").replace(/[^\d]/g, "");
-                  let num = digits ? parseInt(digits, 10) : NaN;
-                  if (isNaN(num) || num <= 0 || num >= 9999) {
-                    const fromTickets = String(ev.totalTickets || "").replace(/[^\d]/g, "");
-                    const tVal = fromTickets ? parseInt(fromTickets, 10) : NaN;
-                    if (!isNaN(tVal) && tVal > 0 && tVal < 9999) {
-                      num = tVal;
+              if (isExplicitUnlimited) {
+                capacityLabel = "Open Access";
+                progressPercent = 0;
+              } else {
+                const digits = String(rawCap ?? "").replace(/[^\d]/g, "");
+                let num = digits ? parseInt(digits, 10) : NaN;
+                if (isNaN(num) || num <= 0 || num >= 9999) {
+                  const fromTickets = String(ev.totalTickets || "").replace(/[^\d]/g, "");
+                  const tVal = fromTickets ? parseInt(fromTickets, 10) : NaN;
+                  if (!isNaN(tVal) && tVal > 0 && tVal < 9999) {
+                    num = tVal;
+                  } else {
+                    const fromMax = String(ev.maxCapacity || "").replace(/[^\d]/g, "");
+                    const mVal = fromMax ? parseInt(fromMax, 10) : NaN;
+                    if (!isNaN(mVal) && mVal > 0) {
+                      num = mVal;
                     } else {
-                      const fromMax = String(ev.maxCapacity || "").replace(/[^\d]/g, "");
-                      const mVal = fromMax ? parseInt(fromMax, 10) : NaN;
-                      if (!isNaN(mVal) && mVal > 0) {
-                        num = mVal;
-                      } else {
-                        num = 150;
-                      }
+                      num = 150;
                     }
                   }
-                  const takenSeats = Number(
-                    ev.ticketsSold ||
-                    ev.registrationsCount ||
-                    ev.attendeesCount ||
-                    ev.totalRegistrations ||
-                    0
-                  );
-                  spotsLeft = Math.max(0, num - takenSeats);
-                  capacityLabel = `${spotsLeft} spots left`;
-                  progressPercent = num > 0 ? Math.min(100, Math.round((takenSeats / num) * 100)) : 0;
                 }
+                const takenSeats = Number(
+                  ev.ticketsSold ||
+                  ev.registrationsCount ||
+                  ev.attendeesCount ||
+                  ev.totalRegistrations ||
+                  0
+                );
+                spotsLeft = Math.max(0, num - takenSeats);
+                capacityLabel = `${spotsLeft} spots left`;
+                progressPercent = num > 0 ? Math.min(100, Math.round((takenSeats / num) * 100)) : 0;
+              }
 
-                return (
-                  <motion.div
-                    key={`${ev.id || 'event'}-${index}`}
-                    layout
-                    initial={{ opacity: 0, y: 25 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.35, delay: index * 0.04 }}
-                    whileHover={{ y: -6, transition: { duration: 0.2 } }}
-                    className="group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-[#FE760B]/10 flex flex-col overflow-hidden"
-                  >
-                    {/* ── Top Poster Graphic / Visual Banner ── */}
-                    <div className="relative h-52 sm:h-56 w-full overflow-hidden bg-slate-900 select-none">
-                      <EventBanner
-                        event={ev}
-                        aspect="auto"
-                        className="w-full h-full rounded-none border-none shadow-none"
-                      />
+              return (
+                <div
+                  key={stableKey}
+                  className="group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-[#FE760B]/10 flex flex-col overflow-hidden hover:-translate-y-1.5"
+                >
+                  {/* ── Top Poster Graphic / Visual Banner ── */}
+                  <div className="relative h-52 sm:h-56 w-full shrink-0 overflow-hidden bg-slate-900 select-none">
+                    <EventBanner
+                      event={ev}
+                      aspect="auto"
+                      className="w-full h-full rounded-none border-none shadow-none"
+                    />
 
-                      {/* Badge Bar inside graphic */}
-                      <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-transparent border border-amber-500/40 text-amber-500 backdrop-blur-xs">
-                          {ev.isPopular || ev.featured ? "POPULAR" : ev.category || "POPULAR"}
+                    {/* Badge Bar inside graphic */}
+                    <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-transparent border border-amber-500/40 text-amber-500 backdrop-blur-xs">
+                        {ev.isPopular || ev.featured ? "POPULAR" : ev.category || "POPULAR"}
+                      </span>
+
+                      {timing.isLive ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[10px] font-bold shadow-md shadow-emerald-950/40">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                          </span>
+                          <span>LIVE</span>
+                        </div>
+                      ) : timing.isEnded ? (
+                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-400 text-[10px] font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                          <span>ENDED</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                          <span>UPCOMING</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Price Pill Overlay */}
+                    <div className="absolute bottom-3 right-3 z-20 pointer-events-none">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-black shadow-lg ${
+                          isPaid
+                            ? "bg-[#FE760B] text-white"
+                            : "bg-[#10B981] text-[#131517]"
+                        }`}
+                      >
+                        {priceLabel}
+                      </span>
+                    </div>
+
+                    {/* Quick Ticket Preview Icon Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewEvent(ev);
+                      }}
+                      title="Interactive Ticket Preview & Tear"
+                      className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/10 flex items-center justify-center transition-all shadow-md backdrop-blur-md cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* ── Event Details Body ── */}
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      {/* Title */}
+                      <Link
+                        href={eventHref}
+                        className="block group-hover:text-[#FE760B] transition-colors"
+                      >
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1 tracking-tight">
+                          {ev.title || ev.name}
+                        </h3>
+                      </Link>
+
+                      {/* Description snippet */}
+                      <p className="text-xs text-slate-500 dark:text-[#9B9EA4] line-clamp-2 leading-relaxed">
+                        {ev.description || "Join fellow developers, creators, and enthusiasts for this curated experience."}
+                      </p>
+                    </div>
+
+                    {/* Meta Rows (Date & Location) */}
+                    <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-[#2A2D31]">
+                      {/* Date & Time */}
+                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                        <Calendar className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+                        <span className="truncate">{dateDisplay || "Date announced soon"}</span>
+                      </div>
+
+                      {/* Venue / City */}
+                      <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                        <MapPin className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+                        <span className="truncate">
+                          {ev.locationVenue || ev.location || "Venue announced on pass"}
                         </span>
+                      </div>
 
-                        {timing.isLive ? (
-                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[10px] font-bold shadow-md shadow-emerald-950/40">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                            </span>
-                            <span>LIVE</span>
-                          </div>
-                        ) : timing.isEnded ? (
-                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-400 text-[10px] font-semibold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
-                            <span>ENDED</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-semibold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                            <span>UPCOMING</span>
+                      {/* Capacity Info & Progress Bar */}
+                      <div className="pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] mb-1">
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3 text-[#FE760B]" />
+                            <span>{capacityLabel}</span>
+                          </span>
+                          {timing.isEnded ? (
+                            <span className="text-zinc-500 font-bold">Closed</span>
+                          ) : spotsLeft === 0 && !isExplicitUnlimited ? (
+                            <span className="text-rose-500 font-bold">Sold Out</span>
+                          ) : (
+                            <span className="text-emerald-500 font-bold">Passes Open</span>
+                          )}
+                        </div>
+                        {!isExplicitUnlimited && (
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full transition-all duration-300"
+                              style={{ width: `${progressPercent}%` }}
+                            />
                           </div>
                         )}
                       </div>
+                    </div>
 
-                      {/* Price Pill Overlay */}
-                      <div className="absolute bottom-3 right-3 z-20 pointer-events-none">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-black shadow-lg ${
-                            isPaid
-                              ? "bg-[#FE760B] text-white"
-                              : "bg-[#10B981] text-[#131517]"
-                          }`}
-                        >
-                          {priceLabel}
-                        </span>
-                      </div>
-
-                      {/* Quick Ticket Preview Icon Button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPreviewEvent(ev);
-                        }}
-                        title="Interactive Ticket Preview & Tear"
-                        className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/10 flex items-center justify-center transition-all shadow-md backdrop-blur-md cursor-pointer"
+                    {/* ── Action Buttons ── */}
+                    <div className="pt-2 flex items-center gap-2">
+                      {/* Primary Participate CTA */}
+                      <Link
+                        href={eventHref}
+                        className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#FE760B]/20 group/btn"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <span>{timing.isEnded ? "View Event" : "Participate Now"}</span>
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                      </Link>
+
+                      {/* Interactive Ticket Preview Modal Button */}
+                      <button
+                        onClick={() => setPreviewEvent(ev)}
+                        title="Interactive Ticket Preview & Tear"
+                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+                      >
+                        <Ticket className="w-4 h-4" />
+                      </button>
+
+                      {/* Share Button */}
+                      <button
+                        onClick={(e) => handleCopyLink(e, ev)}
+                        title="Share event link"
+                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+                      >
+                        {copiedId === ev.id ? (
+                          <Check className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <Share2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
-
-                    {/* ── Event Details Body ── */}
-                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                      <div className="space-y-2">
-                        {/* Title */}
-                        <Link
-                          href={`/e/${ev.slug || ev.id}`}
-                          className="block group-hover:text-[#FE760B] transition-colors"
-                        >
-                          <h3 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1 tracking-tight">
-                            {ev.title || ev.name}
-                          </h3>
-                        </Link>
-
-                        {/* Description snippet */}
-                        <p className="text-xs text-slate-500 dark:text-[#9B9EA4] line-clamp-2 leading-relaxed">
-                          {ev.description || "Join fellow developers, creators, and enthusiasts for this curated experience."}
-                        </p>
-                      </div>
-
-                      {/* Meta Rows (Date & Location) */}
-                      <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-[#2A2D31]">
-                        {/* Date & Time */}
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          <Calendar className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
-                          <span className="truncate">{dateDisplay || "Date announced soon"}</span>
-                        </div>
-
-                        {/* Venue / City */}
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          <MapPin className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
-                          <span className="truncate">
-                            {ev.locationVenue || ev.location || "Venue announced on pass"}
-                          </span>
-                        </div>
-
-                        {/* Capacity Info & Progress Bar */}
-                        <div className="pt-1">
-                          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] mb-1">
-                            <span className="flex items-center gap-1">
-                              <Users className="w-3 h-3 text-[#FE760B]" />
-                              <span>{capacityLabel}</span>
-                            </span>
-                            {timing.isEnded ? (
-                              <span className="text-zinc-500 font-bold">Closed</span>
-                            ) : spotsLeft === 0 && !isExplicitUnlimited ? (
-                              <span className="text-rose-500 font-bold">Sold Out</span>
-                            ) : (
-                              <span className="text-emerald-500 font-bold">Passes Open</span>
-                            )}
-                          </div>
-                          {!isExplicitUnlimited && (
-                            <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full transition-all duration-300"
-                                style={{ width: `${progressPercent}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* ── Action Buttons ── */}
-                      <div className="pt-2 flex items-center gap-2">
-                        {/* Primary Participate CTA */}
-                        <Link
-                          href={`/e/${ev.slug || ev.id}`}
-                          className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#FE760B]/20 group/btn"
-                        >
-                          <span>{timing.isEnded ? "View Event" : "Participate Now"}</span>
-                          <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-                        </Link>
-
-                        {/* Interactive Ticket Preview Modal Button */}
-                        <button
-                          onClick={() => setPreviewEvent(ev)}
-                          title="Interactive Ticket Preview & Tear"
-                          className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
-                        >
-                          <Ticket className="w-4 h-4" />
-                        </button>
-
-                        {/* Share Button */}
-                        <button
-                          onClick={(e) => handleCopyLink(e, ev)}
-                          title="Share event link"
-                          className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
-                        >
-                          {copiedId === ev.id ? (
-                            <Check className="w-4 h-4 text-emerald-500" />
-                          ) : (
-                            <Share2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </main>
 
@@ -1206,5 +1264,13 @@ export default function DiscoverEventsPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function DiscoverEventsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F8FAFC] dark:bg-[#131517]" />}>
+      <DiscoverEventsPageContent />
+    </Suspense>
   );
 }

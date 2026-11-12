@@ -1,3 +1,4 @@
+import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import { ToastGuard } from "@/components/ui/toast-guard";
 
@@ -7,6 +8,13 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SessionTimeoutManager } from "@/components/auth/session-timeout-manager";
 
 import { ModalScrollLockProvider } from "@/components/ui/modal-scroll-lock-provider";
+import { ReferralCapturer } from "@/components/common/referral-capturer";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 export const metadata = {
   title: "TicketLelo - Event Ticketing Platform",
@@ -25,8 +33,8 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning className="max-w-full overflow-x-hidden">
-      <body className="antialiased font-sans bg-background text-foreground transition-colors duration-150 max-w-full overflow-x-hidden">
+    <html lang="en" suppressHydrationWarning className={`max-w-full overflow-x-hidden ${inter.variable}`}>
+      <body className={`antialiased font-sans ${inter.className} bg-background text-foreground transition-colors duration-150 max-w-full overflow-x-hidden`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -36,6 +44,7 @@ export default function RootLayout({ children }) {
           <AuthProvider>
             {children}
             <SessionTimeoutManager />
+            <ReferralCapturer />
           </AuthProvider>
           <ModalScrollLockProvider />
           <ToastGuard />

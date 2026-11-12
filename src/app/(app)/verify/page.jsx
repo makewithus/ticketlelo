@@ -116,7 +116,7 @@ function VerifyContent() {
             <Input
               value={inputCertId}
               onChange={(e) => setInputCertId(e.target.value)}
-              placeholder="Enter Certificate ID (e.g. TL-CERT-2027-8842)"
+              placeholder="Enter Certificate ID"
               className="pl-10 h-12 bg-[#212327] border-[#2A2D31] text-white font-mono placeholder:font-sans placeholder:text-[#9B9EA4] rounded-xl focus:border-[#FE760B]"
             />
           </div>

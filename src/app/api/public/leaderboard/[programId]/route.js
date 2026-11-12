@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Program not found" }, { status: 404 });
     }
     const prog = progSnap.data();
-    if (prog.status !== "published" && prog.isActive !== true) {
+    if (prog.status !== "published" && prog.isActive !== true && prog.status !== "active") {
       return NextResponse.json({ error: "Program leaderboard is not public" }, { status: 403 });
     }
 
@@ -29,13 +29,12 @@ export async function GET(request, { params }) {
       const ledgerSnap = await adminDb
         .collection("pointsLedger")
         .where("programId", "==", programId)
-        .where("eventId", "==", eventId)
-        .where("status", "==", "completed")
         .get();
 
       const totalsByAmbassador = {};
       for (const d of ledgerSnap.docs) {
         const item = d.data();
+        if (item.eventId !== eventId || item.status !== "completed") continue;
         const ambId = item.ambassadorId;
         totalsByAmbassador[ambId] = (totalsByAmbassador[ambId] || 0) + Number(item.totalPoints || 0);
       }
@@ -59,23 +58,23 @@ export async function GET(request, { params }) {
             leaderboard.push({
               ambassadorId: doc.id,
               displayName,
+              college: data.college || prog.college || "",
+              referralCount: Number(data.referralCount || 0),
               totalPoints: Math.max(0, totalsByAmbassador[doc.id]),
             });
           }
         }
       }
     } else {
-      // Overall program leaderboard
+      // Overall program leaderboard: Single-field Firestore query to prevent composite index requirement
       const snap = await adminDb
         .collection("programAmbassadors")
         .where("programId", "==", programId)
-        .where("status", "==", "active")
-        .orderBy("totalPoints", "desc")
-        .limit(limit)
         .get();
 
       for (const doc of snap.docs) {
         const data = doc.data();
+        if (data.status && data.status !== "active") continue;
         const fullName = data.fullName || "Campus Ambassador";
         const parts = fullName.trim().split(" ");
         const displayName = parts.length > 1 ? `${parts[0]} ${parts[1][0]}.` : parts[0];
@@ -83,6 +82,8 @@ export async function GET(request, { params }) {
         leaderboard.push({
           ambassadorId: doc.id,
           displayName,
+          college: data.college || prog.college || "",
+          referralCount: Number(data.referralCount || 0),
           totalPoints: Number(data.totalPoints || 0),
         });
       }
@@ -95,12 +96,27 @@ export async function GET(request, { params }) {
     const ranked = leaderboard.slice(0, limit).map((entry, index) => ({
       rank: index + 1,
       displayName: entry.displayName,
+      college: entry.college || "",
       totalPoints: entry.totalPoints,
+      referralCount: entry.referralCount || 0,
+      avatarInitial: entry.displayName ? entry.displayName.charAt(0).toUpperCase() : "A",
     }));
+
+    const resolvedTitle = prog.title || prog.name || "Campus Ambassador Program";
+    const totalPoints = leaderboard.reduce((acc, curr) => acc + (curr.totalPoints || 0), 0);
+    const totalAmbassadors = leaderboard.length;
 
     return NextResponse.json({
       success: true,
-      programTitle: prog.title || "Campus Ambassador Program",
+      programId,
+      programName: resolvedTitle,
+      programTitle: resolvedTitle,
+      description: prog.description || "",
+      college: prog.college || "",
+      stats: {
+        totalAmbassadors,
+        totalPoints,
+      },
       leaderboard: ranked,
     });
   } catch (err) {
@@ -108,3 +124,4 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to load leaderboard" }, { status: 500 });
   }
 }
+

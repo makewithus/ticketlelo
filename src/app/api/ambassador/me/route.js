@@ -58,15 +58,111 @@ export async function GET(request) {
         rewards = rewSnap.docs.map((r) => ({ id: r.id, ...r.data() }));
       }
 
-      // Program rank
+      // Program connected events
+      let events = [];
+      if (programId) {
+        try {
+          const peSnap = await adminDb
+            .collection("programEvents")
+            .where("programId", "==", programId)
+            .get();
+
+          for (const peDoc of peSnap.docs) {
+            const peData = peDoc.data();
+            if (peData.status === "connected") {
+              const evtSnap = await adminDb.collection("events").doc(peData.eventId).get();
+              if (evtSnap.exists) {
+                const evtData = evtSnap.data();
+                events.push({
+                  id: evtSnap.id,
+                  name: evtData.name || evtData.title || peData.eventName || "Event",
+                  slug: evtData.customSlug || evtData.slug || evtSnap.id,
+                });
+              } else {
+                events.push({
+                  id: peData.eventId,
+                  name: peData.eventName || "Event",
+                  slug: peData.eventId,
+                });
+              }
+            }
+          }
+        } catch (peErr) {
+          console.warn("Could not load program events:", peErr?.message);
+        }
+
+        // Fallback: If no explicit connected events in programEvents, first search for an event matching the program title
+        if (events.length === 0 && program) {
+          try {
+            const progTitle = (program.title || program.name || "").trim().toLowerCase();
+            if (progTitle) {
+              const allEvtsSnap = await adminDb.collection("events").get();
+              for (const evtDoc of allEvtsSnap.docs) {
+                const ed = evtDoc.data();
+                const eName = (ed.name || ed.title || "").trim().toLowerCase();
+                if (
+                  ed.status !== "deleted" &&
+                  ed.isActive !== false &&
+                  (eName.includes(progTitle) || progTitle.includes(eName))
+                ) {
+                  events.push({
+                    id: evtDoc.id,
+                    name: ed.name || ed.title || "Event",
+                    slug: ed.customSlug || ed.slug || evtDoc.id,
+                  });
+                  break; // prioritized direct match
+                }
+              }
+            }
+
+            // Only if no title-matching event found, check organizer events
+            if (events.length === 0 && program.organizerId) {
+              let orgSnap = await adminDb
+                .collection("events")
+                .where("organizerId", "==", program.organizerId)
+                .get();
+
+              if (orgSnap.empty) {
+                orgSnap = await adminDb
+                  .collection("events")
+                  .where("createdBy", "==", program.organizerId)
+                  .get();
+              }
+
+              for (const evtDoc of orgSnap.docs) {
+                const ed = evtDoc.data();
+                if (ed.status !== "deleted" && ed.isActive !== false) {
+                  events.push({
+                    id: evtDoc.id,
+                    name: ed.name || ed.title || "Event",
+                    slug: ed.customSlug || ed.slug || evtDoc.id,
+                  });
+                }
+              }
+            }
+          } catch (orgEvtErr) {
+            console.warn("Could not load fallback events:", orgEvtErr?.message);
+          }
+        }
+      }
+
+      // Program rank - query by programId only and count higher points in-memory to prevent requiring composite Firestore index
       let rank = 1;
       if (programId) {
-        const higherPtsSnap = await adminDb
-          .collection("programAmbassadors")
-          .where("programId", "==", programId)
-          .where("totalPoints", ">", data.totalPoints || 0)
-          .get();
-        rank = higherPtsSnap.size + 1;
+        try {
+          const ambSnap = await adminDb
+            .collection("programAmbassadors")
+            .where("programId", "==", programId)
+            .get();
+          const myPts = Number(data.totalPoints || 0);
+          const higherCount = ambSnap.docs.filter(
+            (d) => Number(d.data()?.totalPoints || 0) > myPts
+          ).length;
+          rank = higherCount + 1;
+        } catch (rankErr) {
+          console.warn("Could not compute ambassador rank:", rankErr?.message);
+          rank = 1;
+        }
       }
 
       enrollments.push({
@@ -82,6 +178,7 @@ export async function GET(request) {
         ledger,
         rewards,
         rank,
+        events,
       });
     }
 
@@ -150,3 +247,4 @@ export async function GET(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

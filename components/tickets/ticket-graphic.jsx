@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
+import QRCodeLib from "qrcode";
 import { formatTicketMeta } from "./stub-ticket";
 import { resolveTicketTheme, parseTicketTitle } from "@/lib/ticket-theme";
 
@@ -67,6 +68,7 @@ export function TicketGraphic({
   notchBg,
   onQrClick,
   className = "",
+  compact = false,
 }) {
   const theme = normalizeTheme(ticket?.theme);
   const themeConfig = resolveTicketTheme(ticket, ticket?.theme);
@@ -91,13 +93,67 @@ export function TicketGraphic({
     ticket?.status === "pending" ||
     ticket?.approvalStatus === "pending" ||
     ticket?.entryLabel === "PENDING APPROVAL";
+
+  // Generate crisp high-contrast real QR code if not supplied
+  const [generatedQr, setGeneratedQr] = useState("");
+  useEffect(() => {
+    let isMounted = true;
+    const rawQr = ticket?.qrCode;
+    const hasRealQr =
+      rawQr &&
+      typeof rawQr === "string" &&
+      !rawQr.includes("<svg") &&
+      !rawQr.includes("TICKETLELO") &&
+      (rawQr.startsWith("data:image/") || rawQr.startsWith("http"));
+
+    if (hasRealQr) {
+      return;
+    }
+
+    const payload =
+      ticket?.qrPayload ||
+      ticket?.ticketId ||
+      ticket?.id ||
+      ticketId ||
+      "TICKETLELO-PASS";
+
+    QRCodeLib.toDataURL(payload, {
+      margin: 1,
+      width: 240,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    })
+      .then((url) => {
+        if (isMounted) setGeneratedQr(url);
+      })
+      .catch((err) => {
+        console.warn("Failed to generate QR for ticket-graphic:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [ticket?.qrCode, ticket?.qrPayload, ticket?.ticketId, ticket?.id, ticketId]);
+
+  const activeQrCode =
+    ticket?.qrCode &&
+    typeof ticket.qrCode === "string" &&
+    !ticket.qrCode.includes("<svg") &&
+    !ticket.qrCode.includes("TICKETLELO") &&
+    (ticket.qrCode.startsWith("data:image/") || ticket.qrCode.startsWith("http"))
+      ? ticket.qrCode
+      : generatedQr;
   return (
     <div
       data-ticket="true"
-      className={`ticket-graphic-root relative select-none flex rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden shadow-xl transition-all duration-300 ${className} ${
-        horizontal
-          ? "w-[310px] min-[360px]:w-[340px] xs:w-[400px] sm:w-[520px] md:w-[640px] lg:w-[800px] xl:w-[920px] h-[125px] min-[360px]:h-[135px] xs:h-[155px] sm:h-[190px] md:h-[225px] lg:h-[265px] xl:h-[295px]"
-          : "w-[300px] min-[360px]:w-[330px] xs:w-[375px] sm:w-[465px] md:w-[550px] lg:w-[680px] xl:w-[780px] h-[120px] min-[360px]:h-[126px] xs:h-[142px] sm:h-[172px] md:h-[198px] lg:h-[235px] xl:h-[265px]"
+      className={`ticket-graphic-root relative select-none flex overflow-hidden shadow-xl transition-all duration-300 ${className} ${
+        compact
+          ? "w-[290px] xs:w-[320px] sm:w-[350px] md:w-[360px] h-[116px] xs:h-[124px] sm:h-[136px] md:h-[140px] rounded-xl"
+          : horizontal
+          ? "w-[310px] min-[360px]:w-[340px] xs:w-[400px] sm:w-[520px] md:w-[640px] lg:w-[800px] xl:w-[920px] h-[125px] min-[360px]:h-[135px] xs:h-[155px] sm:h-[190px] md:h-[225px] lg:h-[265px] xl:h-[295px] rounded-xl sm:rounded-2xl lg:rounded-3xl"
+          : "w-[300px] min-[360px]:w-[330px] xs:w-[375px] sm:w-[465px] md:w-[550px] lg:w-[680px] xl:w-[780px] h-[120px] min-[360px]:h-[126px] xs:h-[142px] sm:h-[172px] md:h-[198px] lg:h-[235px] xl:h-[265px] rounded-xl sm:rounded-2xl lg:rounded-3xl"
       }`}
       style={{
         boxShadow: "0 22px 50px -12px rgba(0,0,0,0.85), 0 6px 18px rgba(0,0,0,0.55)",
@@ -111,12 +167,18 @@ export function TicketGraphic({
         className="relative flex-1 min-w-0 overflow-hidden flex flex-col justify-between"
       >
         {/* Top Graphics & Title Area */}
-        <div className="relative p-2 xs:p-2.5 sm:p-4 md:p-4.5 lg:p-6 flex-1 flex flex-col justify-between overflow-hidden">
+        <div className={`relative flex-1 flex flex-col justify-between overflow-hidden ${
+          compact ? "p-2 xs:p-2.5 sm:p-3" : "p-2 xs:p-2.5 sm:p-4 md:p-4.5 lg:p-6"
+        }`}>
           {/* ── THEME 1 (TECH): Dot Matrix Top-Left & Microchip/Circuit Traces on Right ── */}
           {theme === "tech" && (
             <>
               {/* Dot matrix on top left */}
-              <div className="absolute top-1 sm:top-2 left-2 sm:left-4 pointer-events-none opacity-40 scale-[0.6] xs:scale-[0.7] sm:scale-90 md:scale-100 lg:scale-[1.2] xl:scale-[1.3] origin-top-left">
+              <div className={`absolute top-1 sm:top-2 left-2 sm:left-4 pointer-events-none opacity-40 origin-top-left ${
+                compact
+                  ? "scale-[0.5] xs:scale-[0.55] sm:scale-[0.62]"
+                  : "scale-[0.6] xs:scale-[0.7] sm:scale-90 md:scale-100 lg:scale-[1.2] xl:scale-[1.3]"
+              }`}>
                 <svg width="108" height="36" viewBox="0 0 108 36" fill="none">
                   {[0, 1, 2, 3].map((row) =>
                     [0, 1, 2, 3, 4, 5, 6, 7].map((col) => (
@@ -133,7 +195,11 @@ export function TicketGraphic({
               </div>
 
               {/* Microchip & Gold Circuit Traces on Right (Image 2) */}
-              <div className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2] origin-right">
+              <div className={`absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center origin-right ${
+                compact
+                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
+                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+              }`}>
                 <svg
                   width="150"
                   height="110"
@@ -197,7 +263,11 @@ export function TicketGraphic({
           {/* ── THEME 2 (GAMING): Yellow Plus, Neon Circles, and 8-bit Colorful Pixel Stairs (Image 2) ── */}
           {theme === "gaming" && (
             <>
-              <div className="absolute right-0.5 sm:right-2 top-1 sm:top-2 pointer-events-none scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2] origin-top-right">
+              <div className={`absolute right-0.5 sm:right-2 top-1 sm:top-2 pointer-events-none origin-top-right ${
+                compact
+                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
+                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+              }`}>
                 <svg width="140" height="120" viewBox="0 0 140 120" fill="none">
                   {/* Yellow D-pad Plus */}
                   <path
@@ -232,7 +302,11 @@ export function TicketGraphic({
           {/* ── THEME 3 (MIC / CONCERT): Concentric Soundwaves & Yellow Stage Microphone (Image 2) ── */}
           {theme === "mic" && (
             <>
-              <div className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2] origin-right">
+              <div className={`absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center origin-right ${
+                compact
+                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
+                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+              }`}>
                 <svg
                   width="150"
                   height="130"
@@ -316,7 +390,11 @@ export function TicketGraphic({
           {/* ── THEME 4 (ROBOTICS): Hex Nuts & Interlocking Mint & Yellow Gears (Image 2) ── */}
           {theme === "robotics" && (
             <>
-              <div className="absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2] origin-right">
+              <div className={`absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center origin-right ${
+                compact
+                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
+                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+              }`}>
                 <svg
                   width="160"
                   height="130"
@@ -416,7 +494,11 @@ export function TicketGraphic({
           <div className="relative z-10 max-w-[65%] sm:max-w-[62%] my-auto">
             <h2
               style={themeConfig.titleStyle}
-              className={`text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black uppercase tracking-tight leading-none ${themeConfig.titleColor}`}
+              className={`font-black uppercase tracking-tight leading-none ${themeConfig.titleColor} ${
+                compact
+                  ? "text-xs xs:text-sm sm:text-base"
+                  : "text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl"
+              }`}
             >
               {titleInfo.line1}
             </h2>
@@ -426,7 +508,11 @@ export function TicketGraphic({
               <div className="mt-0.5 sm:mt-1 lg:mt-1.5">
                 <span
                   style={themeConfig.titleStyle}
-                  className={`text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor}`}
+                  className={`font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor} ${
+                    compact
+                      ? "text-xs xs:text-sm sm:text-base"
+                      : "text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl"
+                  }`}
                 >
                   {titleInfo.line2}
                 </span>
@@ -438,9 +524,15 @@ export function TicketGraphic({
         {/* ── Bottom Dark Information Strip ── */}
         <div
           style={themeConfig.bottomBarStyle}
-          className="relative z-10 px-2 sm:px-3.5 lg:px-6 py-1 sm:py-1.5 lg:py-2.5 flex items-center overflow-hidden border-t border-black/10"
+          className={`relative z-10 flex items-center overflow-hidden border-t border-black/10 ${
+            compact ? "px-2 py-1" : "px-2 sm:px-3.5 lg:px-6 py-1 sm:py-1.5 lg:py-2.5"
+          }`}
         >
-          <div className="font-mono text-[7px] xs:text-[8px] sm:text-[9.5px] md:text-[10px] lg:text-[12px] xl:text-[13px] font-bold tracking-tight sm:tracking-wider text-[#D0D0D1] uppercase whitespace-nowrap overflow-x-auto scrollbar-none w-full flex items-center gap-1 sm:gap-1.5 lg:gap-2.5">
+          <div className={`font-mono font-bold tracking-tight uppercase whitespace-nowrap overflow-x-auto scrollbar-none w-full flex items-center ${
+            compact
+              ? "text-[6.5px] xs:text-[7.5px] sm:text-[8px] gap-1 text-[#D0D0D1]"
+              : "text-[7px] xs:text-[8px] sm:text-[9.5px] md:text-[10px] lg:text-[12px] xl:text-[13px] sm:tracking-wider gap-1 sm:gap-1.5 lg:gap-2.5 text-[#D0D0D1]"
+          }`}>
             <span>{meta.dateStr}</span>
             <span className="text-[#9B9EA4]">•</span>
             <span>{meta.timeStr}</span>
@@ -468,12 +560,20 @@ export function TicketGraphic({
         />
         {/* Top Notch Cutout */}
         <div
-          className="ticket-notch absolute -top-2 sm:-top-2.5 lg:-top-3.5 -left-2 sm:-left-2.5 lg:-left-3.5 w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-30 pointer-events-none"
+          className={`ticket-notch absolute rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-30 pointer-events-none ${
+            compact
+              ? "-top-2 -left-2 w-4 h-4"
+              : "-top-2 sm:-top-2.5 lg:-top-3.5 -left-2 sm:-left-2.5 lg:-left-3.5 w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7"
+          }`}
           style={notchBg ? { backgroundColor: notchBg } : undefined}
         />
         {/* Bottom Notch Cutout */}
         <div
-          className="ticket-notch absolute -bottom-2 sm:-bottom-2.5 lg:-bottom-3.5 -left-2 sm:-left-2.5 lg:-left-3.5 w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7 rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-30 pointer-events-none"
+          className={`ticket-notch absolute rounded-full bg-[#131517] [html.light_&]:bg-[#F7F5EE] z-30 pointer-events-none ${
+            compact
+              ? "-bottom-2 -left-2 w-4 h-4"
+              : "-bottom-2 sm:-bottom-2.5 lg:-bottom-3.5 -left-2 sm:-left-2.5 lg:-left-3.5 w-4 h-4 sm:w-5 sm:h-5 lg:w-7 lg:h-7"
+          }`}
           style={notchBg ? { backgroundColor: notchBg } : undefined}
         />
       </div>
@@ -483,13 +583,21 @@ export function TicketGraphic({
           ══════════════════════════════════════════════════ */}
       <div
         style={themeConfig.stubBgStyle}
-        className="relative w-[84px] xs:w-[94px] sm:w-[118px] md:w-[132px] lg:w-[170px] xl:w-[195px] shrink-0 p-1.5 sm:p-2 lg:p-3.5 flex flex-col items-center justify-between text-center overflow-hidden"
+        className={`relative shrink-0 flex flex-col items-center justify-between text-center overflow-hidden ${
+          compact
+            ? "w-[78px] xs:w-[86px] sm:w-[94px] p-1 xs:p-1.5"
+            : "w-[84px] xs:w-[94px] sm:w-[118px] md:w-[132px] lg:w-[170px] xl:w-[195px] p-1.5 sm:p-2 lg:p-3.5"
+        }`}
       >
         {/* Stub Header: "SCAN AT ENTRY" or "PENDING APPROVAL" */}
         <div className="w-full text-center mb-0.5 lg:mb-1">
           <span
-            className={`text-[7.5px] xs:text-[8.5px] sm:text-[10px] lg:text-[13px] xl:text-[14px] font-black tracking-widest uppercase block ${
+            className={`font-black tracking-widest uppercase block ${
               isPending ? "text-amber-400" : themeConfig.scanColor
+            } ${
+              compact
+                ? "text-[6.5px] xs:text-[7.5px] sm:text-[8px]"
+                : "text-[7.5px] xs:text-[8.5px] sm:text-[10px] lg:text-[13px] xl:text-[14px]"
             }`}
           >
             {isPending ? "PENDING APPROVAL" : (ticket?.entryLabel || "SCAN AT ENTRY")}
@@ -505,49 +613,35 @@ export function TicketGraphic({
             }
           }}
           title={onQrClick ? (isPending ? "Pending organiser approval" : "Click to scan and check in") : undefined}
-          className={`relative p-0.5 sm:p-1 lg:p-1.5 bg-white rounded-md sm:rounded-lg lg:rounded-xl shadow-md flex items-center justify-center my-0.5 lg:my-1 transition-all ${
+          className={`relative p-0.5 sm:p-1 bg-white rounded-md sm:rounded-lg shadow-md flex items-center justify-center my-0.5 transition-all ${
             onQrClick ? "cursor-pointer hover:scale-105 active:scale-95" : ""
           } ${isPending ? "opacity-85" : ""}`}
         >
-          {ticket?.qrCode && !ticket.qrCode.includes("<svg") && !ticket.qrCode.includes("TICKETLELO") ? (
+          {activeQrCode ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={ticket.qrCode}
+              src={activeQrCode}
               alt="QR Code"
-              className="w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] object-contain"
+              className={
+                compact
+                  ? "w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 object-contain"
+                  : "w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] object-contain"
+              }
             />
           ) : (
-            <div className="w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] bg-white flex items-center justify-center">
-              <svg viewBox="0 0 33 33" className="w-full h-full fill-black">
-                <rect x="2" y="2" width="9" height="9" fill="#000" />
-                <rect x="4" y="4" width="5" height="5" fill="#fff" />
-                <rect x="5.5" y="5.5" width="2" height="2" fill="#000" />
-                <rect x="22" y="2" width="9" height="9" fill="#000" />
-                <rect x="24" y="4" width="5" height="5" fill="#fff" />
-                <rect x="25.5" y="5.5" width="2" height="2" fill="#000" />
-                <rect x="2" y="22" width="9" height="9" fill="#000" />
-                <rect x="4" y="24" width="5" height="5" fill="#fff" />
-                <rect x="5.5" y="25.5" width="2" height="2" fill="#000" />
-                <rect x="14" y="3" width="2" height="2" />
-                <rect x="18" y="5" width="2" height="3" />
-                <rect x="14" y="8" width="3" height="2" />
-                <rect x="13" y="14" width="7" height="6" />
-                <rect x="15" y="16" width="3" height="2" fill="#fff" />
-                <rect x="3" y="14" width="3" height="2" />
-                <rect x="8" y="16" width="2" height="4" />
-                <rect x="23" y="14" width="3" height="3" />
-                <rect x="27" y="15" width="4" height="2" />
-                <rect x="24" y="23" width="3" height="3" />
-                <rect x="28" y="22" width="3" height="4" />
-                <rect x="14" y="24" width="4" height="2" />
-                <rect x="16" y="27" width="2" height="4" />
-              </svg>
+            <div className={
+              compact
+                ? "w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 bg-white flex items-center justify-center animate-pulse"
+                : "w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] bg-white flex items-center justify-center animate-pulse"
+            }>
+              <div className="w-8 h-8 rounded bg-gray-200" />
             </div>
           )}
 
           {/* Pending Stamp overlay */}
           {isPending && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/35 rounded-md sm:rounded-lg lg:rounded-xl backdrop-blur-[1px]">
-              <div className="transform -rotate-12 border border-amber-400 bg-amber-500/90 text-[#131517] font-mono font-black text-[6.5px] xs:text-[7.5px] sm:text-[9px] px-1 py-0.5 rounded shadow uppercase tracking-wider">
+              <div className="transform -rotate-12 border border-amber-400 bg-amber-500/90 text-[#131517] font-mono font-black text-[6px] xs:text-[7px] sm:text-[8px] px-1 py-0.5 rounded shadow uppercase tracking-wider">
                 PENDING
               </div>
             </div>
@@ -555,13 +649,21 @@ export function TicketGraphic({
         </div>
 
         {/* Ticket ID & Attendee (Exact Image 2) */}
-        <div className="w-full text-center mt-0.5 lg:mt-1 space-y-0.5">
+        <div className="w-full text-center mt-0.5 space-y-0.5">
           <p
-            className={`font-mono font-bold text-[6.5px] xs:text-[7.5px] sm:text-[8.5px] md:text-[9px] lg:text-xs xl:text-sm tracking-tight truncate ${themeConfig.ticketIdColor}`}
+            className={`font-mono font-bold tracking-tight truncate ${themeConfig.ticketIdColor} ${
+              compact
+                ? "text-[6px] xs:text-[6.5px] sm:text-[7.5px]"
+                : "text-[6.5px] xs:text-[7.5px] sm:text-[8.5px] md:text-[9px] lg:text-xs xl:text-sm"
+            }`}
           >
             {ticketId}
           </p>
-          <p className="text-[6px] xs:text-[7px] sm:text-[8px] md:text-[8.5px] lg:text-[10.5px] xl:text-xs text-[#D0D0D1] font-medium truncate max-w-[75px] xs:max-w-[85px] sm:max-w-[110px] lg:max-w-[150px] mx-auto">
+          <p className={`font-medium truncate text-[#D0D0D1] mx-auto ${
+            compact
+              ? "text-[5.5px] xs:text-[6px] sm:text-[7px] max-w-[70px] xs:max-w-[80px]"
+              : "text-[6px] xs:text-[7px] sm:text-[8px] md:text-[8.5px] lg:text-[10.5px] xl:text-xs max-w-[75px] xs:max-w-[85px] sm:max-w-[110px] lg:max-w-[150px]"
+          }`}>
             {attendeeName}
           </p>
         </div>

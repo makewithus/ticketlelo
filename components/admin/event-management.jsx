@@ -37,7 +37,56 @@ import { getCachedOrganiserEvents, setCachedOrganiserEvents, setCachedEvent } fr
 import { EventBanner } from "@/components/events/event-banner";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
 
-export function EventManagement() {
+export function parseEventDate(event) {
+  if (!event) return null;
+  const rawDate = event.date || event.startDate;
+  if (!rawDate) return null;
+  if (typeof rawDate?.toDate === "function") {
+    try {
+      const d = rawDate.toDate();
+      if (d && !isNaN(d.getTime())) return d;
+    } catch {}
+  }
+  if (typeof rawDate?.seconds === "number") {
+    const d = new Date(rawDate.seconds * 1000);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (typeof rawDate?._seconds === "number") {
+    const d = new Date(rawDate._seconds * 1000);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (event.startDate) {
+    const timeStr = event.startTime ? ` ${event.startTime}` : "";
+    const d = new Date(`${event.startDate}${timeStr}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const d = new Date(rawDate);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+export function getEventCreatedTime(ev) {
+  if (!ev) return 0;
+  const raw = ev.createdAt || ev.created_at || ev.updatedAt || ev.updated_at || ev.date || ev.startDate;
+  if (!raw) return 0;
+  if (typeof raw?.toMillis === "function") return raw.toMillis();
+  if (typeof raw?.toDate === "function") {
+    try {
+      const d = raw.toDate();
+      if (!isNaN(d.getTime())) return d.getTime();
+    } catch {}
+  }
+  if (typeof raw?.seconds === "number") return raw.seconds * 1000;
+  if (typeof raw?._seconds === "number") return raw._seconds * 1000;
+  const t = new Date(raw).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+export function EventManagement({
+  events: propEvents = null,
+  isLoading: propLoading = null,
+  onEventDeleted = null,
+  onRefresh = null,
+} = {}) {
   const { user } = useAuth();
   const router = useRouter();
   // Instant 0ms cache-first hydration
@@ -51,7 +100,7 @@ export function EventManagement() {
     }
     return [];
   });
-  const [isLoading, setIsLoading] = useState(() => events.length === 0);
+  const [isLoading, setIsLoading] = useState(() => (propLoading !== null ? propLoading : events.length === 0));
   const [isCreating, setIsCreating] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [subEventModalTarget, setSubEventModalTarget] = useState(null);
@@ -61,8 +110,7 @@ export function EventManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const EVENTS_PER_PAGE = 5;
 
-
-  const userId = user?.id;
+  const userId = user?.id || user?.uid;
   const emailLower = (user?.email || "").toLowerCase().trim();
   const isSuperAdmin =
     user?.role === "superAdmin" ||
@@ -70,6 +118,9 @@ export function EventManagement() {
     emailLower === "adil4ticketlelo@gmail.com" ||
     emailLower === "superadmin@ticketlelo.com";
   const userRole = isSuperAdmin ? "superAdmin" : user?.role;
+
+  const effectiveEvents = propEvents !== null ? propEvents : events;
+  const effectiveLoading = propLoading !== null ? propLoading : isLoading;
 
   const checkEventCreationEligibility = useCallback(async () => {
     if (!userId) return;
@@ -139,13 +190,7 @@ export function EventManagement() {
         const normTitle = (ev.title || ev.name || "").trim().toLowerCase();
         let dateVal = "";
         try {
-          const d = ev.date?.toDate
-            ? ev.date.toDate()
-            : ev.date?.seconds
-            ? new Date(ev.date.seconds * 1000)
-            : ev.date
-            ? new Date(ev.date)
-            : null;
+          const d = parseEventDate(ev);
           if (d && !isNaN(d.getTime())) {
             dateVal = d.toISOString().slice(0, 10);
           }
@@ -165,6 +210,7 @@ export function EventManagement() {
         }
       }
 
+      uniqueEvents.sort((a, b) => getEventCreatedTime(b) - getEventCreatedTime(a));
       setEvents(uniqueEvents);
       if (userId) {
         setCachedOrganiserEvents(userId, uniqueEvents);
@@ -199,14 +245,23 @@ export function EventManagement() {
     if (!confirm("Are you sure you want to delete this event?")) return;
     try {
       setEvents((prev) => prev.filter((e) => (e.id || e._id) !== eventId));
+      onEventDeleted?.(eventId);
       await deleteEvent(eventId);
       toast.success("Event deleted successfully");
-      await loadEvents();
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        await loadEvents();
+      }
       checkEventCreationEligibility();
     } catch (error) {
       console.error("Error deleting event:", error);
       toast.error("Failed to delete event");
-      await loadEvents();
+      if (onRefresh) {
+        await onRefresh();
+      } else {
+        await loadEvents();
+      }
     }
   };
 
@@ -219,29 +274,39 @@ export function EventManagement() {
 
   const realUpcoming = useMemo(() => {
     const cutoff = new Date(now - 24 * 60 * 60 * 1000);
-    return events.filter((e) => {
-      if (!e.date) return true;
-      try {
-        const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-        return d >= cutoff;
-      } catch {
-        return true;
-      }
+    const list = effectiveEvents.filter((e) => {
+      if (!e || e.isDeleted === true || e.deleted === true || e.status === "deleted") return false;
+      const isLive =
+        (e.published === true || e.isPublished === true || e.status === "live" || e.status === "published") &&
+        e.status !== "ended" &&
+        e.status !== "completed" &&
+        e.status !== "cancelled" &&
+        !e.isEnded;
+      if (isLive) return true;
+      const d = parseEventDate(e);
+      if (!d) return true;
+      return d >= cutoff;
     });
-  }, [events, now]);
+    return list.sort((a, b) => getEventCreatedTime(b) - getEventCreatedTime(a));
+  }, [effectiveEvents, now]);
 
   const realPast = useMemo(() => {
     const cutoff = new Date(now - 24 * 60 * 60 * 1000);
-    return events.filter((e) => {
-      if (!e.date) return false;
-      try {
-        const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-        return d < cutoff;
-      } catch {
-        return false;
-      }
+    const list = effectiveEvents.filter((e) => {
+      if (!e || e.isDeleted === true || e.deleted === true || e.status === "deleted") return false;
+      const isLive =
+        (e.published === true || e.isPublished === true || e.status === "live" || e.status === "published") &&
+        e.status !== "ended" &&
+        e.status !== "completed" &&
+        e.status !== "cancelled" &&
+        !e.isEnded;
+      if (isLive) return false;
+      const d = parseEventDate(e);
+      if (!d) return false;
+      return d < cutoff || e.status === "ended" || e.status === "completed" || e.isEnded === true;
     });
-  }, [events, now]);
+    return list.sort((a, b) => getEventCreatedTime(b) - getEventCreatedTime(a));
+  }, [effectiveEvents, now]);
 
   useEffect(() => {
     if (isCreating) {
@@ -258,7 +323,7 @@ export function EventManagement() {
     return null;
   }
 
-  if (isLoading && events.length === 0) {
+  if (effectiveLoading && effectiveEvents.length === 0) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -440,25 +505,28 @@ export function EventManagement() {
                 let dayPart = event.dayDisplay;
                 let timePart = event.timeDisplay || "12:00 PM";
 
-                if (!datePart && event.date) {
+                if (!datePart && (event.date || event.startDate)) {
                   try {
-                    const d = event.date?.toDate
-                      ? event.date.toDate()
-                      : new Date(event.date);
-                    const isToday =
-                      d.toDateString() === new Date().toDateString();
-                    datePart = isToday
-                      ? "Today"
-                      : d.toLocaleDateString("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                        });
-                    dayPart = d.toLocaleDateString("en-IN", { weekday: "long" });
-                    timePart = d.toLocaleTimeString("en-IN", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    });
+                    const d = parseEventDate(event);
+                    if (d) {
+                      const isToday =
+                        d.toDateString() === new Date().toDateString();
+                      datePart = isToday
+                        ? "Today"
+                        : d.toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                          });
+                      dayPart = d.toLocaleDateString("en-IN", { weekday: "long" });
+                      timePart = event.startTime || d.toLocaleTimeString("en-IN", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true,
+                      });
+                    } else {
+                      datePart = "Upcoming";
+                      dayPart = "";
+                    }
                   } catch {
                     datePart = "Upcoming";
                     dayPart = "";
@@ -468,10 +536,10 @@ export function EventManagement() {
                 // Mutually exclusive status badge
                 const isCancelled = Boolean(event.isCancelled || event.status === "cancelled");
                 const isCancelPending = Boolean(event.cancellationRequest?.status === "pending");
-                const isLive = !isCancelled && event.status === "live";
-                const isEnded = !isCancelled && (eventTab === "past" || event.status === "ended");
-                const isDraft = !isCancelled && event.status === "draft";
-                const isPublished = !isCancelled && !isLive && !isEnded && !isDraft;
+                const isLive = !isCancelled && (event.status === "live" || event.isLive === true);
+                const isEnded = !isCancelled && (event.status === "ended" || event.status === "completed" || event.isEnded === true);
+                const isDraft = !isCancelled && !isEnded && event.status === "draft";
+                const isPublished = !isCancelled && !isLive && !isEnded && !isDraft && (event.published === true || event.isPublished === true || event.status === "published");
 
                 return (
                   <div
@@ -531,6 +599,12 @@ export function EventManagement() {
                             {isEnded && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white/7 text-[#9B9EA4] border border-[#2A2D31]">
                                 Ended
+                              </span>
+                            )}
+
+                            {isSuperAdmin && (event.organizerName || event.hostName || event.organizerEmail || event.organiserEmail) && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                                Organiser: {event.organizerName || event.hostName || event.organizerEmail || event.organiserEmail}
                               </span>
                             )}
 

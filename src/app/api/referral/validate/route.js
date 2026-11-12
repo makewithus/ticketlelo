@@ -28,6 +28,9 @@ export async function GET(request) {
 
     const { ambassadorId, programId, userId } = resolved;
 
+    let targetEvent = null;
+    let targetUrl = null;
+
     // Check program status
     if (programId && programId !== "legacy") {
       const progDoc = await adminDb.collection("ambassadorPrograms").doc(programId).get();
@@ -46,11 +49,103 @@ export async function GET(request) {
           .doc(`${programId}_${eventId}`)
           .get();
 
-        if (!relSnap.exists || relSnap.data().status !== "connected" || relSnap.data().referralEnabled !== true) {
-          return NextResponse.json({
-            valid: false,
-            reason: "This event is not participating in the referral program for this code",
-          });
+        const isExplicitlyConnected =
+          relSnap.exists &&
+          relSnap.data().status === "connected" &&
+          relSnap.data().referralEnabled === true;
+
+        if (!isExplicitlyConnected) {
+          // Fallback: Verify if event belongs to program organizer
+          const evtDoc = await adminDb.collection("events").doc(eventId).get();
+          const evtData = evtDoc.exists ? evtDoc.data() : null;
+          const progOrganizer = prog.organizerId || resolved.organizerId;
+          const isOrganizerMatch =
+            evtData &&
+            progOrganizer &&
+            (evtData.organizerId === progOrganizer ||
+              evtData.createdBy === progOrganizer ||
+              evtData.userId === progOrganizer);
+
+          if (!isOrganizerMatch) {
+            return NextResponse.json({
+              valid: false,
+              reason: "This event is not participating in the referral program for this code",
+            });
+          }
+        }
+      } else {
+        // Resolve target event for ambassador referral links
+        try {
+          // 1. Try explicit connected event in programEvents
+          const peSnap = await adminDb
+            .collection("programEvents")
+            .where("programId", "==", programId)
+            .where("status", "==", "connected")
+            .where("referralEnabled", "==", true)
+            .limit(1)
+            .get();
+
+          if (!peSnap.empty) {
+            const peData = peSnap.docs[0].data();
+            const evtDoc = await adminDb.collection("events").doc(peData.eventId).get();
+            if (evtDoc.exists) {
+              const ed = evtDoc.data();
+              targetEvent = {
+                id: evtDoc.id,
+                title: ed.name || ed.title || peData.eventName || "Event",
+                slug: ed.customSlug || ed.slug || evtDoc.id,
+              };
+            }
+          }
+
+          // 2. Fallback: Lookup program organizer's active event
+          if (!targetEvent) {
+            const orgId = prog.organizerId || resolved.organizerId;
+            if (orgId) {
+              let orgEvtSnap = await adminDb
+                .collection("events")
+                .where("organizerId", "==", orgId)
+                .get();
+
+              if (orgEvtSnap.empty) {
+                orgEvtSnap = await adminDb
+                  .collection("events")
+                  .where("createdBy", "==", orgId)
+                  .get();
+              }
+
+              if (!orgEvtSnap.empty) {
+                const activeEvents = orgEvtSnap.docs
+                  .map((d) => ({ id: d.id, ...d.data() }))
+                  .filter((e) => e.status !== "deleted" && e.isActive !== false)
+                  .sort((a, b) => {
+                    const tA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                    const tB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                    return tB - tA;
+                  });
+
+                // Prioritize event whose title or name matches the program title if applicable
+                const progTitleNorm = (prog.title || prog.name || "").toLowerCase().trim();
+                const matchingEvent = progTitleNorm
+                  ? activeEvents.find((e) => (e.title || e.name || "").toLowerCase().includes(progTitleNorm))
+                  : null;
+
+                const chosen = matchingEvent || activeEvents[0] || orgEvtSnap.docs[0].data();
+                const chosenId = chosen.id || orgEvtSnap.docs[0].id;
+                targetEvent = {
+                  id: chosenId,
+                  title: chosen.name || chosen.title || "Event",
+                  slug: chosen.customSlug || chosen.slug || chosenId,
+                };
+              }
+            }
+          }
+
+          if (targetEvent) {
+            targetUrl = `/e/${targetEvent.slug || targetEvent.id}?ref=${encodeURIComponent(resolved.code)}#register`;
+          }
+        } catch (targetErr) {
+          console.warn("[api/referral/validate] Could not resolve target event:", targetErr?.message);
         }
       }
     }
@@ -78,7 +173,9 @@ export async function GET(request) {
       code: resolved.code,
       ambassadorId,
       programId,
-      eventId: eventId || null,
+      eventId: eventId || targetEvent?.id || null,
+      targetEvent,
+      targetUrl,
     });
   } catch (err) {
     console.error("[api/referral/validate GET] Error:", err);

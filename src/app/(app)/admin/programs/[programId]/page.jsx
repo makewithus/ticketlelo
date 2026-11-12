@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { authFetch } from "@/lib/auth";
 import {
   Users,
   Calendar,
@@ -39,6 +40,20 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPublicBaseUrl } from "@/lib/app-url";
+
+function parseTimestamp(raw) {
+  if (!raw) return new Date();
+  if (typeof raw?.toDate === "function") {
+    try {
+      const d = raw.toDate();
+      if (!isNaN(d.getTime())) return d;
+    } catch {}
+  }
+  if (typeof raw?.seconds === "number") return new Date(raw.seconds * 1000);
+  if (typeof raw?._seconds === "number") return new Date(raw._seconds * 1000);
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
 
 export default function OrganizerProgramHubPage({ params }) {
   const unwrappedParams = use(params);
@@ -124,13 +139,23 @@ export default function OrganizerProgramHubPage({ params }) {
   const fetchProgram = useCallback(async () => {
     if (!programId) return;
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}`);
+      const res = await authFetch(`/api/organizer/programs/${programId}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to load program");
       }
       const data = await res.json();
-      setProgram(data.program);
+      const mergedProgram = {
+        ...data.program,
+        stats: {
+          ...data.program?.stats,
+          ...data.stats,
+          pendingApplications: data.stats?.pendingApplicationsCount ?? data.program?.stats?.pendingApplications ?? 0,
+          totalAmbassadors: data.stats?.activeAmbassadorsCount ?? data.program?.stats?.totalAmbassadors ?? 0,
+          connectedEvents: data.stats?.connectedEventsCount ?? data.program?.stats?.connectedEvents ?? 0,
+        },
+      };
+      setProgram(mergedProgram);
       if (data.program?.pointsRules) {
         setPointsRules({
           basePointsPerTicket: data.program.pointsRules.basePointsPerTicket ?? 10,
@@ -155,16 +180,26 @@ export default function OrganizerProgramHubPage({ params }) {
     if (!programId) return;
     setLoadingEvents(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/events`);
+      const res = await authFetch(`/api/organizer/programs/${programId}/events`);
       if (res.ok) {
         const data = await res.json();
-        setConnectedEvents(data.connectedEvents || []);
+        setConnectedEvents(data.connectedEvents || data.connections || []);
+        if (data.availableEvents && data.availableEvents.length > 0) {
+          setAllOrganizerEvents(data.availableEvents);
+        }
       }
       // Also fetch organizer's total events to allow linking
-      const orgEventsRes = await fetch("/api/events?limit=100");
+      const orgEventsRes = await authFetch("/api/events?limit=100");
       if (orgEventsRes.ok) {
         const orgData = await orgEventsRes.json();
-        setAllOrganizerEvents(orgData.events || []);
+        setAllOrganizerEvents((prev) => {
+          const combined = [...prev, ...(orgData.events || [])];
+          const map = new Map();
+          combined.forEach((e) => {
+            if (e && (e.id || e._id)) map.set(e.id || e._id, e);
+          });
+          return Array.from(map.values());
+        });
       }
     } catch (err) {
       console.error("Error loading events:", err);
@@ -178,10 +213,24 @@ export default function OrganizerProgramHubPage({ params }) {
     if (!programId) return;
     setLoadingApps(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/applications?status=${appFilter}`);
+      const res = await authFetch(`/api/organizer/programs/${programId}/applications?status=${appFilter}`);
       if (res.ok) {
         const data = await res.json();
-        setApplications(data.applications || []);
+        const apps = data.applications || [];
+        setApplications(apps);
+        if (appFilter === "pending") {
+          setProgram((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  stats: {
+                    ...prev.stats,
+                    pendingApplications: apps.length,
+                  },
+                }
+              : prev
+          );
+        }
       }
     } catch (err) {
       console.error("Error loading applications:", err);
@@ -196,7 +245,7 @@ export default function OrganizerProgramHubPage({ params }) {
     setLoadingAmbs(true);
     setLoadingCodes(true);
     try {
-      const codesRes = await fetch(`/api/organizer/programs/${programId}/referral-codes`);
+      const codesRes = await authFetch(`/api/organizer/programs/${programId}/referral-codes`);
       if (codesRes.ok) {
         const data = await codesRes.json();
         setReferralCodes(data.referralCodes || []);
@@ -231,7 +280,7 @@ export default function OrganizerProgramHubPage({ params }) {
     if (!programId) return;
     setLoadingRewards(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/rewards`);
+      const res = await authFetch(`/api/organizer/programs/${programId}/rewards`);
       if (res.ok) {
         const data = await res.json();
         setRewards(data.rewards || []);
@@ -248,7 +297,7 @@ export default function OrganizerProgramHubPage({ params }) {
     if (!programId) return;
     setLoadingLeaderboard(true);
     try {
-      const res = await fetch(`/api/public/leaderboard/${programId}`);
+      const res = await authFetch(`/api/public/leaderboard/${programId}`);
       if (res.ok) {
         const data = await res.json();
         setLeaderboard(data.leaderboard || []);
@@ -269,10 +318,19 @@ export default function OrganizerProgramHubPage({ params }) {
     if (activeTab === "leaderboard") fetchLeaderboard();
   }, [activeTab, fetchEvents, fetchApplications, fetchAmbassadorsAndCodes, fetchRewards, fetchLeaderboard]);
 
+  // Real-time polling effect (every 8s) to keep application counts & status updated
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchProgram();
+      if (activeTab === "applications") fetchApplications();
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [fetchProgram, activeTab, fetchApplications]);
+
   // Lifecycle status changer
   const handleStatusChange = async (newStatus) => {
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/status`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -289,10 +347,10 @@ export default function OrganizerProgramHubPage({ params }) {
   // Connect/Toggle event
   const handleToggleEvent = async (eventId, enableReferral) => {
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/events`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, enableReferral }),
+        body: JSON.stringify({ action: "toggle", eventId, enableReferral }),
       });
       if (!res.ok) throw new Error("Failed to update event connection");
       toast.success("Event updated successfully");
@@ -302,11 +360,27 @@ export default function OrganizerProgramHubPage({ params }) {
     }
   };
 
+  const handleConnectEvent = async (eventId) => {
+    try {
+      const res = await authFetch(`/api/organizer/programs/${programId}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "connect", eventIds: [eventId] }),
+      });
+      if (!res.ok) throw new Error("Failed to connect event");
+      toast.success("Event connected successfully");
+      setIsConnectModalOpen(false);
+      fetchEvents();
+    } catch (err) {
+      toast.error(err.message || "Could not connect event");
+    }
+  };
+
   // Approve Application
   const handleApproveApp = async (appId) => {
     setProcessingApp(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/applications/${appId}/approve`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/applications/${appId}/approve`, {
         method: "POST",
       });
       const data = await res.json();
@@ -330,7 +404,7 @@ export default function OrganizerProgramHubPage({ params }) {
     }
     setProcessingApp(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/applications/${appId}/reject`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/applications/${appId}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: rejectReason.trim() }),
@@ -341,6 +415,7 @@ export default function OrganizerProgramHubPage({ params }) {
       setSelectedApp(null);
       setRejectReason("");
       fetchApplications();
+      fetchProgram();
     } catch (err) {
       toast.error(err.message || "Rejection failed");
     } finally {
@@ -353,7 +428,7 @@ export default function OrganizerProgramHubPage({ params }) {
     e.preventDefault();
     setSavingRules(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/points/rules`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/points/rules`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pointsRules),
@@ -377,7 +452,7 @@ export default function OrganizerProgramHubPage({ params }) {
     }
     setAddingReward(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/rewards`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/rewards`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -415,7 +490,7 @@ export default function OrganizerProgramHubPage({ params }) {
     }
     setAdjusting(true);
     try {
-      const res = await fetch(`/api/organizer/programs/${programId}/points/adjust`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/points/adjust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -477,7 +552,7 @@ export default function OrganizerProgramHubPage({ params }) {
     try {
       const formData = new FormData();
       formData.append("file", importFile);
-      const res = await fetch(`/api/organizer/programs/${programId}/import`, {
+      const res = await authFetch(`/api/organizer/programs/${programId}/import`, {
         method: "POST",
         body: formData,
       });
@@ -550,7 +625,7 @@ export default function OrganizerProgramHubPage({ params }) {
           <div className="space-y-1">
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                {program.name}
+                {program.title || program.name || "Ambassador Program"}
               </h1>
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
@@ -567,7 +642,7 @@ export default function OrganizerProgramHubPage({ params }) {
             </div>
             <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
               {program.college ? `Campus: ${program.college} • ` : ""}
-              Created {new Date(program.createdAt?.toDate ? program.createdAt.toDate() : program.createdAt || Date.now()).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
+              Created {parseTimestamp(program.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}
             </p>
           </div>
 
@@ -603,7 +678,7 @@ export default function OrganizerProgramHubPage({ params }) {
       </div>
 
       {/* ── Tabs Navigation ── */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 dark:border-[#2A2D31] pb-2 scrollbar-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto border-b border-slate-200 dark:border-[#2A2D31] pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -673,9 +748,15 @@ export default function OrganizerProgramHubPage({ params }) {
                   size="sm"
                   onClick={() => handleCopy(publicApplyUrl, "apply")}
                   className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-3 shrink-0 cursor-pointer"
+                  title="Copy application link"
                 >
                   {copiedLink === "apply" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </Button>
+                <Link href={`/programs/${programId}/apply`} target="_blank">
+                  <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open application form in new tab">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
               </div>
             </div>
 
@@ -701,7 +782,7 @@ export default function OrganizerProgramHubPage({ params }) {
                   {copiedLink === "leaderboard" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </Button>
                 <Link href={`/leaderboard/${programId}`} target="_blank">
-                  <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0">
+                  <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open public leaderboard in new tab">
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Button>
                 </Link>
@@ -789,35 +870,35 @@ export default function OrganizerProgramHubPage({ params }) {
 
           {/* Connect Event Modal */}
           {isConnectModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scale-in">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2A2D31] pb-3">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Connect Event</h3>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+                  <h3 className="text-base font-bold text-white tracking-tight">Connect Event</h3>
                   <button
                     type="button"
                     onClick={() => setIsConnectModalOpen(false)}
-                    className="p-1 rounded-xl text-slate-400 hover:text-white"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="max-h-72 overflow-y-auto space-y-2">
+                <div className="max-h-72 overflow-y-auto space-y-2 mt-4 custom-scrollbar">
                   {allOrganizerEvents.length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-6">No events available to connect.</p>
+                    <p className="text-xs text-[#9B9EA4] text-center py-6">No events available to connect.</p>
                   ) : (
                     allOrganizerEvents.map((ev) => {
                       const isConnected = connectedEvents.some((c) => (c.eventId || c.id) === (ev.id || ev._id));
                       return (
                         <div
                           key={ev.id || ev._id}
-                          className="p-3 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-between gap-3"
+                          className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-between gap-3"
                         >
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            <p className="text-xs font-bold text-white truncate">
                               {ev.title || ev.name}
                             </p>
-                            <p className="text-[10px] text-slate-500 dark:text-[#9B9EA4] truncate">
+                            <p className="text-[10px] text-[#9B9EA4] truncate">
                               {ev.date || "Date TBA"}
                             </p>
                           </div>
@@ -825,13 +906,12 @@ export default function OrganizerProgramHubPage({ params }) {
                             size="sm"
                             disabled={isConnected}
                             onClick={() => {
-                              handleToggleEvent(ev.id || ev._id, true);
-                              setIsConnectModalOpen(false);
+                              handleConnectEvent(ev.id || ev._id);
                             }}
                             className={`text-xs h-8 px-3 rounded-lg ${
                               isConnected
-                                ? "bg-slate-200 dark:bg-slate-800 text-slate-400"
-                                : "bg-[#FE760B] text-[#131517] font-semibold cursor-pointer"
+                                ? "bg-[#1E2024] text-[#71767B] border border-[#2A2D31]"
+                                : "bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold cursor-pointer"
                             }`}
                           >
                             {isConnected ? "Connected" : "Connect"}
@@ -911,7 +991,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     </p>
                     {app.answers?.promotionPitch && (
                       <p className="text-xs text-slate-600 dark:text-[#D0D0D1] mt-1 line-clamp-1 italic">
-                        "{app.answers.promotionPitch}"
+                        &ldquo;{app.answers.promotionPitch}&rdquo;
                       </p>
                     )}
                   </div>
@@ -954,35 +1034,35 @@ export default function OrganizerProgramHubPage({ params }) {
 
           {/* Application Detail / Review Modal */}
           {selectedApp && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-scale-in">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2A2D31] pb-3">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+                  <div className="pr-3">
+                    <h3 className="text-base font-bold text-white tracking-tight">
                       {selectedApp.fullName}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                    <p className="text-xs text-[#9B9EA4] mt-0.5">
                       {selectedApp.college} • {selectedApp.answers?.department || "Student"} ({selectedApp.answers?.yearOfStudy || ""})
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSelectedApp(null)}
-                    className="p-1 rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="space-y-3 text-xs">
                   <div>
-                    <span className="font-semibold text-slate-500 dark:text-[#9B9EA4] block">Email & WhatsApp</span>
-                    <p className="text-slate-900 dark:text-white">{selectedApp.email} • {selectedApp.whatsappPhone}</p>
+                    <span className="font-semibold text-[#9B9EA4] block">Email & WhatsApp</span>
+                    <p className="text-white">{selectedApp.email} • {selectedApp.whatsappPhone}</p>
                   </div>
 
                   {selectedApp.answers?.socialProfile && (
                     <div>
-                      <span className="font-semibold text-slate-500 dark:text-[#9B9EA4] block">Social Link</span>
+                      <span className="font-semibold text-[#9B9EA4] block">Social Link</span>
                       <a href={selectedApp.answers.socialProfile} target="_blank" rel="noreferrer" className="text-[#FE760B] hover:underline">
                         {selectedApp.answers.socialProfile}
                       </a>
@@ -991,39 +1071,39 @@ export default function OrganizerProgramHubPage({ params }) {
 
                   {selectedApp.answers?.clubRoles && (
                     <div>
-                      <span className="font-semibold text-slate-500 dark:text-[#9B9EA4] block">Club Leadership / Roles</span>
-                      <p className="text-slate-900 dark:text-white">{selectedApp.answers.clubRoles}</p>
+                      <span className="font-semibold text-[#9B9EA4] block">Club Leadership / Roles</span>
+                      <p className="text-white">{selectedApp.answers.clubRoles}</p>
                     </div>
                   )}
 
                   {selectedApp.answers?.promotionPitch && (
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#212327]">
+                    <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
                       <span className="font-semibold text-[#FE760B] block mb-1">Promotion Strategy Pitch</span>
-                      <p className="text-slate-800 dark:text-slate-200">{selectedApp.answers.promotionPitch}</p>
+                      <p className="text-slate-200">{selectedApp.answers.promotionPitch}</p>
                     </div>
                   )}
 
                   {selectedApp.status === "pending" && (
                     <div className="pt-2">
-                      <label className="font-semibold text-slate-500 dark:text-[#9B9EA4] block mb-1">
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                         Optional Rejection Feedback (only if rejecting)
                       </label>
                       <Input
                         value={rejectReason}
                         onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="e.g. Program cohort reached full capacity for this campus."
-                        className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
+                        placeholder="Enter rejection reason for applicant"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-11 rounded-xl focus:border-[#FE760B]"
                       />
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#2A2D31]">
+                <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setSelectedApp(null)}
-                    className="text-xs h-9 px-4 rounded-xl"
+                    className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
                   >
                     Close
                   </Button>
@@ -1033,7 +1113,7 @@ export default function OrganizerProgramHubPage({ params }) {
                         size="sm"
                         disabled={processingApp}
                         onClick={() => handleRejectApp(selectedApp.id)}
-                        className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-9 px-4 rounded-xl cursor-pointer"
+                        className="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs h-10 px-4 rounded-xl cursor-pointer shadow-sm transition-colors"
                       >
                         Reject
                       </Button>
@@ -1041,7 +1121,7 @@ export default function OrganizerProgramHubPage({ params }) {
                         size="sm"
                         disabled={processingApp}
                         onClick={() => handleApproveApp(selectedApp.id)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs h-9 px-4 rounded-xl cursor-pointer"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-5 rounded-xl cursor-pointer shadow-sm transition-colors"
                       >
                         Approve & Enrol
                       </Button>
@@ -1125,24 +1205,24 @@ export default function OrganizerProgramHubPage({ params }) {
 
           {/* Adjust Points Modal */}
           {isAdjustModalOpen && adjustTargetAmb && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-scale-in">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2A2D31] pb-3">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+                  <h3 className="text-base font-bold text-white tracking-tight">
                     Adjust Points: {adjustTargetAmb.fullName}
                   </h3>
                   <button
                     type="button"
                     onClick={() => setIsAdjustModalOpen(false)}
-                    className="p-1 rounded-xl text-slate-400 hover:text-white"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <form onSubmit={handleManualAdjust} className="space-y-3">
+                <form onSubmit={handleManualAdjust} className="space-y-3.5">
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                       Points Delta (+ or -)
                     </label>
                     <Input
@@ -1150,36 +1230,37 @@ export default function OrganizerProgramHubPage({ params }) {
                       required
                       value={adjustPoints}
                       onChange={(e) => setAdjustPoints(e.target.value)}
-                      className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
+                      placeholder="Enter points delta (+ or -)"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                       Audit Reason *
                     </label>
                     <Input
                       required
                       value={adjustReason}
                       onChange={(e) => setAdjustReason(e.target.value)}
-                      placeholder="e.g. Campus fest booth promotion bonus"
-                      className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
+                      placeholder="Enter reason for points adjustment"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => setIsAdjustModalOpen(false)}
-                      className="text-xs h-9 px-3"
+                      className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
                       disabled={adjusting}
-                      className="bg-[#FE760B] text-[#131517] font-semibold text-xs h-9 px-4"
+                      className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       {adjusting ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Save Adjustment"}
                     </Button>
@@ -1266,48 +1347,48 @@ export default function OrganizerProgramHubPage({ params }) {
 
           {/* Bulk Import Modal */}
           {isImportModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-scale-in">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2A2D31] pb-3">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[92dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+                  <div className="pr-3">
+                    <h3 className="text-base font-bold text-white tracking-tight">
                       Bulk Import Campus Ambassadors
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                    <p className="text-xs text-[#9B9EA4] mt-0.5">
                       Upload CSV or XLSX file. Formulas are neutralized automatically.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIsImportModalOpen(false)}
-                    className="p-1 rounded-xl text-slate-400 hover:text-white"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="border-2 border-dashed border-slate-200 dark:border-[#2A2D31] rounded-2xl p-6 text-center space-y-2 hover:border-[#FE760B]/50 transition-colors">
+                  <div className="border-2 border-dashed border-[#2A2D31] rounded-2xl p-6 text-center space-y-2 hover:border-[#FE760B]/50 transition-colors">
                     <FileSpreadsheet className="w-8 h-8 text-[#FE760B] mx-auto" />
-                    <p className="text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+                    <p className="text-xs font-semibold text-[#D0D0D1]">
                       Choose CSV or XLSX spreadsheet
                     </p>
                     <input
                       type="file"
                       accept=".csv, .xlsx, .xls"
                       onChange={handleFileChange}
-                      className="text-xs text-slate-500"
+                      className="text-xs text-[#9B9EA4]"
                     />
                   </div>
 
                   {importPreview.length > 0 && (
                     <div className="space-y-1.5">
-                      <span className="text-[11px] font-bold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider">
+                      <span className="text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
                         File Preview (First 5 Rows)
                       </span>
-                      <div className="bg-slate-50 dark:bg-[#212327] rounded-xl p-3 max-h-36 overflow-y-auto text-[11px] font-mono space-y-1">
+                      <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3 max-h-36 overflow-y-auto text-[11px] font-mono space-y-1">
                         {importPreview.map((row, idx) => (
-                          <div key={idx} className="truncate text-slate-700 dark:text-[#D0D0D1]">
+                          <div key={idx} className="truncate text-[#D0D0D1]">
                             {row.fullName || row.name} | {row.email} | {row.phone || row.whatsapp} | {row.college}
                           </div>
                         ))}
@@ -1316,19 +1397,19 @@ export default function OrganizerProgramHubPage({ params }) {
                   )}
 
                   {importResult && (
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-400 space-y-1">
+                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-400 space-y-1">
                       <p className="font-bold">Import Completed Successfully!</p>
                       <p>Total Processed: {importResult.totalRows || 0} • Created: {importResult.importedCount || 0} • Skipped: {importResult.skippedCount || 0}</p>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#2A2D31]">
+                <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setIsImportModalOpen(false)}
-                    className="text-xs h-9 px-4 rounded-xl"
+                    className="h-10 px-5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
                   >
                     Done
                   </Button>
@@ -1336,7 +1417,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     size="sm"
                     disabled={!importFile || importing}
                     onClick={handleExecuteImport}
-                    className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-5 rounded-xl cursor-pointer"
+                    className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     {importing ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Execute Import"}
                   </Button>
@@ -1371,7 +1452,7 @@ export default function OrganizerProgramHubPage({ params }) {
                 </div>
                 <div>
                   <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
-                    Paid Ticket Multiplier (e.g. 2x)
+                    Paid Ticket Multiplier
                   </label>
                   <Input
                     type="number"
@@ -1455,41 +1536,41 @@ export default function OrganizerProgramHubPage({ params }) {
 
           {/* Add Reward Modal */}
           {isAddRewardModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scale-in">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2A2D31] pb-3">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Program Reward</h3>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[92dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+                  <h3 className="text-base font-bold text-white tracking-tight">Add Program Reward</h3>
                   <button
                     type="button"
                     onClick={() => setIsAddRewardModalOpen(false)}
-                    className="p-1 rounded-xl text-slate-400 hover:text-white"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <form onSubmit={handleAddReward} className="space-y-3">
+                <form onSubmit={handleAddReward} className="space-y-3.5 mt-3">
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                       Reward Title *
                     </label>
                     <Input
                       required
                       value={newReward.title}
                       onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
-                      placeholder="e.g. Official Fest Hoodie / VIP Backstage Pass"
-                      className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
+                      placeholder="Enter reward title"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                       Reward Category
                     </label>
                     <select
                       value={newReward.rewardType}
                       onChange={(e) => setNewReward({ ...newReward, rewardType: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-xs h-9 px-3 text-slate-900 dark:text-white"
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm h-10 px-3 text-white focus:outline-none focus:border-[#FE760B]"
                     >
                       <option value="merchandise">Merchandise (T-shirt / Hoodie / Kit)</option>
                       <option value="vip_pass">VIP / Pro Show Access Pass</option>
@@ -1502,9 +1583,9 @@ export default function OrganizerProgramHubPage({ params }) {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                         Points Required *
                       </label>
                       <Input
@@ -1513,48 +1594,50 @@ export default function OrganizerProgramHubPage({ params }) {
                         required
                         value={newReward.pointsRequired}
                         onChange={(e) => setNewReward({ ...newReward, pointsRequired: e.target.value })}
-                        className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
+                        placeholder="100"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                         Total Stock (-1 for unlimited)
                       </label>
                       <Input
                         type="number"
                         value={newReward.totalInventory}
                         onChange={(e) => setNewReward({ ...newReward, totalInventory: e.target.value })}
-                        className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
+                        placeholder="-1"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                       Description
                     </label>
                     <textarea
                       rows={2}
                       value={newReward.description}
                       onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
-                      placeholder="Size details, collection instructions, etc."
-                      className="w-full bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-xs p-2 text-slate-900 dark:text-white"
+                      placeholder="Enter reward description and collection guidelines"
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm p-3 text-white placeholder:text-[#71767B] focus:outline-none focus:border-[#FE760B]"
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3.5 border-t border-[#2A2D31]">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => setIsAddRewardModalOpen(false)}
-                      className="text-xs h-9 px-3"
+                      className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
                       disabled={addingReward}
-                      className="bg-[#FE760B] text-[#131517] font-semibold text-xs h-9 px-4"
+                      className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       {addingReward ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Add to Catalog"}
                     </Button>
@@ -1674,3 +1757,4 @@ export default function OrganizerProgramHubPage({ params }) {
     </div>
   );
 }
+

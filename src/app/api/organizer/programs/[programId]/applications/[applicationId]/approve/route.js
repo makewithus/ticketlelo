@@ -50,3 +50,4 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to approve application" }, { status: 500 });
   }
 }
+

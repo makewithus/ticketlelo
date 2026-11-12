@@ -1391,7 +1391,7 @@ export function GuestDetailsModal({
             </p>
 
             <textarea
-              placeholder="Reason for flag (e.g. duplicate submission, invalid contact, payment dispute)..."
+              placeholder="Enter reason for flag..."
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
               className="w-full text-xs bg-[#212327] border border-[#2A2D31] rounded-xl p-3 outline-none focus:border-red-500 h-24 mb-4 text-white placeholder:text-[#5C6066]"

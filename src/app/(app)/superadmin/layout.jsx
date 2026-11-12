@@ -15,6 +15,7 @@ import {
   X,
   MessageSquare,
   Layers,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -146,6 +147,12 @@ export default function SuperAdminLayout({ children }) {
       label: "Organisers",
       shortLabel: "Organisers",
       icon: Building2,
+    },
+    {
+      href: "/superadmin/users",
+      label: "Users",
+      shortLabel: "Users",
+      icon: Users,
     },
     {
       href: "/superadmin/site-settings",

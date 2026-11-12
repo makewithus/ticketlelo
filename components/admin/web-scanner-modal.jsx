@@ -346,7 +346,7 @@ export function WebScannerModal({
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      placeholder="e.g. TL-84920 or scan text"
+                      placeholder="Enter ticket code or scan text"
                       value={manualCode}
                       onChange={(e) => setManualCode(e.target.value)}
                       className="flex-1 bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-4 py-2.5 text-xs text-white placeholder-[#64748B] outline-none font-mono"

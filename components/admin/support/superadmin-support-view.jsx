@@ -1079,7 +1079,7 @@ export function SuperAdminSupportView() {
                   rows={3}
                   value={holdReason}
                   onChange={(e) => setHoldReason(e.target.value)}
-                  placeholder="e.g. Organizer KYC dispute, suspected chargeback risk, or attendee refund claim under investigation..."
+                  placeholder="Enter reason for administrative hold or audit..."
                   className="w-full p-3 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] transition-all resize-none"
                 />
               </div>

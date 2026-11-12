@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -194,6 +195,21 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [emailDeliveryStatus, setEmailDeliveryStatus] = useState("queued");
   const [formLoadError, setFormLoadError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Ensure body scroll is unlocked whenever modals close
+  useEffect(() => {
+    if (!showSuccessModal && !showLoginModal && typeof document !== "undefined") {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.documentElement.style.overflow = "";
+      document.body.classList.remove("modal-open");
+    }
+  }, [showSuccessModal, showLoginModal]);
 
   const hasLoadedFormRef = useRef(false);
   const prevFormFieldsSignatureRef = useRef("");
@@ -205,13 +221,42 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [couponError, setCouponError] = useState("");
 
   // Creator Campus Ambassador Referral State
-  const [referralCode, setReferralCode] = useState(() => props.defaultReferralCode || "");
-  const [referralEligible, setReferralEligible] = useState(Boolean(props.defaultReferralCode));
+  const [referralCode, setReferralCode] = useState(() => {
+    if (props.defaultReferralCode) return props.defaultReferralCode;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("ticketlelo_ref_code");
+        if (stored) return stored;
+        const cookieMatch = document.cookie.match(/ticketlelo_ref_code=([^;]+)/);
+        if (cookieMatch) return decodeURIComponent(cookieMatch[1]);
+      } catch (_) {}
+    }
+    return "";
+  });
+  const [referralEligible, setReferralEligible] = useState(() => Boolean(props.defaultReferralCode));
 
   useEffect(() => {
     if (props.defaultReferralCode) {
       setReferralCode(props.defaultReferralCode);
       setReferralEligible(true);
+      try {
+        localStorage.setItem("ticketlelo_ref_code", props.defaultReferralCode.trim().toUpperCase());
+      } catch (_) {}
+    } else if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("ticketlelo_ref_code");
+        if (stored) {
+          setReferralCode(stored);
+          setReferralEligible(true);
+        } else {
+          const cookieMatch = document.cookie.match(/ticketlelo_ref_code=([^;]+)/);
+          if (cookieMatch) {
+            const val = decodeURIComponent(cookieMatch[1]);
+            setReferralCode(val);
+            setReferralEligible(true);
+          }
+        }
+      } catch (_) {}
     }
   }, [props.defaultReferralCode]);
 
@@ -1050,9 +1095,16 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         },
         handler: async function (response) {
           try {
+            const currentToken =
+              (await auth.currentUser?.getIdToken?.().catch(() => null)) ||
+              (await user?.getIdToken?.().catch(() => null)) ||
+              null;
+            const verifyHeaders = { "Content-Type": "application/json" };
+            if (currentToken) verifyHeaders["Authorization"] = `Bearer ${currentToken}`;
+
             const verifyResponse = await fetch("/api/verify-payment", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: verifyHeaders,
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -1064,8 +1116,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              const emailSent = verifyData.ticketId
-                ? await sendRegistrationConfirmation(user.email, tempFormData.fullName || user.fullName || user.email, event?.name || "Event", verifyData.ticketId)
+              const buyerEmail = (typeof tempFormData !== "undefined" && tempFormData?.email) || (typeof email !== "undefined" && email) || user?.email || "";
+              const buyerName = (typeof tempFormData !== "undefined" && tempFormData?.fullName) || (typeof fullName !== "undefined" && fullName) || user?.fullName || buyerEmail || "Attendee";
+              const emailSent = verifyData.ticketId && buyerEmail
+                ? await sendRegistrationConfirmation(buyerEmail, buyerName, event?.name || "Event", verifyData.ticketId)
                 : false;
               toast.success(emailSent ? "Payment complete. Ticket sent to your email." : "Payment complete. Ticket is available in your dashboard.");
 
@@ -1073,17 +1127,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               setPaymentProcessing(false);
               setIsLoading(false);
             } else {
-              toast.error("Payment verification failed");
+              toast.error("Payment verification failed. Please try again.");
               setPaymentProcessing(false);
               setIsLoading(false);
-              setTimeout(() => router.push("/"), 2000);
             }
           } catch (error) {
             console.error("Payment verification error:", error);
-            toast.error("Payment verification failed");
+            toast.error("Payment verification failed. Please check your payment status.");
             setPaymentProcessing(false);
             setIsLoading(false);
-            setTimeout(() => router.push("/"), 2000);
           }
         },
         modal: {
@@ -1091,7 +1143,6 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             toast.error("Payment cancelled");
             setPaymentProcessing(false);
             setIsLoading(false);
-            setTimeout(() => router.push("/"), 2000);
           },
         },
         theme: {
@@ -1114,10 +1165,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       }
     } catch (error) {
       console.error("Payment initialization error:", error);
-      toast.error("Failed to initialize payment");
+      toast.error(error?.message || "Failed to initialize payment. Please try again.");
       setPaymentProcessing(false);
       setIsLoading(false);
-      setTimeout(() => router.push("/"), 2000);
     }
   };
 
@@ -1508,8 +1558,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             console.log(" Payment successful");
 
             // Verify payment
+            const currentToken = (await auth.currentUser?.getIdToken?.().catch(() => null)) || token || null;
             const verifyHeaders = { "Content-Type": "application/json" };
-            if (token) verifyHeaders["Authorization"] = `Bearer ${token}`;
+            if (currentToken) verifyHeaders["Authorization"] = `Bearer ${currentToken}`;
 
             const verifyResponse = await fetch("/api/verify-payment", {
               method: "POST",
@@ -1544,17 +1595,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               setPaymentProcessing(false);
               setIsLoading(false);
             } else {
-              toast.error("Payment verification failed");
+              toast.error("Payment verification failed. Please try again.");
               setPaymentProcessing(false);
               setIsLoading(false);
-              setTimeout(() => router.push("/"), 2000);
             }
           } catch (error) {
             console.error("Payment verification error:", error);
-            toast.error("Payment verification failed");
+            toast.error("Payment verification failed. Please check your payment status.");
             setPaymentProcessing(false);
             setIsLoading(false);
-            setTimeout(() => router.push("/"), 2000);
           }
         },
         modal: {
@@ -1562,7 +1611,6 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             toast.error("Payment cancelled");
             setPaymentProcessing(false);
             setIsLoading(false);
-            setTimeout(() => router.push("/"), 2000);
           },
         },
         theme: {
@@ -1586,10 +1634,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       }
     } catch (error) {
       console.error("Payment initialization error:", error);
-      toast.error("Failed to initialize payment");
+      toast.error(error?.message || "Failed to initialize payment. Please try again.");
       setPaymentProcessing(false);
       setIsLoading(false);
-      setTimeout(() => router.push("/"), 2000);
     }
   };
 
@@ -2290,7 +2337,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             )}
 
           {/* Automatic Creator Campus Referral Field */}
-          {referralEligible && (
+          {(referralEligible || Boolean(referralCode)) && (
             <div className="space-y-1.5 w-full">
               <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
                 Referral Code (Optional)
@@ -2348,9 +2395,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       </div>
 
       {/* Login Modal for Existing Users */}
-      {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-7 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto animate-scale-in text-white">
+      {isMounted && typeof document !== "undefined" && showLoginModal && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto overscroll-contain animate-fade-in"
+          style={{ touchAction: "pan-y" }}
+        >
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-7 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-white touch-pan-y overscroll-contain">
             {/* Header */}
             <div className="flex items-start justify-between gap-3 mb-5 sm:mb-6">
               <div className="flex items-center gap-3">
@@ -2498,18 +2551,25 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-          <div className="bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90dvh] overflow-y-auto animate-scale-in text-white">
+      {isMounted && typeof document !== "undefined" && showSuccessModal && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto overscroll-contain animate-fade-in"
+          style={{ touchAction: "pan-y" }}
+        >
+          <div className="bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-white touch-pan-y overscroll-contain">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#2A2D31]">
               <div className="flex items-center gap-3">
                 <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center"
+                  className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                   style={{
                     backgroundColor: isPendingApproval ? "rgba(253,224,3,0.15)" : "rgba(61,214,140,0.15)",
                     borderColor: isPendingApproval ? "rgba(253,224,3,0.35)" : "rgba(61,214,140,0.35)",
@@ -2528,7 +2588,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 </div>
               </div>
               <button
-                onClick={() => setShowSuccessModal(false)}
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  if (typeof document !== "undefined") {
+                    document.body.style.overflow = "";
+                    document.body.style.touchAction = "";
+                    document.documentElement.style.overflow = "";
+                    document.body.classList.remove("modal-open");
+                  }
+                }}
                 className="p-1.5 hover:bg-[#212327] rounded-lg text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
                 aria-label="Close"
               >
@@ -2577,7 +2645,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#2A2D31]">
               <button
                 type="button"
-                onClick={() => setShowSuccessModal(false)}
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  if (typeof document !== "undefined") {
+                    document.body.style.overflow = "";
+                    document.body.style.touchAction = "";
+                    document.documentElement.style.overflow = "";
+                    document.body.classList.remove("modal-open");
+                  }
+                }}
                 style={{ backgroundColor: themeColor || "#FE760B" }}
                 className="flex-1 h-11 sm:h-12 text-[#131517] font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-sm cursor-pointer hover:brightness-105 active:scale-[0.99]"
               >
@@ -2588,6 +2664,12 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   type="button"
                   onClick={() => {
                     setShowSuccessModal(false);
+                    if (typeof document !== "undefined") {
+                      document.body.style.overflow = "";
+                      document.body.style.touchAction = "";
+                      document.documentElement.style.overflow = "";
+                      document.body.classList.remove("modal-open");
+                    }
                     router.push("/dashboard");
                   }}
                   className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
@@ -2597,7 +2679,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

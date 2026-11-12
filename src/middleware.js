@@ -14,6 +14,22 @@ export function middleware(request) {
   }
 
   const cleanPath = pathname.replace(/\/+$/, "");
+  const refCode =
+    request.nextUrl.searchParams.get("ref") ||
+    request.nextUrl.searchParams.get("referralCode");
+
+  // If user lands on home page with an ambassador referral code, redirect to /discover to view events
+  if ((cleanPath === "" || cleanPath === "/") && refCode) {
+    const url = new URL(`/discover${search}`, request.url);
+    const redirectRes = NextResponse.redirect(url, 307);
+    redirectRes.cookies.set("ticketlelo_ref_code", refCode.trim().toUpperCase(), {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30-day attribution window
+      sameSite: "lax",
+    });
+    redirectRes.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+    return redirectRes;
+  }
 
   // Enforce single unified login: redirect all legacy login paths to /login
   if (
@@ -29,6 +45,13 @@ export function middleware(request) {
   }
 
   const response = NextResponse.next();
+  if (refCode) {
+    response.cookies.set("ticketlelo_ref_code", refCode.trim().toUpperCase(), {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30-day attribution window
+      sameSite: "lax",
+    });
+  }
   response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
   return response;
 }

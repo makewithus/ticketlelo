@@ -93,7 +93,7 @@ const PLAN_COLORS = {
   fest: {
     badge: "bg-[#FE760B]/15 text-[#FE760B] border-[#FE760B]/30",
     pill: "border-[#FE760B]/30 text-[#FE760B] hover:text-white hover:border-[#FE760B]",
-    activePill: "bg-[#FE760B] text-black font-extrabold border-[#FE760B] shadow-md shadow-[#FE760B]/20",
+    activePill: "bg-[#FE760B] text-black font-bold border-[#FE760B] shadow-md shadow-[#FE760B]/20",
     border: "border-[#FE760B]/50",
     glow: "bg-[#FE760B]/5",
   },
@@ -587,7 +587,7 @@ export function SuperAdminPlansView() {
               <Layers size={20} />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                 Subscription Plans & Facilities
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4]">
@@ -626,7 +626,7 @@ export function SuperAdminPlansView() {
             <span>Total Subscribers</span>
             <Building2 size={16} className="text-[#FE760B]" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono">
+          <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums">
             {metrics.totalUsers}
           </div>
           <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">
@@ -639,7 +639,7 @@ export function SuperAdminPlansView() {
             <span>Starter Plan (Campus)</span>
             <Zap size={16} className="text-blue-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-blue-500 dark:text-blue-400 font-mono">
+          <div className="text-2xl sm:text-3xl font-bold text-blue-500 dark:text-blue-400 tracking-tight tabular-nums">
             {metrics.starterCount}
           </div>
           <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">₹999 / mo &bull; 4.5% fee</p>
@@ -650,7 +650,7 @@ export function SuperAdminPlansView() {
             <span>Pro & Fest Tiers</span>
             <Crown size={16} className="text-purple-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-purple-500 dark:text-purple-400 font-mono">
+          <div className="text-2xl sm:text-3xl font-bold text-purple-500 dark:text-purple-400 tracking-tight tabular-nums">
             {metrics.proCount + metrics.festCount}
           </div>
           <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">
@@ -663,7 +663,7 @@ export function SuperAdminPlansView() {
             <span>Limit Reached</span>
             <AlertTriangle size={16} className="text-amber-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-amber-500 dark:text-amber-400 font-mono">
+          <div className="text-2xl sm:text-3xl font-bold text-amber-500 dark:text-amber-400 tracking-tight tabular-nums">
             {metrics.limitReachedCount}
           </div>
           <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">
@@ -708,7 +708,7 @@ export function SuperAdminPlansView() {
                     >
                       {plan.name}
                     </span>
-                    <span className="text-sm font-extrabold text-slate-900 dark:text-white font-mono">
+                    <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
                       {plan.price === 0 ? "Free" : `₹${plan.price}/mo`}
                     </span>
                   </div>
@@ -716,13 +716,13 @@ export function SuperAdminPlansView() {
                   <div className="text-xs text-slate-600 dark:text-[#D0D0D1] space-y-1.5 my-3">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Events Allowed:</span>
-                      <strong className="text-slate-900 dark:text-white font-mono">
+                      <strong className="text-slate-900 dark:text-white font-semibold">
                         {plan.eventsAllowed === -1 ? "Unlimited" : plan.eventsAllowed}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Attendees / Event:</span>
-                      <strong className="text-slate-900 dark:text-white font-mono">
+                      <strong className="text-slate-900 dark:text-white font-semibold">
                         {plan.participantsPerEvent === -1 ? "Unlimited" : plan.participantsPerEvent}
                       </strong>
                     </div>
@@ -735,7 +735,7 @@ export function SuperAdminPlansView() {
 
                 <div className="pt-2.5 border-t border-slate-100 dark:border-[#2A2D31] flex items-center justify-between text-[11px]">
                   <span className="text-slate-400">
-                    <strong className="text-slate-900 dark:text-white font-mono">{userCount}</strong> {userCount === 1 ? "user" : "users"} active
+                    <strong className="text-slate-900 dark:text-white font-semibold">{userCount}</strong> {userCount === 1 ? "user" : "users"} active
                   </span>
                   {isSelected ? (
                     <span className="text-[#FE760B] font-bold text-[10px] flex items-center gap-1">
@@ -810,7 +810,7 @@ export function SuperAdminPlansView() {
           />
 
           <span className="text-xs text-slate-500 dark:text-[#9B9EA4] font-medium px-2.5 py-1.5 bg-slate-100 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl whitespace-nowrap">
-            <strong className="text-slate-900 dark:text-white font-mono">{filteredUsers.length}</strong> {filteredUsers.length === 1 ? "organizer" : "organizers"}
+            <strong className="text-slate-900 dark:text-white font-semibold">{filteredUsers.length}</strong> {filteredUsers.length === 1 ? "organizer" : "organizers"}
           </span>
         </div>
       </div>
@@ -892,7 +892,7 @@ export function SuperAdminPlansView() {
                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
                             {u.planName || u.plan}
                           </span>
-                          <div className="text-[11px] font-mono text-slate-500 dark:text-[#9E9E9F]">
+                          <div className="text-[11px] text-slate-500 dark:text-[#9E9E9F] font-medium">
                             {u.price === 0 ? "Free" : `₹${u.price}/mo`} &bull;{" "}
                             <span className="text-emerald-500 dark:text-emerald-400 font-semibold">
                               {u.platformFeeRate}% fee
@@ -905,7 +905,7 @@ export function SuperAdminPlansView() {
                       <td className="py-3.5 px-4 align-middle">
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-700 dark:text-[#D0D0D1] font-mono">
+                            <span className="text-slate-700 dark:text-[#D0D0D1] font-semibold tabular-nums">
                               <strong>{u.eventsUsed || 0}</strong> /{" "}
                               {u.eventsAllowed === -1 ? "∞" : u.eventsAllowed}
                             </span>
@@ -1056,13 +1056,13 @@ export function SuperAdminPlansView() {
                 <div className="grid grid-cols-2 gap-2 text-[11px] p-2.5 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31]">
                   <div>
                     <span className="text-slate-400 block text-[10px]">Event Usage</span>
-                    <strong className="text-slate-900 dark:text-white font-mono">
+                    <strong className="text-slate-900 dark:text-white font-semibold tabular-nums">
                       {u.eventsUsed || 0} / {u.eventsAllowed === -1 ? "Unlimited" : u.eventsAllowed}
                     </strong>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Fee Rate</span>
-                    <strong className="text-emerald-500 dark:text-emerald-400 font-mono">
+                    <strong className="text-emerald-500 dark:text-emerald-400 font-bold tabular-nums">
                       {u.platformFeeRate}%
                     </strong>
                   </div>
@@ -1135,7 +1135,7 @@ export function SuperAdminPlansView() {
                   <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-[#9E9E9F] truncate mt-0.5">
                     <span>Configuring subscription privileges for</span>
                     <span className="font-semibold text-white">{editingUser.name}</span>
-                    <span className="font-mono text-[10px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-slate-300">
+                    <span className="text-[10px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-slate-300 font-medium">
                       {editingUser.email}
                     </span>
                   </div>
@@ -1200,10 +1200,10 @@ export function SuperAdminPlansView() {
                             </span>
                           )}
                         </div>
-                        <div className="font-mono text-white text-sm font-extrabold mt-0.5">
+                        <div className="text-white text-sm font-bold mt-0.5 tabular-nums">
                           {p.price === 0 ? "Free" : `₹${p.price.toLocaleString()}`}
                         </div>
-                        <div className="text-[10px] text-emerald-400 font-mono mt-0.5 font-medium">
+                        <div className="text-[10px] text-emerald-400 mt-0.5 font-semibold">
                           {p.platformFeeRate}% fee
                         </div>
                       </button>
@@ -1262,7 +1262,7 @@ export function SuperAdminPlansView() {
                             eventsAllowed: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white disabled:opacity-50 text-xs font-mono focus:border-[#FE760B] focus:outline-none transition-colors"
+                        className="w-full px-3 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white disabled:opacity-50 text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -1302,7 +1302,7 @@ export function SuperAdminPlansView() {
                             participantsPerEvent: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white disabled:opacity-50 text-xs font-mono focus:border-[#FE760B] focus:outline-none transition-colors"
+                        className="w-full px-3 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white disabled:opacity-50 text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -1313,7 +1313,7 @@ export function SuperAdminPlansView() {
                       <label className="text-[11px] font-semibold text-[#D0D0D1]">
                         Platform Fee Rate (%)
                       </label>
-                      <span className="text-[10px] text-emerald-400 font-mono font-semibold">
+                      <span className="text-[10px] text-emerald-400 font-semibold">
                         Base: {planCatalog[editFormData.planId]?.platformFeeRate ?? 4.5}%
                       </span>
                     </div>
@@ -1330,9 +1330,9 @@ export function SuperAdminPlansView() {
                             platformFeeRate: e.target.value,
                           })
                         }
-                        className="w-full pl-3 pr-7 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white text-xs font-mono focus:border-[#FE760B] focus:outline-none transition-colors"
+                        className="w-full pl-3 pr-7 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
                       />
-                      <span className="absolute right-2.5 text-xs text-[#9E9E9F] font-mono pointer-events-none">
+                      <span className="absolute right-2.5 text-xs text-[#9E9E9F] pointer-events-none">
                         %
                       </span>
                     </div>
@@ -1349,7 +1349,7 @@ export function SuperAdminPlansView() {
                       Granted Organizer Facilities & Permissions
                     </label>
                   </div>
-                  <span className="text-[10px] font-mono text-[#9E9E9F]">
+                  <span className="text-[10px] text-[#9E9E9F]">
                     {Object.values(editFormData.facilities).filter(Boolean).length} / {facilityDefs.length} Active
                   </span>
                 </div>
@@ -1423,7 +1423,7 @@ export function SuperAdminPlansView() {
                 <textarea
                   rows={2}
                   required
-                  placeholder="e.g. Granted custom branding and Campus tier upgrade for annual college tech symposium..."
+                  placeholder="Enter reason or notes for plan adjustment..."
                   value={editFormData.auditReason}
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, auditReason: e.target.value })
@@ -1444,7 +1444,7 @@ export function SuperAdminPlansView() {
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-black font-extrabold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-black font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   {savingEdit ? (
                     <>
@@ -1501,7 +1501,7 @@ export function SuperAdminPlansView() {
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">
                     Events Limit
                   </span>
-                  <span className="text-sm font-bold text-white font-mono">
+                  <span className="text-sm font-bold text-white tabular-nums">
                     {viewingUserFacilities.eventsAllowed === -1
                       ? "Unlimited"
                       : viewingUserFacilities.eventsAllowed}
@@ -1511,7 +1511,7 @@ export function SuperAdminPlansView() {
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">
                     Attendee Cap
                   </span>
-                  <span className="text-sm font-bold text-white font-mono">
+                  <span className="text-sm font-bold text-white tabular-nums">
                     {viewingUserFacilities.participantsPerEvent === -1
                       ? "Unlimited"
                       : viewingUserFacilities.participantsPerEvent}
@@ -1521,7 +1521,7 @@ export function SuperAdminPlansView() {
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">
                     Platform Fee
                   </span>
-                  <span className="text-sm font-bold text-emerald-400 font-mono">
+                  <span className="text-sm font-bold text-emerald-400 tabular-nums">
                     {viewingUserFacilities.platformFeeRate}%
                   </span>
                 </div>
@@ -1565,7 +1565,7 @@ export function SuperAdminPlansView() {
                         </div>
 
                         <span
-                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 font-mono ${
+                          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                             isGranted
                               ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
                               : "bg-slate-800 text-slate-500 border border-slate-700"
@@ -1651,7 +1651,7 @@ export function SuperAdminPlansView() {
                   <input
                     type="email"
                     required
-                    placeholder="organizer@college.edu or name@domain.com"
+                    placeholder="Enter organizer email address"
                     value={onboardForm.email}
                     onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })}
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
@@ -1670,7 +1670,7 @@ export function SuperAdminPlansView() {
                   </div>
                   <input
                     type="text"
-                    placeholder="e.g. Campus Cultural Committee"
+                    placeholder="Enter organization or team name"
                     value={onboardForm.fullName}
                     onChange={(e) => setOnboardForm({ ...onboardForm, fullName: e.target.value })}
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
@@ -1690,7 +1690,7 @@ export function SuperAdminPlansView() {
                     </div>
                     <input
                       type="tel"
-                      placeholder="+91 98765 43210"
+                      placeholder="Enter contact number"
                       value={onboardForm.phone}
                       onChange={(e) => setOnboardForm({ ...onboardForm, phone: e.target.value })}
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
@@ -1708,7 +1708,7 @@ export function SuperAdminPlansView() {
                     </div>
                     <input
                       type="text"
-                      placeholder="e.g. IIT Bombay"
+                      placeholder="Enter institution or campus"
                       value={onboardForm.college}
                       onChange={(e) => setOnboardForm({ ...onboardForm, college: e.target.value })}
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
@@ -1723,7 +1723,7 @@ export function SuperAdminPlansView() {
                   <label className="block text-[#D0D0D1] font-semibold text-[11px] sm:text-xs">
                     Initial Plan Tier <span className="text-[#FE760B]">*</span>
                   </label>
-                  <span className="text-[10px] text-[#9E9E9F] font-mono">
+                  <span className="text-[10px] text-[#9E9E9F]">
                     Base Platform Rate
                   </span>
                 </div>
@@ -1770,7 +1770,7 @@ export function SuperAdminPlansView() {
                     </div>
 
                     <div className="flex items-center gap-2.5 shrink-0">
-                      <span className="text-xs sm:text-sm font-mono font-bold text-white bg-[#1A1C1F] px-2.5 py-1 rounded-lg border border-[#2A2D31]">
+                      <span className="text-xs sm:text-sm font-bold text-white bg-[#1A1C1F] px-2.5 py-1 rounded-lg border border-[#2A2D31] tabular-nums">
                         {selectedTier.priceDisplay}
                       </span>
                       <ChevronDown
@@ -1841,7 +1841,7 @@ export function SuperAdminPlansView() {
                             </div>
 
                             <div className="flex items-center gap-2.5 shrink-0">
-                              <span className="text-xs font-mono font-bold text-white bg-[#131517] px-2 py-0.5 rounded-md border border-[#2A2D31]">
+                              <span className="text-xs font-bold text-white bg-[#131517] px-2 py-0.5 rounded-md border border-[#2A2D31] tabular-nums">
                                 {tier.priceDisplay}
                               </span>
                               {isCurrent ? (
@@ -1866,7 +1866,7 @@ export function SuperAdminPlansView() {
                       <ShieldCheck size={13} className="text-[#FE760B]" />
                       <span>Included Privileges ({selectedTier.name})</span>
                     </span>
-                    <span className="font-mono text-emerald-400 font-bold text-[10px]">
+                    <span className="text-emerald-400 font-bold text-[10px]">
                       {selectedTier.fee} Fee
                     </span>
                   </div>
@@ -1894,7 +1894,7 @@ export function SuperAdminPlansView() {
                   </div>
                   <textarea
                     rows={2}
-                    placeholder="e.g. VIP organizer onboarded for upcoming annual summit..."
+                    placeholder="Enter onboarding notes or instructions..."
                     value={onboardForm.auditReason}
                     onChange={(e) => setOnboardForm({ ...onboardForm, auditReason: e.target.value })}
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white text-xs sm:text-sm placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all resize-none"
@@ -1917,7 +1917,7 @@ export function SuperAdminPlansView() {
                 <button
                   type="submit"
                   disabled={submittingOnboard}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-black font-extrabold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-black font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   {submittingOnboard ? (
                     <>
@@ -1978,7 +1978,7 @@ export function SuperAdminPlansView() {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="e.g. Subscription period lapsed, non-renewal, or organizer request..."
+                  placeholder="Enter reason for revocation..."
                   value={revokeReason}
                   onChange={(e) => setRevokeReason(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white text-xs placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] resize-none"

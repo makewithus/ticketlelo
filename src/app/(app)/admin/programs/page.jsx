@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { authFetch } from "@/lib/auth";
 import {
   Users,
   Plus,
@@ -37,8 +38,11 @@ export default function OrganizerProgramsListPage() {
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [availableEvents, setAvailableEvents] = useState([]);
   const [formData, setFormData] = useState({
+    title: "",
     name: "",
+    eventId: "",
     description: "",
     college: "",
     startDate: "",
@@ -47,11 +51,20 @@ export default function OrganizerProgramsListPage() {
     paidMultiplier: 2,
   });
 
+  useEffect(() => {
+    if (isCreateOpen && user) {
+      authFetch("/api/events?limit=100")
+        .then((r) => (r.ok ? r.json() : {}))
+        .then((d) => setAvailableEvents(d.events || []))
+        .catch(() => {});
+    }
+  }, [isCreateOpen, user]);
+
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/organizer/programs");
+      const res = await authFetch("/api/organizer/programs");
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to load ambassador programs");
@@ -72,17 +85,20 @@ export default function OrganizerProgramsListPage() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error("Please enter a program name");
+    const programTitle = (formData.title || formData.name || "").trim();
+    if (!programTitle) {
+      toast.error("Please enter a program title");
       return;
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/organizer/programs", {
+      const res = await authFetch("/api/organizer/programs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name.trim(),
+          title: programTitle,
+          name: programTitle,
+          eventId: formData.eventId || null,
           description: formData.description.trim(),
           college: formData.college.trim(),
           startDate: formData.startDate || null,
@@ -102,7 +118,9 @@ export default function OrganizerProgramsListPage() {
       toast.success("Ambassador program created successfully!");
       setIsCreateOpen(false);
       setFormData({
+        title: "",
         name: "",
+        eventId: "",
         description: "",
         college: "",
         startDate: "",
@@ -124,7 +142,7 @@ export default function OrganizerProgramsListPage() {
   // Filtered Programs
   const filteredPrograms = programs.filter((p) => {
     const matchesSearch =
-      (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.title || p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.college || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.description || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || p.status === statusFilter;
@@ -157,7 +175,7 @@ export default function OrganizerProgramsListPage() {
 
         <Button
           onClick={() => setIsCreateOpen(true)}
-          className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-10 px-4 rounded-xl shadow-xs transition-all flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+          className="w-full sm:w-auto bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-10 px-4 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer self-stretch sm:self-auto"
         >
           <Plus className="w-4 h-4 text-[#131517]" />
           <span>Create Program</span>
@@ -165,75 +183,75 @@ export default function OrganizerProgramsListPage() {
       </div>
 
       {/* ── 2. Summary Metrics ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 flex items-center gap-3.5 shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-orange-500/10 text-[#FE760B] flex items-center justify-center shrink-0 border border-[#FE760B]/20">
-            <Layers className="w-5 h-5 text-[#FE760B]" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-3.5 sm:p-5 flex items-center gap-3 sm:gap-3.5 shadow-xs">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-orange-500/10 text-[#FE760B] flex items-center justify-center shrink-0 border border-[#FE760B]/20">
+            <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-[#FE760B]" />
           </div>
           <div className="min-w-0">
-            <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
               {programs.length}
             </div>
-            <div className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">Total Programs</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5 truncate">Total Programs</div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 flex items-center gap-3.5 shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
-            <Users className="w-5 h-5 text-emerald-500" />
+        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-3.5 sm:p-5 flex items-center gap-3 sm:gap-3.5 shadow-xs">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20">
+            <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
           </div>
           <div className="min-w-0">
-            <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
               {totalAmbassadors}
             </div>
-            <div className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">Active Ambassadors</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5 truncate">Active Ambassadors</div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 flex items-center gap-3.5 shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20">
-            <Award className="w-5 h-5 text-purple-400" />
+        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-3.5 sm:p-5 flex items-center gap-3 sm:gap-3.5 shadow-xs">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20">
+            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
           </div>
           <div className="min-w-0">
-            <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
               {totalPoints.toLocaleString("en-IN")}
             </div>
-            <div className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">Points Distributed</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5 truncate">Points Distributed</div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 flex items-center gap-3.5 shadow-xs">
-          <div className="w-11 h-11 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
-            <Calendar className="w-5 h-5 text-blue-400" />
+        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-3.5 sm:p-5 flex items-center gap-3 sm:gap-3.5 shadow-xs">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
           </div>
           <div className="min-w-0">
-            <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+            <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
               {totalEvents}
             </div>
-            <div className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">Connected Events</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5 truncate">Connected Events</div>
           </div>
         </div>
       </div>
 
       {/* ── 3. Filters & Search ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 max-w-md w-full">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#9B9EA4]" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search programs by name or campus..."
-            className="pl-10 h-10 bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] text-xs rounded-xl focus:border-[#FE760B]"
+            className="pl-10 h-10 bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] text-xs rounded-xl focus:border-[#FE760B] w-full"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
           {["all", "published", "draft", "paused", "archived"].map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-colors whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
                 statusFilter === st
                   ? "bg-[#FE760B] text-[#131517]"
                   : "bg-white dark:bg-[#1A1C1F] text-slate-600 dark:text-[#9B9EA4] border border-slate-200 dark:border-[#2A2D31] hover:text-slate-900 dark:hover:text-white"
@@ -302,7 +320,7 @@ export default function OrganizerProgramsListPage() {
                   </div>
 
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#FE760B] transition-colors line-clamp-1">
-                    {program.name}
+                    {program.title || program.name || "Untitled Program"}
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 line-clamp-2">
                     {program.description || "Campus ambassador incentive program with structured referral codes and rewards."}
@@ -342,138 +360,213 @@ export default function OrganizerProgramsListPage() {
 
       {/* ── 5. Create Program Modal ── */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-scale-in">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2A2D31] pb-3">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Create Ambassador Program
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg max-h-[90vh] bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl flex flex-col shadow-2xl overflow-hidden text-white animate-scale-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#2A2D31] p-5 sm:p-6 shrink-0">
+              <div className="space-y-1 pr-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#FE760B]/12 text-[#FE760B] flex items-center justify-center shrink-0 border border-[#FE760B]/25">
+                    <Sparkles className="w-3.5 h-3.5 text-[#FE760B]" />
+                  </div>
+                  <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                    Create Ambassador Program
+                  </h2>
+                </div>
+                <p className="text-xs text-[#9B9EA4]">
                   Start in Draft mode. You can connect events and adjust points rules before publishing.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+                aria-label="Close dialog"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1">
-                  Program Name *
-                </label>
-                <Input
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. PRAROHA 2027 Campus Ambassador Network"
-                  className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-10 rounded-xl focus:border-[#FE760B]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1">
-                  Description
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Brief summary of program perks, target colleges, and expectations..."
-                  className="w-full bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-xs p-2.5 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-[#FE760B]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1">
-                  Campus / Region Focus
-                </label>
-                <Input
-                  value={formData.college}
-                  onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                  placeholder="e.g. CUSAT / Kerala Technical Universities"
-                  className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-10 rounded-xl focus:border-[#FE760B]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            {/* Modal Scrollable Body */}
+            <form onSubmit={handleCreate} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-5 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto custom-scrollbar flex-1">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1">
-                    Start Date
+                  <label className="text-[11px] font-bold text-[#C5C8CD] uppercase tracking-wider block mb-1.5">
+                    Associated Event <span className="text-[#9B9EA4] font-normal lowercase">(optional - can link later)</span>
                   </label>
-                  <Input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-10 rounded-xl focus:border-[#FE760B]"
+                  <select
+                    value={formData.eventId || ""}
+                    onChange={(e) => {
+                      const selectedEvt = availableEvents.find((ev) => (ev.id || ev._id) === e.target.value);
+                      const autoTitle = selectedEvt ? `${selectedEvt.title || selectedEvt.name} Ambassador Program` : formData.title;
+                      setFormData({
+                        ...formData,
+                        eventId: e.target.value,
+                        title: formData.title || autoTitle,
+                        name: formData.name || autoTitle,
+                      });
+                    }}
+                    className="w-full h-11 px-3.5 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all cursor-pointer"
+                  >
+                    <option value="">Select an Event for this Program...</option>
+                    {availableEvents.map((ev) => (
+                      <option key={ev.id || ev._id} value={ev.id || ev._id}>
+                        {ev.title || ev.name} ({ev.customSlug || ev.slug || ev.id || ev._id})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-[#C5C8CD] uppercase tracking-wider block mb-1.5">
+                    Program Title <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value, name: e.target.value })}
+                    placeholder="Enter program title"
+                    className="w-full h-11 px-3.5 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#6C7075] focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all"
                   />
                 </div>
+
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1">
-                    End Date
+                  <label className="text-[11px] font-bold text-[#C5C8CD] uppercase tracking-wider block mb-1.5">
+                    Description
                   </label>
-                  <Input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-10 rounded-xl focus:border-[#FE760B]"
+                  <textarea
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Enter program description and guidelines"
+                    className="w-full p-3 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#6C7075] focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all resize-none"
                   />
                 </div>
-              </div>
 
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] space-y-2">
-                <span className="text-[11px] font-bold text-[#FE760B] uppercase tracking-wider">
-                  Default Points Configuration
-                </span>
-                <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-[#C5C8CD] uppercase tracking-wider block mb-1.5">
+                    Campus / Region Focus
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.college}
+                    onChange={(e) => setFormData({ ...formData, college: e.target.value })}
+                    placeholder="Enter campus or region focus"
+                    className="w-full h-11 px-3.5 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#6C7075] focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <label className="text-[10px] text-slate-500 dark:text-[#9B9EA4] block mb-0.5">
-                      Base Points / Free Ticket
+                    <label className="text-[11px] font-bold text-[#C5C8CD] uppercase tracking-wider block mb-1.5">
+                      Start Date
                     </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.basePointsPerTicket}
-                      onChange={(e) => setFormData({ ...formData, basePointsPerTicket: e.target.value })}
-                      className="bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] text-xs h-9 rounded-lg"
+                    <input
+                      type="date"
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      className="w-full h-11 px-3.5 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all [color-scheme:dark]"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-500 dark:text-[#9B9EA4] block mb-0.5">
-                      Paid Multiplier (e.g. 2x)
+                    <label className="text-[11px] font-bold text-[#C5C8CD] uppercase tracking-wider block mb-1.5">
+                      End Date
                     </label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={formData.paidMultiplier}
-                      onChange={(e) => setFormData({ ...formData, paidMultiplier: e.target.value })}
-                      className="bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] text-xs h-9 rounded-lg"
+                    <input
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      className="w-full h-11 px-3.5 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all [color-scheme:dark]"
                     />
+                  </div>
+                </div>
+
+                {/* Default Points Configuration Card */}
+                <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-br from-[#FE760B]/[0.08] to-transparent border border-[#FE760B]/30 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#FE760B]/15 text-[#FE760B] flex items-center justify-center shrink-0 border border-[#FE760B]/25">
+                      <Award className="w-4 h-4 text-[#FE760B]" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-white uppercase tracking-wider block">
+                        Default Points Engine
+                      </span>
+                      <span className="text-[10px] text-[#9B9EA4] block">
+                        Ambassadors accumulate verified points on attendee registrations
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="text-[10px] font-bold text-[#9B9EA4] uppercase tracking-wider block mb-1">
+                        Free Registration Points
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={formData.basePointsPerTicket}
+                          onChange={(e) => setFormData({ ...formData, basePointsPerTicket: e.target.value })}
+                          className="w-full h-10 pl-3 pr-10 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-[#71767B] pointer-events-none">
+                          pts
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-[#9B9EA4] uppercase tracking-wider block mb-1">
+                        Paid Ticket Multiplier
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="1"
+                          step="0.5"
+                          required
+                          value={formData.paidMultiplier}
+                          onChange={(e) => setFormData({ ...formData, paidMultiplier: e.target.value })}
+                          className="w-full h-10 pl-3 pr-14 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-[#71767B] pointer-events-none">
+                          x base
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <Button
+              {/* Modal Pinned Actions */}
+              <div className="p-4 sm:p-5 border-t border-[#2A2D31] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 shrink-0 bg-[#16181B]">
+                <button
                   type="button"
-                  variant="outline"
                   onClick={() => setIsCreateOpen(false)}
-                  className="text-xs h-10 px-4 rounded-xl border-slate-200 dark:border-[#2A2D31] cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-[#2A2D31] text-xs font-semibold text-[#D0D0D1] hover:bg-[#212327] hover:text-white transition-all cursor-pointer text-center"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   type="submit"
                   disabled={creating}
-                  className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-10 px-5 rounded-xl cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] active:scale-[0.98] text-[#131517] text-xs font-bold shadow-md shadow-[#FE760B]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {creating ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Create Program"}
-                </Button>
+                  {creating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#131517]" />
+                      <span>Creating Program...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 text-[#131517]" />
+                      <span>Create Program</span>
+                    </>
+                  )}
+                </button>
               </div>
             </form>
           </div>
@@ -482,3 +575,4 @@ export default function OrganizerProgramsListPage() {
     </div>
   );
 }
+

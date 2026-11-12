@@ -37,3 +37,4 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to import ambassadors" }, { status: 400 });
   }
 }
+

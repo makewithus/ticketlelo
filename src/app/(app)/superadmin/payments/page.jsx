@@ -975,7 +975,7 @@ export default function SuperAdminPaymentsPage() {
                     rows={3}
                     value={holdReasonInput}
                     onChange={(e) => setHoldReasonInput(e.target.value)}
-                    placeholder="e.g. Chargeback risk investigation, bank account dispute, or organizer support ticket under review..."
+                    placeholder="Enter reason for administrative hold or audit..."
                     className="w-full p-3 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] transition-all resize-none"
                   />
                   <p className="text-[11px] text-[#9E9E9F]">
@@ -1072,7 +1072,7 @@ export default function SuperAdminPaymentsPage() {
                   rows={2}
                   value={feeUpdateReason}
                   onChange={(e) => setFeeUpdateReason(e.target.value)}
-                  placeholder="e.g. Annual campus festival discount promotion or revised executive fee schedule..."
+                  placeholder="Enter custom fee override notes..."
                   className="w-full p-3 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] transition-all resize-none"
                 />
               </div>

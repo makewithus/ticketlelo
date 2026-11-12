@@ -913,7 +913,7 @@ export default function BlastsPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Venue change, Weather delay, or Registration update"
+                  placeholder="Enter broadcast subject"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   className="w-full bg-[#F8FAFC] dark:bg-[#212327] border border-[#D9DBE0] dark:border-[#2A2D31] rounded-xl px-3.5 py-2.5 text-xs text-[#061A3F] dark:text-white placeholder-[#64748B] dark:placeholder-[#9B9EA4] outline-none focus:border-[#FE760B]"

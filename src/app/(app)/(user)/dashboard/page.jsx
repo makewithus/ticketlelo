@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Loader2,
@@ -18,6 +19,7 @@ import {
   X,
   Bell,
   User,
+  LayoutDashboard,
 } from "lucide-react";
 import { TicketCard } from "@/components/dashboard/ticket-card";
 import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
@@ -37,6 +39,7 @@ const LOGO_SRC = "/logo/ticketlelo-logo-nav.png";
 export default function DashboardPage() {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname() || "/dashboard";
   // Safe SSR hydration - avoids hydration mismatch
   const [registrations, setRegistrations] = useState([]);
   const [events, setEvents] = useState(new Map());
@@ -44,6 +47,28 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState("All");
   const [viewMode, setViewMode] = useState("deck");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Close dropdown on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest("[data-user-dropdown]")) {
+        setShowUserMenu(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowUserMenu(false);
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
   useEffect(() => {
@@ -177,113 +202,218 @@ export default function DashboardPage() {
     return reg.status === filter;
   });
 
+  const emailLower = (user?.email || "").toLowerCase().trim();
+  const superAdminEnv = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL || "").toLowerCase().trim();
+  const isSuperAdmin =
+    user?.role === "superAdmin" ||
+    user?.role === "superadmin" ||
+    emailLower === "adil4ticketlelo@gmail.com" ||
+    emailLower === "superadmin@ticketlelo.com" ||
+    (superAdminEnv && emailLower === superAdminEnv);
+
+  const hasOrganiserAccess = isSuperAdmin || user?.role === "organiser" || user?.role === "organizer" || Boolean(user?.isAdmin);
+
+  const getGmailStyleInitial = () => {
+    const name = (user?.displayName || user?.fullName || user?.name || "").trim();
+    if (name) return name[0].toUpperCase();
+    if (user?.email) return user.email[0].toUpperCase();
+    return "U";
+  };
+  const userInitial = getGmailStyleInitial();
+
+  const userTabs = [
+    {
+      href: "/dashboard",
+      label: "Overview",
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/my-tickets",
+      label: "My Tickets",
+      icon: Ticket,
+      badge: registrations.length,
+    },
+    {
+      href: "/account",
+      label: "Account Settings",
+      icon: User,
+    },
+    {
+      href: "/discover",
+      label: "Discover",
+      icon: Compass,
+    },
+  ];
+
   return (
     <main className="tl-system-theme min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white transition-colors max-w-full overflow-x-clip">
-      {/* Header */}
-      <header className="sticky top-0 inset-x-0 z-50 border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/95 dark:bg-[#131517]/95 backdrop-blur-md overflow-hidden">
-        <nav className="max-w-7xl mx-auto px-3.5 xs:px-4 sm:px-6 py-3 sm:py-3.5 flex justify-between items-center gap-2">
-          <div className="flex items-center gap-2 sm:gap-6">
-            {/* Mobile Hamburger Button */}
+      {/* ── Top Navigation Bar (matching Super Admin layout) ── */}
+      <header className="border-b border-slate-200 dark:border-[#2A2D31]/80 bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md sticky top-0 z-40 transition-colors">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
+          {/* Left: Mobile Hamburger + Brand Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Mobile / Tablet Hamburger Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="sm:hidden p-1.5 -ml-1 rounded-xl text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+              className="lg:hidden p-2 -ml-1 rounded-xl text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
               aria-label="Open navigation sidebar"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href="/" className="flex items-center gap-2 group shrink-0">
-              <img src={LOGO_SRC} alt="TicketLelo" className="h-6 sm:h-[30px] w-auto object-contain" />
+            <Link href="/dashboard" prefetch={false} className="flex items-center gap-2.5 group shrink-0">
+              <Image
+                src={LOGO_SRC}
+                alt="TicketLelo"
+                width={82}
+                height={26}
+                className="h-6 sm:h-7 w-auto object-contain transition-transform group-hover:scale-105"
+                priority
+              />
             </Link>
-
-            {/* Desktop Dashboard Navigation Links */}
-            <div className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-1 rounded-xl text-xs font-semibold">
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 rounded-lg bg-[#FE760B] text-white shadow-xs font-bold"
-              >
-                Overview
-              </Link>
-              <Link
-                href="/my-tickets"
-                className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                My Tickets
-              </Link>
-              <Link
-                href="/account"
-                className="px-3 py-1.5 rounded-lg text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors"
-              >
-                Account Settings
-              </Link>
-            </div>
-
-            <Link
-              href="/discover"
-              className="hidden sm:inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] dark:hover:text-white transition-colors"
-            >
-              <Compass className="w-3.5 h-3.5 text-[#FE760B]" />
-              <span>Discover</span>
-            </Link>
-
-            {/* Quick Multi-Portal Access for Super Admin / Organiser */}
-            {(user?.role === "superAdmin" ||
-              (user?.email || "").toLowerCase().trim() === "adil4ticketlelo@gmail.com" ||
-              (user?.email || "").toLowerCase().trim() === "superadmin@ticketlelo.com") ? (
-              <div className="hidden sm:flex items-center gap-2">
-                <Link
-                  href="/superadmin"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 hover:bg-[#FE760B]/20 border border-[#FE760B]/30 px-3 py-1.5 rounded-xl transition-colors"
-                >
-                  <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
-                  <span>Super Admin Suite</span>
-                </Link>
-                <Link
-                  href="/admin/dashboard"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] bg-slate-100 dark:bg-[#1A1C1F] hover:bg-slate-200 dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] px-3 py-1.5 rounded-xl transition-colors"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-[#FE760B]" />
-                  <span>Organiser Portal</span>
-                </Link>
-              </div>
-            ) : (user?.role === "organiser" || user?.isAdmin) ? (
-              <Link
-                href="/admin/dashboard"
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] bg-slate-100 dark:bg-[#1A1C1F] hover:bg-slate-200 dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] px-3 py-1.5 rounded-xl transition-colors"
-              >
-                <Building2 className="w-3.5 h-3.5 text-[#FE760B]" />
-                <span>Organiser Portal</span>
-              </Link>
-            ) : null}
           </div>
 
-          <div className="flex gap-2 sm:gap-3 items-center shrink-0">
-            {/* THEME TOGGLE */}
-            <ThemeToggle inline />
+          {/* Center: Desktop Navigation Tabs */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-1 min-w-0 flex-1 justify-start xl:justify-[safe_center] 2xl:justify-center scroll-smooth overscroll-x-contain">
+            {userTabs.map((item) => {
+              const isActive = pathname === item.href;
 
-            {/* User Profile */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31]">
-              <div className="w-2 h-2 rounded-full bg-[#3DD68C]" />
-              <span className="text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">{user.email}</span>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={false}
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold transition-all whitespace-nowrap shrink-0 border select-none ${
+                    isActive
+                      ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
+                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] border-transparent"
+                  }`}
+                >
+                  <item.icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 min-w-[18px] text-center rounded-full text-[10px] font-bold bg-[#FE760B] text-white shrink-0 leading-none">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Right: Theme Toggle and Profile Dropdown (matching Super Admin layout) */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeToggle inline className="[&>span]:hidden 2xl:[&>span]:inline" />
+
+            {/* Profile Avatar with Dropdown */}
+            <div className="relative" data-user-dropdown>
+              <button
+                type="button"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="w-8 h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer hover:ring-2 ring-[#FE760B]/40 transition-all overflow-hidden select-none"
+                title={user?.email || "Account"}
+              >
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user?.email || "Avatar"}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="font-bold text-xs sm:text-sm text-white">{userInitial}</span>
+                )}
+              </button>
+
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-3 shadow-2xl z-50 animate-scale-in space-y-3 text-left">
+                  {/* User Profile Card */}
+                  <div className="border-b border-slate-100 dark:border-[#2A2D31] pb-2.5 flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
+                      {user?.photoURL ? (
+                        <img
+                          src={user.photoURL}
+                          alt="Avatar"
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        userInitial
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {user?.displayName || user?.fullName || "User"}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate">
+                        {user?.email}
+                      </div>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30">
+                        {isSuperAdmin ? "Super Admin" : hasOrganiserAccess ? "Organiser" : "User"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Switch Portals exactly like Super Admin */}
+                  <div className="space-y-1">
+                    <p className="px-2 text-[10px] font-bold text-slate-400 dark:text-[#9B9EA4] uppercase tracking-wider">
+                      Switch Portals
+                    </p>
+                    {isSuperAdmin && (
+                      <Link
+                        href="/superadmin"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
+                        <span>Super Admin Suite</span>
+                      </Link>
+                    )}
+
+                    {hasOrganiserAccess && (
+                      <Link
+                        href="/admin/dashboard"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-[#FE760B]" />
+                        <span>Organiser Dashboard</span>
+                      </Link>
+                    )}
+
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 font-bold"
+                    >
+                      <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
+                      <span>User Dashboard</span>
+                    </Link>
+                  </div>
+
+                  {/* Sign out */}
+                  <div className="pt-1.5 border-t border-slate-100 dark:border-[#2A2D31]">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-[#FF6B6B] hover:bg-rose-50 dark:hover:bg-[#FF4D4D]/10 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* Sign Out */}
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="h-8 sm:h-9 px-2.5 sm:px-3 gap-1.5 border-slate-200 dark:border-[#2A2D31] bg-slate-100 dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:text-[#FF6B6B] hover:border-[#FF6B6B]/30 hover:bg-[#FF6B6B]/10 transition-all rounded-xl text-xs font-semibold cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Sign Out</span>
-            </Button>
           </div>
-        </nav>
+        </div>
       </header>
 
-      {/* ── Mobile Sidebar Drawer & Backdrop ── */}
+      {/* ── Mobile Sidebar Drawer & Backdrop (matching Super Admin layout) ── */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden">
-          {/* Backdrop Overlay */}
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop overlay */}
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-fade-in"
             onClick={() => setMobileMenuOpen(false)}
@@ -291,12 +421,20 @@ export default function DashboardPage() {
           />
 
           {/* Sidebar Drawer Panel */}
-          <aside className="fixed inset-y-0 left-0 w-[280px] max-w-[85vw] bg-white dark:bg-[#17191C] border-r border-slate-200 dark:border-[#2A2D31] flex flex-col justify-between shadow-2xl z-50 animate-slide-in-left overflow-y-auto">
-            {/* Top Header */}
+          <aside className="fixed inset-y-0 left-0 w-[290px] max-w-[85vw] bg-white dark:bg-[#17191C] border-r border-slate-200 dark:border-[#2A2D31] flex flex-col justify-between shadow-2xl z-50 animate-slide-in-left overflow-y-auto">
+            {/* Top Section */}
             <div className="p-4 border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between">
-              <Link href="/" onClick={() => setMobileMenuOpen(false)}>
-                <img src={LOGO_SRC} alt="TicketLelo" className="h-6 w-auto object-contain" />
+              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5">
+                <Image
+                  src={LOGO_SRC}
+                  alt="TicketLelo"
+                  width={82}
+                  height={26}
+                  className="h-6 w-auto object-contain"
+                  priority
+                />
               </Link>
+
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
@@ -311,63 +449,57 @@ export default function DashboardPage() {
             <div className="p-4 space-y-6 flex-1 overflow-y-auto">
               <div>
                 <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
-                  My Dashboard
+                  Navigation
                 </p>
                 <nav className="space-y-1">
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
-                  >
-                    <Layers className="w-4 h-4 text-[#FE760B] shrink-0" />
-                    <span>Overview</span>
-                  </Link>
+                  {userTabs.map((item) => {
+                    const isActive = pathname === item.href;
 
-                  <Link
-                    href="/my-tickets"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
-                  >
-                    <Ticket className="w-4 h-4 text-[#FE760B] shrink-0" />
-                    <span>My Tickets ({registrations.length})</span>
-                  </Link>
-
-                  <Link
-                    href="/discover"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
-                  >
-                    <Compass className="w-4 h-4 text-[#FE760B] shrink-0" />
-                    <span>Discover Events</span>
-                  </Link>
-
-                  <Link
-                    href="/activity"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
-                  >
-                    <Bell className="w-4 h-4 text-[#9B9EA4] shrink-0" />
-                    <span>Activity Notifications</span>
-                  </Link>
-
-                  <Link
-                    href="/account"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
-                  >
-                    <User className="w-4 h-4 text-[#9B9EA4] shrink-0" />
-                    <span>Account Settings</span>
-                  </Link>
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        prefetch={false}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                          isActive
+                            ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
+                            : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] border-transparent"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <item.icon className="w-4 h-4 shrink-0" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FE760B] text-white shrink-0 leading-none">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
                 </nav>
               </div>
 
-              {/* Organiser / Admin switches if applicable */}
-              {(user?.role === "organiser" || user?.isAdmin || user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
-                <div className="pt-4 border-t border-slate-200 dark:border-[#2A2D31]">
-                  <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
-                    Host Portals
-                  </p>
-                  <div className="space-y-1">
+              {/* Switch Portals */}
+              <div className="pt-4 border-t border-slate-200 dark:border-[#2A2D31]">
+                <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
+                  Switch Portals
+                </p>
+                <div className="space-y-1">
+                  {isSuperAdmin && (
+                    <Link
+                      href="/superadmin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                    >
+                      <Shield className="w-4 h-4 text-[#FE760B] shrink-0" />
+                      <span>Super Admin Suite</span>
+                    </Link>
+                  )}
+
+                  {hasOrganiserAccess && (
                     <Link
                       href="/admin/dashboard"
                       onClick={() => setMobileMenuOpen(false)}
@@ -376,20 +508,18 @@ export default function DashboardPage() {
                       <Building2 className="w-4 h-4 text-[#FE760B] shrink-0" />
                       <span>Organiser Dashboard</span>
                     </Link>
+                  )}
 
-                    {(user?.role === "superAdmin" || user?.email === "adil4ticketlelo@gmail.com") && (
-                      <Link
-                        href="/superadmin"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 hover:bg-[#FE760B]/20 transition-colors"
-                      >
-                        <Shield className="w-4 h-4 text-[#FE760B] shrink-0" />
-                        <span>Super Admin Suite</span>
-                      </Link>
-                    )}
-                  </div>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#FE760B] bg-[#FE760B]/10 font-bold"
+                  >
+                    <Ticket className="w-4 h-4 text-[#FE760B] shrink-0" />
+                    <span>User Dashboard</span>
+                  </Link>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Bottom Section */}
@@ -397,7 +527,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                    {user?.fullName || "Guest User"}
+                    {user?.displayName || user?.fullName || "User"}
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate">
                     {user?.email}

@@ -927,7 +927,7 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Department / Institution / Team Name"
+                  placeholder="Enter question title or label"
                   value={questionForm.label}
                   onChange={(e) =>
                     setQuestionForm((prev) => ({ ...prev, label: e.target.value }))

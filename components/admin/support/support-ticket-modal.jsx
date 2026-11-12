@@ -209,7 +209,7 @@ export function SupportTicketModal({
                 <input
                   type="email"
                   required
-                  placeholder="you@domain.com"
+                  placeholder="Enter email address"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs sm:text-sm"
@@ -225,7 +225,7 @@ export function SupportTicketModal({
                 <input
                   type="tel"
                   required
-                  placeholder="+91 98765 43210"
+                  placeholder="Enter contact number"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs sm:text-sm"

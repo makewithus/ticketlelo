@@ -194,7 +194,7 @@ function ComposeModal({ eventId, userId, onClose, onSent }) {
               onChange={(e) =>
                 setForm((f) => ({ ...f, title: e.target.value }))
               }
-              placeholder="e.g. Important Update About Your Ticket"
+              placeholder="Enter broadcast subject"
               className="w-full px-4 py-2.5 rounded-xl border border-[#2A2D31] bg-[#212327] text-white placeholder-[#9B9EA4] focus:outline-none focus:ring-1 focus:ring-[#FE760B] focus:border-[#FE760B] transition-colors text-sm"
               maxLength={100}
             />

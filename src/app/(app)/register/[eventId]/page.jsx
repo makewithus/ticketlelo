@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -40,7 +40,9 @@ import { formatEventDate } from "@/lib/date-utils";
 
 export default function RegisterPage() {
   const { eventId } = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
+  const referralCode = searchParams?.get("ref") || searchParams?.get("referralCode") || "";
   const { user, loading: authLoading } = useAuth();
   // Safe SSR hydration - avoids hydration mismatch
   const [event, setEvent] = useState(null);
@@ -609,6 +611,7 @@ export default function RegisterPage() {
                     city={event.city || ""}
                     latitude={event.latitude || event.lat || null}
                     longitude={event.longitude || event.lng || null}
+                    themeColor={themeAccent}
                   />
                 </div>
               </div>
@@ -648,6 +651,7 @@ export default function RegisterPage() {
                     eventId={event.id}
                     event={event}
                     themeColor={themeAccent}
+                    defaultReferralCode={referralCode}
                   />
 
                   {/* Micro Trust Strip */}

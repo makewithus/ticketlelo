@@ -27,6 +27,7 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
   const [copiedUpi, setCopiedUpi] = useState(false);
 
   // Form State
+  const [payoutMethod, setPayoutMethod] = useState("upi"); // "upi" | "bank"
   const [username, setUsername] = useState("");
   const [selectedHandle, setSelectedHandle] = useState("@ybl");
   const [customHandle, setCustomHandle] = useState("");
@@ -35,11 +36,16 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
   const [phone, setPhone] = useState("");
   const [organizerName, setOrganizerName] = useState("");
   const [email, setEmail] = useState("");
+  const [accountHolderName, setAccountHolderName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifsc, setIfsc] = useState("");
 
   // Validation Error State
   const [usernameError, setUsernameError] = useState("");
   const [customHandleError, setCustomHandleError] = useState("");
   const [bankError, setBankError] = useState("");
+  const [accountNumberError, setAccountNumberError] = useState("");
+  const [ifscError, setIfscError] = useState("");
 
   const fetchProfile = async () => {
     try {
@@ -83,6 +89,14 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
     setPhone(p.phone || "");
     setOrganizerName(p.organizerName || "");
     setEmail(p.email || "");
+    setAccountHolderName(p.accountHolderName || p.organizerName || "");
+    setAccountNumber(p.accountNumber || "");
+    setIfsc(p.ifsc || "");
+    if (p.payoutMethod === "BANK_TRANSFER" || (p.accountNumber && !p.upiId)) {
+      setPayoutMethod("bank");
+    } else {
+      setPayoutMethod("upi");
+    }
   };
 
   useEffect(() => {
@@ -141,19 +155,44 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate
-    if (selectedHandle !== "Other") {
-      if (!username.trim()) {
-        setUsernameError("UPI Username is required.");
-        return;
+    // Reset errors
+    setAccountNumberError("");
+    setIfscError("");
+    setUsernameError("");
+    setCustomHandleError("");
+    setBankError("");
+
+    if (payoutMethod === "upi") {
+      if (selectedHandle !== "Other") {
+        if (!username.trim()) {
+          setUsernameError("UPI Username is required.");
+          return;
+        }
+        if (usernameError) return;
+      } else {
+        if (!customHandle.trim()) {
+          setCustomHandleError("Complete UPI ID is required.");
+          return;
+        }
+        if (customHandleError) return;
       }
-      if (usernameError) return;
     } else {
-      if (!customHandle.trim()) {
-        setCustomHandleError("Complete UPI ID is required.");
+      if (!accountNumber.trim()) {
+        setAccountNumberError("Bank Account Number is required.");
         return;
       }
-      if (customHandleError) return;
+      if (!/^\d{8,18}$/.test(accountNumber.trim())) {
+        setAccountNumberError("Account number must be 8 to 18 digits.");
+        return;
+      }
+      if (!ifsc.trim()) {
+        setIfscError("IFSC Code is required.");
+        return;
+      }
+      if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.trim().toUpperCase())) {
+        setIfscError("Invalid IFSC code format (e.g. HDFC0001234).");
+        return;
+      }
     }
 
     if (!selectedBank) {
@@ -172,11 +211,14 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
         username: username.trim(),
         handle: selectedHandle,
         customHandle: customHandle.trim(),
-        fullUpiId: selectedHandle === "Other" ? customHandle.trim() : `${username.trim()}${selectedHandle}`,
+        fullUpiId: selectedHandle === "Other" ? customHandle.trim() : (username.trim() ? `${username.trim()}${selectedHandle}` : null),
         bankName: selectedBank,
         customBankName: selectedBank === "Other" ? customBank.trim() : null,
         phone: phone.trim(),
-        organizerName: organizerName.trim(),
+        organizerName: (accountHolderName || organizerName).trim(),
+        accountHolderName: (accountHolderName || organizerName).trim(),
+        accountNumber: accountNumber.trim() || null,
+        ifsc: ifsc.trim().toUpperCase() || null,
         email: email.trim(),
       };
 
@@ -256,20 +298,33 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-5 text-xs">
             {/* UPI ID Pill */}
-            <div className="p-4 rounded-xl bg-[#131517] border border-[#2A2D31]/80 space-y-1">
-              <span className="text-[11px] text-[#9E9E9F] font-medium block">UPI ID (Payee)</span>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono font-bold text-white text-sm truncate">{profile.upiId}</span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(profile.upiId)}
-                  className="p-1 rounded-md hover:bg-[#212327] text-[#9E9E9F] hover:text-[#FE760B] transition-colors"
-                  title="Copy UPI ID"
-                >
-                  {copiedUpi ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                </button>
+            {profile.upiId ? (
+              <div className="p-4 rounded-xl bg-[#131517] border border-[#2A2D31]/80 space-y-1">
+                <span className="text-[11px] text-[#9E9E9F] font-medium block">UPI ID (Payee)</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-white text-sm truncate">{profile.upiId}</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(profile.upiId)}
+                    className="p-1 rounded-md hover:bg-[#212327] text-[#9E9E9F] hover:text-[#FE760B] transition-colors"
+                    title="Copy UPI ID"
+                  >
+                    {copiedUpi ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
+
+            {/* Bank Account Number & IFSC */}
+            {profile.accountNumberMasked ? (
+              <div className="p-4 rounded-xl bg-[#131517] border border-[#2A2D31]/80 space-y-1">
+                <span className="text-[11px] text-[#9E9E9F] font-medium block">Bank Account & IFSC</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-white text-sm truncate">{profile.accountNumberMasked}</span>
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold">{profile.ifsc}</span>
+                </div>
+              </div>
+            ) : null}
 
             {/* Bank Name */}
             <div className="p-4 rounded-xl bg-[#131517] border border-[#2A2D31]/80 space-y-1">
@@ -283,7 +338,7 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
             {/* Payee Info */}
             <div className="p-4 rounded-xl bg-[#131517] border border-[#2A2D31]/80 space-y-1">
               <span className="text-[11px] text-[#9E9E9F] font-medium block">Account Holder</span>
-              <span className="font-semibold text-white block truncate">{profile.organizerName || "Organizer"}</span>
+              <span className="font-semibold text-white block truncate">{profile.accountHolderName || profile.organizerName || "Organizer"}</span>
               <span className="text-[10px] text-[#9E9E9F] block truncate">{profile.email}</span>
             </div>
           </div>
@@ -327,7 +382,30 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
           </div>
 
           <div className="space-y-5">
+            {/* Payout Method Toggle Tabs */}
+            <div className="flex items-center gap-2 border-b border-[#2A2D31] pb-3">
+              <button
+                type="button"
+                onClick={() => setPayoutMethod("upi")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  payoutMethod === "upi" ? "bg-[#FE760B] text-white" : "bg-[#212327] text-[#9E9E9F] hover:text-white"
+                }`}
+              >
+                UPI ID (Instant Settlement)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayoutMethod("bank")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  payoutMethod === "bank" ? "bg-[#FE760B] text-white" : "bg-[#212327] text-[#9E9E9F] hover:text-white"
+                }`}
+              >
+                Direct Bank Account (NEFT / IMPS)
+              </button>
+            </div>
+
             {/* 1. Combined UPI ID Input Component */}
+            {payoutMethod === "upi" && (
             <div className="space-y-2">
               <label className="text-xs font-semibold text-[#D0D0D1] flex items-center justify-between">
                 <span>UPI ID (Instant Settlement Address) <span className="text-[#FE760B]">*</span></span>
@@ -346,7 +424,7 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
                     type="text"
                     value={username}
                     onChange={(e) => handleUsernameChange(e.target.value)}
-                    placeholder="Enter UPI username (e.g. adil123 or 9876543210)"
+                    placeholder="Enter UPI username or phone number"
                     disabled={saving}
                     className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-xs text-white placeholder-[#9E9E9F] focus:outline-none transition-all ${
                       usernameError ? "border-rose-500 focus:border-rose-500" : "border-[#2A2D31] focus:border-[#FE760B]"
@@ -378,7 +456,7 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
                     type="text"
                     value={customHandle}
                     onChange={(e) => handleCustomHandleChange(e.target.value)}
-                    placeholder="Enter complete UPI ID (e.g. adil@axisbank or college@icici)"
+                    placeholder="Enter complete UPI ID"
                     disabled={saving}
                     className={`w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border text-xs text-white placeholder-[#9E9E9F] focus:outline-none transition-all ${
                       customHandleError ? "border-rose-500 focus:border-rose-500" : "border-[#2A2D31] focus:border-[#FE760B]"
@@ -406,6 +484,72 @@ export function OrganizerPayoutDetailsForm({ organizerId = null, onSaved = null 
                 </span>
               </div>
             </div>
+            )}
+
+            {/* Direct Bank Account Input Fields */}
+            {payoutMethod === "bank" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#D0D0D1]">
+                      Account Number <span className="text-[#FE760B]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={accountNumber}
+                      onChange={(e) => {
+                        setAccountNumber(e.target.value.replace(/\s+/g, ""));
+                        setAccountNumberError("");
+                      }}
+                      placeholder="e.g. 50100234567890"
+                      disabled={saving}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] font-mono"
+                    />
+                    {accountNumberError && (
+                      <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle size={12} /> {accountNumberError}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-[#D0D0D1]">
+                      IFSC Code <span className="text-[#FE760B]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={ifsc}
+                      onChange={(e) => {
+                        setIfsc(e.target.value.replace(/\s+/g, "").toUpperCase());
+                        setIfscError("");
+                      }}
+                      placeholder="e.g. HDFC0001234"
+                      disabled={saving}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] font-mono uppercase"
+                    />
+                    {ifscError && (
+                      <p className="text-[11px] text-rose-400 mt-1 flex items-center gap-1 font-medium">
+                        <AlertCircle size={12} /> {ifscError}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#D0D0D1]">
+                    Account Holder Name <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={accountHolderName}
+                    onChange={(e) => setAccountHolderName(e.target.value)}
+                    placeholder="Legal name as registered with the bank"
+                    disabled={saving}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B]"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* 2. Bank Name Dropdown */}
             <div className="space-y-2">

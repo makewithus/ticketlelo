@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Radio,
   Calendar,
@@ -51,17 +51,72 @@ function MetricCard({
   );
 }
 
+function parseEventDate(ev) {
+  if (!ev) return null;
+  const rawDate = ev.date || ev.startDate;
+  if (!rawDate) return null;
+  if (typeof rawDate?.toDate === "function") {
+    try {
+      const d = rawDate.toDate();
+      if (d && !isNaN(d.getTime())) return d;
+    } catch {}
+  }
+  if (typeof rawDate?.seconds === "number") {
+    const d = new Date(rawDate.seconds * 1000);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (typeof rawDate?._seconds === "number") {
+    const d = new Date(rawDate._seconds * 1000);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (ev.startDate) {
+    const timeStr = ev.startTime ? ` ${ev.startTime}` : "";
+    const d = new Date(`${ev.startDate}${timeStr}`);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const d = new Date(rawDate);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function getEventCreatedTime(ev) {
+  if (!ev) return 0;
+  const raw = ev.createdAt || ev.created_at || ev.updatedAt || ev.updated_at || ev.date || ev.startDate;
+  if (!raw) return 0;
+  if (typeof raw?.toMillis === "function") return raw.toMillis();
+  if (typeof raw?.toDate === "function") {
+    try {
+      const d = raw.toDate();
+      if (!isNaN(d.getTime())) return d.getTime();
+    } catch {}
+  }
+  if (typeof raw?.seconds === "number") return raw.seconds * 1000;
+  if (typeof raw?._seconds === "number") return raw._seconds * 1000;
+  const t = new Date(raw).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   const userId = user?.id || user?.uid;
 
+  const emailLower = (user?.email || "").toLowerCase().trim();
+  const isSuperAdmin =
+    user?.role === "superAdmin" ||
+    user?.role === "superadmin" ||
+    emailLower === "adil4ticketlelo@gmail.com" ||
+    emailLower === "superadmin@ticketlelo.com";
+  const userRole = isSuperAdmin ? "superAdmin" : user?.role;
+
   // Safe SSR hydration - avoids hydration mismatch
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Super Admin defaults to "all" to immediately view & manage all organizers events; normal organizers default to "my"
+  const [scope, setScope] = useState(isSuperAdmin ? "all" : "my");
+  const userToggledRef = useRef(false);
 
   // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || isSuperAdmin) return;
     try {
       const cached = getCachedOrganiserEvents(userId);
       if (Array.isArray(cached) && cached.length > 0) {
@@ -69,7 +124,7 @@ export default function AdminDashboardPage() {
         setLoading(false);
       }
     } catch {}
-  }, [userId]);
+  }, [userId, isSuperAdmin]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -79,24 +134,17 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
-  const emailLower = (user?.email || "").toLowerCase().trim();
-  const isSuperAdmin =
-    user?.role === "superAdmin" ||
-    emailLower === "adil4ticketlelo@gmail.com" ||
-    emailLower === "superadmin@ticketlelo.com";
-  const userRole = isSuperAdmin ? "superAdmin" : user?.role;
-
-  const loadData = useCallback(async (showLoading = true) => {
+  const loadData = useCallback(async (showLoading = true, activeScope = scope) => {
     if (showLoading) setLoading(true);
     try {
       if (userId) {
         let evts = [];
         try {
-          if (isSuperAdmin) {
-            // Super Admin has full platform access to all events of all organisers
+          if (isSuperAdmin && activeScope === "all") {
+            // Super Admin viewing all platform events to manage and troubleshoot
             evts = (await getAllEvents()) || [];
           } else {
-            // Always load this specific organiser's events for their personal dashboard
+            // Personal organizer dashboard: strictly this organizer's own events
             const userEvents = await getEventsByOrganiser(userId);
             if (Array.isArray(userEvents) && userEvents.length > 0) {
               evts = userEvents;
@@ -124,13 +172,7 @@ export default function AdminDashboardPage() {
           const normTitle = (ev.title || ev.name || "").trim().toLowerCase();
           let dateVal = "";
           try {
-            const d = ev.date?.toDate
-              ? ev.date.toDate()
-              : ev.date?.seconds
-              ? new Date(ev.date.seconds * 1000)
-              : ev.date
-              ? new Date(ev.date)
-              : null;
+            const d = parseEventDate(ev);
             if (d && !isNaN(d.getTime())) {
               dateVal = d.toISOString().slice(0, 10);
             }
@@ -149,8 +191,9 @@ export default function AdminDashboardPage() {
             unique.push(ev);
           }
         }
+        unique.sort((a, b) => getEventCreatedTime(b) - getEventCreatedTime(a));
         setEvents(unique);
-        if (userId) {
+        if (userId && activeScope === "my") {
           setCachedOrganiserEvents(userId, unique);
         }
       }
@@ -159,26 +202,31 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [userId, userRole]);
+  }, [userId, isSuperAdmin, scope, emailLower]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      loadData(false);
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [loadData]);
+    if (!userId) return;
+    const defaultScope = isSuperAdmin ? "all" : "my";
+    if (!userToggledRef.current) {
+      setScope(defaultScope);
+      loadData(false, defaultScope);
+    }
+  }, [isSuperAdmin, userId, loadData]);
 
   const totalEvents = events.length;
-  const liveEvents = events.filter((e) => e.published === true || e.status === "live").length;
+  const liveEvents = events.filter((e) => e.published === true || e.isPublished === true || e.status === "live" || e.status === "published").length;
   const upcomingEvents = events.filter((e) => {
-    if (!e.date) return true;
-    try {
-      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-      return d >= new Date(Date.now() - 24 * 60 * 60 * 1000);
-    } catch {
-      return true;
-    }
+    // If event is explicitly marked live or published, and not ended/completed/cancelled, count it as active/upcoming
+    const isLive =
+      (e.published === true || e.isPublished === true || e.status === "live" || e.status === "published") &&
+      e.status !== "ended" &&
+      e.status !== "completed" &&
+      e.status !== "cancelled" &&
+      !e.isEnded;
+    if (isLive) return true;
+    const d = parseEventDate(e);
+    if (!d) return true;
+    return d >= new Date(Date.now() - 24 * 60 * 60 * 1000);
   }).length;
 
   const totalGuestsCapacity = events.reduce((acc, ev) => {
@@ -226,7 +274,41 @@ export default function AdminDashboardPage() {
             Manage events, attendee registrations and check-ins
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isSuperAdmin && (
+            <div className="inline-flex items-center bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  userToggledRef.current = true;
+                  setScope("my");
+                  loadData(true, "my");
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  scope === "my"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm font-bold border border-slate-200 dark:border-[#2A2D31]"
+                    : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                My Events
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  userToggledRef.current = true;
+                  setScope("all");
+                  loadData(true, "all");
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  scope === "all"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm font-bold border border-slate-200 dark:border-[#2A2D31]"
+                    : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                All Platform Events
+              </button>
+            </div>
+          )}
           {isSuperAdmin && (
             <Link
               href="/superadmin"
@@ -238,7 +320,7 @@ export default function AdminDashboardPage() {
           )}
           <button
             type="button"
-            onClick={() => loadData(true)}
+            onClick={() => loadData(true, scope)}
             title="Refresh metrics"
             className="p-1.5 rounded-lg border border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
           >
@@ -288,7 +370,14 @@ export default function AdminDashboardPage() {
 
       {/* Main Section: Event Management Studio */}
       <div className="w-full">
-        <EventManagement />
+        <EventManagement
+          events={events}
+          isLoading={loading}
+          onEventDeleted={(deletedId) => {
+            setEvents((prev) => prev.filter((e) => (e.id || e._id) !== deletedId));
+          }}
+          onRefresh={() => loadData(true, scope)}
+        />
       </div>
     </div>
   );

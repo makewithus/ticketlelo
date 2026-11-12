@@ -1615,7 +1615,7 @@ export default function EventOverviewPage() {
               </label>
               <textarea
                 rows={3}
-                placeholder="Enter emails separated by commas or line breaks...&#10;example1@gmail.com, example2@gmail.com"
+                placeholder="Enter email addresses separated by commas or line breaks..."
                 value={inviteEmails}
                 onChange={(e) => setInviteEmails(e.target.value)}
                 className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl p-3 text-xs text-white placeholder-[#64748B] outline-none resize-none transition-colors font-mono"
@@ -1679,7 +1679,7 @@ export default function EventOverviewPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sarah Jenkins"
+                  placeholder="Enter host full name"
                   value={newHostName}
                   onChange={(e) => setNewHostName(e.target.value)}
                   className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none transition-colors"
@@ -1693,7 +1693,7 @@ export default function EventOverviewPage() {
                 <input
                   type="email"
                   required
-                  placeholder="e.g. sarah@example.com"
+                  placeholder="Enter host email address"
                   value={newHostEmail}
                   onChange={(e) => setNewHostEmail(e.target.value)}
                   className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-[#64748B] outline-none transition-colors"

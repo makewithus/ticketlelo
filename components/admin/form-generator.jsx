@@ -1337,7 +1337,7 @@ export function FormGenerator() {
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
                       <input
                         type="text"
-                        placeholder="New question, e.g. Team name"
+                        placeholder="Enter new question label"
                         value={newField.name}
                         onChange={(e) => setNewField({ ...newField, name: e.target.value })}
                         onKeyDown={(e) => {
@@ -1876,7 +1876,7 @@ export function FormGenerator() {
                           quantity: e.target.value,
                         })
                       }
-                      placeholder="e.g., 50"
+                      placeholder="Enter quantity"
                       className="bg-[#1A1C1F] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                     />
                   </div>
@@ -1896,7 +1896,7 @@ export function FormGenerator() {
                           discountPercent: e.target.value,
                         })
                       }
-                      placeholder="e.g., 20"
+                      placeholder="Enter discount percentage"
                       className="bg-[#1A1C1F] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                     />
                   </div>
@@ -2105,7 +2105,7 @@ export function FormGenerator() {
                       toast.success("Option added");
                     }
                   }}
-                  placeholder={`Enter option (e.g., ${newField.type === "radio" && newField.name.toLowerCase().includes("gender") ? "Male, Female, Other" : "Option 1"})`}
+                  placeholder="Enter option label"
                   className="flex-1 bg-[#212327] border border-[#2A2D31] text-white placeholder-[#9B9EA4] focus:border-[#FE760B] rounded-xl"
                 />
                 <Button

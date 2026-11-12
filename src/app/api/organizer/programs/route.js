@@ -42,20 +42,48 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    if (!body || !body.title) {
+    const title = String(body?.title || body?.name || "").trim();
+    if (!title) {
       return NextResponse.json({ error: "Program title is required" }, { status: 400 });
     }
 
     const program = await createProgram({
       organizerId: caller.uid,
-      title: body.title,
+      title,
+      name: title,
       description: body.description || "",
+      college: body.college || "",
       logo: body.logo || "",
       applicationFormId: body.applicationFormId || null,
-      applicationStartDate: body.applicationStartDate || null,
-      applicationEndDate: body.applicationEndDate || null,
-      referralSettings: body.referralSettings || {},
+      applicationStartDate: body.applicationStartDate || body.startDate || null,
+      applicationEndDate: body.applicationEndDate || body.endDate || null,
+      startDate: body.startDate || body.applicationStartDate || null,
+      endDate: body.endDate || body.applicationEndDate || null,
+      pointsRules: body.pointsRules || null,
+      referralSettings: body.referralSettings || (body.pointsRules ? {
+        basePointsPerTicket: Number(body.pointsRules.basePointsPerTicket) || 10,
+        paidMultiplier: Number(body.pointsRules.paidMultiplier) || 2,
+        freePoints: Number(body.pointsRules.basePointsPerTicket) || 10,
+        paidPoints: (Number(body.pointsRules.basePointsPerTicket) || 10) * (Number(body.pointsRules.paidMultiplier) || 2),
+      } : {}),
     });
+
+    // Auto-connect target event if selected during creation
+    if (body.eventId || (Array.isArray(body.eventIds) && body.eventIds.length > 0)) {
+      const eIds = Array.isArray(body.eventIds) && body.eventIds.length > 0
+        ? body.eventIds
+        : [body.eventId];
+      try {
+        const { connectEventsToProgram } = await import("@/lib/creator-campus/programs-service");
+        await connectEventsToProgram({
+          programId: program.id,
+          eventIds: eIds,
+          organizerId: caller.uid,
+        });
+      } catch (connErr) {
+        console.warn("Could not auto-connect event during program creation:", connErr?.message);
+      }
+    }
 
     return NextResponse.json({ success: true, program }, { status: 201 });
   } catch (err) {
@@ -63,3 +91,4 @@ export async function POST(request) {
     return NextResponse.json({ error: err.message || "Failed to create program" }, { status: 500 });
   }
 }
+

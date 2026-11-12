@@ -21,6 +21,7 @@ export function VenueMap({
   subVenue = null,
   apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   className = "",
+  themeColor = "#FE760B",
 }) {
   const [showFullAddress, setShowFullAddress] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -31,16 +32,17 @@ export function VenueMap({
     city,
   });
 
-  const queryParam = latitude && longitude
+  const isDefaultDelhi = (latitude === 28.6139 && longitude === 77.209) || (latitude === 28.6139 && longitude === 77.2090);
+  const hasRealCoords = latitude && longitude && !isDefaultDelhi;
+
+  const queryParam = hasRealCoords
     ? `${latitude},${longitude}`
-    : encodeURIComponent(fullAddress || broadVenue);
+    : encodeURIComponent(fullAddress || broadVenue || venueName || "India");
 
   const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${queryParam}`;
 
-  // Safe Google Maps Embed URL
-  const embedUrl = apiKey
-    ? `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${queryParam}`
-    : `https://maps.google.com/maps?q=${queryParam}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  // Safe Google Maps Embed URL - standard universal embed displays true location without API key restrictions
+  const embedUrl = `https://maps.google.com/maps?q=${queryParam}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
   const handleCopy = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -86,7 +88,8 @@ export function VenueMap({
           href={directionsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#FE760B] hover:bg-[#FF8A2B] text-white transition-colors shrink-0 shadow-sm"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white hover:brightness-110 transition-all shrink-0 shadow-sm cursor-pointer"
+          style={{ backgroundColor: themeColor }}
         >
           <Navigation className="w-3.5 h-3.5" />
           Get Directions
@@ -108,7 +111,8 @@ export function VenueMap({
               <button
                 type="button"
                 onClick={() => setShowFullAddress(!showFullAddress)}
-                className="inline-flex items-center gap-1 text-xs text-[#FE760B] hover:text-[#FF8A2B] font-semibold transition-colors cursor-pointer underline underline-offset-2"
+                className="inline-flex items-center gap-1 text-xs font-semibold transition-opacity hover:opacity-85 cursor-pointer underline underline-offset-2"
+                style={{ color: themeColor }}
               >
                 <Eye className="w-3.5 h-3.5" />
                 {showFullAddress ? "Hide full address" : "See full address"}
@@ -142,7 +146,7 @@ export function VenueMap({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
               >
                 {copied ? (
                   <>
@@ -161,7 +165,8 @@ export function VenueMap({
                 href={directionsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#FE760B] hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold hover:underline"
+                style={{ color: themeColor }}
               >
                 Open in Google Maps
                 <ExternalLink className="w-3 h-3" />

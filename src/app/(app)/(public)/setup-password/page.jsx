@@ -9,6 +9,7 @@ import {
   EyeOff,
   CheckCircle2,
   Mail,
+  User,
   Loader2,
   ArrowRight,
   ShieldCheck,
@@ -28,10 +29,12 @@ function SetupPasswordContent() {
   const searchParams = useSearchParams();
 
   const queryEmail = searchParams?.get("email") || "";
+  const queryName = searchParams?.get("name") || "";
   const queryToken = searchParams?.get("token") || "";
   const queryTicketId = searchParams?.get("ticketId") || "";
 
   const [email, setEmail] = useState(queryEmail);
+  const [fullName, setFullName] = useState(queryName);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -44,7 +47,10 @@ function SetupPasswordContent() {
     if (queryEmail && !email) {
       setEmail(queryEmail);
     }
-  }, [queryEmail, email]);
+    if (queryName && !fullName) {
+      setFullName(queryName);
+    }
+  }, [queryEmail, queryName, email, fullName]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,6 +59,11 @@ function SetupPasswordContent() {
     const cleanEmail = String(email || "").trim().toLowerCase();
     if (!cleanEmail) {
       setError("Please provide your registered email address.");
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setError("Please enter your full name.");
       return;
     }
 
@@ -74,6 +85,7 @@ function SetupPasswordContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: cleanEmail,
+          fullName: fullName.trim(),
           token: queryToken,
           newPassword,
           confirmPassword,
@@ -186,6 +198,26 @@ function SetupPasswordContent() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Full Name */}
+              <div>
+                <label className="block text-xs font-semibold text-[#D0D0D1] uppercase tracking-wider mb-1.5">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#6C7075]">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    placeholder="Enter your full name"
+                    className="w-full pl-10 pr-4 py-3 bg-[#131517] border border-[#2A2D31] rounded-xl text-sm text-white placeholder-[#6C7075] focus:outline-hidden focus:border-[#FE760B] transition-colors"
+                  />
+                </div>
+              </div>
+
               {/* Registered Email */}
               <div>
                 <label className="block text-xs font-semibold text-[#D0D0D1] uppercase tracking-wider mb-1.5">
@@ -201,7 +233,7 @@ function SetupPasswordContent() {
                     onChange={(e) => setEmail(e.target.value)}
                     readOnly={Boolean(queryEmail)}
                     required
-                    placeholder="you@example.com"
+                    placeholder="Enter your email address"
                     className={`w-full pl-10 pr-4 py-3 bg-[#131517] border border-[#2A2D31] rounded-xl text-sm text-white placeholder-[#6C7075] focus:outline-hidden focus:border-[#FE760B] transition-colors ${
                       queryEmail ? "opacity-80 cursor-not-allowed bg-[#181a1d]" : ""
                     }`}

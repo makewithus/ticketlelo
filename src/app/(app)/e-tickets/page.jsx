@@ -463,7 +463,7 @@ export default function ETicketsPage() {
                       setCustomForm({ ...customForm, name: e.target.value })
                     }
                     className="w-full bg-[#212327] border border-[#2A2D31] text-white px-3.5 py-2.5 rounded-xl focus:border-[#FE760B] focus:outline-none transition-colors"
-                    placeholder="e.g. TECH FEST 2026"
+                    placeholder="Enter event name"
                   />
                 </div>
 
@@ -482,7 +482,7 @@ export default function ETicketsPage() {
                       })
                     }
                     className="w-full bg-[#212327] border border-[#2A2D31] text-white px-3.5 py-2.5 rounded-xl focus:border-[#FE760B] focus:outline-none transition-colors"
-                    placeholder="e.g. Aarav Kumar"
+                    placeholder="Enter attendee name"
                   />
                 </div>
 
@@ -498,7 +498,7 @@ export default function ETicketsPage() {
                       setCustomForm({ ...customForm, location: e.target.value })
                     }
                     className="w-full bg-[#212327] border border-[#2A2D31] text-white px-3.5 py-2.5 rounded-xl focus:border-[#FE760B] focus:outline-none transition-colors"
-                    placeholder="e.g. MAIN AUDITORIUM"
+                    placeholder="Enter venue or hall name"
                   />
                 </div>
 
@@ -517,7 +517,7 @@ export default function ETicketsPage() {
                       })
                     }
                     className="w-full bg-[#212327] border border-[#2A2D31] text-white px-3.5 py-2.5 rounded-xl focus:border-[#FE760B] focus:outline-none transition-colors"
-                    placeholder="e.g. GENERAL, VIP, FULL PASS"
+                    placeholder="Enter ticket tier"
                   />
                 </div>
 
@@ -533,7 +533,7 @@ export default function ETicketsPage() {
                       setCustomForm({ ...customForm, price: e.target.value })
                     }
                     className="w-full bg-[#212327] border border-[#2A2D31] text-white px-3.5 py-2.5 rounded-xl focus:border-[#FE760B] focus:outline-none transition-colors"
-                    placeholder="e.g. 199 or Free Entry"
+                    placeholder="Enter ticket price or Free Entry"
                   />
                 </div>
 
@@ -549,7 +549,7 @@ export default function ETicketsPage() {
                       setCustomForm({ ...customForm, ticketId: e.target.value })
                     }
                     className="w-full bg-[#212327] border border-[#2A2D31] text-white font-mono px-3.5 py-2.5 rounded-xl focus:border-[#FE760B] focus:outline-none transition-colors"
-                    placeholder="e.g. TKT-1793-AB12C"
+                    placeholder="Enter ticket ID"
                   />
                 </div>
 

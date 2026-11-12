@@ -1047,7 +1047,7 @@ export default function MoreEventSettingsPage() {
                     value={closeRegCapacity}
                     onChange={(e) => setCloseRegCapacity(parseInt(e.target.value, 10) || 0)}
                     onBlur={handleCapacityBlur}
-                    placeholder="e.g. 100"
+                    placeholder="Enter ticket limit"
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#212327] border border-[#D9DBE0] dark:border-[#2A2D31] text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-[#FE760B]"
                   />
                   <p className="text-[11px] text-[#64748B] dark:text-[#9B9EA4] mt-1">
@@ -1621,7 +1621,7 @@ export default function MoreEventSettingsPage() {
                   rows={2}
                   value={postponeForm.note}
                   onChange={(e) => setPostponeForm((prev) => ({ ...prev, note: e.target.value }))}
-                  placeholder="e.g. Postponed due to university exams. All registered passes remain valid."
+                  placeholder="Enter announcement or reason for postponement"
                   className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 rounded-xl p-3 text-xs text-white outline-none resize-none placeholder-[#64748B] transition-all"
                 />
               </div>
@@ -1780,7 +1780,7 @@ export default function MoreEventSettingsPage() {
                   required
                   value={cancellationReason}
                   onChange={(e) => setCancellationReason(e.target.value)}
-                  placeholder="Provide a detailed and valid reason for cancellation (e.g. Venue unavailable due to unforeseen maintenance, emergency weather advisory, etc.)"
+                  placeholder="Provide a detailed and valid reason for event cancellation..."
                   className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 rounded-xl p-3 text-xs text-white placeholder-[#64748B] outline-none resize-none transition-all leading-relaxed"
                 />
                 <p className="text-[11px] text-[#9B9EA4] mt-1">

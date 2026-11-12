@@ -42,12 +42,12 @@ function UnifiedLoginContent() {
   const initialName = searchParams.get("name") || "";
   const reasonParam = searchParams.get("reason") || "";
   const isSessionExpired = reasonParam === "session_expired";
-  const initialMode = isSessionExpired ? "signin" : searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const initialMode = "signin"; // Manual registration disabled on login page
 
   const roleParam = searchParams.get("role") || "";
   const isOrganiserLogin = roleParam === "organiser" || redirectParam.includes("/admin");
 
-  const [authMode, setAuthMode] = useState(initialMode); // "signin" | "signup"
+  const [authMode, setAuthMode] = useState("signin"); // strictly "signin"
   const [fullName, setFullName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState("");
@@ -576,7 +576,7 @@ function UnifiedLoginContent() {
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       className="w-full px-4 py-2.5 bg-[#212327] border border-[#2A2D31] rounded-xl text-white placeholder-[#9B9EA4] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
-                      placeholder="your.email@example.com"
+                      placeholder="Enter your email address"
                       autoFocus
                       required
                     />
@@ -873,14 +873,10 @@ function UnifiedLoginContent() {
                     <span>Organiser Portal</span>
                   </div>
                   <h1 className="text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
-                    {authMode === "signup"
-                      ? "Create Organiser Account"
-                      : "Organiser Sign In"}
+                    Organiser Sign In
                   </h1>
                   <p className="text-[#9B9EA4] text-sm mt-1.5">
-                    {authMode === "signup"
-                      ? "Sign up with your approved email to access the organiser dashboard."
-                      : "Sign in with your approved organiser account to manage and create events."}
+                    Sign in with your approved organiser account to manage and create events.
                   </p>
                 </>
               ) : (
@@ -888,15 +884,11 @@ function UnifiedLoginContent() {
                   <h1 className="text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
                     {isFromHostingPage
                       ? "Sign in to submit request"
-                      : authMode === "signup"
-                      ? "Create an account"
                       : "Welcome back"}
                   </h1>
                   <p className="text-[#9B9EA4] text-sm mt-1.5">
                     {isFromHostingPage
-                      ? "Sign in or sign up below. Your form details are safely saved."
-                      : authMode === "signup"
-                      ? "Sign up to host events and access tickets"
+                      ? "Sign in below. Your form details are safely saved."
                       : "Sign in to see your tickets and host events."}
                   </p>
                 </>
@@ -910,38 +902,6 @@ function UnifiedLoginContent() {
               transition={{ duration: 0.35 }}
               className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 xs:p-6 sm:p-8 shadow-xl w-full"
             >
-              {/* Sign in / Sign up Mode Switcher Tabs */}
-              <div className="flex rounded-xl bg-[#212327] p-1 border border-[#2A2D31] mb-5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("signin");
-                    setError("");
-                  }}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                    authMode === "signin"
-                      ? "bg-[#1A1C1F] text-white shadow-sm"
-                      : "text-[#9B9EA4] hover:text-white"
-                  }`}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("signup");
-                    setError("");
-                  }}
-                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-                    authMode === "signup"
-                      ? "bg-[#1A1C1F] text-white shadow-sm"
-                      : "text-[#9B9EA4] hover:text-white"
-                  }`}
-                >
-                  Create account
-                </button>
-              </div>
-
               {/* ONE-TAP GOOGLE SIGN-IN BUTTON */}
               <button
                 type="button"
@@ -1034,7 +994,7 @@ function UnifiedLoginContent() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-2.5 bg-[#131517] border border-[#2A2D31] rounded-xl text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
-                    placeholder="your.email@example.com"
+                    placeholder="Enter your email address"
                     autoComplete="email"
                     required
                   />
@@ -1060,7 +1020,7 @@ function UnifiedLoginContent() {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                         className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#5E626B] focus:outline-none"
-                        placeholder="9876543210"
+                        placeholder="Enter 10-digit mobile number"
                         maxLength={10}
                       />
                     </div>
@@ -1154,10 +1114,10 @@ function UnifiedLoginContent() {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-black" />
-                      <span>{authMode === "signup" ? "Creating account..." : "Signing in..."}</span>
+                      <span>Signing in...</span>
                     </>
                   ) : (
-                    <span>{authMode === "signup" ? "Create account" : "Sign in"}</span>
+                    <span>Sign in</span>
                   )}
                 </button>
               </form>
@@ -1165,30 +1125,8 @@ function UnifiedLoginContent() {
 
             {/* Footer Links */}
             <div className="mt-8 text-center space-y-2">
-              <p className="text-sm text-[#9B9EA4]">
-                {authMode === "signin" ? (
-                  <>
-                    New to TicketLelo?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setAuthMode("signup")}
-                      className="text-white hover:underline font-semibold"
-                    >
-                      Create an account
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    Already have an account?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setAuthMode("signin")}
-                      className="text-white hover:underline font-semibold"
-                    >
-                      Sign in
-                    </button>
-                  </>
-                )}
+              <p className="text-xs text-[#9B9EA4]">
+                Attending an event? Access your tickets using the link sent to your registered email.
               </p>
               <p className="text-sm text-[#9B9EA4]">
                 Want to host an event?{" "}

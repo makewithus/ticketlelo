@@ -58,6 +58,7 @@ export async function POST(request) {
     const setupToken = typeof body.token === "string" ? body.token.trim() : "";
     const newPassword = typeof body.newPassword === "string" ? body.newPassword : "";
     const confirmPassword = typeof body.confirmPassword === "string" ? body.confirmPassword : "";
+    const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
 
     if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
       return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
@@ -145,18 +146,21 @@ export async function POST(request) {
       );
     }
 
-    // 2. Verify user exists in Firebase Auth and protect existing accounts (SEC-1, SEC-5)
+    // 2. Verify user exists in Firebase Auth or provision account for guest attendee
     let userRecord;
     try {
       userRecord = await adminAuth.getUserByEmail(rawEmail);
     } catch (authErr) {
       if (authErr.code === "auth/user-not-found") {
-        return NextResponse.json(
-          { error: "Invalid or expired password setup link. Please check your email or register for an event." },
-          { status: 400 }
-        );
+        userRecord = await adminAuth.createUser({
+          email: rawEmail,
+          password: newPassword,
+          displayName: fullName || "Attendee",
+          emailVerified: true,
+        });
+      } else {
+        throw authErr;
       }
-      throw authErr;
     }
 
     // Check if user already set their password or is an existing Google/social sign-in
@@ -204,6 +208,11 @@ export async function POST(request) {
       transaction.set(
         userDocRef,
         {
+          id: userRecord.uid,
+          email: rawEmail,
+          fullName: fullName || userData?.fullName || userRecord.displayName || "Attendee",
+          role: userData?.role || "user",
+          isAdmin: Boolean(userData?.isAdmin),
           hasSetPassword: true,
           isFirstTimeUser: false,
           updatedAt: new Date(),
@@ -216,7 +225,28 @@ export async function POST(request) {
     await adminAuth.updateUser(userRecord.uid, {
       password: newPassword,
       emailVerified: true,
+      displayName: fullName || userRecord.displayName || "Attendee",
     });
+
+    // Link any existing registrations for this email to userRecord.uid
+    try {
+      const regSnap = await adminDb.collection("registrations").where("email", "==", rawEmail).get();
+      if (!regSnap.empty) {
+        const batch = adminDb.batch();
+        let linkCount = 0;
+        for (const d of regSnap.docs) {
+          if (!d.data().userId) {
+            batch.update(d.ref, { userId: userRecord.uid, updatedAt: new Date() });
+            linkCount++;
+          }
+        }
+        if (linkCount > 0) {
+          await batch.commit();
+        }
+      }
+    } catch (linkErr) {
+      console.warn("[setup-password] Link registrations warning:", linkErr.message);
+    }
 
     // 5. Generate custom token for instant automatic sign-in (R54)
     let customToken = null;

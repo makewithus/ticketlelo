@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Loader2,
@@ -45,16 +46,16 @@ function formatCollege(col = "") {
 }
 
 function formatApprovedDate(dateVal) {
-  if (!dateVal) return "Recently";
+  if (!dateVal) return "—";
   try {
     const d = dateVal.toDate ? dateVal.toDate() : new Date(dateVal);
-    if (isNaN(d.getTime())) return "Recently";
+    if (isNaN(d.getTime())) return "—";
     return d.toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
     });
   } catch {
-    return "Recently";
+    return "—";
   }
 }
 
@@ -83,6 +84,14 @@ function renderEventStatusBadge(eventStatus) {
       </span>
     );
   }
+  if (eventStatus === "No Event" || eventStatus === "Unpublished") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#71767B] border border-[#2A2D31]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#71767B]" />
+        No Event
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30">
       <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
@@ -108,21 +117,78 @@ export function OrganisersManagement() {
   const [page, setPage] = useState(1);
   const pageSize = 5; // Image 1 displays 5 per page
   const [openActionId, setOpenActionId] = useState(null);
+  const [dropdownCoords, setDropdownCoords] = useState(null);
   const [resetModalData, setResetModalData] = useState(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [deleteModalData, setDeleteModalData] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteEventsOption, setDeleteEventsOption] = useState(false);
 
+  // Position-aware dropdown trigger that opens above/below depending on viewport room
+  const toggleActionMenu = (e, item) => {
+    e.stopPropagation();
+    if (openActionId === item.id) {
+      setOpenActionId(null);
+      setDropdownCoords(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dropdownHeight = 275;
+    const dropdownWidth = 185;
+
+    // Viewport room detection to avoid table/page scrollbars
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow;
+
+    const top = openUpward
+      ? Math.max(10, rect.top - dropdownHeight - 6)
+      : Math.min(window.innerHeight - dropdownHeight - 10, rect.bottom + 6);
+
+    let left = rect.right - dropdownWidth;
+    if (left < 10) left = 10;
+    if (left + dropdownWidth > window.innerWidth - 10) {
+      left = window.innerWidth - dropdownWidth - 10;
+    }
+
+    setDropdownCoords({ top, left });
+    setOpenActionId(item.id);
+  };
+
   useEffect(() => {
     if (!openActionId) return;
+
     const handleOutsideClick = (e) => {
       if (!e.target.closest(".action-menu-dropdown") && !e.target.closest(".action-menu-trigger")) {
         setOpenActionId(null);
+        setDropdownCoords(null);
       }
     };
+
+    const handleScrollOrResize = () => {
+      setOpenActionId(null);
+      setDropdownCoords(null);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setOpenActionId(null);
+        setDropdownCoords(null);
+      }
+    };
+
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [openActionId]);
 
   useEffect(() => {
@@ -145,6 +211,7 @@ export function OrganisersManagement() {
           if (Array.isArray(json.organisers)) {
             if (isSubscribed) {
               setOrganisers(json.organisers);
+              setCachedItem("superadmin_organisers", json.organisers, 15 * 60 * 1000);
               setIsLoading(false);
             }
             return;
@@ -159,17 +226,24 @@ export function OrganisersManagement() {
         const hrSnap = await getDocs(hrQuery);
 
         const eventsSnap = await getDocs(collection(db, "events"));
-        const eventsList = eventsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const eventsList = eventsSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((e) => e.deleted !== true && e.isDeleted !== true && e.status !== "deleted");
 
         const emailCounts = {};
-        hrSnap.docs.forEach((d) => {
+        const activeHrDocs = hrSnap.docs.filter((d) => {
+          const data = d.data() || {};
+          return data.deleted !== true && data.isDeleted !== true && data.status !== "deleted";
+        });
+
+        activeHrDocs.forEach((d) => {
           const data = d.data();
           const em = (data.organiserEmail || data.email || "").toLowerCase().trim();
           if (em) emailCounts[em] = (emailCounts[em] || 0) + 1;
         });
 
         const now = Date.now();
-        const list = hrSnap.docs.map((doc) => {
+        const list = activeHrDocs.map((doc) => {
           const d = doc.data();
           const loginEmail = (d.organiserEmail || d.email || "").trim();
           const isDuplicate = (emailCounts[loginEmail.toLowerCase()] || 0) > 1;
@@ -181,16 +255,45 @@ export function OrganisersManagement() {
               (e.name && d.eventTitle && e.name.toLowerCase() === d.eventTitle.toLowerCase()),
           );
 
-          let eventStatus = "Published";
+          let eventStatus = "No Event";
           if (matchingEvent) {
             let eventDate = null;
             if (matchingEvent.date?.toDate) eventDate = matchingEvent.date.toDate();
             else if (matchingEvent.date) eventDate = new Date(matchingEvent.date);
 
             if (matchingEvent.status === "live") eventStatus = "Live";
-            else if (matchingEvent.status === "draft" || matchingEvent.isActive === false) eventStatus = "Draft";
+            else if (matchingEvent.status === "draft" || matchingEvent.isActive === false || matchingEvent.published === false) eventStatus = "Draft";
             else if (matchingEvent.status === "ended" || (eventDate && eventDate.getTime() < now - 24 * 60 * 60 * 1000)) eventStatus = "Ended";
-            else if (matchingEvent.status === "published" || matchingEvent.isActive === true) eventStatus = "Published";
+            else if (matchingEvent.status === "published" || matchingEvent.isActive === true || matchingEvent.published === true) eventStatus = "Published";
+          } else {
+            eventStatus = d.isDraft ? "Draft" : "No Event";
+          }
+
+          // Real-time tickets resolution without dummy 9999 or 150
+          let ticketsCount = 0;
+          const rawHr = Number(d.numberOfTickets || d.expectedAttendees);
+          const rawEvTotal = Number(matchingEvent?.totalTickets);
+          const rawEvCap = Number(matchingEvent?.capacity || matchingEvent?.maxCapacity);
+
+          if (Number.isFinite(rawHr) && rawHr > 0 && rawHr < 9999) {
+            ticketsCount = rawHr;
+          } else if (Number.isFinite(rawEvTotal) && rawEvTotal > 0 && rawEvTotal < 9999) {
+            ticketsCount = rawEvTotal;
+          } else if (Number.isFinite(rawEvCap) && rawEvCap > 0 && rawEvCap < 9999) {
+            ticketsCount = rawEvCap;
+          } else if (
+            matchingEvent?.limitCapacity === false ||
+            matchingEvent?.capacity === "Unlimited" ||
+            rawEvTotal >= 9999 ||
+            rawEvCap >= 9999
+          ) {
+            ticketsCount = "Unlimited";
+          } else {
+            const actualCount =
+              matchingEvent?.attendeesCount ??
+              matchingEvent?.registrationsCount ??
+              (Array.isArray(matchingEvent?.attendees) ? matchingEvent.attendees.length : 0);
+            ticketsCount = Number.isFinite(Number(actualCount)) ? Number(actualCount) : 0;
           }
 
           return {
@@ -200,10 +303,10 @@ export function OrganisersManagement() {
             userId: d.organiserId || null,
             name: d.name || d.organizerName || "Organiser",
             college: d.college || "college",
-            eventTitle: d.eventTitle || matchingEvent?.name || "Event",
+            eventTitle: matchingEvent?.name || d.eventTitle || (matchingEvent ? "Event" : "No event created"),
             isPaid: Boolean(d.isPaid || matchingEvent?.isPaid),
             eventStatus,
-            tickets: matchingEvent?.totalTickets || d.numberOfTickets || 150,
+            tickets: ticketsCount,
             loginEmail: loginEmail || "—",
             phone: d.phone || "",
             isDuplicate,
@@ -556,7 +659,11 @@ export function OrganisersManagement() {
 
                       {/* Column 4: TICKETS */}
                       <td className="py-4 px-4 text-xs sm:text-sm font-mono text-white whitespace-nowrap">
-                        {Number(item.tickets || 0).toLocaleString()}
+                        {item.tickets === "Unlimited" ? (
+                          <span className="text-xs font-semibold text-[#9B9EA4]">Unlimited</span>
+                        ) : (
+                          Number(item.tickets || 0).toLocaleString()
+                        )}
                       </td>
 
                       {/* Column 5: LOGIN EMAIL with Duplicate Badge */}
@@ -582,80 +689,106 @@ export function OrganisersManagement() {
                       <td className="py-4 px-4 text-right whitespace-nowrap relative">
                         <button
                           type="button"
-                          onClick={() =>
-                            setOpenActionId(openActionId === item.id ? null : item.id)
-                          }
+                          onClick={(e) => toggleActionMenu(e, item)}
                           className="action-menu-trigger p-1.5 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                           title="Actions"
+                          aria-label="Actions"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
 
-                        {/* Action Popover Menu matching user image */}
-                        {openActionId === item.id && (
-                          <div className="action-menu-dropdown absolute right-4 top-12 min-w-[170px] rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-1.5 shadow-2xl z-30 text-left space-y-0.5 animate-scale-in">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenActionId(null);
-                                window.open(item.eventId ? `/admin/overview?eventId=${item.eventId}` : `/admin/dashboard`, "_blank");
+                        {/* Portal Action Menu: Renders in document.body to prevent table scrollbars and clipping */}
+                        {openActionId === item.id &&
+                          dropdownCoords &&
+                          typeof document !== "undefined" &&
+                          createPortal(
+                            <div
+                              style={{
+                                position: "fixed",
+                                top: `${dropdownCoords.top}px`,
+                                left: `${dropdownCoords.left}px`,
+                                zIndex: 9999,
                               }}
-                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors cursor-pointer block"
+                              className="action-menu-dropdown min-w-[175px] max-w-[220px] rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-1.5 shadow-2xl text-left space-y-0.5 animate-scale-in"
                             >
-                              Inspect portal →
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionId(null);
+                                  setDropdownCoords(null);
+                                  window.open(item.eventId ? `/admin/overview?eventId=${item.eventId}` : `/admin/dashboard`, "_blank");
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors cursor-pointer block"
+                              >
+                                Inspect portal →
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenActionId(null);
-                                window.open(item.eventId ? `/admin/registrations?eventId=${item.eventId}` : `/admin/registrations`, "_blank");
-                              }}
-                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                            >
-                              View guest list
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionId(null);
+                                  setDropdownCoords(null);
+                                  window.open(item.eventId ? `/admin/registrations?eventId=${item.eventId}` : `/admin/registrations`, "_blank");
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                              >
+                                View guest list
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleResetLogin(item)}
-                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                            >
-                              Reset login
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionId(null);
+                                  setDropdownCoords(null);
+                                  handleResetLogin(item);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                              >
+                                Reset login
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleViewEvent(item)}
-                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                            >
-                              View event
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionId(null);
+                                  setDropdownCoords(null);
+                                  handleViewEvent(item);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                              >
+                                View event
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleEmailOrganiser(item)}
-                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                            >
-                              Email organiser
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionId(null);
+                                  setDropdownCoords(null);
+                                  handleEmailOrganiser(item);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                              >
+                                Email organiser
+                              </button>
 
-                            <div className="h-px bg-[#2A2D31] my-1" />
+                              <div className="h-px bg-[#2A2D31] my-1" />
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setOpenActionId(null);
-                                setDeleteModalData(item);
-                                setDeleteEventsOption(false);
-                              }}
-                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-2 group"
-                            >
-                              <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:scale-105 transition-transform" />
-                              <span>Delete organiser</span>
-                            </button>
-                          </div>
-                        )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenActionId(null);
+                                  setDropdownCoords(null);
+                                  setDeleteModalData(item);
+                                  setDeleteEventsOption(false);
+                                }}
+                                className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-2 group"
+                              >
+                                <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:scale-105 transition-transform" />
+                                <span>Delete organiser</span>
+                              </button>
+                            </div>,
+                            document.body
+                          )}
                       </td>
                     </tr>
                   );
@@ -701,9 +834,7 @@ export function OrganisersManagement() {
                     <div className="relative shrink-0">
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenActionId(openActionId === item.id ? null : item.id)
-                        }
+                        onClick={(e) => toggleActionMenu(e, item)}
                         className="action-menu-trigger p-1.5 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                         title="Actions"
                         aria-label="Actions"
@@ -711,70 +842,97 @@ export function OrganisersManagement() {
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
 
-                      {openActionId === item.id && (
-                        <div className="action-menu-dropdown absolute right-0 top-10 min-w-[170px] rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-1.5 shadow-2xl z-30 text-left space-y-0.5 animate-scale-in">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenActionId(null);
-                              window.open(item.eventId ? `/admin/overview?eventId=${item.eventId}` : `/admin/dashboard`, "_blank");
+                      {openActionId === item.id &&
+                        dropdownCoords &&
+                        typeof document !== "undefined" &&
+                        createPortal(
+                          <div
+                            style={{
+                              position: "fixed",
+                              top: `${dropdownCoords.top}px`,
+                              left: `${dropdownCoords.left}px`,
+                              zIndex: 9999,
                             }}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors cursor-pointer block"
+                            className="action-menu-dropdown min-w-[175px] max-w-[220px] rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] p-1.5 shadow-2xl text-left space-y-0.5 animate-scale-in"
                           >
-                            Inspect portal →
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDropdownCoords(null);
+                                window.open(item.eventId ? `/admin/overview?eventId=${item.eventId}` : `/admin/dashboard`, "_blank");
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors cursor-pointer block"
+                            >
+                              Inspect portal →
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenActionId(null);
-                              window.open(item.eventId ? `/admin/registrations?eventId=${item.eventId}` : `/admin/registrations`, "_blank");
-                            }}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                          >
-                            View guest list
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDropdownCoords(null);
+                                window.open(item.eventId ? `/admin/registrations?eventId=${item.eventId}` : `/admin/registrations`, "_blank");
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                            >
+                              View guest list
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleResetLogin(item)}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                          >
-                            Reset login
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDropdownCoords(null);
+                                handleResetLogin(item);
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                            >
+                              Reset login
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleViewEvent(item)}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                          >
-                            View event
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDropdownCoords(null);
+                                handleViewEvent(item);
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                            >
+                              View event
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleEmailOrganiser(item)}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
-                          >
-                            Email organiser
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDropdownCoords(null);
+                                handleEmailOrganiser(item);
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-white hover:bg-white/5 transition-colors cursor-pointer block"
+                            >
+                              Email organiser
+                            </button>
 
-                          <div className="h-px bg-[#2A2D31] my-1" />
+                            <div className="h-px bg-[#2A2D31] my-1" />
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOpenActionId(null);
-                              setDeleteModalData(item);
-                              setDeleteEventsOption(false);
-                            }}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-2 group"
-                          >
-                            <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:scale-105 transition-transform" />
-                            <span>Delete organiser</span>
-                          </button>
-                        </div>
-                      )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setDropdownCoords(null);
+                                setDeleteModalData(item);
+                                setDeleteEventsOption(false);
+                              }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors cursor-pointer flex items-center gap-2 group"
+                            >
+                              <Trash2 className="w-4 h-4 text-[#EF4444] group-hover:scale-105 transition-transform" />
+                              <span>Delete organiser</span>
+                            </button>
+                          </div>,
+                          document.body
+                        )}
                     </div>
                   </div>
 
@@ -794,7 +952,10 @@ export function OrganisersManagement() {
 
                     <div className="flex items-center justify-between text-xs text-[#9B9EA4] pt-1 border-t border-[#2A2D31]/40">
                       <span className="font-mono text-white flex items-center gap-1">
-                        <span className="text-[#FE760B]">🎫</span> {Number(item.tickets || 0).toLocaleString()} tickets
+                        <span className="text-[#FE760B]">🎫</span>{" "}
+                        {item.tickets === "Unlimited"
+                          ? "Unlimited"
+                          : `${Number(item.tickets || 0).toLocaleString()} tickets`}
                       </span>
                       <span className="text-[11px]">
                         Approved: <span className="text-[#D0D0D1]">{formatApprovedDate(item.approvedAt)}</span>
@@ -990,7 +1151,11 @@ export function OrganisersManagement() {
               {deleteModalData.eventTitle && (
                 <div className="text-xs text-[#9B9EA4] pt-1.5 border-t border-[#2A2D31]/60 flex items-center justify-between">
                   <span className="truncate max-w-[240px]">Event: {deleteModalData.eventTitle}</span>
-                  <span className="text-[11px] font-mono text-white">{Number(deleteModalData.tickets || 0).toLocaleString()} tix</span>
+                  <span className="text-[11px] font-mono text-white">
+                    {deleteModalData.tickets === "Unlimited"
+                      ? "Unlimited"
+                      : `${Number(deleteModalData.tickets || 0).toLocaleString()} tix`}
+                  </span>
                 </div>
               )}
             </div>

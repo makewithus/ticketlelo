@@ -969,7 +969,7 @@ export function SuperAdminPayoutManagement() {
                   required
                   value={confirmForm.utr}
                   onChange={(e) => setConfirmForm({ ...confirmForm, utr: e.target.value })}
-                  placeholder="e.g. 403819283748 or UPI-REF-9921"
+                  placeholder="Enter transaction or settlement reference ID"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs font-mono text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] transition-colors"
                 />
                 <p className="text-[10px] text-[#9E9E9F]">
@@ -1000,7 +1000,7 @@ export function SuperAdminPayoutManagement() {
                   rows={2}
                   value={confirmForm.remarks}
                   onChange={(e) => setConfirmForm({ ...confirmForm, remarks: e.target.value })}
-                  placeholder="e.g. Disbursed via GPay Business account"
+                  placeholder="Enter disbursement notes or channel details"
                   className="w-full px-3.5 py-2 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] transition-colors resize-none"
                 />
               </div>
@@ -1067,7 +1067,7 @@ export function SuperAdminPayoutManagement() {
                 required
                 value={holdReason}
                 onChange={(e) => setHoldReason(e.target.value)}
-                placeholder="Specify the reason for withholding payment (e.g. Attendee ticket disputes under investigation)..."
+                placeholder="Specify the reason for withholding payment..."
                 className="w-full px-3.5 py-2 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-white placeholder-[#9E9E9F] focus:outline-none focus:border-rose-500 transition-colors resize-none"
               />
             </div>

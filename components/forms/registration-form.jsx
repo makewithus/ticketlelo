@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -98,6 +99,20 @@ export function RegistrationForm({ events, preSelectedEventId }) {
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponData, setCouponData] = useState(null);
   const [couponError, setCouponError] = useState("");
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showSuccessModal && typeof document !== "undefined") {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+      document.documentElement.style.overflow = "";
+      document.body.classList.remove("modal-open");
+    }
+  }, [showSuccessModal]);
 
   const {
     register,
@@ -349,9 +364,13 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             handler: async function (response) {
               try {
                 // Verify payment
+                const currentToken = await auth.currentUser?.getIdToken?.().catch(() => null);
+                const verifyHeaders = { "Content-Type": "application/json" };
+                if (currentToken) verifyHeaders["Authorization"] = `Bearer ${currentToken}`;
+
                 const verifyResponse = await fetch("/api/verify-payment", {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: verifyHeaders,
                   body: JSON.stringify({
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
@@ -522,7 +541,7 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
             <Input
               type="email"
-              placeholder="you@example.com"
+              placeholder="Enter your email address"
               {...register("email")}
               disabled={isLoading}
               className="h-12 pl-10 bg-white dark:bg-slate-900 border-[#FE760B]/20 dark:border-slate-800 text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-[#FE760B] rounded-xl"
@@ -728,23 +747,43 @@ export function RegistrationForm({ events, preSelectedEventId }) {
       </form>
 
       {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-6 shadow-2xl max-w-md w-full animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <div className="w-12 h-12 rounded-full bg-[#FE760B]/20 flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-[#FE760B]" />
+      {isMounted && typeof document !== "undefined" && showSuccessModal && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-y-auto overscroll-contain animate-fade-in"
+          style={{ touchAction: "pan-y" }}
+        >
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-white touch-pan-y overscroll-contain">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#2A2D31]">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <CheckCircle className="w-6 h-6 text-emerald-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white">
-                  Registration Successful!
-                </h3>
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                    Registration Successful!
+                  </h3>
+                  <p className="text-xs text-[#9B9EA4]">
+                    Your spot is confirmed
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setShowSuccessModal(false)}
-                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  if (typeof document !== "undefined") {
+                    document.body.style.overflow = "";
+                    document.body.style.touchAction = "";
+                    document.documentElement.style.overflow = "";
+                    document.body.classList.remove("modal-open");
+                  }
+                }}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer shrink-0"
+                aria-label="Close"
               >
-                <X className="w-5 h-5 text-gray-400" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -764,13 +803,22 @@ export function RegistrationForm({ events, preSelectedEventId }) {
             </div>
 
             <Button
-              onClick={() => setShowSuccessModal(false)}
-              className="w-full bg-[#FE760B] hover:bg-[#FE760B]/90 text-[#131517] font-bold h-11 rounded-xl cursor-pointer"
+              onClick={() => {
+                setShowSuccessModal(false);
+                if (typeof document !== "undefined") {
+                  document.body.style.overflow = "";
+                  document.body.style.touchAction = "";
+                  document.documentElement.style.overflow = "";
+                  document.body.classList.remove("modal-open");
+                }
+              }}
+              className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold h-11 sm:h-12 rounded-xl cursor-pointer shadow-md"
             >
               Got It
             </Button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

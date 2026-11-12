@@ -69,3 +69,4 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to save points rules" }, { status: 500 });
   }
 }
+

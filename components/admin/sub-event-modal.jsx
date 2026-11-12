@@ -410,7 +410,7 @@ export function SubEventModal({ event, isOpen, onClose }) {
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="e.g. AI & ML Hands-on Workshop"
+                    placeholder="Enter sub-event title"
                     className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                   />
                 </div>
@@ -498,7 +498,7 @@ export function SubEventModal({ event, isOpen, onClose }) {
                   <Input
                     value={formData.venue}
                     onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-                    placeholder="e.g. Hall A - Tech Block"
+                    placeholder="Enter venue or room name"
                     className="bg-[#131517] border-[#2A2D31] text-sm text-white placeholder-[#5E626B] rounded-xl focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]"
                   />
                 </div>
@@ -565,7 +565,7 @@ export function SubEventModal({ event, isOpen, onClose }) {
                       <Input
                         value={formData.virtualMeetingPasscode}
                         onChange={(e) => setFormData({ ...formData, virtualMeetingPasscode: e.target.value })}
-                        placeholder="e.g. TECH2027"
+                        placeholder="Enter passcode"
                         className="bg-[#1A1C1F] border-[#2A2D31] text-xs text-white placeholder-[#5E626B] rounded-xl"
                       />
                     </div>

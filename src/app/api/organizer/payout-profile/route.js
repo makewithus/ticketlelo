@@ -81,6 +81,12 @@ export async function POST(request) {
       organizerName,
       email,
       phone,
+      accountHolderName,
+      accountNumber,
+      ifsc,
+      pan,
+      gstin,
+      billingAddress,
     } = body;
 
     const emailLower = (caller.email || '').toLowerCase().trim();
@@ -101,15 +107,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Organizer ID not resolved' }, { status: 400 });
     }
 
-    // Client-side / server-side verification of format
-    const upiResult = validateUpiId({ username, handle, customHandle, fullUpiId });
-    if (!upiResult.isValid) {
-      return NextResponse.json({ error: upiResult.error }, { status: 400 });
+    // Verify format if UPI is provided
+    let upiResult = { isValid: true, disclaimer: null };
+    if (username || fullUpiId) {
+      upiResult = validateUpiId({ username, handle, customHandle, fullUpiId });
+      if (!upiResult.isValid && !accountNumber) {
+        return NextResponse.json({ error: upiResult.error }, { status: 400 });
+      }
     }
 
-    const bankResult = validateBankName(bankName, customBankName);
-    if (!bankResult.isValid) {
-      return NextResponse.json({ error: bankResult.error }, { status: 400 });
+    if (bankName || customBankName) {
+      const bankResult = validateBankName(bankName, customBankName);
+      if (!bankResult.isValid) {
+        return NextResponse.json({ error: bankResult.error }, { status: 400 });
+      }
     }
 
     const savedProfile = await saveOrganizerPayoutProfile(
@@ -124,6 +135,12 @@ export async function POST(request) {
         organizerName: organizerName || caller.displayName || caller.fullName || 'Organizer',
         email: email || caller.email || '',
         phone: phone || caller.phone || '',
+        accountHolderName,
+        accountNumber,
+        ifsc,
+        pan,
+        gstin,
+        billingAddress,
       },
       caller
     );
@@ -132,7 +149,7 @@ export async function POST(request) {
       success: true,
       message: 'Payout profile saved successfully.',
       profile: savedProfile,
-      disclaimer: upiResult.disclaimer,
+      disclaimer: upiResult?.disclaimer || null,
     });
   } catch (error) {
     console.error('[/api/organizer/payout-profile] POST error:', error);

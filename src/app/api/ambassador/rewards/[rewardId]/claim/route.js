@@ -48,3 +48,4 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to claim reward" }, { status: 400 });
   }
 }
+

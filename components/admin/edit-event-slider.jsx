@@ -338,7 +338,7 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
                       step="1"
                       value={formData.price}
                       onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                      placeholder="e.g. 199"
+                      placeholder="Enter ticket price"
                       className="w-full bg-[#1A1C1F] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl pl-7 pr-3 py-2 text-xs font-bold text-white outline-none"
                     />
                   </div>
@@ -590,7 +590,7 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Venue Name (e.g. Convention Center / Campus Hall)"
+                  placeholder="Enter venue or campus location"
                   className="w-full bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] rounded-xl px-3.5 py-2 text-xs text-white placeholder-[#64748B] outline-none transition-colors"
                 />
                 <input

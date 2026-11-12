@@ -1,41 +1,67 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { authFetch } from "@/lib/auth";
 import {
-  Loader2,
+  Users,
+  Award,
+  Share2,
   Copy,
   Check,
-  Share2,
-  DollarSign,
-  Users,
-  MousePointer,
-  ShoppingBag,
-  Clock,
-  CheckCircle,
-  FileText,
-  AlertCircle,
+  QrCode,
   Sparkles,
+  Gift,
+  ArrowRight,
+  Loader2,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  X,
+  ExternalLink,
+  Shield,
+  Layers,
+  ChevronRight,
+  TrendingUp,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getAmbassadorByUserId, submitAmbassadorApplication } from "@/lib/ambassadors";
-import { getAmbassadorCommissions } from "@/lib/commissions";
-import { getPublicBaseUrl } from "@/lib/app-url";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { getPublicBaseUrl } from "@/lib/app-url";
 
 export default function AmbassadorDashboardPage() {
   const { user } = useAuth();
-  const [ambassador, setAmbassador] = useState(null);
-  const [commissions, setCommissions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [enrollments, setEnrollments] = useState([]);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState(null);
+  const [myApplications, setMyApplications] = useState([]);
+  const [availablePrograms, setAvailablePrograms] = useState([]);
+
+  // Active Tab: overview, ledger, rewards, leaderboard
+  const [activeTab, setActiveTab] = useState("overview");
+
+  // Copy Feedback
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [copiedTemplate, setCopiedTemplate] = useState(null);
 
-  // Application form state
-  const [submitting, setSubmitting] = useState(false);
+  // QR Code Modal
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  // Claim Reward Modal
+  const [claimingReward, setClaimingReward] = useState(null);
+  const [claimNotes, setClaimNotes] = useState("");
+  const [processingClaim, setProcessingClaim] = useState(false);
+
+  // Apply to Program Modal
+  const [isApplyOpen, setIsApplyOpen] = useState(false);
+  const [applyProgram, setApplyProgram] = useState(null);
+  const [applying, setApplying] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -43,88 +69,90 @@ export default function AmbassadorDashboardPage() {
     college: "",
     department: "",
     yearOfStudy: "3rd Year",
-    city: "",
-    socialProfile: "",
-    clubRoles: "",
-    priorExperience: "",
     promotionPitch: "",
   });
 
-  const loadAmbassadorData = useCallback(async () => {
-    if (!user?.id) return;
-    setIsLoading(true);
-    try {
-      const ambData = await getAmbassadorByUserId(user.id);
-      setAmbassador(ambData);
+  const isOrganiserOrAdmin =
+    user?.role === "organiser" ||
+    user?.role === "superAdmin" ||
+    user?.isAdmin ||
+    (user?.email || "").toLowerCase().includes("ticketlelo");
 
-      if (ambData) {
-        const commList = await getAmbassadorCommissions(ambData.id);
-        setCommissions(commList);
+  const loadData = useCallback(async (showLoading = true) => {
+    if (!user) return;
+    if (showLoading) setLoading(true);
+    try {
+      const res = await authFetch("/api/ambassador/me");
+      if (!res.ok) {
+        throw new Error("Failed to load ambassador profile");
+      }
+      const data = await res.json();
+      setEnrollments(data.enrollments || []);
+      setMyApplications(data.myApplications || []);
+      setAvailablePrograms(data.availablePrograms || []);
+
+      if (data.enrollments && data.enrollments.length > 0) {
+        setSelectedEnrollmentId((prev) => prev || data.enrollments[0].id);
       }
     } catch (err) {
-      console.error("Failed to load ambassador portal data:", err);
-      toast.error("Could not load ambassador data.");
+      console.error(err);
+      if (showLoading) {
+        toast.error("Could not load ambassador data");
+      }
     } finally {
-      setIsLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    if (user) {
-      const timer = setTimeout(() => {
-        loadAmbassadorData();
-      }, 0);
-      return () => clearTimeout(timer);
-    } else {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [user, loadAmbassadorData]);
+    loadData(true);
+    // Real-time background sync every 8s so when an organizer approves an application, the portal transitions automatically
+    const timer = setInterval(() => {
+      loadData(false);
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [loadData]);
 
-  const handleApply = async (e) => {
-    e.preventDefault();
-    const fullName = (formData.fullName || user?.displayName || user?.name || "").trim();
-    const email = (formData.email || user?.email || "").trim();
-    const whatsappPhone = (formData.whatsappPhone || user?.phone || user?.phoneNumber || "").trim();
-    const college = (formData.college || "").trim();
+  const activeEnrollment =
+    enrollments.find((e) => e.id === selectedEnrollmentId) || enrollments[0] || null;
 
-    if (!fullName || !email || !whatsappPhone || !college) {
-      toast.error("Please fill in your name, email, WhatsApp phone, and college.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await submitAmbassadorApplication({
-        userId: user.id,
-        programId: "prog_praroha_2027",
-        parentEventId: "praroha-2027",
-        fullName,
-        email,
-        whatsappPhone,
-        college,
-        answers: {
-          department: formData.department,
-          yearOfStudy: formData.yearOfStudy,
-          city: formData.city,
-          socialProfile: formData.socialProfile,
-          clubRoles: formData.clubRoles,
-          priorExperience: formData.priorExperience,
-          promotionPitch: formData.promotionPitch,
-        },
-      });
-      toast.success("Application submitted successfully! It is now in the organizer review queue.");
-      await loadAmbassadorData();
-    } catch (err) {
-      toast.error(err.message || "Failed to submit application");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const connectedEvents = activeEnrollment?.events || [];
+  const [selectedEventId, setSelectedEventId] = useState("default");
 
-  const referralUrl = ambassador
-    ? `${getPublicBaseUrl()}/e/praroha-2027?ref=${ambassador.referralCode}`
+  // Leaderboard tab state
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === "leaderboard" && activeEnrollment?.programId) {
+      setLoadingLeaderboard(true);
+      fetch(`/api/public/leaderboard/${activeEnrollment.programId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setLeaderboardData(d.leaderboard || []);
+        })
+        .catch((err) => {
+          console.error("Failed to load leaderboard:", err);
+        })
+        .finally(() => setLoadingLeaderboard(false));
+    }
+  }, [activeTab, activeEnrollment?.programId]);
+
+  const baseUrl = getPublicBaseUrl();
+  const referralCode = activeEnrollment?.referralCode || "";
+
+  // Target event calculation: direct to connected event page with #register, or /discover
+  const chosenEvent =
+    selectedEventId !== "all" && connectedEvents.length > 0
+      ? connectedEvents.find((evt) => evt.id === selectedEventId) || connectedEvents[0]
+      : selectedEventId === "all"
+      ? null
+      : connectedEvents[0] || null;
+
+  const referralUrl = referralCode
+    ? chosenEvent
+      ? `${baseUrl}/e/${chosenEvent.slug || chosenEvent.id}?ref=${referralCode}#register`
+      : `${baseUrl}/discover?ref=${referralCode}`
     : "";
 
   const handleCopy = (text, type) => {
@@ -132,405 +160,847 @@ export default function AmbassadorDashboardPage() {
     if (type === "link") {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-      toast.success("Referral URL copied to clipboard!");
+      toast.success("Referral link copied!");
     } else if (type === "code") {
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
-      toast.success("Promo code copied!");
-    } else {
-      setCopiedTemplate(type);
-      setTimeout(() => setCopiedTemplate(null), 2000);
-      toast.success("Marketing template copied!");
+      toast.success("Referral code copied!");
     }
   };
 
-  if (isLoading) {
-    return <BrandLoader message="Loading..." fullScreen />;
+  const handleClaimReward = async (reward) => {
+    setProcessingClaim(true);
+    try {
+      const res = await authFetch(`/api/ambassador/rewards/${reward.id}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: claimNotes.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Claim failed");
+      toast.success(`Reward claimed! Transaction: ${data.ledgerId}`);
+      setClaimingReward(null);
+      setClaimNotes("");
+      loadData();
+    } catch (err) {
+      toast.error(err.message || "Could not claim reward");
+    } finally {
+      setProcessingClaim(false);
+    }
+  };
+
+  const handleApplyToProgram = async (e) => {
+    e.preventDefault();
+    if (!applyProgram) return;
+    setApplying(true);
+    try {
+      const res = await authFetch(`/api/programs/${applyProgram.id}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: (formData.fullName || user.displayName || "").trim(),
+          email: (formData.email || user.email || "").trim(),
+          whatsappPhone: formData.whatsappPhone.trim(),
+          college: formData.college.trim(),
+          answers: {
+            department: formData.department,
+            yearOfStudy: formData.yearOfStudy,
+            promotionPitch: formData.promotionPitch,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit application");
+      toast.success("Application submitted! Our team will review your profile shortly.");
+      setIsApplyOpen(false);
+      loadData();
+    } catch (err) {
+      toast.error(err.message || "Application submission failed");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  if (loading) {
+    return <BrandLoader message="Loading ambassador portal..." fullScreen />;
   }
 
-  if (!ambassador) {
+  // ── Case 1: User has NO active enrollments ──
+  if (!activeEnrollment) {
     return (
-      <div className="min-h-screen bg-[#131517] text-white p-6 md:p-12 flex flex-col items-center justify-center">
-        <div className="max-w-2xl w-full bg-[#1A1C1F] border border-[#2A2D31] p-6 sm:p-10 rounded-3xl shadow-xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-[#FE760B]/14 text-[#FE760B] flex items-center justify-center mx-auto border border-[#FE760B]/30">
-              <Users className="w-6 h-6" />
+      <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white p-6 md:p-12">
+        <div className="max-w-3xl mx-auto space-y-6">
+          {/* Organiser Portal Switch if applicable */}
+          {isOrganiserOrAdmin && (
+            <div className="flex justify-end">
+              <Link href="/admin/dashboard">
+                <Button variant="outline" className="text-xs h-9 gap-1.5 border-[#FE760B]/30 text-[#FE760B] hover:bg-[#FE760B]/10">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Switch to Organiser Dashboard</span>
+                </Button>
+              </Link>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Campus ambassador program</h1>
-            <p className="text-xs sm:text-sm text-[#9B9EA4] max-w-lg mx-auto">
-              Join the official PRAROHA 2027 Ambassador Network. Promote the fest on your campus, track verified referral ticket sales, and earn direct commissions.
-            </p>
+          )}
+
+          {/* Pending Applications Status */}
+          {myApplications.length > 0 && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                <Clock className="w-4 h-4" />
+                <span>Application Under Review</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-[#9B9EA4]">
+                You have submitted an ambassador application for{" "}
+                <strong className="text-slate-900 dark:text-white">
+                  {availablePrograms.find((p) => p.id === myApplications[0].programId)?.name ||
+                    myApplications[0].programName ||
+                    myApplications[0].programId}
+                </strong>
+                . The organizer will review your profile and issue your unique referral code.
+              </p>
+            </div>
+          )}
+
+          {/* Welcome & Join Programs Card */}
+          <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl p-6 sm:p-10 shadow-xl space-y-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/14 text-[#FE760B] flex items-center justify-center mx-auto border border-[#FE760B]/30">
+              <Sparkles className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Creator Campus Ambassador Program
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] max-w-lg mx-auto">
+                Represent official campus fests and workshops, share exclusive student invites with your unique code, earn points, and unlock VIP merchandise & passes.
+              </p>
+            </div>
+
+            <div className="pt-4 space-y-4 text-left">
+              <h2 className="text-xs font-bold text-slate-600 dark:text-[#9B9EA4] uppercase tracking-wider">
+                Available Ambassador Programs
+              </h2>
+              {availablePrograms.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6">
+                  No public ambassador cohorts are currently accepting new applications. Please check back soon!
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {availablePrograms.map((prog) => {
+                    const isPending = myApplications.some(
+                      (a) => a.programId === prog.id && a.status === "pending"
+                    );
+                    const isApproved = enrollments.some((e) => e.programId === prog.id);
+
+                    return (
+                      <div
+                        key={prog.id}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white">{prog.name}</h3>
+                          <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                            {prog.college ? `Campus: ${prog.college} • ` : ""}{prog.description || "Earn rewards by referring attendees."}
+                          </p>
+                        </div>
+                        {isApproved ? (
+                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold shrink-0">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Enrolled Ambassador</span>
+                          </span>
+                        ) : isPending ? (
+                          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 text-xs font-semibold shrink-0">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Application Under Review</span>
+                          </span>
+                        ) : (
+                          <Button
+                            onClick={() => {
+                              setApplyProgram(prog);
+                              setFormData({
+                                fullName: user?.displayName || "",
+                                email: user?.email || "",
+                                whatsappPhone: user?.phone || "",
+                                college: prog.college || "",
+                                department: "",
+                                yearOfStudy: "3rd Year",
+                                promotionPitch: "",
+                              });
+                              setIsApplyOpen(true);
+                            }}
+                            className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-4 rounded-xl shrink-0 cursor-pointer"
+                          >
+                            Apply Now
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          <form onSubmit={handleApply} className="space-y-4 pt-2">
-            {/* Student Identity */}
-            <div className="space-y-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#FE760B]">1. Student identity</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Full name *</label>
-                  <Input
-                    required
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    placeholder="Adil Mohammed"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
+          {/* Application Form Modal */}
+          {isApplyOpen && applyProgram && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-white animate-scale-in">
+                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5">
+                  <div>
+                    <h3 className="text-base font-bold text-white tracking-tight">
+                      Apply: {applyProgram.name}
+                    </h3>
+                    <p className="text-xs text-[#9B9EA4] mt-0.5">
+                      Tell the organizers about your campus presence.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsApplyOpen(false)}
+                    className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Verified email *</label>
-                  <Input
-                    required
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="adil@cusat.ac.in"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">WhatsApp contact *</label>
-                  <Input
-                    required
-                    value={formData.whatsappPhone}
-                    onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
-                    placeholder="9876543210"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
+
+                <form onSubmit={handleApplyToProgram} className="space-y-3.5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                        Full Name *
+                      </label>
+                      <Input
+                        required
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        placeholder="Enter full name"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                        WhatsApp Contact *
+                      </label>
+                      <Input
+                        required
+                        value={formData.whatsappPhone}
+                        onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
+                        placeholder="Enter WhatsApp number"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                      College / University *
+                    </label>
+                    <Input
+                      required
+                      value={formData.college}
+                      onChange={(e) => setFormData({ ...formData, college: e.target.value })}
+                      placeholder="Enter college or university"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                        Department / Branch
+                      </label>
+                      <Input
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        placeholder="Enter department or branch"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                        Year of Study
+                      </label>
+                      <Input
+                        value={formData.yearOfStudy}
+                        onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
+                        placeholder="Enter year of study"
+                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                      Promotion Strategy Pitch *
+                    </label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={formData.promotionPitch}
+                      onChange={(e) => setFormData({ ...formData, promotionPitch: e.target.value })}
+                      placeholder="Describe your promotion plan for your campus"
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm p-3 text-white placeholder:text-[#71767B] focus:outline-none focus:border-[#FE760B]"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsApplyOpen(false)}
+                      className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={applying}
+                      className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {applying ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Submit Application"}
+                    </Button>
+                  </div>
+                </form>
               </div>
             </div>
-
-            {/* Academic Affiliation */}
-            <div className="space-y-1 pt-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#FE760B]">2. Academic affiliation</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">College / university *</label>
-                  <Input
-                    required
-                    value={formData.college}
-                    onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                    placeholder="CUSAT"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Branch / department</label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="Computer Science"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Year of study</label>
-                  <Input
-                    value={formData.yearOfStudy}
-                    onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
-                    placeholder="3rd Year B.Tech"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Campus Reach */}
-            <div className="space-y-1 pt-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#FE760B]">3. Campus reach</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Current city</label>
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    placeholder="Kochi"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Instagram / LinkedIn URL</label>
-                  <Input
-                    value={formData.socialProfile}
-                    onChange={(e) => setFormData({ ...formData, socialProfile: e.target.value })}
-                    placeholder="instagram.com/adil_m"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#9B9EA4]">Student club roles</label>
-                  <Input
-                    value={formData.clubRoles}
-                    onChange={(e) => setFormData({ ...formData, clubRoles: e.target.value })}
-                    placeholder="Tech Club Lead"
-                    className="bg-[#212327] border-[#2A2D31] text-xs h-9 text-white placeholder:text-[#9B9EA4] focus:border-[#FE760B]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Prior Experience & Pitch */}
-            <div className="space-y-3 pt-2">
-              <div>
-                <label className="text-[11px] text-[#FE760B] font-semibold uppercase tracking-wider block mb-1">
-                  4. Prior experience
-                </label>
-                <textarea
-                  value={formData.priorExperience}
-                  onChange={(e) => setFormData({ ...formData, priorExperience: e.target.value })}
-                  placeholder="Past fest coordinator or ambassador history..."
-                  rows={2}
-                  className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl p-2.5 text-xs text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] text-[#FE760B] font-semibold uppercase tracking-wider block mb-1">
-                  5. Promotion pitch *
-                </label>
-                <textarea
-                  required
-                  value={formData.promotionPitch}
-                  onChange={(e) => setFormData({ ...formData, promotionPitch: e.target.value })}
-                  placeholder="How do you plan to promote PRAROHA on your campus?"
-                  rows={2}
-                  className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl p-2.5 text-xs text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B]"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={submitting}
-              className="w-full h-11 font-semibold bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] rounded-xl shadow-sm transition-all mt-4 cursor-pointer"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Submit ambassador application"}
-            </Button>
-          </form>
+          )}
         </div>
       </div>
     );
   }
 
-  // Calculate financial ledger totals
-  const totalEarned = commissions.reduce((sum, c) => (c.status !== "reversed" ? sum + (c.commissionAmount || 0) : sum), 0);
-  const totalHeld = commissions.reduce((sum, c) => (c.status === "held" ? sum + (c.commissionAmount || 0) : sum), 0);
-  const totalPaid = commissions.reduce((sum, c) => (c.status === "paid" ? sum + (c.commissionAmount || 0) : sum), 0);
-
-  const whatsappTemplate = `Hey! Join us at PRAROHA 2027, the flagship national technical fest! Get workshops, hackathons, and pro show tickets here: ${referralUrl} (Use code ${ambassador.referralCode} for exclusive discounts!)`;
-  const instagramTemplate = `Excited to be a Campus Ambassador for PRAROHA 2027! Grab your fest passes & track combos with code [${ambassador.referralCode}] at ${referralUrl}. Link in bio!`;
+  // ── Case 2: User is Enrolled in an Ambassador Program ──
+  const whatsappTemplate = encodeURIComponent(
+    `Hey! Register for ${chosenEvent?.name || "the event"} using my exclusive referral code ${referralCode}: ${referralUrl}`
+  );
 
   return (
-    <div className="min-h-screen bg-[#131517] text-white p-6 md:p-10 space-y-8">
-      {/* Top Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#2A2D31]">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#FE760B] bg-[#FE760B]/14 border border-[#FE760B]/30 px-2.5 py-0.5 rounded-full">
-              Official campus ambassador
-            </span>
-            <span className="text-xs font-semibold text-[#3DD68C] bg-[#3DD68C]/12 border border-[#3DD68C]/25 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-              Approved
-            </span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-            Welcome, {ambassador.fullName}
-          </h1>
-          <p className="text-xs md:text-sm text-[#9B9EA4] mt-1">
-            College: <strong className="text-white">{ambassador.college || "Campus Partner"}</strong> | Program: PRAROHA 2027 Ambassador Network
-          </p>
-        </div>
-
-        {/* Promo code badge */}
-        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-3 flex items-center gap-3">
-          <div>
-            <div className="text-[10px] text-[#9B9EA4] uppercase tracking-wider font-semibold">Your referral code</div>
-            <div className="text-lg font-mono font-bold text-[#FE760B]">{ambassador.referralCode}</div>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleCopy(ambassador.referralCode, "code")}
-            className="border-[#2A2D31] bg-[#212327] text-xs h-8 text-[#D0D0D1] hover:text-white"
-          >
-            {copiedCode ? <Check className="w-3.5 h-3.5 text-[#3DD68C]" /> : <Copy className="w-3.5 h-3.5" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Share Link Card */}
-      <div className="p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] space-y-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#FE760B]">
-          <Share2 className="w-4 h-4 text-[#FE760B]" />
-          <span>Your unique referral link</span>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Input
-            readOnly
-            value={referralUrl}
-            className="bg-[#212327] border-[#2A2D31] text-xs text-white font-mono h-10"
-          />
-          <Button
-            onClick={() => handleCopy(referralUrl, "link")}
-            className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] text-xs font-semibold h-10 whitespace-nowrap cursor-pointer shadow-sm"
-          >
-            {copiedLink ? (
-              <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-[#131517]" /> Copied!</span>
-            ) : (
-              <span className="flex items-center gap-1.5"><Copy className="w-3.5 h-3.5 text-[#131517]" /> Copy link</span>
-            )}
-          </Button>
-        </div>
-        <p className="text-[11px] text-[#9B9EA4]">
-          Share this link with your college peers. Registrations and ticket purchases made via this link are automatically attributed to your account.
-        </p>
-      </div>
-
-      {/* Professional KPI Metrics Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
-          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
-            <span>Referral clicks</span>
-            <MousePointer className="w-4 h-4 text-[#7AA2FF]" />
-          </div>
-          <div className="text-2xl font-bold text-white tabular-nums">{ambassador.metrics?.clicks || 0}</div>
-          <div className="text-[11px] text-[#9B9EA4]">Total verified visits</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
-          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
-            <span>Paid tickets sold</span>
-            <ShoppingBag className="w-4 h-4 text-[#3DD68C]" />
-          </div>
-          <div className="text-2xl font-bold text-white tabular-nums">{ambassador.metrics?.paidOrders || 0}</div>
-          <div className="text-[11px] text-[#9B9EA4]">Confirmed orders</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
-          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
-            <span>Attributed revenue</span>
-            <DollarSign className="w-4 h-4 text-[#7AA2FF]" />
-          </div>
-          <div className="text-2xl font-bold text-white tabular-nums">₹{ambassador.metrics?.attributedRevenue || 0}</div>
-          <div className="text-[11px] text-[#9B9EA4]">Gross ticket volume</div>
-        </div>
-
-        <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
-          <div className="flex items-center justify-between text-[#9B9EA4] text-xs">
-            <span>Earned commission</span>
-            <Sparkles className="w-4 h-4 text-[#FDE003]" />
-          </div>
-          <div className="text-2xl font-bold text-[#3DD68C] tabular-nums">₹{totalEarned}</div>
-          <div className="text-[11px] text-[#9B9EA4]">₹{totalHeld} in 7-day holding</div>
-        </div>
-      </div>
-
-      {/* Commission Ledger Table */}
-      <div className="p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-bold text-white">Commission ledger &amp; attributed orders</h3>
-            <p className="text-xs text-[#9B9EA4]">
-              Subject to standard 7-day fraud and refund holding period (AMB-010).
+    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white p-4 sm:p-6 lg:p-8 space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* ── Top Header Banner & Role Switcher ── */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-[#2A2D31]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
+                <Sparkles className="w-3 h-3" />
+                Verified Campus Ambassador
+              </span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <CheckCircle className="w-3 h-3" />
+                Active
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Welcome, {user?.displayName || "Campus Ambassador"}
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+              Program: <strong className="text-slate-800 dark:text-[#D0D0D1]">{activeEnrollment.program?.name || "Ambassador Network"}</strong>
             </p>
           </div>
+
+          <div className="flex items-center gap-2">
+            {isOrganiserOrAdmin && (
+              <Link href="/admin/dashboard">
+                <Button variant="outline" className="text-xs h-9 gap-1.5 border-[#FE760B]/30 text-[#FE760B] hover:bg-[#FE760B]/10">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Organiser Suite</span>
+                </Button>
+              </Link>
+            )}
+
+            {enrollments.length > 1 && (
+              <select
+                value={selectedEnrollmentId}
+                onChange={(e) => setSelectedEnrollmentId(e.target.value)}
+                className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-xs h-9 rounded-xl px-3"
+              >
+                {enrollments.map((enr) => (
+                  <option key={enr.id} value={enr.id}>
+                    {enr.program?.name || enr.referralCode}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
-        {commissions.length === 0 ? (
-          <div className="py-8 text-center text-xs text-[#9B9EA4]">
-            No attributed orders recorded yet. Start sharing your referral link with students!
+        {/* ── Privacy-Compliant Ambassador Metrics ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4]">
+              <span>Total Points</span>
+              <Award className="w-4 h-4 text-[#FE760B]" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-[#FE760B] tabular-nums mt-1">
+              {(activeEnrollment.totalPoints || 0).toLocaleString("en-IN")}
+            </div>
+            <div className="text-[10px] text-slate-400 dark:text-[#9B9EA4] mt-0.5">Points Balance</div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-[#2A2D31] text-[#9B9EA4] font-semibold">
-                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[100px]">Order ID</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap min-w-[120px]">Buyer</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Order amount</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Commission</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Status</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Maturity date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#2A2D31] text-[#D0D0D1]">
-                {commissions.map((c) => (
-                  <tr key={c.id} className="hover:bg-[#212327]/50 transition">
-                    <td className="py-2.5 px-3 font-mono text-[#9B9EA4]">{c.orderId}</td>
-                    <td className="py-2.5 px-3 font-medium text-white">{c.buyerName || "Attendee"}</td>
-                    <td className="py-2.5 px-3 tabular-nums">₹{c.orderAmount}</td>
-                    <td className="py-2.5 px-3 font-semibold text-[#3DD68C] tabular-nums">₹{c.commissionAmount}</td>
-                    <td className="py-2.5 px-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold inline-flex items-center gap-1.5 ${
-                        c.status === "paid"
-                          ? "bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30"
-                          : c.status === "held"
-                          ? "bg-[#FDE003]/15 text-[#FDE003] border border-[#FDE003]/30"
-                          : c.status === "reversed"
-                          ? "bg-[#FF6B6B]/15 text-[#FF6B6B] border border-[#FF6B6B]/30"
-                          : "bg-[#212327] text-[#9B9EA4] border border-[#2A2D31]"
-                      }`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : "Pending"}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-[#9B9EA4] tabular-nums">
-                      {c.matureAt?.toDate ? c.matureAt.toDate().toLocaleDateString("en-IN") : "Matured"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4]">
+              <span>Leaderboard Rank</span>
+              <TrendingUp className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
+              #{activeEnrollment.rank || 1}
+            </div>
+            <div className="text-[10px] text-slate-400 dark:text-[#9B9EA4] mt-0.5">Campus Standing</div>
+          </div>
+
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4]">
+              <span>Available Rewards</span>
+              <Gift className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tabular-nums mt-1">
+              {activeEnrollment.rewards?.length || 0}
+            </div>
+            <div className="text-[10px] text-slate-400 dark:text-[#9B9EA4] mt-0.5">Claimable in Catalog</div>
+          </div>
+
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 sm:p-5 shadow-xs">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4]">
+              <span>Referral Code</span>
+              <QrCode className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="text-xl sm:text-2xl font-mono font-bold text-slate-900 dark:text-white mt-1">
+              {referralCode}
+            </div>
+            <div className="text-[10px] text-slate-400 dark:text-[#9B9EA4] mt-0.5">Unique Ambassador Tag</div>
+          </div>
+        </div>
+
+        {/* ── Referral Link & Share Promotion Card ── */}
+        <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-[#FE760B]" />
+                <span>Your Referral Link & Promotional Toolkit</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                Share this link or your promo code on campus WhatsApp groups, club stories, and posters.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsQrModalOpen(true)}
+                className="h-9 px-3.5 gap-1.5 bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] rounded-xl text-xs font-semibold flex items-center cursor-pointer transition-colors shadow-xs active:scale-[0.98]"
+              >
+                <QrCode className="w-3.5 h-3.5 text-[#FE760B]" />
+                <span>Show QR</span>
+              </button>
+              <a
+                href={`https://wa.me/?text=${whatsappTemplate}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex"
+              >
+                <button
+                  type="button"
+                  className="h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-2 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/35 transition-all shadow-xs cursor-pointer active:scale-[0.98]"
+                >
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.456 5.712 1.457h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  <span>Share WhatsApp</span>
+                </button>
+              </a>
+            </div>
+          </div>
+
+          {connectedEvents.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-[#2A2D31]">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Target Event:</span>
+              {connectedEvents.map((evt) => {
+                const isSelected =
+                  selectedEventId === evt.id ||
+                  (selectedEventId === "default" && connectedEvents[0].id === evt.id);
+                return (
+                  <button
+                    key={evt.id}
+                    type="button"
+                    onClick={() => setSelectedEventId(evt.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/40 font-bold shadow-xs"
+                        : "bg-slate-100 dark:bg-[#212327] text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31]"
+                    }`}
+                  >
+                    <span>{evt.name}</span>
+                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setSelectedEventId("all")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedEventId === "all"
+                    ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/40 font-bold shadow-xs"
+                    : "bg-slate-100 dark:bg-[#212327] text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31]"
+                }`}
+              >
+                <span>All Events Catalog (/discover)</span>
+                {selectedEventId === "all" && <span className="w-1.5 h-1.5 rounded-full bg-[#FE760B]" />}
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              readOnly
+              value={referralUrl}
+              className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] font-mono text-xs h-10 text-slate-900 dark:text-[#D0D0D1]"
+            />
+            <Button
+              onClick={() => handleCopy(referralUrl, "link")}
+              className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-10 px-4 rounded-xl shrink-0 cursor-pointer shadow-xs transition-colors"
+            >
+              {copiedLink ? <Check className="w-3.5 h-3.5 mr-1 text-[#131517]" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+              {copiedLink ? "Copied Link" : "Copy Link"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleCopy(referralCode, "code")}
+              className="text-xs h-10 px-4 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl font-semibold cursor-pointer transition-colors"
+            >
+              {copiedCode ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+              {copiedCode ? "Copied Code" : "Copy Code"}
+            </Button>
+            {referralCode && (
+              <Link
+                href={chosenEvent ? `/e/${chosenEvent.slug || chosenEvent.id}?ref=${referralCode}` : `/discover?ref=${referralCode}`}
+                target="_blank"
+              >
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl cursor-pointer transition-colors"
+                  title="Test referral link in current environment"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* ── Tabs Navigation ── */}
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-[#2A2D31] pb-2">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "ledger", label: `Points History (${activeEnrollment.ledger?.length || 0})` },
+            { id: "rewards", label: `Rewards Catalog (${activeEnrollment.rewards?.length || 0})` },
+            { id: "leaderboard", label: "Program Leaderboard" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                activeTab === tab.id
+                  ? "bg-[#FE760B] text-[#131517]"
+                  : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── TAB CONTENT ── */}
+        {activeTab === "overview" && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">How You Earn Points</h3>
+              <ul className="text-xs text-slate-600 dark:text-[#9B9EA4] space-y-2 list-disc list-inside">
+                <li>
+                  <strong>Free Event Registrations:</strong> Earn {activeEnrollment.program?.pointsRules?.basePointsPerTicket || 10} points when an attendee registers using your link or code.
+                </li>
+                <li>
+                  <strong>Paid Ticket Purchases:</strong> Earn {((activeEnrollment.program?.pointsRules?.basePointsPerTicket || 10) * (activeEnrollment.program?.pointsRules?.paidMultiplier || 2))} points per ticket on verified paid transactions.
+                </li>
+                <li>
+                  <strong>Milestone Bonuses:</strong> Automatically unlock bulk bonus points as your referral count crosses tier targets.
+                </li>
+              </ul>
+            </div>
           </div>
         )}
-      </div>
 
-      {/* Approved Marketing Copy Templates */}
-      <div className="space-y-4">
-        <h3 className="text-base font-bold text-white">Approved promotional templates</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* WhatsApp Template */}
-          <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-2">
+        {activeTab === "ledger" && (
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] overflow-hidden animate-fade-in">
+            <div className="p-4 border-b border-slate-100 dark:border-[#2A2D31]">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Points Audit Ledger</h3>
+              <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                Append-only log of verified registrations, bonuses, and redeemed rewards.
+              </p>
+            </div>
+
+            {(!activeEnrollment.ledger || activeEnrollment.ledger.length === 0) ? (
+              <p className="text-xs text-slate-400 text-center py-8">No points activity recorded yet.</p>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-[#2A2D31]">
+                {activeEnrollment.ledger.map((entry) => (
+                  <div key={entry.id} className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                        {entry.reason || entry.type || "Points Allocation"}
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                        {new Date(entry.createdAt?.toDate ? entry.createdAt.toDate() : entry.createdAt || Date.now()).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-bold font-mono ${
+                      entry.points >= 0 ? "text-emerald-400" : "text-rose-400"
+                    }`}>
+                      {entry.points >= 0 ? `+${entry.points}` : entry.points} pts
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "rewards" && (
+          <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#3DD68C] flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> WhatsApp message
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Available Rewards</h3>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                  Redeem your accumulated points for exclusive perks and physical merchandise.
+                </p>
+              </div>
+            </div>
+
+            {(!activeEnrollment.rewards || activeEnrollment.rewards.length === 0) ? (
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-8 text-center text-xs text-slate-400">
+                No rewards configured for this program yet.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeEnrollment.rewards.map((reward) => {
+                  const canAfford = (activeEnrollment.totalPoints || 0) >= reward.pointsRequired;
+                  const isOutOfStock = reward.totalInventory !== -1 && (reward.remainingInventory ?? reward.totalInventory) <= 0;
+
+                  return (
+                    <div
+                      key={reward.id}
+                      className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 flex flex-col justify-between space-y-3 shadow-xs"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                            {reward.rewardType}
+                          </span>
+                          <span className="text-xs font-bold text-[#FE760B] tabular-nums">
+                            {reward.pointsRequired} pts
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">{reward.title}</h4>
+                        <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 line-clamp-2">
+                          {reward.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-[#2A2D31] flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400">
+                          {isOutOfStock ? "Out of Stock" : `${reward.remainingInventory ?? reward.totalInventory} in stock`}
+                        </span>
+                        <Button
+                          size="sm"
+                          disabled={!canAfford || isOutOfStock}
+                          onClick={() => setClaimingReward(reward)}
+                          className={`text-xs h-8 px-3 rounded-lg ${
+                            canAfford && !isOutOfStock
+                              ? "bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold cursor-pointer"
+                              : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {canAfford ? "Claim Reward" : "Need Points"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "leaderboard" && (
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Program Leaderboard</h3>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                  Top performing campus ambassadors ranked by verified ticket referrals.
+                </p>
+              </div>
+              <Link href={`/leaderboard/${activeEnrollment.programId}`} target="_blank">
+                <Button size="sm" variant="outline" className="text-xs h-8 gap-1.5 px-3 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl font-semibold cursor-pointer transition-colors">
+                  <span>Public View</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-[#212327] rounded-xl flex items-center justify-between border border-slate-200 dark:border-[#2A2D31]">
+              <span className="text-xs font-bold text-[#FE760B]">Your Current Position:</span>
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                Rank #{activeEnrollment.rank || 1} • {activeEnrollment.totalPoints || 0} pts
               </span>
+            </div>
+
+            {loadingLeaderboard ? (
+              <div className="py-8 flex justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-[#FE760B]" />
+              </div>
+            ) : leaderboardData.length === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400">
+                No verified ambassador referrals recorded yet. Be the first to refer!
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-[#2A2D31] rounded-xl overflow-hidden border border-slate-100 dark:border-[#2A2D31]">
+                {leaderboardData.slice(0, 10).map((amb) => {
+                  const rankBadge = {
+                    1: "bg-[#FE760B] text-black font-extrabold shadow-sm",
+                    2: "bg-slate-300 text-black font-bold",
+                    3: "bg-amber-700 text-white font-bold",
+                  }[amb.rank] || "bg-[#212327] text-[#9B9EA4]";
+
+                  return (
+                    <div
+                      key={amb.rank}
+                      className={`p-3 sm:px-4 flex items-center justify-between gap-3 text-xs ${
+                        amb.rank === 1 ? "bg-[#FE760B]/5" : "bg-transparent"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] shrink-0 ${rankBadge}`}>
+                          {amb.rank}
+                        </span>
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {amb.displayName}
+                        </span>
+                      </div>
+                      <span className="font-bold text-[#FE760B] font-mono">
+                        {amb.totalPoints} pts
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── QR Code Modal ── */}
+        {isQrModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4 animate-scale-in">
+              <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3">
+                <div className="flex items-center gap-2">
+                  <QrCode className="w-4 h-4 text-[#FE760B]" />
+                  <h3 className="text-sm font-bold text-white">Ambassador Referral QR</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsQrModalOpen(false)}
+                  className="p-1 rounded-xl text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 bg-white rounded-2xl flex items-center justify-center mx-auto w-48 h-48 border border-slate-200 shadow-inner">
+                {/* Dynamically generated QR image via reliable public image provider */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(referralUrl)}`}
+                  alt="Referral QR"
+                  className="w-40 h-40 object-contain"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs font-mono font-bold text-[#FE760B]">{referralCode}</p>
+                <p className="text-[11px] text-[#9B9EA4]">
+                  Scan with any phone camera to open event registration with this referral code auto-applied.
+                </p>
+              </div>
+
               <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleCopy(whatsappTemplate, "whatsapp")}
-                className="text-xs text-[#9B9EA4] hover:text-white hover:bg-[#212327] h-7 px-2"
+                onClick={() => setIsQrModalOpen(false)}
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-9 rounded-xl cursor-pointer shadow-xs"
               >
-                {copiedTemplate === "whatsapp" ? <Check className="w-3 h-3 text-[#3DD68C]" /> : <Copy className="w-3 h-3" />}
+                Done
               </Button>
             </div>
-            <p className="text-xs text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] p-3 rounded-lg font-mono whitespace-pre-wrap">
-              {whatsappTemplate}
-            </p>
           </div>
+        )}
 
-          {/* Instagram Story Template */}
-          <div className="p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#7AA2FF] flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" /> Instagram story / bio
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleCopy(instagramTemplate, "instagram")}
-                className="text-xs text-[#9B9EA4] hover:text-white hover:bg-[#212327] h-7 px-2"
-              >
-                {copiedTemplate === "instagram" ? <Check className="w-3 h-3 text-[#3DD68C]" /> : <Copy className="w-3 h-3" />}
-              </Button>
+        {/* ── Claim Confirmation Modal ── */}
+        {claimingReward && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-white animate-scale-in">
+              <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5">
+                <h3 className="text-sm font-bold text-white tracking-tight">Confirm Reward Claim</h3>
+                <button
+                  type="button"
+                  onClick={() => setClaimingReward(null)}
+                  className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <p className="font-bold text-white text-sm">{claimingReward.title}</p>
+                <p className="text-[#9B9EA4]">{claimingReward.description}</p>
+                <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-400 font-semibold">
+                  This will deduct {claimingReward.pointsRequired} points from your balance.
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                    Delivery Notes / Shirt Size (if applicable)
+                  </label>
+                  <Input
+                    value={claimNotes}
+                    onChange={(e) => setClaimNotes(e.target.value)}
+                    placeholder="Enter delivery notes or size details"
+                    className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2A2D31]">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setClaimingReward(null)}
+                  className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={processingClaim}
+                  onClick={() => handleClaimReward(claimingReward)}
+                  className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {processingClaim ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Confirm Redemption"}
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] p-3 rounded-lg font-mono whitespace-pre-wrap">
-              {instagramTemplate}
-            </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

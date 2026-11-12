@@ -96,3 +96,4 @@ graph TD
 - Integration tests: Order checkout with referral, free registration with referral, bulk import parsing.
 - Security tests: Cross-tenant isolation verification, self-approval prevention, client points write block.
 - Verification and documentation update across all 7 audit reports.
+

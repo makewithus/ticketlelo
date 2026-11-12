@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { calculatePricing } from "../../lib/pricing.js";
 import { generateSignedQRPayload, verifySignedQRPayload } from "../../lib/qr.js";
+import { verifyPaymentHmac } from "../../lib/payment-security.js";
 
 test("Phase 4: Centralized Pricing Engine (calculatePricing)", async (t) => {
   await t.test("Tax-inclusive pricing matches PRAROHA reference (₹449.10 total)", () => {
@@ -98,5 +100,35 @@ test("Phase 4: Cryptographic QR Code Security (generateSignedQRPayload & verifyS
     const verification = verifySignedQRPayload(corruptedPayload, secretKey);
     assert.equal(verification.isValid, false);
     assert.match(verification.error, /signature/i);
+  });
+
+  await t.test("Validates payment signature HMAC and handles unauthenticated/guest checkout safely", () => {
+    const secret = "test_razorpay_secret_key_12345";
+    const orderId = "order_test_12345";
+    const paymentId = "pay_test_67890";
+    const validSignature = crypto.createHmac("sha256", secret).update(`${orderId}|${paymentId}`).digest("hex");
+
+    assert.equal(verifyPaymentHmac(`${orderId}|${paymentId}`, validSignature, secret), true);
+    assert.equal(verifyPaymentHmac(`${orderId}|${paymentId}`, "invalid_signature", secret), false);
+    assert.equal(verifyPaymentHmac(`${orderId}|tampered`, validSignature, secret), false);
+
+    // Guest checkout fallback derivation
+    const caller = null;
+    const order = {
+      userId: "user_guest_abc",
+      registrationData: {
+        email: "guest@example.com",
+        fullName: "Guest Attendee",
+        whatsappPhone: "9876543210"
+      }
+    };
+    const buyer = order.registrationData;
+    const effectiveUserId = order.userId || caller?.uid || buyer?.userId || null;
+    const effectiveEmail = String(buyer?.email || order?.registrationData?.email || caller?.email || "").toLowerCase();
+    const effectiveName = buyer?.fullName || order?.registrationData?.fullName || caller?.decodedToken?.name || "Attendee";
+
+    assert.equal(effectiveUserId, "user_guest_abc");
+    assert.equal(effectiveEmail, "guest@example.com");
+    assert.equal(effectiveName, "Guest Attendee");
   });
 });

@@ -26,3 +26,4 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to list referral codes" }, { status: 500 });
   }
 }
+

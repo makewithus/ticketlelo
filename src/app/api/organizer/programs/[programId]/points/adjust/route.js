@@ -29,3 +29,4 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to adjust points" }, { status: 500 });
   }
 }
+

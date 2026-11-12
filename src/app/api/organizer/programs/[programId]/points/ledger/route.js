@@ -33,3 +33,4 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to fetch points ledger" }, { status: 500 });
   }
 }
+

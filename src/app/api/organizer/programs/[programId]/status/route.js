@@ -28,3 +28,4 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: err.message || "Failed to update lifecycle status" }, { status: 500 });
   }
 }
+

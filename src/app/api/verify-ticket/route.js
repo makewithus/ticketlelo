@@ -46,7 +46,8 @@ export async function POST(req) {
     let ticketRef = null;
 
     const directTicketSnap = await adminDb.collection("tickets").doc(ticketId).get();
-    if (directTicketSnap.exists()) {
+    const directExists = typeof directTicketSnap.exists === "function" ? directTicketSnap.exists() : Boolean(directTicketSnap.exists);
+    if (directExists) {
       ticket = { id: directTicketSnap.id, ...directTicketSnap.data() };
       ticketRef = directTicketSnap.ref;
     } else {

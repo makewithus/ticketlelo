@@ -27,7 +27,8 @@ export async function POST(request) {
 
     // 1. Fetch Ticket
     const ticketSnap = await getDoc(doc(db, "tickets", ticketId));
-    if (!ticketSnap.exists()) {
+    const ticketExists = typeof ticketSnap.exists === "function" ? ticketSnap.exists() : Boolean(ticketSnap.exists);
+    if (!ticketExists) {
       return NextResponse.json({ error: "Ticket not found." }, { status: 404 });
     }
     const ticket = { id: ticketSnap.id, ...ticketSnap.data() };
@@ -36,7 +37,8 @@ export async function POST(request) {
 
     // 2. Fetch Sub-Event
     const subEventSnap = await getDoc(doc(db, "subEvents", subEventId));
-    if (!subEventSnap.exists()) {
+    const subEventExists = typeof subEventSnap.exists === "function" ? subEventSnap.exists() : Boolean(subEventSnap.exists);
+    if (!subEventExists) {
       return NextResponse.json({ error: "Sub-event not found." }, { status: 404 });
     }
     const subEvent = { id: subEventSnap.id, ...subEventSnap.data() };
@@ -94,7 +96,8 @@ export async function GET(request) {
     }
 
     const ticketSnap = await getDoc(doc(db, "tickets", ticketId));
-    if (!ticketSnap.exists()) {
+    const ticketExists = typeof ticketSnap.exists === "function" ? ticketSnap.exists() : Boolean(ticketSnap.exists);
+    if (!ticketExists) {
       return NextResponse.json({ error: "Ticket not found." }, { status: 404 });
     }
     const ticket = { id: ticketSnap.id, ...ticketSnap.data() };
@@ -102,7 +105,8 @@ export async function GET(request) {
     if (!ownsResource(caller, ticket)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const subEventSnap = await getDoc(doc(db, "subEvents", subEventId));
-    if (!subEventSnap.exists()) {
+    const subEventExists = typeof subEventSnap.exists === "function" ? subEventSnap.exists() : Boolean(subEventSnap.exists);
+    if (!subEventExists) {
       return NextResponse.json({ error: "Sub-event not found." }, { status: 404 });
     }
     const subEvent = { id: subEventSnap.id, ...subEventSnap.data() };

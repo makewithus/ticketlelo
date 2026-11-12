@@ -29,6 +29,8 @@ export function TicketDeckView({
   initialTickets = [],
   onBack,
   standalone = false,
+  showStackOnly = false,
+  compact = false,
 }) {
   const effectiveTickets =
     Array.isArray(initialTickets) && initialTickets.length > 0
@@ -48,11 +50,15 @@ export function TicketDeckView({
   const [showFullModal, setShowFullModal] = useState(false);
 
   // Generous vertical spacing tuned for both mobile and desktop (Image 2)
-  const [spacing, setSpacing] = useState(90);
+  const [spacing, setSpacing] = useState(compact ? 24 : 90);
 
   useEffect(() => {
     function updateSpacing() {
       if (typeof window === "undefined") return;
+      if (compact) {
+        setSpacing(window.innerWidth < 480 ? 20 : window.innerWidth < 768 ? 22 : 24);
+        return;
+      }
       if (window.innerWidth < 360) {
         setSpacing(92);
       } else if (window.innerWidth < 480) {
@@ -70,7 +76,7 @@ export function TicketDeckView({
     updateSpacing();
     window.addEventListener("resize", updateSpacing);
     return () => window.removeEventListener("resize", updateSpacing);
-  }, []);
+  }, [compact]);
 
   // Active ticket is the front-most ticket
   const activeTicketId =
@@ -146,14 +152,18 @@ export function TicketDeckView({
           });
         }, 130);
       } else {
-        setIsDetailView(true);
+        if (showStackOnly) {
+          setShowFullModal(true);
+        } else {
+          setIsDetailView(true);
+        }
       }
 
       setTimeout(() => {
         setAnimatingTicketId(null);
       }, 500);
     },
-    [activeTicketId, isDetailView, defaultOrder]
+    [activeTicketId, isDetailView, defaultOrder, showStackOnly]
   );
 
   // Handle back button
@@ -203,54 +213,64 @@ export function TicketDeckView({
     toast.success("Downloading verified PDF pass...");
   };
 
-  const stackHeight = Math.max(
-    420,
-    (ticketsWithQr.length - 1) * spacing + (spacing >= 110 ? 320 : 220)
-  );
+  const stackHeight = compact
+    ? Math.max(260, (ticketsWithQr.length - 1) * spacing + 220)
+    : Math.max(
+        400,
+        (ticketsWithQr.length - 1) * spacing + (spacing >= 110 ? 320 : 220)
+      );
 
   return (
     <div
-      className={`relative w-full max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] mx-auto flex flex-col justify-between select-none transition-all duration-300 ${
-        standalone
-          ? "min-h-screen py-4 px-3 lg:py-8 lg:px-6"
-          : "py-2 px-2 sm:px-3 lg:py-4 lg:px-6"
+      className={`relative w-full mx-auto flex flex-col justify-between select-none transition-all duration-300 ${
+        compact
+          ? "max-w-[420px] py-1 px-1 overflow-hidden"
+          : showStackOnly
+          ? "max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] py-1 px-1 overflow-visible"
+          : standalone
+          ? "min-h-screen max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] py-4 px-3 lg:py-8 lg:px-6"
+          : "max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] py-2 px-2 sm:px-3 lg:py-4 lg:px-6"
       }`}
     >
       {/* Ambient Subtle Warm Glow (Desktop enhanced) */}
-      <div className="absolute -top-16 -right-16 lg:-top-24 lg:-right-24 w-72 h-72 lg:w-[480px] lg:h-[480px] rounded-full bg-[#FE760B]/10 blur-3xl pointer-events-none" />
+      {!showStackOnly && (
+        <div className="absolute -top-16 -right-16 lg:-top-24 lg:-right-24 w-72 h-72 lg:w-[480px] lg:h-[480px] rounded-full bg-[#FE760B]/10 blur-3xl pointer-events-none" />
+      )}
 
       {/* ── TOP HEADER (Clean Alignment Across Mobile & Desktop) ── */}
-      <header className="relative z-40 flex items-center justify-between gap-3 mb-2 sm:mb-3 lg:mb-6">
-        <div className="flex items-center gap-3 lg:gap-4">
-          {/* Circular White Back Button */}
-          <button
-            onClick={handleBackClick}
-            aria-label="Back"
-            className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-white text-black shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all shrink-0 cursor-pointer border-none"
-          >
-            <ChevronLeft className="w-5 h-5 lg:w-6 lg:h-6 text-black stroke-[2.5]" />
-          </button>
+      {!showStackOnly && (
+        <header className="relative z-40 flex items-center justify-between gap-3 mb-2 sm:mb-3 lg:mb-6">
+          <div className="flex items-center gap-3 lg:gap-4">
+            {/* Circular White Back Button */}
+            <button
+              onClick={handleBackClick}
+              aria-label="Back"
+              className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-white text-black shadow-md flex items-center justify-center hover:scale-105 active:scale-95 transition-all shrink-0 cursor-pointer border-none"
+            >
+              <ChevronLeft className="w-5 h-5 lg:w-6 lg:h-6 text-black stroke-[2.5]" />
+            </button>
 
-          {/* Title & Count */}
-          <div className="flex flex-col">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[#061A3F] dark:text-white leading-tight">
-              My tickets
-            </h1>
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={isDetailView ? activeTicket?.title : "count"}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 4 }}
-                transition={{ duration: 0.18 }}
-                className="text-xs sm:text-sm lg:text-base text-[#4A566F] dark:text-[#9B9EA4] font-medium"
-              >
-                {isDetailView ? activeTicket?.title : `${ticketsWithQr.length} tickets`}
-              </motion.p>
-            </AnimatePresence>
+            {/* Title & Count */}
+            <div className="flex flex-col">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-[#061A3F] dark:text-white leading-tight">
+                My tickets
+              </h1>
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={isDetailView ? activeTicket?.title : "count"}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.18 }}
+                  className="text-xs sm:text-sm lg:text-base text-[#4A566F] dark:text-[#9B9EA4] font-medium"
+                >
+                  {isDetailView ? activeTicket?.title : `${ticketsWithQr.length} tickets`}
+                </motion.p>
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* ── MAIN CONTENT AREA ── */}
       <main className="relative flex-1 flex flex-col justify-center py-1 overflow-visible">
@@ -286,15 +306,17 @@ export function TicketDeckView({
                     animate={{
                       // Tilted at -22deg matching layout
                       rotate: -22,
-                      y: isAnimating ? baseY - (spacing >= 110 ? 75 : 55) : baseY,
+                      y: isAnimating
+                        ? baseY - (compact ? 32 : (spacing >= 110 ? 75 : 55))
+                        : baseY,
                       x: 0,
                       scale: isAnimating ? 1.04 : isFront ? 1.02 : 1,
                     }}
                     whileHover={{
                       scale: isFront ? 1.03 : 1.02,
                       y: isAnimating
-                        ? baseY - (spacing >= 110 ? 75 : 55)
-                        : baseY - (spacing >= 110 ? 12 : 8),
+                        ? baseY - (compact ? 32 : (spacing >= 110 ? 75 : 55))
+                        : baseY - (compact ? 6 : (spacing >= 110 ? 12 : 8)),
                       transition: { duration: 0.16 },
                     }}
                     whileTap={{ scale: 0.98 }}
@@ -308,6 +330,7 @@ export function TicketDeckView({
                     <TicketGraphic
                       ticket={ticket}
                       horizontal={false}
+                      compact={compact}
                       onQrClick={(t) => setSelectedQrTicket(t)}
                     />
                   </motion.div>

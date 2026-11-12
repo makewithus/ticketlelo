@@ -26,42 +26,60 @@ export async function GET(request) {
       return NextResponse.json({ error: "Super administrator access required" }, { status: 403 });
     }
 
-    // 1. Fetch approved hosting requests
+    // 1. Fetch approved hosting requests (excluding deleted requests)
     let hrDocs = [];
     try {
       const hrSnap = await adminDb
         .collection("hostingRequests")
         .where("status", "==", "approved")
         .get();
-      hrDocs = hrSnap.docs;
+      hrDocs = hrSnap.docs.filter((doc) => {
+        const d = doc.data() || {};
+        return d.deleted !== true && d.isDeleted !== true && d.status !== "deleted";
+      });
     } catch (hrErr) {
       console.warn("Failed querying approved hostingRequests:", hrErr.message);
     }
 
-    // 2. Fetch users with organiser role
+    // 2. Fetch users with organiser role (excluding deleted users)
     let organiserUsers = [];
     try {
       const usersSnap = await adminDb
         .collection("users")
         .where("role", "in", ["organiser", "organizer"])
         .get();
-      organiserUsers = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      organiserUsers = usersSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((u) => u.deleted !== true && u.isDeleted !== true && u.status !== "deleted");
     } catch (_) {
       try {
         const usersSnap = await adminDb.collection("users").get();
         organiserUsers = usersSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((u) => u.role === "organiser" || u.role === "organizer");
+          .filter(
+            (u) =>
+              (u.role === "organiser" || u.role === "organizer") &&
+              u.deleted !== true &&
+              u.isDeleted !== true &&
+              u.status !== "deleted",
+          );
       } catch (uErr) {
         console.warn("Failed querying organiser users:", uErr.message);
       }
     }
 
-    // 3. Fetch events to link live/ended/published status & capacities
+    // 3. Fetch active events (strictly excluding deleted events)
     let eventsList = [];
     try {
       const eventsSnap = await adminDb.collection("events").get();
-      eventsList = eventsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      eventsList = eventsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter(
+          (e) =>
+            e.deleted !== true &&
+            e.isDeleted !== true &&
+            e.status !== "deleted",
+        );
     } catch (eErr) {
       console.warn("Failed querying events:", eErr.message);
     }
@@ -80,6 +98,45 @@ export async function GET(request) {
     const seenEmails = new Set();
     const organisers = [];
 
+    // Helper: Resolve accurate real-time ticket counts without dummy 9999 or 150
+    const resolveTicketCount = (event, hrData) => {
+      const hrCount = Number(hrData?.numberOfTickets || hrData?.expectedAttendees);
+      const evTotal = Number(event?.totalTickets);
+      const evCap = Number(event?.capacity || event?.maxCapacity);
+
+      // Prioritize explicit positive cap < 9999
+      if (Number.isFinite(hrCount) && hrCount > 0 && hrCount < 9999) {
+        return hrCount;
+      }
+      if (Number.isFinite(evTotal) && evTotal > 0 && evTotal < 9999) {
+        return evTotal;
+      }
+      if (Number.isFinite(evCap) && evCap > 0 && evCap < 9999) {
+        return evCap;
+      }
+
+      // Check if event is open/unlimited
+      if (
+        event?.limitCapacity === false ||
+        event?.capacity === "Unlimited" ||
+        evTotal >= 9999 ||
+        evCap >= 9999
+      ) {
+        return "Unlimited";
+      }
+
+      // Check real registrations count if present
+      const actualRegistrations =
+        event?.attendeesCount ??
+        event?.registrationsCount ??
+        (Array.isArray(event?.attendees) ? event.attendees.length : null);
+      if (actualRegistrations !== null && Number.isFinite(Number(actualRegistrations))) {
+        return Number(actualRegistrations);
+      }
+
+      return hrCount > 0 ? hrCount : 0;
+    };
+
     // Process hosting requests
     for (const doc of hrDocs) {
       const d = doc.data();
@@ -88,7 +145,7 @@ export async function GET(request) {
       if (emailKey) seenEmails.add(emailKey);
       const isDuplicate = (emailCounts[emailKey] || 0) > 1;
 
-      // Find matching event
+      // Find matching non-deleted event
       const matchingEvent = eventsList.find(
         (e) =>
           e.id === d.eventId ||
@@ -97,8 +154,8 @@ export async function GET(request) {
           (e.createdByEmail && emailKey && e.createdByEmail.toLowerCase() === emailKey),
       );
 
-      // Determine Event Status
-      let eventStatus = "Published";
+      // Determine Event Status based on real event state
+      let eventStatus = "No Event";
       if (matchingEvent) {
         let eventDate = null;
         if (matchingEvent.date?.toDate) {
@@ -109,23 +166,18 @@ export async function GET(request) {
 
         if (matchingEvent.status === "live") {
           eventStatus = "Live";
-        } else if (matchingEvent.status === "draft" || matchingEvent.isActive === false) {
+        } else if (matchingEvent.status === "draft" || matchingEvent.isActive === false || matchingEvent.published === false) {
           eventStatus = "Draft";
         } else if (matchingEvent.status === "ended" || (eventDate && eventDate.getTime() < now - 24 * 60 * 60 * 1000)) {
           eventStatus = "Ended";
-        } else if (matchingEvent.status === "published" || matchingEvent.isActive === true) {
+        } else if (matchingEvent.status === "published" || matchingEvent.isActive === true || matchingEvent.published === true) {
           eventStatus = "Published";
         }
       } else {
-        eventStatus = d.isDraft ? "Draft" : "Published";
+        eventStatus = d.isDraft ? "Draft" : "No Event";
       }
 
-      const ticketsCount =
-        matchingEvent?.totalTickets ||
-        matchingEvent?.capacity ||
-        d.numberOfTickets ||
-        d.expectedAttendees ||
-        150;
+      const ticketsCount = resolveTicketCount(matchingEvent, d);
 
       let approvedAtDate = null;
       if (d.approvedAt?.toDate) {
@@ -145,7 +197,7 @@ export async function GET(request) {
         userId: d.organiserId || d.userId || null,
         name: d.name || d.organizerName || "Organiser",
         college: d.college || "college",
-        eventTitle: d.eventTitle || matchingEvent?.name || "Event",
+        eventTitle: matchingEvent?.name || d.eventTitle || (matchingEvent ? "Event" : "No event created"),
         isPaid: Boolean(d.isPaid || matchingEvent?.isPaid),
         eventStatus,
         tickets: ticketsCount,
@@ -173,18 +225,16 @@ export async function GET(request) {
           (e.createdByEmail && e.createdByEmail.toLowerCase() === emailKey),
       );
 
-      let eventStatus = "Published";
+      let eventStatus = "No Event";
       if (matchingEvent) {
         let eventDate = null;
         if (matchingEvent.date?.toDate) eventDate = matchingEvent.date.toDate();
         else if (matchingEvent.date) eventDate = new Date(matchingEvent.date);
 
         if (matchingEvent.status === "live") eventStatus = "Live";
-        else if (matchingEvent.status === "draft" || matchingEvent.isActive === false) eventStatus = "Draft";
+        else if (matchingEvent.status === "draft" || matchingEvent.isActive === false || matchingEvent.published === false) eventStatus = "Draft";
         else if (matchingEvent.status === "ended" || (eventDate && eventDate.getTime() < now - 24 * 60 * 60 * 1000)) eventStatus = "Ended";
-        else if (matchingEvent.status === "published" || matchingEvent.isActive === true) eventStatus = "Published";
-      } else {
-        eventStatus = "Draft";
+        else if (matchingEvent.status === "published" || matchingEvent.isActive === true || matchingEvent.published === true) eventStatus = "Published";
       }
 
       let createdAtDate = null;
@@ -203,7 +253,7 @@ export async function GET(request) {
         eventTitle: matchingEvent?.name || "No events created yet",
         isPaid: Boolean(matchingEvent?.isPaid),
         eventStatus,
-        tickets: matchingEvent?.totalTickets || matchingEvent?.capacity || 0,
+        tickets: resolveTicketCount(matchingEvent, null),
         loginEmail: email || "—",
         phone: u.whatsappPhone || u.phone || "",
         isDuplicate: (emailCounts[emailKey] || 0) > 1,

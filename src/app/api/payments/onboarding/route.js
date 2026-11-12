@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth-server';
-import {
-  initiateOrganizerOnboarding,
-  syncOrganizerAccountStatus,
-  getOrganizerConnectedAccount
-} from '@/lib/payments/connected-accounts';
-import { PAYMENT_PROVIDERS } from '@/lib/payments/types';
+import { saveOrganizerPayoutProfile, getOrganizerPayoutProfile } from '@/lib/payments/payout-engine';
 
 /**
  * GET /api/payments/onboarding
- * Query current onboarding status and capability flags for the organizer
+ * Query current payout and settlement readiness for the organizer.
+ * In the independent settlement architecture, organizers are immediately ready
+ * to publish events and receive payments without a linked Razorpay account.
  */
 export async function GET(request) {
   try {
@@ -21,61 +18,42 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const requestedOrgId = searchParams.get('organizerId');
 
-    // Strict tenant isolation: Caller must be the organizer or a superadmin
     const organizerId = requestedOrgId || caller.organizationId || caller.uid;
     const isOwner = caller.organizationId === organizerId || caller.uid === organizerId;
-    const isSuperAdmin = caller.role === 'superadmin' || caller.role === 'admin';
+    const isSuperAdmin = caller.role === 'superadmin' || caller.role === 'admin' || caller.role === 'superAdmin';
 
     if (!isOwner && !isSuperAdmin) {
       return NextResponse.json({ error: 'Forbidden: Access to this organizer account is denied' }, { status: 403 });
     }
 
-    // Sync status with payment provider if sync=true flag passed
-    const shouldSync = searchParams.get('sync') === 'true';
-    let account = null;
+    const profile = await getOrganizerPayoutProfile(organizerId);
 
-    if (shouldSync) {
-      account = await syncOrganizerAccountStatus(organizerId);
-    } else {
-      account = await getOrganizerConnectedAccount(organizerId);
-    }
-
-    if (!account) {
-      return NextResponse.json({
-        connected: false,
-        status: 'NOT_CONNECTED',
-        isReadyForTransfers: false,
-        isReadyForSettlement: false
-      });
-    }
-
-    // Never leak raw banking credentials or secret metadata
     const sanitizedAccount = {
       connected: true,
-      organizerId: account.organizerId,
-      provider: account.provider,
-      providerAccountId: account.providerAccountId,
-      legalBusinessName: account.legalBusinessName,
-      businessType: account.businessType,
-      verificationStatus: account.verificationStatus,
-      onboardingStatus: account.onboardingStatus,
-      settlementEligibility: Boolean(account.settlementEligibility),
-      capabilities: account.capabilities || {},
-      requirements: account.requirements || [],
-      lastSyncAt: account.lastSyncAt,
-      createdAt: account.createdAt
+      organizerId,
+      provider: 'manual',
+      providerAccountId: profile?.accountNumber ? `bank_${organizerId.slice(0, 8)}` : (profile?.upiId || `payout_${organizerId.slice(0, 8)}`),
+      legalBusinessName: profile?.organizerName || 'Organizer',
+      verificationStatus: 'ACTIVE',
+      onboardingStatus: 'ACTIVE',
+      settlementEligibility: true,
+      isReadyForTransfers: true,
+      isReadyForSettlement: true,
+      payoutMethod: profile?.payoutMethod || (profile?.accountNumber ? 'BANK_TRANSFER' : 'UPI'),
+      hasPayoutProfile: Boolean(profile),
+      updatedAt: profile?.updatedAt || new Date().toISOString()
     };
 
     return NextResponse.json({ success: true, account: sanitizedAccount });
   } catch (error) {
     console.error('[API/payments/onboarding GET] Error:', error.message);
-    return NextResponse.json({ error: error.message || 'Failed to fetch onboarding status' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to fetch payout status' }, { status: 500 });
   }
 }
 
 /**
  * POST /api/payments/onboarding
- * Initiate Route linked account creation for an organizer
+ * Saves organizer bank account or UPI payout details for independent settlements.
  */
 export async function POST(request) {
   try {
@@ -88,51 +66,58 @@ export async function POST(request) {
     const {
       organizerId: reqOrgId,
       legalBusinessName,
-      businessType = 'individual',
+      organizerName,
       email,
       phone,
-      provider = PAYMENT_PROVIDERS.RAZORPAY_ROUTE
+      accountHolderName,
+      accountNumber,
+      ifsc,
+      bankName,
+      upiId,
+      pan,
+      gstin,
+      billingAddress,
     } = body;
 
     const targetOrgId = reqOrgId || caller.organizationId || caller.uid;
     const isOwner = caller.organizationId === targetOrgId || caller.uid === targetOrgId;
-    const isSuperAdmin = caller.role === 'superadmin' || caller.role === 'admin';
+    const isSuperAdmin = caller.role === 'superadmin' || caller.role === 'admin' || caller.role === 'superAdmin';
 
     if (!isOwner && !isSuperAdmin) {
       return NextResponse.json({ error: 'Forbidden: Access to this organizer account is denied' }, { status: 403 });
     }
 
-    if (!legalBusinessName) {
-      return NextResponse.json({ error: 'legalBusinessName is required' }, { status: 400 });
-    }
-
-    const contactEmail = email || caller.email;
-    if (!contactEmail) {
-      return NextResponse.json({ error: 'email is required' }, { status: 400 });
-    }
-
-    const result = await initiateOrganizerOnboarding({
-      organizerId: targetOrgId,
-      email: contactEmail,
-      legalBusinessName,
-      businessType,
-      phone,
-      provider
-    });
+    const savedProfile = await saveOrganizerPayoutProfile(
+      targetOrgId,
+      {
+        organizerName: legalBusinessName || organizerName || caller.displayName || 'Organizer',
+        accountHolderName: accountHolderName || legalBusinessName || organizerName || caller.displayName || '',
+        accountNumber,
+        ifsc,
+        bankName: bankName || 'Bank Account',
+        fullUpiId: upiId || null,
+        email: email || caller.email || '',
+        phone: phone || caller.phone || '',
+        pan,
+        gstin,
+        billingAddress,
+      },
+      caller
+    );
 
     return NextResponse.json({
       success: true,
-      message: result.alreadyActive ? 'Account is already active' : 'Connected account onboarding initiated',
+      message: 'Payout details saved successfully for independent settlements.',
       account: {
-        organizerId: result.connectedAccount.organizerId,
-        provider: result.connectedAccount.provider,
-        providerAccountId: result.connectedAccount.providerAccountId,
-        verificationStatus: result.connectedAccount.verificationStatus,
-        settlementEligibility: result.connectedAccount.settlementEligibility
+        organizerId: targetOrgId,
+        provider: 'manual',
+        verificationStatus: 'ACTIVE',
+        settlementEligibility: true,
+        payoutProfile: savedProfile
       }
     });
   } catch (error) {
     console.error('[API/payments/onboarding POST] Error:', error.message);
-    return NextResponse.json({ error: error.message || 'Failed to initiate onboarding' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to save payout details' }, { status: 500 });
   }
 }

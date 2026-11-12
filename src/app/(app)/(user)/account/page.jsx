@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
@@ -16,31 +16,78 @@ import {
   ArrowRight,
   ExternalLink,
   Shield,
+  Building2,
+  Menu,
+  X,
+  LogOut,
+  LayoutDashboard,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { getPlan } from "@/lib/plans";
 import { getEventsByOrganiser, subscribeToUserRegistrations } from "@/lib/firestore";
 import { BrandLoader } from "@/components/ui/brand-loader";
+
+const LOGO_SRC = "/logo/ticketlelo-logo-nav.png";
 
 export default function AccountPage() {
   const { user, logout, loading: authLoading } = useAuth();
   const { theme, setTheme } = useTheme();
   const router = useRouter();
+  const pathname = usePathname() || "/account";
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [registrations, setRegistrations] = useState([]);
   const [loadingRegistrations, setLoadingRegistrations] = useState(true);
   const [appearance, setAppearance] = useState("dark");
   const [currentTime, setCurrentTime] = useState("1:04 PM IST");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Close dropdown on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest("[data-user-dropdown]")) {
+        setShowUserMenu(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowUserMenu(false);
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
 
   const emailLower = (user?.email || "").toLowerCase().trim();
+  const superAdminEnv = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL || "").toLowerCase().trim();
   const isSuperAdmin =
     user?.role === "superAdmin" ||
     user?.role === "superadmin" ||
     Boolean(user?.isAdmin) ||
     emailLower === "adil4ticketlelo@gmail.com" ||
-    emailLower === "superadmin@ticketlelo.com";
+    emailLower === "superadmin@ticketlelo.com" ||
+    (superAdminEnv && emailLower === superAdminEnv);
 
-  const isOrganiser = isSuperAdmin || user?.role === "organiser" || user?.role === "organizer";
+  const hasOrganiserAccess = isSuperAdmin || user?.role === "organiser" || user?.role === "organizer" || Boolean(user?.isAdmin);
+  const isOrganiser = hasOrganiserAccess;
 
   const currentPlanId = user?.plan || "free";
   const plan = getPlan(currentPlanId);
@@ -88,13 +135,14 @@ export default function AccountPage() {
 
   // Load real non-deleted events for organiser / superAdmin
   const loadEvents = useCallback(async () => {
-    if (!user?.id || !isOrganiser) {
+    const uid = user?.id || user?.uid;
+    if (!uid || !isOrganiser) {
       setLoadingEvents(false);
       return;
     }
     setLoadingEvents(true);
     try {
-      const data = await getEventsByOrganiser(user.id);
+      const data = await getEventsByOrganiser(uid);
       const filtered = (data || []).filter(
         (e) => !e.isDeleted && !e.deleted && e.status !== "deleted"
       );
@@ -105,7 +153,7 @@ export default function AccountPage() {
     } finally {
       setLoadingEvents(false);
     }
-  }, [user?.id, isOrganiser]);
+  }, [user, isOrganiser]);
 
   useEffect(() => {
     loadEvents();
@@ -113,12 +161,13 @@ export default function AccountPage() {
 
   // Load registrations for user / attendee
   useEffect(() => {
-    if (!user?.id) {
+    const uid = user?.id || user?.uid;
+    if (!uid) {
       setLoadingRegistrations(false);
       return;
     }
     try {
-      const unsub = subscribeToUserRegistrations(user.id, (regs) => {
+      const unsub = subscribeToUserRegistrations(uid, (regs) => {
         setRegistrations(Array.isArray(regs) ? regs : []);
         setLoadingRegistrations(false);
       });
@@ -127,7 +176,7 @@ export default function AccountPage() {
       console.warn("Registrations subscription notice:", e);
       setLoadingRegistrations(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
   const displayName = user?.fullName || user?.name || (isOrganiser ? "Organiser" : "TicketLelo Member");
   const displayEmail = user?.email || "";
@@ -151,119 +200,340 @@ export default function AccountPage() {
     }
   };
 
+  const userTabs = [
+    {
+      href: "/dashboard",
+      label: "Overview",
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/my-tickets",
+      label: "My Tickets",
+      icon: Ticket,
+      badge: registrations.length,
+    },
+    {
+      href: "/account",
+      label: "Account Settings",
+      icon: User,
+    },
+    {
+      href: "/discover",
+      label: "Discover",
+      icon: Compass,
+    },
+  ];
+
   if (authLoading || !user) {
     return <BrandLoader message="Loading account..." fullScreen />;
   }
 
   return (
-    <div className="min-h-screen bg-[#131517] text-white selection:bg-[#FE760B] selection:text-white flex flex-col w-full max-w-full overflow-x-clip">
-      {/* ── Top Header Navigation Bar ── */}
-      <header className="relative z-20 w-full border-b border-[#2A2D31]/60 px-4 sm:px-6 lg:px-8 py-3">
-        <div className="w-full flex items-center justify-between">
-          {/* Left: Logo & Navigation Tabs */}
-          <div className="flex items-center gap-6 sm:gap-8">
-            <Link href="/" className="shrink-0 flex items-center group py-0.5">
-              <img
-                src="/logo/ticketlelo-logo-nav.png"
+    <div className="tl-system-theme min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white transition-colors flex flex-col w-full max-w-full overflow-x-clip">
+      {/* ── Top Navigation Bar (matching Super Admin layout) ── */}
+      <header className="border-b border-slate-200 dark:border-[#2A2D31]/80 bg-white/95 dark:bg-[#131517]/95 backdrop-blur-md sticky top-0 z-40 transition-colors">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 lg:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
+          {/* Left: Mobile Hamburger + Brand Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Mobile / Tablet Hamburger Button */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 -ml-1 rounded-xl text-slate-700 dark:text-[#D0D0D1] hover:text-[#FE760B] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+              aria-label="Open navigation sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <Link href="/dashboard" prefetch={false} className="flex items-center gap-2.5 group shrink-0">
+              <Image
+                src={LOGO_SRC}
                 alt="TicketLelo"
-                className="h-6 sm:h-7 w-auto object-contain transition-opacity group-hover:opacity-95"
+                width={82}
+                height={26}
+                className="h-6 sm:h-7 w-auto object-contain transition-transform group-hover:scale-105"
+                priority
               />
             </Link>
-
-            {/* Desktop Dashboard Navigation Links */}
-            <div className="hidden md:flex items-center gap-1 bg-[#1A1C1F] border border-[#2A2D31] p-1 rounded-xl text-xs font-semibold">
-              <Link
-                href="/dashboard"
-                className="px-3 py-1.5 rounded-lg text-[#9B9EA4] hover:text-white transition-colors"
-              >
-                Overview
-              </Link>
-              <Link
-                href="/my-tickets"
-                className="px-3 py-1.5 rounded-lg text-[#9B9EA4] hover:text-white transition-colors"
-              >
-                My Tickets
-              </Link>
-              <Link
-                href="/account"
-                className="px-3 py-1.5 rounded-lg bg-[#FE760B] text-white shadow-xs font-bold"
-              >
-                Account Settings
-              </Link>
-            </div>
-
-            <nav className="flex items-center gap-4 sm:gap-6">
-              <Link
-                href="/"
-                className="flex items-center gap-1.5 text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors"
-              >
-                <Ticket className="w-3.5 h-3.5 text-[#9B9EA4]" />
-                <span>Events</span>
-              </Link>
-              <Link
-                href="/discover"
-                className="flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
-              >
-                <Compass className="w-3.5 h-3.5 text-[#FE760B]" />
-                <span>Discover</span>
-              </Link>
-            </nav>
           </div>
 
-          {/* Right: Live Time + Action + Bell + Avatar */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <span
-              className="text-[12px] sm:text-[13px] font-sans font-medium text-[#9B9EA4] tracking-normal tabular-nums select-none hidden md:inline-block"
-              suppressHydrationWarning
-            >
-              {currentTime}
-            </span>
+          {/* Center: Desktop Navigation Tabs */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1.5 px-1 min-w-0 flex-1 justify-start xl:justify-[safe_center] 2xl:justify-center scroll-smooth overscroll-x-contain">
+            {userTabs.map((item) => {
+              const isActive = pathname === item.href;
 
-            {isOrganiser ? (
-              <Link
-                href="/admin/dashboard"
-                className="text-xs font-medium text-[#D0D0D1] hover:text-white transition-colors cursor-pointer"
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  prefetch={false}
+                  className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold transition-all whitespace-nowrap shrink-0 border select-none ${
+                    isActive
+                      ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
+                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] border-transparent"
+                  }`}
+                >
+                  <item.icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">{item.label}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 min-w-[18px] text-center rounded-full text-[10px] font-bold bg-[#FE760B] text-white shrink-0 leading-none">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Right: Theme Toggle and Profile Dropdown (matching Super Admin layout) */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeToggle inline className="[&>span]:hidden 2xl:[&>span]:inline" />
+
+            {/* Profile Avatar with Dropdown */}
+            <div className="relative" data-user-dropdown>
+              <button
+                type="button"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="w-8 h-8 rounded-full bg-[#FE760B] text-white font-bold text-xs flex items-center justify-center shadow-xs cursor-pointer hover:ring-2 ring-[#FE760B]/40 transition-all overflow-hidden select-none"
+                title={user?.email || "Account"}
               >
-                Create Event
-              </Link>
-            ) : (
-              <Link
-                href="/host-event"
-                className="text-xs font-medium text-[#FE760B] hover:text-[#FF8A2B] transition-colors cursor-pointer"
-              >
-                Host an Event
-              </Link>
-            )}
+                {photoURL ? (
+                  <img
+                    src={photoURL}
+                    alt={displayName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="font-bold text-xs sm:text-sm text-white">{firstChar}</span>
+                )}
+              </button>
 
-            {/* Notification Bell */}
-            <Link
-              href="/activity"
-              title="Notifications"
-              className="relative p-1.5 text-[#D0D0D1] hover:text-white transition-colors"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#FE760B] border-2 border-[#131517]" />
-            </Link>
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-3 shadow-2xl z-50 animate-scale-in space-y-3 text-left">
+                  {/* User Profile Card */}
+                  <div className="border-b border-slate-100 dark:border-[#2A2D31] pb-2.5 flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#FE760B] flex items-center justify-center text-xs font-bold text-white shrink-0 overflow-hidden">
+                      {photoURL ? (
+                        <img
+                          src={photoURL}
+                          alt="Avatar"
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        firstChar
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        {displayName}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate">
+                        {user?.email}
+                      </div>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30">
+                        {isSuperAdmin ? "Super Admin" : hasOrganiserAccess ? "Organiser" : "User"}
+                      </span>
+                    </div>
+                  </div>
 
-            {/* Profile Avatar Circle */}
-            <div
-              title={displayName}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FE760B] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden"
-            >
-              {photoURL ? (
-                <img
-                  src={photoURL}
-                  alt={displayName}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                firstChar
+                  {/* Switch Portals exactly like Super Admin */}
+                  <div className="space-y-1">
+                    <p className="px-2 text-[10px] font-bold text-slate-400 dark:text-[#9B9EA4] uppercase tracking-wider">
+                      Switch Portals
+                    </p>
+                    {isSuperAdmin && (
+                      <Link
+                        href="/superadmin"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
+                        <span>Super Admin Suite</span>
+                      </Link>
+                    )}
+
+                    {hasOrganiserAccess && (
+                      <Link
+                        href="/admin/dashboard"
+                        onClick={() => setShowUserMenu(false)}
+                        className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                      >
+                        <Building2 className="w-3.5 h-3.5 text-[#FE760B]" />
+                        <span>Organiser Dashboard</span>
+                      </Link>
+                    )}
+
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                    >
+                      <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
+                      <span>User Dashboard</span>
+                    </Link>
+                  </div>
+
+                  {/* Sign out */}
+                  <div className="pt-1.5 border-t border-slate-100 dark:border-[#2A2D31]">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-[#FF6B6B] hover:bg-rose-50 dark:hover:bg-[#FF4D4D]/10 transition-colors cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
         </div>
       </header>
+
+      {/* ── Mobile Sidebar Drawer & Backdrop (matching Super Admin layout) ── */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity animate-fade-in"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Sidebar Drawer Panel */}
+          <aside className="fixed inset-y-0 left-0 w-[290px] max-w-[85vw] bg-white dark:bg-[#17191C] border-r border-slate-200 dark:border-[#2A2D31] flex flex-col justify-between shadow-2xl z-50 animate-slide-in-left overflow-y-auto">
+            {/* Top Section */}
+            <div className="p-4 border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between">
+              <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5">
+                <Image
+                  src={LOGO_SRC}
+                  alt="TicketLelo"
+                  width={82}
+                  height={26}
+                  className="h-6 w-auto object-contain"
+                  priority
+                />
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-1.5 rounded-xl text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+                aria-label="Close navigation sidebar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="p-4 space-y-6 flex-1 overflow-y-auto">
+              <div>
+                <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
+                  Navigation
+                </p>
+                <nav className="space-y-1">
+                  {userTabs.map((item) => {
+                    const isActive = pathname === item.href;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        prefetch={false}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
+                          isActive
+                            ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
+                            : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] border-transparent"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <item.icon className="w-4 h-4 shrink-0" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && item.badge > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FE760B] text-white shrink-0 leading-none">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              {/* Switch Portals */}
+              <div className="pt-4 border-t border-slate-200 dark:border-[#2A2D31]">
+                <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] mb-2">
+                  Switch Portals
+                </p>
+                <div className="space-y-1">
+                  {isSuperAdmin && (
+                    <Link
+                      href="/superadmin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                    >
+                      <Shield className="w-4 h-4 text-[#FE760B] shrink-0" />
+                      <span>Super Admin Suite</span>
+                    </Link>
+                  )}
+
+                  {hasOrganiserAccess && (
+                    <Link
+                      href="/admin/dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                    >
+                      <Building2 className="w-4 h-4 text-[#FE760B] shrink-0" />
+                      <span>Organiser Dashboard</span>
+                    </Link>
+                  )}
+
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
+                  >
+                    <Ticket className="w-4 h-4 text-[#FE760B] shrink-0" />
+                    <span>User Dashboard</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Section */}
+            <div className="p-4 border-t border-slate-200 dark:border-[#2A2D31] bg-slate-50 dark:bg-[#131517] space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {displayName}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate">
+                    {user?.email}
+                  </p>
+                </div>
+                <ThemeToggle inline />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-[#FF6B6B] bg-rose-50 dark:bg-[#FF4D4D]/10 hover:bg-rose-100 dark:hover:bg-[#FF4D4D]/20 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* ── Main Content Area ── */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 space-y-6">

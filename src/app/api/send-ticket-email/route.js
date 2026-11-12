@@ -3,10 +3,11 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import QRCode from "qrcode";
-import { generatePDFTicket } from "@/lib/tickets";
+import { generatePDFTicket, formatDisplayTicketId } from "@/lib/tickets";
 import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 import { adminDb } from "@/lib/firebase-admin";
 import { parseFirestoreDate } from "@/lib/date-utils";
+import { getThemeLook } from "@/lib/theme-utils";
 import { enqueueEmail } from "@/lib/email/queue";
 import { buildTicketPassEmail } from "@/lib/email/templates/ticket-pass";
 import { EmailPriority, EmailType } from "@/lib/email/types";
@@ -16,7 +17,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 function getEmailBaseUrl() {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://ticketlelo.in";
+  return "https://www.ticketlelo.in";
 }
 
 function formatDateDisplay(rawDate) {
@@ -189,29 +190,19 @@ export async function sendTicketDeliveryEmail({
     throw new Error(`Failed to generate PDF ticket: ${pdfErr?.message || "Unknown error"}`);
   }
 
-  // Prepare attachments
+  const displayTicketId = formatDisplayTicketId(ticketId, eventTitle);
+
+  // Prepare attachments: strictly the PDF pass generated according to organizer's selected design
   const attachments = [
     {
-      filename: `${eventTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}-Pass-${ticketId}.pdf`,
+      filename: `${eventTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}-Ticket-${displayTicketId}.pdf`,
       content: pdfBuffer,
       contentType: "application/pdf",
-    },
-    {
-      filename: "ticket-qr.png",
-      content: qrBuffer,
-      cid: "ticketQrCode",
     },
   ];
 
   const logoPath = path.join(process.cwd(), "public", "logo", "ticketlelo-logo-nav.png");
   const hasLogo = fs.existsSync(logoPath);
-  if (hasLogo) {
-    attachments.push({
-      filename: "ticketlelo-logo.png",
-      path: logoPath,
-      cid: "ticketleloLogo",
-    });
-  }
 
   // RFC 5322 Message-ID
   const domain = "ticketlelo.in";
@@ -293,23 +284,53 @@ export async function sendTicketDeliveryEmail({
 
     setupPasswordUrl = `${emailBaseUrl}/setup-password?email=${encodeURIComponent(
       ownerEmail,
-    )}&token=${finalSetupToken}&ticketId=${encodeURIComponent(ticketId)}`;
+    )}&name=${encodeURIComponent(guestName)}&token=${finalSetupToken}&ticketId=${encodeURIComponent(ticketId)}`;
+  } else {
+    setupPasswordUrl = `${emailBaseUrl}/setup-password?email=${encodeURIComponent(
+      ownerEmail,
+    )}&name=${encodeURIComponent(guestName)}&ticketId=${encodeURIComponent(ticketId)}`;
   }
 
   const loginUrl = `${emailBaseUrl}/login?email=${encodeURIComponent(
     ownerEmail,
   )}&redirect=/dashboard`;
 
+  const rawTheme =
+    event.themeColor ||
+    event.themeHex ||
+    (typeof event.theme === "object" ? (event.theme?.color || event.theme?.hex) : event.theme) ||
+    "#FE760B";
+  const themeObj = typeof rawTheme === "object" ? rawTheme : getThemeLook(rawTheme);
+  const themeColor = themeObj?.hex || (typeof rawTheme === "string" && rawTheme.startsWith("#") ? rawTheme : "#FE760B");
+  const rawLogo =
+    event.theme?.logo ||
+    event.logo ||
+    null;
+
+  const isValidLogo =
+    typeof rawLogo === "string" &&
+    rawLogo.startsWith("http") &&
+    !rawLogo.includes("localhost") &&
+    !rawLogo.includes("test-image");
+
+  const onlineQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(ticketId)}`;
+  const canonicalTicketLeloLogo = "https://www.ticketlelo.in/logo/ticketlelo-logo-nav.png";
+  const effectiveEventLogo = isValidLogo ? rawLogo : canonicalTicketLeloLogo;
+
   const { html: htmlBody, text: textBody } = buildTicketPassEmail({
     eventTitle,
     guestName,
     ticketId,
+    displayTicketId,
+    themeColor,
+    qrCodeDataUrl: onlineQrUrl,
+    eventLogoUrl: effectiveEventLogo,
     venue,
     formattedDate,
     formattedTime,
     tierName,
     priceDisplay,
-    hasLogo,
+    hasLogo: false,
     emailBaseUrl,
     eventPageUrl,
     mapsUrl,
@@ -388,14 +409,8 @@ export async function POST(request) {
       return NextResponse.json({ error: "ticketId is required" }, { status: 400 });
     }
 
-    // Require authentication (SEC-7)
+    // Require authentication (SEC-7) or permit immediate newly issued guest ticket delivery
     const caller = await getAuthenticatedUser(request);
-    if (!caller) {
-      return NextResponse.json(
-        { error: "Authentication required to request ticket email delivery." },
-        { status: 401 }
-      );
-    }
 
     const ticketSnapshot = await adminDb.collection("tickets").doc(ticketId).get();
     const registrationSnapshot = await adminDb
@@ -417,22 +432,40 @@ export async function POST(request) {
     const ownerEmail = String(
       registration.email || registration.buyerEmail || persistedTicket?.buyerEmail || "",
     ).toLowerCase().trim();
-    const callerEmail = String(caller.email || "").toLowerCase().trim();
-    const callerEmailVerified = caller.decodedToken?.email_verified === true;
 
-    const isOwner =
-      Boolean(ownerUid && ownerUid === caller.uid) ||
-      Boolean(callerEmailVerified && ownerEmail && ownerEmail === callerEmail);
-
-    const isSuperAdmin = caller.role === "superAdmin";
-    let isOrganiser = false;
-    const eventId = registration.eventId || persistedTicket?.eventId;
-    if (!isOwner && !isSuperAdmin && eventId) {
-      isOrganiser = await canManageEventId(caller, eventId);
+    if (!caller) {
+      // Unauthenticated caller: only allowed for newly issued guest registration (< 2 hours)
+      // and delivery is strictly sent only to the pre-recorded recipient email on the ticket
+      const createdAtMs =
+        registration.createdAt?.toDate?.()?.getTime() ||
+        (typeof registration.createdAt === "number" ? registration.createdAt : 0);
+      const isRecent = !createdAtMs || Date.now() - createdAtMs < 2 * 60 * 60 * 1000;
+      if (!isRecent) {
+        return NextResponse.json(
+          { error: "Authentication required to request ticket email delivery." },
+          { status: 401 }
+        );
+      }
     }
 
-    if (!isOwner && !isOrganiser && !isSuperAdmin) {
-      return NextResponse.json({ error: "Ticket access denied" }, { status: 403 });
+    if (caller) {
+      const callerEmail = String(caller.email || "").toLowerCase().trim();
+      const callerEmailVerified = caller.decodedToken?.email_verified === true;
+
+      const isOwner =
+        Boolean(ownerUid && ownerUid === caller.uid) ||
+        Boolean(callerEmailVerified && ownerEmail && ownerEmail === callerEmail);
+
+      const isSuperAdmin = caller.role === "superAdmin";
+      let isOrganiser = false;
+      const eventId = registration.eventId || persistedTicket?.eventId;
+      if (!isOwner && !isSuperAdmin && eventId) {
+        isOrganiser = await canManageEventId(caller, eventId);
+      }
+
+      if (!isOwner && !isOrganiser && !isSuperAdmin) {
+        return NextResponse.json({ error: "Ticket access denied" }, { status: 403 });
+      }
     }
 
     const result = await sendTicketDeliveryEmail({ ticketId });

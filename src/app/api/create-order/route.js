@@ -112,7 +112,7 @@ export async function POST(request) {
 
     // 1. Fetch Event details
     const eventDoc = await adminDb.collection("events").doc(eventId).get();
-    if (!eventDoc.exists()) {
+    if (!eventDoc || !eventDoc.exists) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
     const event = { id: eventDoc.id, ...eventDoc.data() };
@@ -174,19 +174,11 @@ export async function POST(request) {
       isTaxInclusive: true, // Default per PRAROHA specification
     });
 
-    // 4b. Marketplace Commission Engine & Organizer Gatekeeping
+    // 4b. Platform Commission & Independent Settlement Calculation
     const organizerId = String(event.organizerId || event.creatorId || event.userId || "");
     let marketplaceBreakdown = null;
-    let eligibility = null;
 
     if (pricing.finalPayablePaise > 0) {
-      eligibility = await checkOrganizerEligibilityForPaidEvents(organizerId);
-      if (!eligibility.eligible && process.env.RAZORPAY_ROUTE_ENABLED === "true") {
-        return NextResponse.json(
-          { error: "Paid ticket sales for this event are temporarily unavailable until the organizer completes payment onboarding." },
-          { status: 403 }
-        );
-      }
       const commissionRule = await resolveCommissionRule({ eventId, organizerId });
       marketplaceBreakdown = calculateCommissionBreakdown(pricing.finalPayablePaise, commissionRule);
     }
@@ -237,7 +229,8 @@ export async function POST(request) {
               .collection("programEvents")
               .doc(`${resolved.programId}_${eventId}`)
               .get();
-            if (!relSnap.exists || relSnap.data().status !== "connected" || relSnap.data().referralEnabled !== true) {
+            const relExists = typeof relSnap.exists === "function" ? relSnap.exists() : Boolean(relSnap.exists);
+            if (!relExists || relSnap.data().status !== "connected" || relSnap.data().referralEnabled !== true) {
               connectionValid = false;
             }
           }
@@ -270,8 +263,8 @@ export async function POST(request) {
       platformCommissionPaise: marketplaceBreakdown?.platformCommissionPaise ?? (pricing.platformFee * 100),
       organizerSharePaise: marketplaceBreakdown?.organizerSharePaise ?? (pricing.organizerSettlement * 100),
       commissionRuleSnapshot: marketplaceBreakdown?.ruleSnapshot || null,
-      isRouteTransfer: process.env.RAZORPAY_ROUTE_ENABLED === "true" && Boolean(eligibility?.account?.providerAccountId),
-      connectedAccountId: eligibility?.account?.providerAccountId || null,
+      isRouteTransfer: false,
+      connectedAccountId: null,
       reservationId: reservation?.id || null,
       referralCode: validatedReferralCode,
       referralAttribution: referralAttribution || null,

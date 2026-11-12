@@ -787,7 +787,7 @@ export function HostingRequestForm() {
                         readOnly={Boolean(user?.email)}
                         onChange={handleChange}
                         onBlur={handleBlur}
-                        placeholder="john@example.com"
+                        placeholder="Enter email address"
                         autoComplete="email"
                         className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-white placeholder-[#5E626B] focus:outline-none transition-colors ${
                           user?.email
@@ -829,7 +829,7 @@ export function HostingRequestForm() {
                           value={formData.phone}
                           onChange={handlePhoneChange}
                           onBlur={handleBlur}
-                          placeholder="9876543210"
+                          placeholder="Enter 10-digit mobile number"
                           maxLength={10}
                           autoComplete="tel-national"
                           className="w-full px-3.5 py-2.5 bg-transparent text-sm text-white placeholder-[#5E626B] focus:outline-none"

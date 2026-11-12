@@ -388,7 +388,7 @@ export async function GET(request) {
     // 7. System Health Status
     const systemHealth = {
       database: "healthy",
-      paymentProvider: process.env.RAZORPAY_ROUTE_ENABLED === "true" ? "Razorpay Route (Active)" : "Razorpay Direct (Live)",
+      paymentProvider: "TicketLelo Razorpay Gateway & Independent Settlements (Live)",
       emailService: process.env.EMAIL_QUEUE_ENABLED === "true" ? "BullMQ & Resend (Active)" : "Direct Resend (Live)",
       environment: process.env.NODE_ENV || "production",
       uptimeSeconds: Math.round(process.uptime()),

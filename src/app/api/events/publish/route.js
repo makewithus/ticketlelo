@@ -30,19 +30,8 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Gatekeeper: If paid event, verify organizer's payment account eligibility
-    const isPaidEvent = Boolean(event.isPaid) || Number(event.ticketPrice || event.price || 0) > 0;
-    if (isPaidEvent) {
-      const orgId = String(event.organizerId || event.creatorId || event.userId || caller.uid);
-      const eligibility = await checkOrganizerEligibilityForPaidEvents(orgId);
-      if (!eligibility.eligible && process.env.RAZORPAY_ROUTE_ENABLED === "true") {
-        return NextResponse.json({
-          error: "To publish a paid event, please connect and verify your Razorpay payment account in Payment Settings first.",
-          requiresPaymentSetup: true,
-          reason: eligibility.reason,
-        }, { status: 403 });
-      }
-    }
+    // Independent Settlement Architecture: Paid events are collected through TicketLelo's master gateway
+    // and do not require organizers to connect a separate Razorpay linked account.
 
     // Build slug: use existing or derive from event name
     let slug = event.slug;

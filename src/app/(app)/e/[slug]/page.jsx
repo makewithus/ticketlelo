@@ -56,7 +56,7 @@ export default function PublicEventBySlugPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const slug = params?.slug;
-  const referralCode = searchParams?.get("ref") || "";
+  const referralCode = searchParams?.get("ref") || searchParams?.get("referralCode") || "";
 
   // Safe SSR hydration - avoids hydration mismatch
   const [event, setEvent] = useState(null);
@@ -350,6 +350,22 @@ export default function PublicEventBySlugPage() {
     }
   }, [pageBg, themeAccent]);
 
+  // Handle smooth navigation directly to the registration div (#register or #tickets)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    const hasRef = Boolean(referralCode);
+    if (hash === "#register" || hash === "#tickets" || hasRef) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById("register") || document.getElementById("tickets");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [event?.id, referralCode]);
+
   if (isLoading && !event) {
     return <EventPageSkeleton />;
   }
@@ -539,7 +555,11 @@ export default function PublicEventBySlugPage() {
             </Link>
             <nav className="flex items-center gap-2.5 sm:gap-5 text-xs sm:text-sm font-medium">
               <Link
-                href="/"
+                href={
+                  user?.role === "organiser" || user?.role === "superAdmin" || user?.isAdmin
+                    ? "/admin/dashboard"
+                    : "/discover"
+                }
                 className="text-slate-900 dark:text-white font-semibold transition-colors"
               >
                 Events
@@ -1006,36 +1026,19 @@ export default function PublicEventBySlugPage() {
                 city={event.city || ""}
                 latitude={event.latitude || event.lat || null}
                 longitude={event.longitude || event.lng || null}
+                themeColor={themeAccent}
               />
-            </div>
-
-            {/* Host Contact & Report Links */}
-            <div className="pt-4 border-t border-slate-200 dark:border-[#2A2D31]/60 flex items-center justify-between text-xs text-slate-500 dark:text-[#9B9EA4]">
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(eventTitle)}`;
-                }}
-                className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-              >
-                Contact the host
-              </button>
-              <span className="text-slate-400 dark:text-[#2A2D31]">•</span>
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(eventTitle)}`;
-                }}
-                className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-              >
-                Report event
-              </button>
             </div>
           </div>
 
           {/* ── RIGHT COLUMN: Dedicated Vertical Registration Drawer (5 Cols) ── */}
-          <div className="lg:col-span-5 lg:sticky lg:top-24 w-full max-w-xl mx-auto">
-            <div className="rounded-2xl border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] p-5 sm:p-7 shadow-xl">
+          <div
+            id="register"
+            className={`lg:col-span-5 lg:sticky lg:top-24 w-full max-w-xl mx-auto scroll-mt-24 transition-all duration-300 ${
+              referralCode ? "ring-2 ring-[#FE760B]/50 rounded-2xl" : ""
+            }`}
+          >
+            <div id="tickets" className="rounded-2xl border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] p-5 sm:p-7 shadow-xl">
               
               {/* Header row */}
               <div className="border-b border-slate-200 dark:border-[#2A2D31] pb-4 mb-5 space-y-2.5">
@@ -1048,6 +1051,13 @@ export default function PublicEventBySlugPage() {
                     {priceDisplay}
                   </span>
                 </div>
+
+                {referralCode && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#FE760B]/12 border border-[#FE760B]/30 text-xs font-bold text-[#FE760B]">
+                    <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                    <span>Ambassador Referral Applied: <span className="font-mono">{referralCode}</span></span>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
@@ -1150,6 +1160,29 @@ export default function PublicEventBySlugPage() {
             </div>
           </div>
         </div>
+
+        {/* Full-Width Centered Page Footer */}
+        <footer className="mt-12 pt-6 pb-8 border-t border-slate-200/60 dark:border-white/10 flex items-center justify-center gap-6 text-xs text-slate-500 dark:text-[#9B9EA4]">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = `mailto:${organizerEmail}?subject=Inquiry about ${encodeURIComponent(eventTitle)}`;
+            }}
+            className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+          >
+            Contact the host
+          </button>
+          <span className="text-slate-400 dark:text-white/20">•</span>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = `mailto:safety@ticketlelo.com?subject=Report Event: ${encodeURIComponent(eventTitle)}`;
+            }}
+            className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+          >
+            Report event
+          </button>
+        </footer>
       </main>
 
       {/* External College / Team Form Modal */}

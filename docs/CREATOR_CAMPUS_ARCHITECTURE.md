@@ -199,3 +199,4 @@ sequenceDiagram
 2. **Owner-Scoped Firestore Rules**: Client reads and updates on `ambassadorPrograms`, `ambassadorApplications`, and `programAmbassadors` are strictly scoped to `request.auth.uid == resource.data.organizerId` or `request.auth.uid == resource.data.userId`.
 3. **Write Protection on Points**: `pointsLedger` has `allow write: if false;` for client SDKs. All writes are exclusively handled by server-side Firebase Admin.
 4. **Referral Integrity**: Arbitrary strings sent in client payloads are strictly validated against active program-event relations before attribution is recorded. Unverified codes are safely rejected without blocking attendee registration.
+
