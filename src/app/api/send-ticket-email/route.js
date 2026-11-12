@@ -5,7 +5,7 @@ import crypto from "crypto";
 import QRCode from "qrcode";
 import { generatePDFTicket, formatDisplayTicketId } from "@/lib/tickets";
 import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { parseFirestoreDate } from "@/lib/date-utils";
 import { getThemeLook } from "@/lib/theme-utils";
 import { enqueueEmail } from "@/lib/email/queue";
@@ -15,9 +15,14 @@ import { getEmailConfig } from "@/lib/email/config";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 function getEmailBaseUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://www.ticketlelo.in";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  if (appUrl && !appUrl.includes("localhost") && !appUrl.includes("127.0.0.1")) {
+    return appUrl.replace(/\/+$/, "");
+  }
+  if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes("localhost")) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, "");
+  }
+  return "https://ticketlelo.in";
 }
 
 function formatDateDisplay(rawDate) {
@@ -237,6 +242,25 @@ export async function sendTicketDeliveryEmail({
         }
       } catch (userCheckErr) {
         console.warn("[send-ticket-email] User check error:", userCheckErr?.message);
+      }
+    }
+
+    if (effectiveFirstTime && adminAuth && ownerEmail) {
+      try {
+        const authUser = await adminAuth.getUserByEmail(ownerEmail);
+        if (authUser && authUser.uid) {
+          if (
+            authUser.passwordHash ||
+            (authUser.providerData &&
+              authUser.providerData.some(
+                (p) => p.providerId === "password" || p.providerId === "google.com",
+              ))
+          ) {
+            effectiveFirstTime = false;
+          }
+        }
+      } catch (authLookupErr) {
+        // User not found in Firebase Auth, so truly first time
       }
     }
   }

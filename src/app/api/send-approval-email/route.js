@@ -6,8 +6,13 @@ import { EmailPriority, EmailType } from "@/lib/email/types";
 import { getEmailConfig } from "@/lib/email/config";
 
 function getEmailBaseUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  if (appUrl && !appUrl.includes("localhost") && !appUrl.includes("127.0.0.1")) {
+    return appUrl.replace(/\/+$/, "");
+  }
+  if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes("localhost")) {
+    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, "");
+  }
   return "https://ticketlelo.in";
 }
 

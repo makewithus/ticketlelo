@@ -228,6 +228,20 @@ function UnifiedLoginContent() {
       const role = freshUser?.role || userData?.role || "user";
       handleAuthSuccess(role, freshUser?.fullName || userData?.fullName);
     } catch (err) {
+      const isUserNotFound =
+        err?.code === "auth/user-not-found" ||
+        err?.code === "auth/invalid-credential" ||
+        String(err?.message || "").includes("user-not-found") ||
+        String(err?.message || "").includes("no user record");
+
+      if (isUserNotFound && initialEmail) {
+        setAuthMode("signup");
+        const msg = "Account not found for this email. Enter your name and password below to create your account and access your dashboard.";
+        setError(msg);
+        toast.info(msg);
+        return;
+      }
+
       const errorMsg = getAuthErrorMessage(
         err,
         "Sign in failed. Please check your credentials."
@@ -256,6 +270,9 @@ function UnifiedLoginContent() {
       }
       if (password.length < 6) {
         throw new Error("Password must be at least 6 characters");
+      }
+      if (confirmPassword && password !== confirmPassword) {
+        throw new Error("Passwords do not match");
       }
 
       const digitsPhone = phone.replace(/\D/g, "").slice(0, 10);
@@ -882,12 +899,16 @@ function UnifiedLoginContent() {
               ) : (
                 <>
                   <h1 className="text-3xl font-extrabold text-[#FFFFFF] tracking-tight">
-                    {isFromHostingPage
+                    {authMode === "signup"
+                      ? "Create Account"
+                      : isFromHostingPage
                       ? "Sign in to submit request"
                       : "Welcome back"}
                   </h1>
                   <p className="text-[#9B9EA4] text-sm mt-1.5">
-                    {isFromHostingPage
+                    {authMode === "signup"
+                      ? "Set up your password to view your tickets and access your dashboard."
+                      : isFromHostingPage
                       ? "Sign in below. Your form details are safely saved."
                       : "Sign in to see your tickets and host events."}
                   </p>
@@ -1077,6 +1098,42 @@ function UnifiedLoginContent() {
                   )}
                 </div>
 
+                {/* Confirm Password for Sign Up */}
+                {authMode === "signup" && (
+                  <div>
+                    <label
+                      htmlFor="signup-confirm-password"
+                      className="block text-xs font-semibold text-[#D0D0D1] mb-1.5"
+                    >
+                      Confirm password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="signup-confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full pl-4 pr-11 py-2.5 bg-[#131517] border border-[#2A2D31] rounded-xl text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] transition-colors text-sm"
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9B9EA4] hover:text-white transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Error Notice */}
                 {error && (
                   <motion.div
@@ -1114,12 +1171,43 @@ function UnifiedLoginContent() {
                   {loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-black" />
-                      <span>Signing in...</span>
+                      <span>{authMode === "signup" ? "Creating account..." : "Signing in..."}</span>
                     </>
                   ) : (
-                    <span>Sign in</span>
+                    <span>{authMode === "signup" ? "Create Account & Go to Dashboard" : "Sign in"}</span>
                   )}
                 </button>
+
+                {/* Toggle Links between Sign in and Sign up for email links */}
+                {authMode === "signin" && initialEmail && (
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("signup");
+                        setError("");
+                      }}
+                      className="text-xs text-[#FE760B] hover:underline font-medium cursor-pointer"
+                    >
+                      First time logging in from email? Set up password &rarr;
+                    </button>
+                  </div>
+                )}
+
+                {authMode === "signup" && (
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("signin");
+                        setError("");
+                      }}
+                      className="text-xs text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                    >
+                      Already created your password? Sign in with password &rarr;
+                    </button>
+                  </div>
+                )}
               </form>
             </motion.div>
 

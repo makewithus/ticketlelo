@@ -150,10 +150,10 @@ export function TicketGraphic({
       data-ticket="true"
       className={`ticket-graphic-root relative select-none flex overflow-hidden shadow-xl transition-all duration-300 ${className} ${
         compact
-          ? "w-[290px] xs:w-[320px] sm:w-[350px] md:w-[360px] h-[116px] xs:h-[124px] sm:h-[136px] md:h-[140px] rounded-xl"
+          ? "w-[280px] xs:w-[310px] sm:w-[340px] md:w-[350px] h-[110px] xs:h-[120px] sm:h-[130px] md:h-[135px] rounded-xl"
           : horizontal
-          ? "w-[310px] min-[360px]:w-[340px] xs:w-[400px] sm:w-[520px] md:w-[640px] lg:w-[800px] xl:w-[920px] h-[125px] min-[360px]:h-[135px] xs:h-[155px] sm:h-[190px] md:h-[225px] lg:h-[265px] xl:h-[295px] rounded-xl sm:rounded-2xl lg:rounded-3xl"
-          : "w-[300px] min-[360px]:w-[330px] xs:w-[375px] sm:w-[465px] md:w-[550px] lg:w-[680px] xl:w-[780px] h-[120px] min-[360px]:h-[126px] xs:h-[142px] sm:h-[172px] md:h-[198px] lg:h-[235px] xl:h-[265px] rounded-xl sm:rounded-2xl lg:rounded-3xl"
+          ? "w-[310px] min-[360px]:w-[340px] xs:w-[400px] sm:w-[500px] md:w-[600px] lg:w-[720px] xl:w-[820px] h-[125px] min-[360px]:h-[135px] xs:h-[155px] sm:h-[185px] md:h-[215px] lg:h-[250px] xl:h-[275px] rounded-xl sm:rounded-2xl lg:rounded-3xl"
+          : "w-[280px] min-[360px]:w-[310px] xs:w-[350px] sm:w-[420px] md:w-[450px] lg:w-[480px] xl:w-[500px] h-[110px] min-[360px]:h-[118px] xs:h-[130px] sm:h-[152px] md:h-[162px] lg:h-[172px] xl:h-[178px] rounded-xl sm:rounded-2xl"
       }`}
       style={{
         boxShadow: "0 22px 50px -12px rgba(0,0,0,0.85), 0 6px 18px rgba(0,0,0,0.55)",
@@ -176,8 +176,10 @@ export function TicketGraphic({
               {/* Dot matrix on top left */}
               <div className={`absolute top-1 sm:top-2 left-2 sm:left-4 pointer-events-none opacity-40 origin-top-left ${
                 compact
-                  ? "scale-[0.5] xs:scale-[0.55] sm:scale-[0.62]"
-                  : "scale-[0.6] xs:scale-[0.7] sm:scale-90 md:scale-100 lg:scale-[1.2] xl:scale-[1.3]"
+                  ? "scale-[0.45] xs:scale-[0.5] sm:scale-[0.55]"
+                  : horizontal
+                  ? "scale-[0.6] xs:scale-[0.7] sm:scale-90 md:scale-100 lg:scale-[1.1]"
+                  : "scale-[0.5] xs:scale-[0.6] sm:scale-[0.72] md:scale-[0.8] lg:scale-[0.85]"
               }`}>
                 <svg width="108" height="36" viewBox="0 0 108 36" fill="none">
                   {[0, 1, 2, 3].map((row) =>
@@ -197,8 +199,10 @@ export function TicketGraphic({
               {/* Microchip & Gold Circuit Traces on Right (Image 2) */}
               <div className={`absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center origin-right ${
                 compact
-                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
-                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+                  ? "scale-[0.38] xs:scale-[0.42] sm:scale-[0.48]"
+                  : horizontal
+                  ? "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05]"
+                  : "scale-[0.4] xs:scale-[0.46] sm:scale-[0.58] md:scale-[0.66] lg:scale-[0.72]"
               }`}>
                 <svg
                   width="150"
@@ -265,8 +269,10 @@ export function TicketGraphic({
             <>
               <div className={`absolute right-0.5 sm:right-2 top-1 sm:top-2 pointer-events-none origin-top-right ${
                 compact
-                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
-                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+                  ? "scale-[0.38] xs:scale-[0.42] sm:scale-[0.48]"
+                  : horizontal
+                  ? "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05]"
+                  : "scale-[0.4] xs:scale-[0.46] sm:scale-[0.58] md:scale-[0.66] lg:scale-[0.72]"
               }`}>
                 <svg width="140" height="120" viewBox="0 0 140 120" fill="none">
                   {/* Yellow D-pad Plus */}
@@ -304,8 +310,10 @@ export function TicketGraphic({
             <>
               <div className={`absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center origin-right ${
                 compact
-                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
-                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+                  ? "scale-[0.38] xs:scale-[0.42] sm:scale-[0.48]"
+                  : horizontal
+                  ? "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05]"
+                  : "scale-[0.4] xs:scale-[0.46] sm:scale-[0.58] md:scale-[0.66] lg:scale-[0.72]"
               }`}>
                 <svg
                   width="150"
@@ -392,8 +400,10 @@ export function TicketGraphic({
             <>
               <div className={`absolute right-0 sm:right-2 top-1/2 -translate-y-1/2 pointer-events-none flex items-center origin-right ${
                 compact
-                  ? "scale-[0.4] xs:scale-[0.46] sm:scale-[0.52]"
-                  : "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05] xl:scale-[1.2]"
+                  ? "scale-[0.38] xs:scale-[0.42] sm:scale-[0.48]"
+                  : horizontal
+                  ? "scale-[0.45] xs:scale-[0.52] sm:scale-[0.72] md:scale-80 lg:scale-[1.05]"
+                  : "scale-[0.4] xs:scale-[0.46] sm:scale-[0.58] md:scale-[0.66] lg:scale-[0.72]"
               }`}>
                 <svg
                   width="160"
@@ -497,7 +507,9 @@ export function TicketGraphic({
               className={`font-black uppercase tracking-tight leading-none ${themeConfig.titleColor} ${
                 compact
                   ? "text-xs xs:text-sm sm:text-base"
-                  : "text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl"
+                  : horizontal
+                  ? "text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl"
+                  : "text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl"
               }`}
             >
               {titleInfo.line1}
@@ -511,7 +523,9 @@ export function TicketGraphic({
                   className={`font-black uppercase tracking-tight leading-none block ${themeConfig.titleColor} ${
                     compact
                       ? "text-xs xs:text-sm sm:text-base"
-                      : "text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl"
+                      : horizontal
+                      ? "text-sm xs:text-base sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl"
+                      : "text-xs xs:text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl"
                   }`}
                 >
                   {titleInfo.line2}
@@ -585,8 +599,10 @@ export function TicketGraphic({
         style={themeConfig.stubBgStyle}
         className={`relative shrink-0 flex flex-col items-center justify-between text-center overflow-hidden ${
           compact
-            ? "w-[78px] xs:w-[86px] sm:w-[94px] p-1 xs:p-1.5"
-            : "w-[84px] xs:w-[94px] sm:w-[118px] md:w-[132px] lg:w-[170px] xl:w-[195px] p-1.5 sm:p-2 lg:p-3.5"
+            ? "w-[76px] xs:w-[84px] sm:w-[92px] p-1 xs:p-1.5"
+            : horizontal
+            ? "w-[84px] xs:w-[94px] sm:w-[118px] md:w-[132px] lg:w-[160px] xl:w-[180px] p-1.5 sm:p-2 lg:p-3"
+            : "w-[80px] xs:w-[88px] sm:w-[108px] md:w-[118px] lg:w-[128px] xl:w-[134px] p-1.5 sm:p-2"
         }`}
       >
         {/* Stub Header: "SCAN AT ENTRY" or "PENDING APPROVAL" */}
@@ -624,15 +640,19 @@ export function TicketGraphic({
               alt="QR Code"
               className={
                 compact
-                  ? "w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 object-contain"
-                  : "w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] object-contain"
+                  ? "w-11 h-11 xs:w-12 xs:h-12 sm:w-13 sm:h-13 object-contain"
+                  : horizontal
+                  ? "w-12 h-12 xs:w-14 xs:h-14 sm:w-[68px] sm:h-[68px] md:w-[74px] md:h-[74px] lg:w-[88px] lg:h-[88px] xl:w-[102px] xl:h-[102px] object-contain"
+                  : "w-11 h-11 xs:w-12 xs:h-12 sm:w-[58px] sm:h-[58px] md:w-[66px] md:h-[66px] lg:w-[74px] lg:h-[74px] object-contain"
               }
             />
           ) : (
             <div className={
               compact
-                ? "w-11 h-11 xs:w-12 xs:h-12 sm:w-14 sm:h-14 bg-white flex items-center justify-center animate-pulse"
-                : "w-12 h-12 xs:w-14 xs:h-14 sm:w-[70px] sm:h-[70px] md:w-[76px] md:h-[76px] lg:w-[96px] lg:h-[96px] xl:w-[112px] xl:h-[112px] bg-white flex items-center justify-center animate-pulse"
+                ? "w-11 h-11 xs:w-12 xs:h-12 sm:w-13 sm:h-13 bg-white flex items-center justify-center animate-pulse"
+                : horizontal
+                ? "w-12 h-12 xs:w-14 xs:h-14 sm:w-[68px] sm:h-[68px] md:w-[74px] md:h-[74px] lg:w-[88px] lg:h-[88px] xl:w-[102px] xl:h-[102px] bg-white flex items-center justify-center animate-pulse"
+                : "w-11 h-11 xs:w-12 xs:h-12 sm:w-[58px] sm:h-[58px] md:w-[66px] md:h-[66px] lg:w-[74px] lg:h-[74px] bg-white flex items-center justify-center animate-pulse"
             }>
               <div className="w-8 h-8 rounded bg-gray-200" />
             </div>

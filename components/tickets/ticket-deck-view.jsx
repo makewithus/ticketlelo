@@ -49,28 +49,26 @@ export function TicketDeckView({
   const [selectedQrTicket, setSelectedQrTicket] = useState(null);
   const [showFullModal, setShowFullModal] = useState(false);
 
-  // Generous vertical spacing tuned for both mobile and desktop (Image 2)
-  const [spacing, setSpacing] = useState(compact ? 24 : 90);
+  // Balanced vertical spacing tuned for both mobile and desktop (Exact Image Reference)
+  const [spacing, setSpacing] = useState(compact ? 22 : 68);
 
   useEffect(() => {
     function updateSpacing() {
       if (typeof window === "undefined") return;
       if (compact) {
-        setSpacing(window.innerWidth < 480 ? 20 : window.innerWidth < 768 ? 22 : 24);
+        setSpacing(window.innerWidth < 480 ? 18 : window.innerWidth < 768 ? 20 : 22);
         return;
       }
       if (window.innerWidth < 360) {
-        setSpacing(92);
+        setSpacing(42);
       } else if (window.innerWidth < 480) {
-        setSpacing(102);
+        setSpacing(48);
       } else if (window.innerWidth < 768) {
-        setSpacing(114);
+        setSpacing(56);
       } else if (window.innerWidth < 1024) {
-        setSpacing(130);
-      } else if (window.innerWidth < 1440) {
-        setSpacing(152);
+        setSpacing(64);
       } else {
-        setSpacing(170);
+        setSpacing(72);
       }
     }
     updateSpacing();
@@ -214,22 +212,22 @@ export function TicketDeckView({
   };
 
   const stackHeight = compact
-    ? Math.max(260, (ticketsWithQr.length - 1) * spacing + 220)
+    ? Math.max(220, (ticketsWithQr.length - 1) * spacing + 170)
     : Math.max(
-        400,
-        (ticketsWithQr.length - 1) * spacing + (spacing >= 110 ? 320 : 220)
+        340,
+        (ticketsWithQr.length - 1) * spacing + (spacing >= 64 ? 240 : 200)
       );
 
   return (
     <div
       className={`relative w-full mx-auto flex flex-col justify-between select-none transition-all duration-300 ${
         compact
-          ? "max-w-[420px] py-1 px-1 overflow-hidden"
+          ? "max-w-[380px] py-1 px-1 overflow-hidden"
           : showStackOnly
-          ? "max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] py-1 px-1 overflow-visible"
+          ? "max-w-[460px] sm:max-w-[520px] md:max-w-[580px] py-1 px-1 overflow-visible"
           : standalone
-          ? "min-h-screen max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] py-4 px-3 lg:py-8 lg:px-6"
-          : "max-w-[540px] sm:max-w-[640px] md:max-w-[760px] lg:max-w-[960px] xl:max-w-[1120px] py-2 px-2 sm:px-3 lg:py-4 lg:px-6"
+          ? "min-h-screen max-w-[460px] sm:max-w-[520px] md:max-w-[580px] py-3 px-3 lg:py-6 lg:px-4"
+          : "max-w-[460px] sm:max-w-[520px] md:max-w-[580px] py-2 px-2 sm:px-3 lg:py-4 lg:px-4"
       }`}
     >
       {/* Ambient Subtle Warm Glow (Desktop enhanced) */}
@@ -307,16 +305,16 @@ export function TicketDeckView({
                       // Tilted at -22deg matching layout
                       rotate: -22,
                       y: isAnimating
-                        ? baseY - (compact ? 32 : (spacing >= 110 ? 75 : 55))
+                        ? baseY - (compact ? 24 : 45)
                         : baseY,
                       x: 0,
-                      scale: isAnimating ? 1.04 : isFront ? 1.02 : 1,
+                      scale: isAnimating ? 1.03 : isFront ? 1.01 : 1,
                     }}
                     whileHover={{
-                      scale: isFront ? 1.03 : 1.02,
+                      scale: isFront ? 1.02 : 1.01,
                       y: isAnimating
-                        ? baseY - (compact ? 32 : (spacing >= 110 ? 75 : 55))
-                        : baseY - (compact ? 6 : (spacing >= 110 ? 12 : 8)),
+                        ? baseY - (compact ? 24 : 45)
+                        : baseY - (compact ? 4 : 8),
                       transition: { duration: 0.16 },
                     }}
                     whileTap={{ scale: 0.98 }}

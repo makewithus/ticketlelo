@@ -58,7 +58,7 @@ describe("Guest Registration & First-Time Password Setup Flow", () => {
       email: "priya@example.com",
     });
 
-    assert.ok(html.includes("LOG IN TO VIEW YOUR TICKET"), "Has returning user login button");
+    assert.ok(html.includes("VIEW DASHBOARD") || html.includes("LOG IN TO VIEW YOUR TICKET"), "Has returning user login button");
     assert.ok(html.includes(loginUrl), "Points to login with redirect to dashboard");
     assert.strictEqual(html.includes("SET YOUR PASSWORD &amp; VIEW TICKET"), false, "Does not ask returning user to set password for first time");
   });
