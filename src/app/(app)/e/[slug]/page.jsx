@@ -320,6 +320,36 @@ export default function PublicEventBySlugPage() {
     };
   }, [event?.id]);
 
+  // Derive theme properties unconditionally matching React Rules of Hooks
+  const eventTheme = useMemo(() => resolveEventTheme(event), [event]);
+  const themeAccent = eventTheme?.color || eventTheme?.hex || event?.themeColor || "#FE760B";
+  const pageBg =
+    eventTheme?.pageBg ||
+    (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal"
+      ? "#432E01"
+      : "#131517");
+  const themeLook = getThemeLook(event?.themeColor || event?.theme || themeAccent);
+
+  // Dynamic full-page background synchronization matching organizer's chosen theme
+  useEffect(() => {
+    if (typeof document !== "undefined" && pageBg) {
+      const prevHtmlBg = document.documentElement.style.backgroundColor;
+      const prevBodyBg = document.body.style.backgroundColor;
+
+      document.documentElement.style.backgroundColor = pageBg;
+      document.body.style.backgroundColor = pageBg;
+      document.documentElement.style.setProperty("--event-page-bg", pageBg);
+      document.documentElement.style.setProperty("--event-theme-accent", themeAccent);
+
+      return () => {
+        document.documentElement.style.backgroundColor = prevHtmlBg;
+        document.body.style.backgroundColor = prevBodyBg;
+        document.documentElement.style.removeProperty("--event-page-bg");
+        document.documentElement.style.removeProperty("--event-theme-accent");
+      };
+    }
+  }, [pageBg, themeAccent]);
+
   if (isLoading && !event) {
     return <EventPageSkeleton />;
   }
@@ -417,34 +447,6 @@ export default function PublicEventBySlugPage() {
   const priceDisplay = event.price !== undefined && event.price !== "" ? (event.price.toString().startsWith("₹") ? event.price : `₹${event.price}`) : "Free";
 
   const eventTitle = (event.name || event.title || "Event").trim();
-  const eventTheme = useMemo(() => resolveEventTheme(event), [event]);
-  const themeAccent = eventTheme?.color || eventTheme?.hex || event?.themeColor || "#FE760B";
-  const pageBg =
-    eventTheme?.pageBg ||
-    (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal"
-      ? "#432E01"
-      : "#131517");
-  const themeLook = getThemeLook(event.themeColor || event.theme || themeAccent);
-
-  // Dynamic full-page background synchronization matching organizer's chosen theme
-  useEffect(() => {
-    if (typeof document !== "undefined" && pageBg) {
-      const prevHtmlBg = document.documentElement.style.backgroundColor;
-      const prevBodyBg = document.body.style.backgroundColor;
-
-      document.documentElement.style.backgroundColor = pageBg;
-      document.body.style.backgroundColor = pageBg;
-      document.documentElement.style.setProperty("--event-page-bg", pageBg);
-      document.documentElement.style.setProperty("--event-theme-accent", themeAccent);
-
-      return () => {
-        document.documentElement.style.backgroundColor = prevHtmlBg;
-        document.body.style.backgroundColor = prevBodyBg;
-        document.documentElement.style.removeProperty("--event-page-bg");
-        document.documentElement.style.removeProperty("--event-theme-accent");
-      };
-    }
-  }, [pageBg, themeAccent]);
   const posterLines = getPosterLines(
     eventTitle,
     event.posterTextMode || "auto",
