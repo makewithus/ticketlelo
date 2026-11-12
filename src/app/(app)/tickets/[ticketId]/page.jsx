@@ -12,7 +12,10 @@ import {
   Loader2,
   ShieldCheck,
   CheckCircle2,
+  Lock,
+  ShieldAlert,
 } from "lucide-react";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { WideTicket } from "@/components/tickets/wide-ticket";
@@ -34,6 +37,7 @@ export default function TicketViewPage({ params }) {
   const [eventData, setEventData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [authErrorType, setAuthErrorType] = useState(null); // '401' | '403' | null
 
   useEffect(() => {
     let isMounted = true;
@@ -55,9 +59,30 @@ export default function TicketViewPage({ params }) {
         if (!hasCached) {
           setLoading(true);
         }
-        const res = await fetch(`/api/tickets/${ticketId}`);
+
+        const headers = {};
+        if (auth?.currentUser) {
+          try {
+            const idToken = await auth.currentUser.getIdToken();
+            if (idToken) headers["Authorization"] = `Bearer ${idToken}`;
+          } catch {}
+        }
+
+        const res = await fetch(`/api/tickets/${ticketId}`, {
+          headers,
+          credentials: "include",
+        });
+
         const data = await res.json();
         if (!res.ok || !data.success) {
+          if (res.status === 401) {
+            if (isMounted) setAuthErrorType("401");
+            throw new Error(data.error || "Please log in to view your ticket.");
+          }
+          if (res.status === 403) {
+            if (isMounted) setAuthErrorType("403");
+            throw new Error(data.error || "You do not have permission to view this ticket.");
+          }
           throw new Error(data.error || "Ticket not found");
         }
         if (isMounted) {
@@ -65,6 +90,7 @@ export default function TicketViewPage({ params }) {
           setEventData(data.event);
           setCachedItem(`ticket_${ticketId}`, { ticket: data.ticket, event: data.event }, 15 * 60 * 1000);
           setError(null);
+          setAuthErrorType(null);
         }
       } catch (err) {
         if (isMounted) {
@@ -129,6 +155,55 @@ export default function TicketViewPage({ params }) {
   }
 
   if (error || !ticketData) {
+    if (authErrorType === "401") {
+      return (
+        <main className="min-h-screen bg-[#131517] text-white flex items-center justify-center p-4">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center mx-auto mb-4 text-[#FE760B]">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
+            <p className="text-sm text-[#9B9EA4] mb-6">
+              To protect your attendee pass and personal details, please log in with your TicketLelo account.
+            </p>
+            <div className="flex flex-col gap-3">
+              <NextLink href={`/login?redirect=${encodeURIComponent(`/tickets/${ticketId}`)}`}>
+                <Button className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold text-sm h-11 rounded-xl">
+                  Log In to View Ticket
+                </Button>
+              </NextLink>
+              <NextLink href="/setup-password">
+                <Button variant="outline" className="w-full border-[#2A2D31] text-[#D0D0D1] hover:text-white text-xs h-10 rounded-xl">
+                  First Time? Set Up Your Password
+                </Button>
+              </NextLink>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    if (authErrorType === "403") {
+      return (
+        <main className="min-h-screen bg-[#131517] text-white flex items-center justify-center p-4">
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-400">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Access Denied</h2>
+            <p className="text-sm text-[#9B9EA4] mb-6">
+              This ticket belongs to another attendee. Please switch to the account registered for this event or contact the organiser.
+            </p>
+            <NextLink href="/my-tickets">
+              <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold text-xs h-10 px-6 rounded-xl">
+                Go to My Tickets
+              </Button>
+            </NextLink>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="min-h-screen bg-[#131517] text-white flex items-center justify-center p-4">
         <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-8 max-w-md w-full text-center">

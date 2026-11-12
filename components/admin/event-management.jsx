@@ -133,7 +133,7 @@ export function EventManagement() {
       const uniqueEvents = [];
       const seen = new Set();
       for (const ev of (allEvents || [])) {
-        if (!ev) continue;
+        if (!ev || ev.isDeleted === true || ev.deleted === true || ev.status === "deleted") continue;
         const evId = ev.id || ev._id;
         const evSlug = ev.slug ? String(ev.slug).toLowerCase().trim() : null;
         const normTitle = (ev.title || ev.name || "").trim().toLowerCase();
@@ -198,6 +198,7 @@ export function EventManagement() {
   const handleDelete = async (eventId) => {
     if (!confirm("Are you sure you want to delete this event?")) return;
     try {
+      setEvents((prev) => prev.filter((e) => (e.id || e._id) !== eventId));
       await deleteEvent(eventId);
       toast.success("Event deleted successfully");
       await loadEvents();
@@ -205,6 +206,7 @@ export function EventManagement() {
     } catch (error) {
       console.error("Error deleting event:", error);
       toast.error("Failed to delete event");
+      await loadEvents();
     }
   };
 

@@ -75,6 +75,80 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "ambassadorApplications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "programId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "programEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "eventId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "referralEnabled",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "programAmbassadors",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "programId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "totalPoints",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pointsLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ambassadorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pointsLedger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "programId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

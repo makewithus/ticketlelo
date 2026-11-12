@@ -10,6 +10,7 @@ import { adminAuth, adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
 import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
 import { resolveCommissionRule, calculateCommissionBreakdown } from "@/lib/payments/commission-engine";
+import { resolveReferralCode, isSelfReferral } from "@/lib/creator-campus/referral-registry";
 
 /**
  * Server-Authoritative Razorpay Order Creation
@@ -223,6 +224,41 @@ export async function POST(request) {
       return NextResponse.json({ error: "Payment provider could not create the order" }, { status: 502 });
     }
 
+    // 6.5 Validate Creator Campus referral code server-side
+    let referralAttribution = null;
+    let validatedReferralCode = null;
+    if (referralCode && typeof referralCode === "string" && referralCode.trim()) {
+      try {
+        const resolved = await resolveReferralCode(referralCode.trim());
+        if (resolved && resolved.status === "active") {
+          let connectionValid = true;
+          if (resolved.programId && resolved.programId !== "legacy") {
+            const relSnap = await adminDb
+              .collection("programEvents")
+              .doc(`${resolved.programId}_${eventId}`)
+              .get();
+            if (!relSnap.exists || relSnap.data().status !== "connected" || relSnap.data().referralEnabled !== true) {
+              connectionValid = false;
+            }
+          }
+
+          const buyerObj = { email: safeEmail, userId: userUid };
+          const ambObj = { email: resolved.email, userId: resolved.userId };
+          if (connectionValid && !isSelfReferral(buyerObj, ambObj)) {
+            validatedReferralCode = resolved.code;
+            referralAttribution = {
+              ambassadorId: resolved.ambassadorId,
+              programId: resolved.programId,
+              userId: resolved.userId,
+              referralCode: resolved.code,
+            };
+          }
+        }
+      } catch (refErr) {
+        console.warn("[create-order] Referral validation warning:", refErr?.message);
+      }
+    }
+
     // 7. Persist Pending Order Record
     const orderRecord = {
       id: razorpayOrderId,
@@ -237,7 +273,8 @@ export async function POST(request) {
       isRouteTransfer: process.env.RAZORPAY_ROUTE_ENABLED === "true" && Boolean(eligibility?.account?.providerAccountId),
       connectedAccountId: eligibility?.account?.providerAccountId || null,
       reservationId: reservation?.id || null,
-      referralCode: referralCode || null,
+      referralCode: validatedReferralCode,
+      referralAttribution: referralAttribution || null,
       registrationData: {
         userId: userUid,
         fullName: String(registrationData.fullName || caller?.decodedToken?.name || "Attendee").slice(0, 120),

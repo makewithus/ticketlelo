@@ -237,6 +237,19 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
               </Link>
 
               <Link
+                href="/admin/programs"
+                prefetch={false}
+                className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                  pathname.startsWith("/admin/programs")
+                    ? "text-white font-semibold"
+                    : "text-[#D0D0D1] hover:text-white"
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-[#9B9EA4]" />
+                <span>Ambassadors</span>
+              </Link>
+
+              <Link
                 href="/discover"
                 prefetch={false}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer ${
@@ -423,6 +436,19 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                   >
                     <Calendar className="w-4 h-4 shrink-0 text-[#FE760B]" />
                     <span>Events & Management</span>
+                  </Link>
+
+                  <Link
+                    href="/admin/programs"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                      pathname.startsWith("/admin/programs")
+                        ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border border-[#FE760B]/30"
+                        : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327]"
+                    }`}
+                  >
+                    <Users className="w-4 h-4 shrink-0 text-[#FE760B]" />
+                    <span>Campus Ambassadors</span>
                   </Link>
 
                   <Link

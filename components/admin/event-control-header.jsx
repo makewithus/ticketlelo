@@ -110,6 +110,7 @@ export function EventControlHeader({
     { name: "Overview", href: getHref("/admin/overview") },
     { name: "Guests", href: getHref("/admin/registrations") },
     { name: "Registration", href: getHref("/admin/form-generator") },
+    { name: "Ambassadors", href: "/admin/programs" },
     { name: "Blasts", href: getHref("/admin/messages") },
     { name: "Insights", href: getHref("/admin/analytics") },
     { name: "Payouts", href: getHref("/admin/payments") },

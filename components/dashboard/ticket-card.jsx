@@ -94,12 +94,13 @@ export function TicketCard({ registration, event = {} }) {
     null;
 
   const eventDate = event?.date || event?.startDate || registration?.eventDate;
+  const eventTime = event?.time || event?.startTime || registration?.eventTime || "";
   const venue =
     event?.location ||
     event?.venue ||
     registration?.venue ||
     registration?.location ||
-    "Main Auditorium";
+    "Venue TBA";
   const ticketType =
     registration?.ticketTier ||
     registration?.tierName ||
@@ -127,11 +128,20 @@ export function TicketCard({ registration, event = {} }) {
             <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate" title={eventName}>
               {eventName}
             </h3>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-[#9B9EA4] truncate mt-0.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-[#9B9EA4] truncate mt-0.5">
               <span className="flex items-center gap-1 shrink-0">
                 <Calendar className="w-3.5 h-3.5 text-[#FE760B]" />
                 {formatTicketDate(eventDate)}
               </span>
+              {eventTime && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    <Clock className="w-3.5 h-3.5 text-[#FE760B]" />
+                    {eventTime}
+                  </span>
+                </>
+              )}
               <span>•</span>
               <span className="flex items-center gap-1 truncate" title={venue}>
                 <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />

@@ -11,6 +11,7 @@ import { getDefaultPaymentProvider } from "@/lib/payments/provider-registry";
 import { recordPaymentCaptureLedger } from "@/lib/payments/ledger";
 import { scheduleSettlementForOrder } from "@/lib/payments/settlement-engine";
 import { sendTicketDeliveryEmail } from "@/src/app/api/send-ticket-email/route";
+import { awardPointsForRegistration } from "@/lib/creator-campus/points-engine";
 
 const deterministicId = (orderId) => crypto.createHash("sha256").update(orderId).digest("hex");
 
@@ -249,6 +250,26 @@ export async function POST(request) {
       });
     } catch (ledgerErr) {
       console.warn("[verify-payment] Ledger or split recording warning:", ledgerErr.message);
+    }
+
+    // Award Creator Campus Ambassador Points (P08 / Phase 7 & 8)
+    const attribution = order.referralAttribution;
+    if (attribution && attribution.ambassadorId && attribution.programId) {
+      try {
+        await awardPointsForRegistration({
+          ambassadorId: attribution.ambassadorId,
+          userId: attribution.userId,
+          programId: attribution.programId,
+          eventId: order.eventId,
+          orderId,
+          registrationId: ticketId,
+          referralCode: attribution.referralCode || order.referralCode,
+          isPaid: true,
+          ticketCount: Number(order.quantity || 1),
+        });
+      } catch (ptsErr) {
+        console.warn("[verify-payment] Points awarding warning:", ptsErr?.message);
+      }
     }
 
     // Automatically trigger ticket delivery confirmation email

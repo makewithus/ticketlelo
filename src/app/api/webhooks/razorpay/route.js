@@ -3,6 +3,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { configuredPaymentSecret, verifyPaymentHmac } from "@/lib/payment-security";
 import { releaseTicketCapacity } from "@/lib/capacity-reservation";
+import { awardPointsForRegistration, reversePointsForOrder } from "@/lib/creator-campus/points-engine";
 
 export async function POST(request) {
   try {
@@ -85,8 +86,12 @@ export async function POST(request) {
           if (totalRefunded === expected && order.ticketId) {
             tx.update(adminDb.collection("tickets").doc(order.ticketId), { status: "Revoked", revokedReason: "Refund processed", revokedAt: now, updatedAt: now });
           }
-          // Commission reversal is intentionally not guessed here: the existing
-          // ledger has no partial-refund accounting contract.
+          // Creator Campus: Points Reversal on Refund
+          try {
+            await reversePointsForOrder({ orderId: providerOrderId, reason: "Razorpay Webhook Refund" });
+          } catch (ptsRevErr) {
+            console.warn("[webhooks/razorpay] Points reversal warning:", ptsRevErr?.message);
+          }
         }
       }
       tx.create(eventRef, { id: eventId, eventType, orderId: providerOrderId, processedAt: now, status: "processed" });

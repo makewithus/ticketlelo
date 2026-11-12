@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { login } from "@/lib/auth";
+import { login, establishServerSession } from "@/lib/auth";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -92,7 +92,10 @@ function SetupPasswordContent() {
       // Automatically sign in with custom token or standard password credentials
       if (data.customToken) {
         try {
-          await signInWithCustomToken(auth, data.customToken);
+          const userCredential = await signInWithCustomToken(auth, data.customToken);
+          if (userCredential?.user) {
+            await establishServerSession(userCredential.user);
+          }
         } catch (signInErr) {
           console.warn("[setup-password] Custom token sign-in fallback to password login:", signInErr);
           await login(cleanEmail, newPassword);

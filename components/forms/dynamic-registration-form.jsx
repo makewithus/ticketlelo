@@ -191,6 +191,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [isPendingApproval, setIsPendingApproval] = useState(false);
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
+  const [emailDeliveryStatus, setEmailDeliveryStatus] = useState("queued");
   const [formLoadError, setFormLoadError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -202,6 +203,31 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [couponValidating, setCouponValidating] = useState(false);
   const [couponData, setCouponData] = useState(null);
   const [couponError, setCouponError] = useState("");
+
+  // Creator Campus Ambassador Referral State
+  const [referralCode, setReferralCode] = useState(() => props.defaultReferralCode || "");
+  const [referralEligible, setReferralEligible] = useState(Boolean(props.defaultReferralCode));
+
+  useEffect(() => {
+    if (props.defaultReferralCode) {
+      setReferralCode(props.defaultReferralCode);
+      setReferralEligible(true);
+    }
+  }, [props.defaultReferralCode]);
+
+  useEffect(() => {
+    const targetId = eventId || initialEvent?.id || props.event?.id || currentEvent?.id;
+    if (!targetId) return;
+
+    fetch(`/api/referral/validate?checkEvent=${encodeURIComponent(targetId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.referralActive) {
+          setReferralEligible(true);
+        }
+      })
+      .catch(() => {});
+  }, [eventId, initialEvent?.id, props.event?.id, currentEvent?.id]);
 
   const activeEvent = currentEvent || initialEvent || props.event;
   const eventNumericPrice = parseEventPrice(
@@ -989,6 +1015,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           eventId,
           registrationData: { fullName: user.fullName, email: user.email, whatsappPhone: user.whatsappPhone, formData: tempFormData?.formData || {} },
           couponCode: couponCode || null,
+          referralCode: referralCode?.trim() || null,
+          referralCode: referralCode?.trim() || null,
         }),
       });
 
@@ -1106,11 +1134,16 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       const response = await fetch("/api/register-free", {
         method: "POST",
         headers,
-        body: JSON.stringify({ eventId, formData: dataToSend }),
+        body: JSON.stringify({
+          eventId,
+          formData: dataToSend,
+          referralCode: referralCode?.trim() || null,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
       setIsFirstTimeUser(Boolean(result.isFirstTimeUser));
+      if (result.emailStatus) setEmailDeliveryStatus(result.emailStatus);
       const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
       setIsPendingApproval(requiresApproval);
       if (requiresApproval) {
@@ -1370,6 +1403,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         body: JSON.stringify({
           eventId,
           formData: fullFormData,
+          referralCode: referralCode?.trim() || null,
         }),
       });
       const result = await response.json();
@@ -1436,6 +1470,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             formData: dataToSend,
           },
           couponCode: couponCode || null,
+          referralCode: referralCode?.trim() || null,
         }),
       });
 
@@ -1570,7 +1605,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         email,
         password,
         fullName || email,
-        phone || ""
+        phone || "",
+        { hasSetPassword: true, isFirstTimeUser: false }
       );
       const dataToSend = payloadData || tempFormData?.formData || {};
       const token =
@@ -1585,6 +1621,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         body: JSON.stringify({
           eventId: eventId,
           formData: dataToSend,
+          referralCode: referralCode?.trim() || null,
         }),
       });
       const result = await response.json();
@@ -2252,6 +2289,25 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               </div>
             )}
 
+          {/* Automatic Creator Campus Referral Field */}
+          {referralEligible && (
+            <div className="space-y-1.5 w-full">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1]">
+                Referral Code (Optional)
+              </label>
+              <input
+                placeholder="Enter referral code (if you have one)"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                disabled={isLoading}
+                className="w-full px-3.5 py-2 h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-base sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase font-mono"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                Have an ambassador referral code? Enter it here.
+              </p>
+            </div>
+          )}
+
           {/* High Contrast Brand CTA Button or Closed for Registration */}
           {isClosedForRegistration ? (
             <button
@@ -2484,9 +2540,15 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <div className="space-y-4">
               {/* Description Body */}
               <div className="space-y-2 text-sm text-[#D0D0D1] leading-relaxed">
-                <p>
-                  You&apos;re successfully registered for this event. Your ticket confirmation has been sent to your email.
-                </p>
+                {emailDeliveryStatus === "failed" ? (
+                  <p>
+                    You&apos;re successfully registered for this event. We experienced a slight delay sending your confirmation email, but your registration is fully secured.
+                  </p>
+                ) : (
+                  <p>
+                    You&apos;re successfully registered for this event. Your ticket confirmation has been sent to your email.
+                  </p>
+                )}
                 {isFirstTimeUser ? (
                   <p className="text-xs sm:text-sm text-[#E1E4EA] font-medium pt-1">
                     To access your ticket and manage all your registrations, set up your TicketLelo password using the link sent to your email.
@@ -2504,7 +2566,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   <Mail className="w-4 h-4" />
                 </div>
                 <p className="text-xs font-medium text-[#D0D0D1]">
-                  Check your inbox for your ticket confirmation email.
+                  {emailDeliveryStatus === "failed"
+                    ? "Check your dashboard or retry sending from account settings."
+                    : "Check your inbox for your ticket confirmation email."}
                 </p>
               </div>
             </div>

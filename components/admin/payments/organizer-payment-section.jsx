@@ -27,8 +27,7 @@ import { SupportTicketModal } from "@/components/admin/support/support-ticket-mo
 import { OrganizerPayoutDetailsForm } from "./organizer-payout-details-form";
 
 export function OrganizerPaymentSection({ organizerId = null, eventId = null }) {
-  const [activeSubTab, setActiveSubTab] = useState("settlements"); // "settlements" | "payout-details" | "settings"
-  const [account, setAccount] = useState(null);
+  const [activeSubTab, setActiveSubTab] = useState("settlements"); // "settlements" | "payout-details"
   const [summary, setSummary] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [settlements, setSettlements] = useState([]);
@@ -40,16 +39,6 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
 
   // Settlement Details Modal state
   const [selectedSettlementRecord, setSelectedSettlementRecord] = useState(null);
-
-  // Onboarding Modal state
-  const [showOnboardModal, setShowOnboardModal] = useState(false);
-  const [submittingOnboard, setSubmittingOnboard] = useState(false);
-  const [onboardForm, setOnboardForm] = useState({
-    legalBusinessName: "",
-    businessType: "individual",
-    email: "",
-    phone: "",
-  });
 
   // Support Ticket Modal state
   const [supportModalOpen, setSupportModalOpen] = useState(false);
@@ -65,20 +54,14 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
       if (showLoading) setLoading(true);
       setError(null);
 
-      const accUrl = `/api/payments/onboarding?${organizerId ? `organizerId=${organizerId}&` : ""}${sync ? "sync=true" : ""}`;
       const sumUrl = `/api/payments/summary?${organizerId ? `organizerId=${organizerId}&` : ""}${eventId ? `eventId=${eventId}` : ""}`;
       const settUrl = `/api/payments/settlements?${organizerId ? `organizerId=${organizerId}&` : ""}${eventId ? `eventId=${eventId}` : ""}`;
 
-      const [accRes, sumRes, settRes] = await Promise.all([
-        fetch(accUrl),
+      const [sumRes, settRes] = await Promise.all([
         fetch(sumUrl),
         fetch(settUrl),
       ]);
 
-      if (accRes.ok) {
-        const accData = await accRes.json();
-        setAccount(accData.account || null);
-      }
       if (sumRes.ok) {
         const sumData = await sumRes.json();
         setSummary(sumData.summary || null);
@@ -101,32 +84,6 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
   useEffect(() => {
     fetchData(false, true);
   }, [organizerId, eventId]);
-
-  const handleOnboardSubmit = async (e) => {
-    e.preventDefault();
-    setSubmittingOnboard(true);
-    try {
-      const res = await fetch("/api/payments/onboarding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          organizerId,
-          legalBusinessName: onboardForm.legalBusinessName,
-          businessType: onboardForm.businessType,
-          email: onboardForm.email,
-          phone: onboardForm.phone,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to initiate onboarding");
-      setShowOnboardModal(false);
-      await fetchData(true);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setSubmittingOnboard(false);
-    }
-  };
 
   const handleOpenSupportForRecord = (record) => {
     const isSettlement = Boolean(record.settlementId);
@@ -254,17 +211,6 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
             }`}
           >
             Payout Details (UPI & Bank)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("settings")}
-            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              activeSubTab === "settings"
-                ? "bg-[#FE760B] text-black shadow-md shadow-[#FE760B]/20"
-                : "bg-[#1A1C1F] text-[#9E9E9F] hover:text-white"
-            }`}
-          >
-            Payment Settings & Accounts
           </button>
         </div>
 
@@ -703,100 +649,10 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
             </div>
           </div>
         </div>
-      ) : activeSubTab === "payout-details" ? (
-        /* ── PART 1: Organizer Payout Details View ── */
+      ) : (
+        /* ── Organizer Payout Details (UPI & Bank) ── */
         <div className="space-y-6 animate-fade-in">
           <OrganizerPayoutDetailsForm organizerId={organizerId} onSaved={() => fetchData(true)} />
-        </div>
-      ) : (
-        /* ── Payment Settings & Connected Account View ── */
-        <div className="space-y-6 animate-fade-in">
-          <div className="p-6 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] shadow-xl relative overflow-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
-                    <Building2 size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      Marketplace Payment Connection
-                      {account && getStatusBadge(account.verificationStatus)}
-                    </h3>
-                    <p className="text-xs text-[#9E9E9F]">
-                      Razorpay Route linked account for automated ticket revenue settlements and platform fee allocation.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5">
-                {!account || account.verificationStatus === "NOT_CONNECTED" ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowOnboardModal(true)}
-                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF9037] hover:brightness-110 text-black text-xs font-bold shadow-lg shadow-[#FE760B]/20 transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <Wallet size={15} />
-                    Connect Razorpay Account
-                  </button>
-                ) : account.verificationStatus === "ACTIVE" ? (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-xs text-[#D0D0D1]">
-                    <span className="text-[#9E9E9F]">Linked Account ID:</span>
-                    <code className="text-[#FE760B] font-mono text-[11px]">{account.providerAccountId}</code>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowOnboardModal(true)}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    Update Verification Details
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Account Details */}
-            {account && (
-              <div className="mt-4 pt-4 border-t border-[#2A2D31] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-                <div>
-                  <span className="text-[#9E9E9F] block">Legal Entity:</span>
-                  <span className="text-white font-medium">{account.legalBusinessName || "Individual"}</span>
-                </div>
-                <div>
-                  <span className="text-[#9E9E9F] block">Business Type:</span>
-                  <span className="text-white font-medium capitalize">{account.businessType || "individual"}</span>
-                </div>
-                <div>
-                  <span className="text-[#9E9E9F] block">Transfers Capability:</span>
-                  <span
-                    className={
-                      account.capabilities?.transfers === "active" || account.verificationStatus === "ACTIVE"
-                        ? "text-emerald-400 font-semibold"
-                        : "text-amber-400 font-semibold"
-                    }
-                  >
-                    {account.capabilities?.transfers === "active" || account.verificationStatus === "ACTIVE"
-                      ? "Active"
-                      : "Pending"}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[#9E9E9F] block">Settlement Status:</span>
-                  <span
-                    className={
-                      account.settlementEligibility
-                        ? "text-emerald-400 font-semibold"
-                        : "text-amber-400 font-semibold"
-                    }
-                  >
-                    {account.settlementEligibility ? "Settlement Eligible" : "Verification Required"}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Security Notice Card */}
           <div className="p-5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] space-y-2">
@@ -805,7 +661,7 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
               Merchant Gateway Security Policy
             </h4>
             <p className="text-xs text-[#9E9E9F] leading-relaxed">
-              TicketLelo operates via a centralized merchant integration. Organizers <strong>never</strong> supply their personal Razorpay API keys or secrets. All transactions are securely routed through TicketLelo&apos;s master gateway, and net proceeds are disbursed to your verified bank account on a T+4 working-day schedule.
+              TicketLelo operates via a centralized merchant integration. Organizers <strong>never</strong> supply their personal Razorpay API keys or secrets. All transactions are securely routed through TicketLelo&apos;s master gateway, and net proceeds are disbursed directly to your verified UPI &amp; bank account on a T+4 working-day schedule.
             </p>
           </div>
         </div>
@@ -946,116 +802,6 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Onboarding Modal (Exact Visual Style with Cross Icon) ── */}
-      {showOnboardModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#17191C] border border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-white animate-scale-in">
-            {/* Header */}
-            <div className="p-4 sm:p-5 bg-[#1A1C1F] border-b border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-[#FE760B]/12 border border-[#FE760B]/25 flex items-center justify-center text-[#FE760B] shrink-0">
-                  <Building2 size={18} />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                    Connect Razorpay Route Account
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-[#9E9E9F] truncate">
-                    Approved linked-account onboarding for ticket settlements
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowOnboardModal(false)}
-                className="p-2 rounded-lg text-[#9E9E9F] hover:text-white hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
-                aria-label="Close Modal"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleOnboardSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto text-xs">
-              <div>
-                <label className="block text-[#9E9E9F] font-semibold mb-1 text-[11px] sm:text-xs">
-                  Legal Business / Individual Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Acme Events Pvt Ltd or Full Name"
-                  value={onboardForm.legalBusinessName}
-                  onChange={(e) => setOnboardForm({ ...onboardForm, legalBusinessName: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#9E9E9F] font-semibold mb-1 text-[11px] sm:text-xs">
-                  Business Constitution *
-                </label>
-                <select
-                  value={onboardForm.businessType}
-                  onChange={(e) => setOnboardForm({ ...onboardForm, businessType: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs sm:text-sm"
-                >
-                  <option value="individual">Individual / Proprietorship</option>
-                  <option value="partnership">Partnership</option>
-                  <option value="private_limited">Private Limited</option>
-                  <option value="public_limited">Public Limited</option>
-                  <option value="llp">Limited Liability Partnership (LLP)</option>
-                  <option value="ngo">NGO / Trust / Society</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[#9E9E9F] font-semibold mb-1 text-[11px] sm:text-xs">
-                  Business Email *
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="organizer@example.com"
-                  value={onboardForm.email}
-                  onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#9E9E9F] font-semibold mb-1 text-[11px] sm:text-xs">
-                  Contact Phone Number
-                </label>
-                <input
-                  type="tel"
-                  placeholder="e.g. +91 98765 43210"
-                  value={onboardForm.phone}
-                  onChange={(e) => setOnboardForm({ ...onboardForm, phone: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white focus:outline-none focus:border-[#FE760B] text-xs sm:text-sm"
-                />
-              </div>
-
-              <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowOnboardModal(false)}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingOnboard}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm"
-                >
-                  {submittingOnboard ? "Initiating..." : "Start Onboarding"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

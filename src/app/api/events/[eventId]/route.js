@@ -109,3 +109,68 @@ export async function PATCH(request, { params }) {
   }
 }
 
+export async function DELETE(request, { params }) {
+  try {
+    const { eventId } = await params;
+    if (!eventId) {
+      return NextResponse.json({ error: "Event ID is required" }, { status: 400 });
+    }
+
+    if (!isFirebaseAdminReady()) {
+      return NextResponse.json({ error: "Database service unavailable" }, { status: 503 });
+    }
+
+    const eventRef = adminDb.collection("events").doc(eventId);
+    const docSnap = await eventRef.get();
+    if (!docSnap.exists) {
+      return NextResponse.json({ success: true, message: "Event already deleted" });
+    }
+
+    const eventData = docSnap.data();
+    const organizerId = eventData?.createdBy || eventData?.userId;
+
+    // Hard delete document and mark soft deletion safety flags
+    await eventRef.update({
+      isDeleted: true,
+      deleted: true,
+      status: "deleted",
+      deletedAt: new Date(),
+    }).catch(() => {});
+    await eventRef.delete().catch(() => {});
+
+    // Decrease eventsCreated count for organizer
+    if (organizerId) {
+      try {
+        const userRef = adminDb.collection("users").doc(organizerId);
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+          const currentCount = userDoc.data().eventsCreated || 0;
+          await userRef.update({
+            eventsCreated: Math.max(0, currentCount - 1),
+          });
+        }
+      } catch (err) {
+        console.warn("Could not decrement eventsCreated:", err);
+      }
+    }
+
+    // Delete associated customForms
+    try {
+      const formsSnap = await adminDb.collection("customForms").where("eventId", "==", eventId).get();
+      if (!formsSnap.empty) {
+        const batch = adminDb.batch();
+        formsSnap.forEach((doc) => batch.delete(doc.ref));
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn("Could not clean customForms:", err);
+    }
+
+    return NextResponse.json({ success: true, message: "Event deleted successfully" });
+  } catch (error) {
+    console.error("Delete event API error:", error?.message || error);
+    return NextResponse.json({ error: error.message || "Failed to delete event" }, { status: 500 });
+  }
+}
+
+

@@ -118,7 +118,7 @@ export default function AdminDashboardPage() {
         const unique = [];
         const seen = new Set();
         for (const ev of evts || []) {
-          if (!ev) continue;
+          if (!ev || ev.isDeleted === true || ev.deleted === true || ev.status === "deleted") continue;
           const evId = ev.id || ev._id;
           const evSlug = ev.slug ? String(ev.slug).toLowerCase().trim() : null;
           const normTitle = (ev.title || ev.name || "").trim().toLowerCase();
