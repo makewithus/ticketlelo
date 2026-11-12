@@ -39,6 +39,7 @@ export default function OrganizerProgramsListPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [availableEvents, setAvailableEvents] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     name: "",
@@ -52,13 +53,43 @@ export default function OrganizerProgramsListPage() {
   });
 
   useEffect(() => {
-    if (isCreateOpen && user) {
-      authFetch("/api/events?limit=100")
-        .then((r) => (r.ok ? r.json() : {}))
-        .then((d) => setAvailableEvents(d.events || []))
-        .catch(() => {});
-    }
-  }, [isCreateOpen, user]);
+    if (!user) return;
+    let isCancelled = false;
+    const loadEvents = async () => {
+      setLoadingEvents(true);
+      try {
+        const res = await authFetch("/api/events?limit=100");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.events) && data.events.length > 0) {
+            if (!isCancelled) setAvailableEvents(data.events);
+            setLoadingEvents(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("API events load error:", err?.message);
+      }
+
+      // Client-side fallback to getEventsByOrganiser
+      try {
+        const { getEventsByOrganiser } = await import("@/lib/firestore");
+        const clientEvents = await getEventsByOrganiser(user.uid);
+        if (Array.isArray(clientEvents) && clientEvents.length > 0 && !isCancelled) {
+          setAvailableEvents(clientEvents);
+        }
+      } catch (clientErr) {
+        console.warn("Client events fallback error:", clientErr?.message);
+      } finally {
+        if (!isCancelled) setLoadingEvents(false);
+      }
+    };
+
+    loadEvents();
+    return () => {
+      isCancelled = true;
+    };
+  }, [user, isCreateOpen]);
 
   const fetchPrograms = useCallback(async () => {
     if (!user) return;
@@ -408,12 +439,19 @@ export default function OrganizerProgramsListPage() {
                     }}
                     className="w-full h-11 px-3.5 rounded-xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white focus:outline-none focus:border-[#FE760B] focus:ring-2 focus:ring-[#FE760B]/20 transition-all cursor-pointer"
                   >
-                    <option value="">Select an Event for this Program...</option>
+                    <option value="" className="bg-[#131517] text-white">
+                      {loadingEvents ? "Loading your events..." : "Select an Event for this Program..."}
+                    </option>
                     {availableEvents.map((ev) => (
-                      <option key={ev.id || ev._id} value={ev.id || ev._id}>
+                      <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-[#131517] text-white">
                         {ev.title || ev.name} ({ev.customSlug || ev.slug || ev.id || ev._id})
                       </option>
                     ))}
+                    {!loadingEvents && availableEvents.length === 0 && (
+                      <option value="" disabled className="bg-[#131517] text-[#9B9EA4]">
+                        No created events found (you can link an event later)
+                      </option>
+                    )}
                   </select>
                 </div>
 

@@ -300,5 +300,28 @@ Adil Mohammed,adil@example.com,9876543210,CUSAT
         "organizer programs route must perform in-memory sort by createdAt"
       );
     });
+
+    test("Events API endpoint /api/events exists and supports organizer event listing", () => {
+      const eventsRoutePath = path.join(root, "src/app/api/events/route.js");
+      assert.equal(fs.existsSync(eventsRoutePath), true, "/api/events route must exist");
+      const content = fs.readFileSync(eventsRoutePath, "utf-8");
+      assert.match(content, /export async function GET/, "Must export GET handler");
+      assert.match(content, /adminDb\.collection\("events"\)/, "Must query events collection");
+    });
+
+    test("Create Program modal populates associated events and detail review modal is at root level", () => {
+      const listPagePath = path.join(root, "src/app/(app)/admin/programs/page.jsx");
+      const listContent = fs.readFileSync(listPagePath, "utf-8");
+      assert.match(listContent, /availableEvents\.map/, "Create program modal must map availableEvents in dropdown");
+      assert.match(listContent, /\/api\/events\?limit=100/, "Create program modal must fetch events from /api/events");
+
+      const detailPagePath = path.join(root, "src/app/(app)/admin/programs/[programId]/page.jsx");
+      const detailContent = fs.readFileSync(detailPagePath, "utf-8");
+      // Verify review modal has scrollable body and clean structure
+      assert.match(detailContent, /selectedApp\s*&&/, "Must render selectedApp review modal");
+      assert.match(detailContent, /overflow-y-auto custom-scrollbar/, "Review modal body must have independent scrollbar");
+      assert.match(detailContent, /Close/, "Review modal must have Close button");
+      assert.match(detailContent, /Approve & Enrol/, "Review modal must have Approve & Enrol button");
+    });
   });
 });

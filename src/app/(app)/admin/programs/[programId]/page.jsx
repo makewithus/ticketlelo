@@ -867,63 +867,6 @@ export default function OrganizerProgramHubPage({ params }) {
               ))}
             </div>
           )}
-
-          {/* Connect Event Modal */}
-          {isConnectModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
-                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
-                  <h3 className="text-base font-bold text-white tracking-tight">Connect Event</h3>
-                  <button
-                    type="button"
-                    onClick={() => setIsConnectModalOpen(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="max-h-72 overflow-y-auto space-y-2 mt-4 custom-scrollbar">
-                  {allOrganizerEvents.length === 0 ? (
-                    <p className="text-xs text-[#9B9EA4] text-center py-6">No events available to connect.</p>
-                  ) : (
-                    allOrganizerEvents.map((ev) => {
-                      const isConnected = connectedEvents.some((c) => (c.eventId || c.id) === (ev.id || ev._id));
-                      return (
-                        <div
-                          key={ev.id || ev._id}
-                          className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-between gap-3"
-                        >
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate">
-                              {ev.title || ev.name}
-                            </p>
-                            <p className="text-[10px] text-[#9B9EA4] truncate">
-                              {ev.date || "Date TBA"}
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            disabled={isConnected}
-                            onClick={() => {
-                              handleConnectEvent(ev.id || ev._id);
-                            }}
-                            className={`text-xs h-8 px-3 rounded-lg ${
-                              isConnected
-                                ? "bg-[#1E2024] text-[#71767B] border border-[#2A2D31]"
-                                : "bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold cursor-pointer"
-                            }`}
-                          >
-                            {isConnected ? "Connected" : "Connect"}
-                          </Button>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1031,106 +974,6 @@ export default function OrganizerProgramHubPage({ params }) {
               ))}
             </div>
           )}
-
-          {/* Application Detail / Review Modal */}
-          {selectedApp && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
-                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
-                  <div className="pr-3">
-                    <h3 className="text-base font-bold text-white tracking-tight">
-                      {selectedApp.fullName}
-                    </h3>
-                    <p className="text-xs text-[#9B9EA4] mt-0.5">
-                      {selectedApp.college} • {selectedApp.answers?.department || "Student"} ({selectedApp.answers?.yearOfStudy || ""})
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedApp(null)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <span className="font-semibold text-[#9B9EA4] block">Email & WhatsApp</span>
-                    <p className="text-white">{selectedApp.email} • {selectedApp.whatsappPhone}</p>
-                  </div>
-
-                  {selectedApp.answers?.socialProfile && (
-                    <div>
-                      <span className="font-semibold text-[#9B9EA4] block">Social Link</span>
-                      <a href={selectedApp.answers.socialProfile} target="_blank" rel="noreferrer" className="text-[#FE760B] hover:underline">
-                        {selectedApp.answers.socialProfile}
-                      </a>
-                    </div>
-                  )}
-
-                  {selectedApp.answers?.clubRoles && (
-                    <div>
-                      <span className="font-semibold text-[#9B9EA4] block">Club Leadership / Roles</span>
-                      <p className="text-white">{selectedApp.answers.clubRoles}</p>
-                    </div>
-                  )}
-
-                  {selectedApp.answers?.promotionPitch && (
-                    <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                      <span className="font-semibold text-[#FE760B] block mb-1">Promotion Strategy Pitch</span>
-                      <p className="text-slate-200">{selectedApp.answers.promotionPitch}</p>
-                    </div>
-                  )}
-
-                  {selectedApp.status === "pending" && (
-                    <div className="pt-2">
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        Optional Rejection Feedback (only if rejecting)
-                      </label>
-                      <Input
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="Enter rejection reason for applicant"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-11 rounded-xl focus:border-[#FE760B]"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedApp(null)}
-                    className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
-                  >
-                    Close
-                  </Button>
-                  {selectedApp.status === "pending" && (
-                    <>
-                      <Button
-                        size="sm"
-                        disabled={processingApp}
-                        onClick={() => handleRejectApp(selectedApp.id)}
-                        className="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs h-10 px-4 rounded-xl cursor-pointer shadow-sm transition-colors"
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={processingApp}
-                        onClick={() => handleApproveApp(selectedApp.id)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-5 rounded-xl cursor-pointer shadow-sm transition-colors"
-                      >
-                        Approve & Enrol
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1200,73 +1043,6 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Adjust Points Modal */}
-          {isAdjustModalOpen && adjustTargetAmb && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
-                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
-                  <h3 className="text-base font-bold text-white tracking-tight">
-                    Adjust Points: {adjustTargetAmb.fullName}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => setIsAdjustModalOpen(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleManualAdjust} className="space-y-3.5">
-                  <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      Points Delta (+ or -)
-                    </label>
-                    <Input
-                      type="number"
-                      required
-                      value={adjustPoints}
-                      onChange={(e) => setAdjustPoints(e.target.value)}
-                      placeholder="Enter points delta (+ or -)"
-                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      Audit Reason *
-                    </label>
-                    <Input
-                      required
-                      value={adjustReason}
-                      onChange={(e) => setAdjustReason(e.target.value)}
-                      placeholder="Enter reason for points adjustment"
-                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAdjustModalOpen(false)}
-                      className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={adjusting}
-                      className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      {adjusting ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Save Adjustment"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
             </div>
           )}
         </div>
@@ -1342,87 +1118,6 @@ export default function OrganizerProgramHubPage({ params }) {
                   </Button>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* Bulk Import Modal */}
-          {isImportModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[92dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
-                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
-                  <div className="pr-3">
-                    <h3 className="text-base font-bold text-white tracking-tight">
-                      Bulk Import Campus Ambassadors
-                    </h3>
-                    <p className="text-xs text-[#9B9EA4] mt-0.5">
-                      Upload CSV or XLSX file. Formulas are neutralized automatically.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsImportModalOpen(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed border-[#2A2D31] rounded-2xl p-6 text-center space-y-2 hover:border-[#FE760B]/50 transition-colors">
-                    <FileSpreadsheet className="w-8 h-8 text-[#FE760B] mx-auto" />
-                    <p className="text-xs font-semibold text-[#D0D0D1]">
-                      Choose CSV or XLSX spreadsheet
-                    </p>
-                    <input
-                      type="file"
-                      accept=".csv, .xlsx, .xls"
-                      onChange={handleFileChange}
-                      className="text-xs text-[#9B9EA4]"
-                    />
-                  </div>
-
-                  {importPreview.length > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
-                        File Preview (First 5 Rows)
-                      </span>
-                      <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3 max-h-36 overflow-y-auto text-[11px] font-mono space-y-1">
-                        {importPreview.map((row, idx) => (
-                          <div key={idx} className="truncate text-[#D0D0D1]">
-                            {row.fullName || row.name} | {row.email} | {row.phone || row.whatsapp} | {row.college}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {importResult && (
-                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-400 space-y-1">
-                      <p className="font-bold">Import Completed Successfully!</p>
-                      <p>Total Processed: {importResult.totalRows || 0} • Created: {importResult.importedCount || 0} • Skipped: {importResult.skippedCount || 0}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsImportModalOpen(false)}
-                    className="h-10 px-5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
-                  >
-                    Done
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={!importFile || importing}
-                    onClick={handleExecuteImport}
-                    className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    {importing ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Execute Import"}
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -1533,119 +1228,6 @@ export default function OrganizerProgramHubPage({ params }) {
               </div>
             )}
           </div>
-
-          {/* Add Reward Modal */}
-          {isAddRewardModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[92dvh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
-                <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
-                  <h3 className="text-base font-bold text-white tracking-tight">Add Program Reward</h3>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddRewardModalOpen(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleAddReward} className="space-y-3.5 mt-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      Reward Title *
-                    </label>
-                    <Input
-                      required
-                      value={newReward.title}
-                      onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
-                      placeholder="Enter reward title"
-                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      Reward Category
-                    </label>
-                    <select
-                      value={newReward.rewardType}
-                      onChange={(e) => setNewReward({ ...newReward, rewardType: e.target.value })}
-                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm h-10 px-3 text-white focus:outline-none focus:border-[#FE760B]"
-                    >
-                      <option value="merchandise">Merchandise (T-shirt / Hoodie / Kit)</option>
-                      <option value="vip_pass">VIP / Pro Show Access Pass</option>
-                      <option value="certificate">Certificate of Excellence</option>
-                      <option value="mentorship">Mentorship / Workshop Session</option>
-                      <option value="cash_voucher">Cash Voucher / UPI Prize</option>
-                      <option value="gift_card">Amazon / Flipkart Gift Card</option>
-                      <option value="discount_coupon">Event Discount Coupon</option>
-                      <option value="custom">Custom Reward</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        Points Required *
-                      </label>
-                      <Input
-                        type="number"
-                        min="1"
-                        required
-                        value={newReward.pointsRequired}
-                        onChange={(e) => setNewReward({ ...newReward, pointsRequired: e.target.value })}
-                        placeholder="100"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        Total Stock (-1 for unlimited)
-                      </label>
-                      <Input
-                        type="number"
-                        value={newReward.totalInventory}
-                        onChange={(e) => setNewReward({ ...newReward, totalInventory: e.target.value })}
-                        placeholder="-1"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      Description
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={newReward.description}
-                      onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
-                      placeholder="Enter reward description and collection guidelines"
-                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm p-3 text-white placeholder:text-[#71767B] focus:outline-none focus:border-[#FE760B]"
-                    />
-                  </div>
-
-                  <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3.5 border-t border-[#2A2D31]">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsAddRewardModalOpen(false)}
-                      className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={addingReward}
-                      className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      {addingReward ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Add to Catalog"}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1751,6 +1333,476 @@ export default function OrganizerProgramHubPage({ params }) {
             ) : (
               <p className="text-xs font-semibold text-slate-400">This program is archived.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL 1: CONNECT EVENT MODAL
+      ══════════════════════════════════════════════════════ */}
+      {isConnectModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsConnectModalOpen(false);
+          }}
+        >
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+              <h3 className="text-base font-bold text-white tracking-tight">Connect Event</h3>
+              <button
+                type="button"
+                onClick={() => setIsConnectModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto space-y-2 mt-4 custom-scrollbar">
+              {allOrganizerEvents.length === 0 ? (
+                <p className="text-xs text-[#9B9EA4] text-center py-6">No events available to connect.</p>
+              ) : (
+                allOrganizerEvents.map((ev) => {
+                  const isConnected = connectedEvents.some((c) => (c.eventId || c.id) === (ev.id || ev._id));
+                  return (
+                    <div
+                      key={ev.id || ev._id}
+                      className="p-3 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white truncate">
+                          {ev.title || ev.name}
+                        </p>
+                        <p className="text-[10px] text-[#9B9EA4] truncate">
+                          {ev.date || "Date TBA"}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={isConnected}
+                        onClick={() => {
+                          handleConnectEvent(ev.id || ev._id);
+                        }}
+                        className={`text-xs h-8 px-3 rounded-lg ${
+                          isConnected
+                            ? "bg-[#1E2024] text-[#71767B] border border-[#2A2D31]"
+                            : "bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold cursor-pointer"
+                        }`}
+                      >
+                        {isConnected ? "Connected" : "Connect"}
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL 2: APPLICATION DETAIL / REVIEW MODAL
+      ══════════════════════════════════════════════════════ */}
+      {selectedApp && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedApp(null);
+          }}
+        >
+          <div className="relative w-full max-w-lg max-h-[90vh] bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl flex flex-col shadow-2xl text-white my-auto animate-scale-in overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-[#2A2D31] p-5 sm:p-6 shrink-0 bg-[#16181A]">
+              <div className="pr-3">
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                  {selectedApp.fullName}
+                </h3>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  {selectedApp.college} • {selectedApp.answers?.department || "Student"} ({selectedApp.answers?.yearOfStudy || "Ambassador"})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedApp(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-4 text-xs">
+              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
+                  Contact Information
+                </span>
+                <p className="text-white text-sm font-medium">{selectedApp.email}</p>
+                <p className="text-[#FE760B] text-xs font-mono mt-0.5">WhatsApp: {selectedApp.whatsappPhone}</p>
+              </div>
+
+              {selectedApp.answers?.socialProfile && (
+                <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                  <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
+                    Social Profile / Portfolio Link
+                  </span>
+                  <a
+                    href={selectedApp.answers.socialProfile}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#FE760B] hover:underline break-all text-xs font-mono"
+                  >
+                    {selectedApp.answers.socialProfile}
+                  </a>
+                </div>
+              )}
+
+              {selectedApp.answers?.clubRoles && (
+                <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                  <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
+                    Club Leadership / Campus Roles
+                  </span>
+                  <p className="text-white text-xs leading-relaxed">{selectedApp.answers.clubRoles}</p>
+                </div>
+              )}
+
+              {selectedApp.answers?.promotionPitch && (
+                <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                  <span className="font-semibold text-[#FE760B] uppercase tracking-wider text-[10px] block mb-1">
+                    Promotion Strategy Pitch
+                  </span>
+                  <p className="text-slate-200 text-xs leading-relaxed">{selectedApp.answers.promotionPitch}</p>
+                </div>
+              )}
+
+              {selectedApp.status === "pending" && (
+                <div className="pt-2">
+                  <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                    Optional Rejection Feedback (only if rejecting)
+                  </label>
+                  <Input
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter rejection reason for applicant"
+                    className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-11 rounded-xl focus:border-[#FE760B]"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Modal Sticky Footer */}
+            <div className="flex items-center justify-end gap-3 p-4 sm:p-5 border-t border-[#2A2D31] shrink-0 bg-[#16181A]">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedApp(null)}
+                className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Close
+              </Button>
+              {selectedApp.status === "pending" && (
+                <>
+                  <Button
+                    size="sm"
+                    disabled={processingApp}
+                    onClick={() => handleRejectApp(selectedApp.id)}
+                    className="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs h-10 px-4 rounded-xl cursor-pointer shadow-sm transition-colors"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={processingApp}
+                    onClick={() => handleApproveApp(selectedApp.id)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-10 px-5 rounded-xl cursor-pointer shadow-sm transition-colors"
+                  >
+                    Approve & Enrol
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL 3: ADJUST POINTS MODAL
+      ══════════════════════════════════════════════════════ */}
+      {isAdjustModalOpen && adjustTargetAmb && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAdjustModalOpen(false);
+          }}
+        >
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
+            <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Adjust Points: {adjustTargetAmb.fullName}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAdjustModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualAdjust} className="space-y-3.5 mt-3">
+              <div>
+                <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                  Points Delta (+ or -)
+                </label>
+                <Input
+                  type="number"
+                  required
+                  value={adjustPoints}
+                  onChange={(e) => setAdjustPoints(e.target.value)}
+                  placeholder="Enter points delta (+ or -)"
+                  className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                  Audit Reason *
+                </label>
+                <Input
+                  required
+                  value={adjustReason}
+                  onChange={(e) => setAdjustReason(e.target.value)}
+                  placeholder="Enter reason for points adjustment"
+                  className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAdjustModalOpen(false)}
+                  className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={adjusting}
+                  className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {adjusting ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Save Adjustment"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL 4: BULK IMPORT MODAL
+      ══════════════════════════════════════════════════════ */}
+      {isImportModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsImportModalOpen(false);
+          }}
+        >
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+              <div className="pr-3">
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Bulk Import Campus Ambassadors
+                </h3>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  Upload CSV or XLSX file. Formulas are neutralized automatically.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 my-4">
+              <div className="border-2 border-dashed border-[#2A2D31] rounded-2xl p-6 text-center space-y-2 hover:border-[#FE760B]/50 transition-colors">
+                <FileSpreadsheet className="w-8 h-8 text-[#FE760B] mx-auto" />
+                <p className="text-xs font-semibold text-[#D0D0D1]">
+                  Choose CSV or XLSX spreadsheet
+                </p>
+                <input
+                  type="file"
+                  accept=".csv, .xlsx, .xls"
+                  onChange={handleFileChange}
+                  className="text-xs text-[#9B9EA4]"
+                />
+              </div>
+
+              {importPreview.length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                    File Preview (First 5 Rows)
+                  </span>
+                  <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3 max-h-36 overflow-y-auto text-[11px] font-mono space-y-1">
+                    {importPreview.map((row, idx) => (
+                      <div key={idx} className="truncate text-[#D0D0D1]">
+                        {row.fullName || row.name} | {row.email} | {row.phone || row.whatsapp} | {row.college}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {importResult && (
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-400 space-y-1">
+                  <p className="font-bold">Import Completed Successfully!</p>
+                  <p>Total Processed: {importResult.totalRows || 0} • Created: {importResult.importedCount || 0} • Skipped: {importResult.skippedCount || 0}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsImportModalOpen(false)}
+                className="h-10 px-5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Done
+              </Button>
+              <Button
+                size="sm"
+                disabled={!importFile || importing}
+                onClick={handleExecuteImport}
+                className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {importing ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Execute Import"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL 5: ADD REWARD MODAL
+      ══════════════════════════════════════════════════════ */}
+      {isAddRewardModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddRewardModalOpen(false);
+          }}
+        >
+          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
+              <h3 className="text-base font-bold text-white tracking-tight">Add Program Reward</h3>
+              <button
+                type="button"
+                onClick={() => setIsAddRewardModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddReward} className="space-y-3.5 mt-3">
+              <div>
+                <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                  Reward Title *
+                </label>
+                <Input
+                  required
+                  value={newReward.title}
+                  onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
+                  placeholder="Enter reward title"
+                  className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                  Reward Category
+                </label>
+                <select
+                  value={newReward.rewardType}
+                  onChange={(e) => setNewReward({ ...newReward, rewardType: e.target.value })}
+                  className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm h-10 px-3 text-white focus:outline-none focus:border-[#FE760B]"
+                >
+                  <option value="merchandise">Merchandise (T-shirt / Hoodie / Kit)</option>
+                  <option value="vip_pass">VIP / Pro Show Access Pass</option>
+                  <option value="certificate">Certificate of Excellence</option>
+                  <option value="mentorship">Mentorship / Workshop Session</option>
+                  <option value="cash_voucher">Cash Voucher / UPI Prize</option>
+                  <option value="gift_card">Amazon / Flipkart Gift Card</option>
+                  <option value="discount_coupon">Event Discount Coupon</option>
+                  <option value="custom">Custom Reward</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                    Points Required *
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    required
+                    value={newReward.pointsRequired}
+                    onChange={(e) => setNewReward({ ...newReward, pointsRequired: e.target.value })}
+                    placeholder="100"
+                    className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                    Total Stock (-1 for unlimited)
+                  </label>
+                  <Input
+                    type="number"
+                    value={newReward.totalInventory}
+                    onChange={(e) => setNewReward({ ...newReward, totalInventory: e.target.value })}
+                    placeholder="-1"
+                    className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl focus:border-[#FE760B]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={newReward.description}
+                  onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
+                  placeholder="Enter reward description and collection guidelines"
+                  className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm p-3 text-white placeholder:text-[#71767B] focus:outline-none focus:border-[#FE760B]"
+                />
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3.5 border-t border-[#2A2D31]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsAddRewardModalOpen(false)}
+                  className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addingReward}
+                  className="h-10 px-5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {addingReward ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Add to Catalog"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
