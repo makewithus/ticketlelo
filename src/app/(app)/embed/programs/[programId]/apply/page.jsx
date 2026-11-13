@@ -7,7 +7,6 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { authFetch } from "@/lib/auth";
 import {
-  Sparkles,
   Users,
   Award,
   CheckCircle2,
@@ -146,13 +145,23 @@ export default function EmbedProgramApplyPage({ params }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (
-      !formData.fullName.trim() ||
-      !formData.email.trim() ||
-      !formData.whatsappPhone.trim() ||
-      !formData.college.trim()
-    ) {
+    const cleanName = formData.fullName.trim();
+    const cleanEmail = formData.email.trim().toLowerCase();
+    const cleanPhone = formData.whatsappPhone.trim();
+    const cleanCollege = formData.college.trim();
+
+    if (!cleanName || !cleanEmail || !cleanPhone || !cleanCollege) {
       toast.error("Please fill in your name, email, WhatsApp phone, and college.");
+      return;
+    }
+
+    if (/\d/.test(cleanName)) {
+      toast.error("Full Name cannot contain numbers. Letters and spaces only.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      toast.error("WhatsApp phone number must be exactly 10 digits (no text or symbols).");
       return;
     }
 
@@ -162,10 +171,10 @@ export default function EmbedProgramApplyPage({ params }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: formData.fullName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          whatsappPhone: formData.whatsappPhone.trim(),
-          college: formData.college.trim(),
+          fullName: cleanName,
+          email: cleanEmail,
+          whatsappPhone: cleanPhone,
+          college: cleanCollege,
           answers: {
             department: formData.department.trim(),
             yearOfStudy: formData.yearOfStudy,
@@ -215,7 +224,7 @@ export default function EmbedProgramApplyPage({ params }) {
         >
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/30">
-              <Sparkles className="w-3 h-3 shrink-0" />
+              <GraduationCap className="w-3.5 h-3.5 shrink-0" />
               <span>Campus Ambassador Application</span>
             </div>
 
@@ -321,135 +330,162 @@ export default function EmbedProgramApplyPage({ params }) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1 flex items-center gap-1.5">
-                    <User className="w-3 h-3 text-[#FE760B]" />
-                    <span>Full Name *</span>
-                  </label>
-                  <Input
-                    required
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    placeholder="Enter your full name"
-                    className={`text-xs h-10 rounded-xl transition-colors ${
-                      isLight
-                        ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
-                        : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1 flex items-center gap-1.5">
-                    <Mail className="w-3 h-3 text-[#FE760B]" />
-                    <span>Email Address *</span>
-                  </label>
-                  <Input
-                    required
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="student@college.edu"
-                    className={`text-xs h-10 rounded-xl transition-colors ${
-                      isLight
-                        ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
-                        : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1 flex items-center gap-1.5">
-                    <Phone className="w-3 h-3 text-[#FE760B]" />
-                    <span>WhatsApp Phone Number *</span>
-                  </label>
-                  <Input
-                    required
-                    type="tel"
-                    value={formData.whatsappPhone}
-                    onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
-                    placeholder="Enter 10-digit WhatsApp phone"
-                    className={`text-xs h-10 rounded-xl transition-colors ${
-                      isLight
-                        ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
-                        : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1 flex items-center gap-1.5">
-                    <Building className="w-3 h-3 text-[#FE760B]" />
-                    <span>College / Campus Name *</span>
-                  </label>
-                  <Input
-                    required
-                    value={formData.college}
-                    onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                    placeholder="e.g. Delhi Technological University"
-                    className={`text-xs h-10 rounded-xl transition-colors ${
-                      isLight
-                        ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
-                        : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
-                    }`}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1 flex items-center gap-1.5">
-                    <GraduationCap className="w-3 h-3 text-[#FE760B]" />
-                    <span>Department / Branch</span>
-                  </label>
-                  <Input
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="e.g. Computer Science & Engg"
-                    className={`text-xs h-10 rounded-xl transition-colors ${
-                      isLight
-                        ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
-                        : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
-                    }`}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1 flex items-center gap-1.5">
-                    <Users className="w-3 h-3 text-[#FE760B]" />
-                    <span>Year of Study</span>
-                  </label>
-                  <select
-                    value={formData.yearOfStudy}
-                    onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
-                    className={`w-full text-xs h-10 px-3 rounded-xl border transition-colors cursor-pointer outline-none ${
-                      isLight
-                        ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
-                        : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
-                    }`}
-                  >
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                    <option value="Post Graduate">Post Graduate</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-
+              {/* 1. Full Name */}
               <div>
-                <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
-                  Why do you want to become a Campus Ambassador?
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Full Name</span>
+                    <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 dark:text-[#71767B]">Letters only, no numbers</span>
+                </div>
+                <Input
+                  required
+                  value={formData.fullName}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      fullName: e.target.value.replace(/[0-9]/g, ""),
+                    })
+                  }
+                  placeholder="e.g. Rahul Sharma"
+                  className={`text-xs h-10 rounded-xl transition-colors ${
+                    isLight
+                      ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
+                  }`}
+                />
+              </div>
+
+              {/* 2. Verified Email */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Email Address</span>
+                    <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 dark:text-[#71767B]">Official or student email</span>
+                </div>
+                <Input
+                  required
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="student@college.edu"
+                  className={`text-xs h-10 rounded-xl transition-colors ${
+                    isLight
+                      ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
+                  }`}
+                />
+              </div>
+
+              {/* 3. WhatsApp Contact */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>WhatsApp Phone Number</span>
+                    <span className="text-[#FE760B]">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 dark:text-[#71767B]">10 digits only</span>
+                </div>
+                <Input
+                  required
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={formData.whatsappPhone}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      whatsappPhone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                    })
+                  }
+                  placeholder="10-digit mobile number"
+                  className={`text-xs h-10 rounded-xl transition-colors ${
+                    isLight
+                      ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
+                  }`}
+                />
+              </div>
+
+              {/* 4. College / Campus Name */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] flex items-center gap-1.5 mb-1">
+                  <Building className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>College / University</span>
+                  <span className="text-[#FE760B]">*</span>
+                </label>
+                <Input
+                  required
+                  value={formData.college}
+                  onChange={(e) => setFormData({ ...formData, college: e.target.value })}
+                  placeholder="e.g. CUSAT / Delhi Technological University"
+                  className={`text-xs h-10 rounded-xl transition-colors ${
+                    isLight
+                      ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
+                  }`}
+                />
+              </div>
+
+              {/* 5. Department / Branch */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] flex items-center gap-1.5 mb-1">
+                  <GraduationCap className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Department / Branch</span>
+                </label>
+                <Input
+                  value={formData.department}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  placeholder="e.g. Computer Science & Engineering"
+                  className={`text-xs h-10 rounded-xl transition-colors ${
+                    isLight
+                      ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
+                  }`}
+                />
+              </div>
+
+              {/* 6. Year of Study */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] flex items-center gap-1.5 mb-1">
+                  <Users className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Year of Study</span>
+                </label>
+                <select
+                  value={formData.yearOfStudy}
+                  onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
+                  className={`w-full text-xs h-10 px-3 rounded-xl border transition-colors cursor-pointer outline-none ${
+                    isLight
+                      ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"
+                      : "bg-[#212327] border-[#2A2D31] text-white focus:border-[#FE760B]"
+                  }`}
+                >
+                  <option value="1st Year">1st Year</option>
+                  <option value="2nd Year">2nd Year</option>
+                  <option value="3rd Year">3rd Year</option>
+                  <option value="4th Year">4th Year</option>
+                  <option value="Postgraduate">Postgraduate</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* 7. Promotion Strategy Pitch */}
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1] block mb-1">
+                  Promotion Strategy / Why You? <span className="text-[#FE760B]">*</span>
                 </label>
                 <textarea
+                  required
                   rows={3}
                   value={formData.promotionPitch}
                   onChange={(e) => setFormData({ ...formData, promotionPitch: e.target.value })}
-                  placeholder="Tell us about your campus reach, student clubs, or promotion strategy..."
+                  placeholder="Describe your promotion plan across your campus, clubs, and WhatsApp groups..."
                   className={`w-full text-xs p-3 rounded-xl border transition-colors outline-none resize-none ${
                     isLight
                       ? "bg-slate-50 border-slate-200 text-slate-900 focus:border-[#FE760B]"

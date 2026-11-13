@@ -25,13 +25,22 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Full Name and Email are required." }, { status: 400 });
     }
 
+    if (/\d/.test(fullName)) {
+      return NextResponse.json({ error: "Full Name cannot contain numbers." }, { status: 400 });
+    }
+
+    const cleanPhone = String(whatsappPhone || "").replace(/\D/g, "");
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return NextResponse.json({ error: "WhatsApp phone number must be exactly 10 digits." }, { status: 400 });
+    }
+
     const application = await submitAmbassadorApplication({
       programId,
       userId: caller?.uid || null,
-      fullName,
-      email,
-      whatsappPhone,
-      college,
+      fullName: String(fullName).trim(),
+      email: String(email).trim().toLowerCase(),
+      whatsappPhone: cleanPhone,
+      college: String(college || "").trim(),
       answers,
     });
 

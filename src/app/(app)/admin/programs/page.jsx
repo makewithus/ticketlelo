@@ -9,7 +9,7 @@ import {
   Users,
   Plus,
   Search,
-  Sparkles,
+  GraduationCap,
   Calendar,
   Award,
   Layers,
@@ -192,7 +192,7 @@ export default function OrganizerProgramsListPage() {
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
-              <Sparkles className="w-3 h-3 text-[#FE760B]" />
+              <GraduationCap className="w-3 h-3 text-[#FE760B]" />
               Marketing & Growth
             </span>
           </div>
@@ -398,7 +398,7 @@ export default function OrganizerProgramsListPage() {
               <div className="space-y-1 pr-3">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-[#FE760B]/12 text-[#FE760B] flex items-center justify-center shrink-0 border border-[#FE760B]/25">
-                    <Sparkles className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <GraduationCap className="w-3.5 h-3.5 text-[#FE760B]" />
                   </div>
                   <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
                     Create Ambassador Program

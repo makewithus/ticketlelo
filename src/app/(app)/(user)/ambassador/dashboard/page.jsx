@@ -12,7 +12,7 @@ import {
   Copy,
   Check,
   QrCode,
-  Sparkles,
+  GraduationCap,
   Gift,
   ArrowRight,
   Loader2,
@@ -194,20 +194,41 @@ export default function AmbassadorDashboardPage() {
   const handleApplyToProgram = async (e) => {
     e.preventDefault();
     if (!applyProgram) return;
+
+    const cleanName = (formData.fullName || user?.displayName || "").trim();
+    const cleanEmail = (formData.email || user?.email || "").trim();
+    const cleanPhone = formData.whatsappPhone.trim();
+    const cleanCollege = formData.college.trim();
+
+    if (!cleanName || !cleanEmail || !cleanPhone || !cleanCollege) {
+      toast.error("Please fill in your name, email, WhatsApp phone, and college.");
+      return;
+    }
+
+    if (/\d/.test(cleanName)) {
+      toast.error("Full Name cannot contain numbers. Letters and spaces only.");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      toast.error("WhatsApp phone number must be exactly 10 digits (no text or symbols).");
+      return;
+    }
+
     setApplying(true);
     try {
       const res = await authFetch(`/api/programs/${applyProgram.id}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fullName: (formData.fullName || user.displayName || "").trim(),
-          email: (formData.email || user.email || "").trim(),
-          whatsappPhone: formData.whatsappPhone.trim(),
-          college: formData.college.trim(),
+          fullName: cleanName,
+          email: cleanEmail,
+          whatsappPhone: cleanPhone,
+          college: cleanCollege,
           answers: {
-            department: formData.department,
+            department: formData.department.trim(),
             yearOfStudy: formData.yearOfStudy,
-            promotionPitch: formData.promotionPitch,
+            promotionPitch: formData.promotionPitch.trim(),
           },
         }),
       });
@@ -266,7 +287,7 @@ export default function AmbassadorDashboardPage() {
           {/* Welcome & Join Programs Card */}
           <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl p-6 sm:p-10 shadow-xl space-y-6 text-center">
             <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/14 text-[#FE760B] flex items-center justify-center mx-auto border border-[#FE760B]/30">
-              <Sparkles className="w-7 h-7" />
+              <GraduationCap className="w-7 h-7" />
             </div>
             <div className="space-y-2">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -364,83 +385,114 @@ export default function AmbassadorDashboardPage() {
                   </button>
                 </div>
 
-                <form onSubmit={handleApplyToProgram} className="space-y-3.5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        Full Name *
+                <form onSubmit={handleApplyToProgram} className="space-y-4">
+                  {/* 1. Full Name */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                        Full Name <span className="text-[#FE760B]">*</span>
                       </label>
-                      <Input
-                        required
-                        value={formData.fullName}
-                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                        placeholder="Enter full name"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
-                      />
+                      <span className="text-[10px] text-[#71767B]">Letters only, no numbers</span>
                     </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        WhatsApp Contact *
-                      </label>
-                      <Input
-                        required
-                        value={formData.whatsappPhone}
-                        onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
-                        placeholder="Enter WhatsApp number"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
-                      />
-                    </div>
+                    <Input
+                      required
+                      value={formData.fullName}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          fullName: e.target.value.replace(/[0-9]/g, ""),
+                        })
+                      }
+                      placeholder="e.g. Rahul Sharma"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                    />
                   </div>
 
+                  {/* 2. WhatsApp Contact */}
                   <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      College / University *
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider">
+                        WhatsApp Contact <span className="text-[#FE760B]">*</span>
+                      </label>
+                      <span className="text-[10px] text-[#71767B]">
+                        {formData.whatsappPhone.length}/10 digits
+                      </span>
+                    </div>
+                    <Input
+                      required
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={formData.whatsappPhone}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          whatsappPhone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                        })
+                      }
+                      placeholder="10-digit WhatsApp number (no country code or letters)"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                    />
+                  </div>
+
+                  {/* 3. College / University */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1">
+                      College / University <span className="text-[#FE760B]">*</span>
                     </label>
                     <Input
                       required
                       value={formData.college}
                       onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                      placeholder="Enter college or university"
+                      placeholder="e.g. CUSAT / Delhi Technological University"
                       className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        Department / Branch
-                      </label>
-                      <Input
-                        value={formData.department}
-                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        placeholder="Enter department or branch"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                        Year of Study
-                      </label>
-                      <Input
-                        value={formData.yearOfStudy}
-                        onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
-                        placeholder="Enter year of study"
-                        className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
-                      />
-                    </div>
+                  {/* 4. Department / Branch */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1">
+                      Department / Branch
+                    </label>
+                    <Input
+                      value={formData.department}
+                      onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                      placeholder="e.g. Computer Science & Engineering"
+                      className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
+                    />
                   </div>
 
+                  {/* 5. Year of Study */}
                   <div>
-                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                      Promotion Strategy Pitch *
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1">
+                      Year of Study
+                    </label>
+                    <select
+                      value={formData.yearOfStudy}
+                      onChange={(e) => setFormData({ ...formData, yearOfStudy: e.target.value })}
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm h-10 px-3 text-white focus:outline-none focus:border-[#FE760B] cursor-pointer"
+                    >
+                      <option value="1st Year">1st Year</option>
+                      <option value="2nd Year">2nd Year</option>
+                      <option value="3rd Year">3rd Year</option>
+                      <option value="4th Year">4th Year</option>
+                      <option value="Postgraduate">Postgraduate</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  {/* 6. Promotion Strategy Pitch */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1">
+                      Promotion Strategy Pitch <span className="text-[#FE760B]">*</span>
                     </label>
                     <textarea
                       required
-                      rows={2}
+                      rows={3}
                       value={formData.promotionPitch}
                       onChange={(e) => setFormData({ ...formData, promotionPitch: e.target.value })}
-                      placeholder="Describe your promotion plan for your campus"
-                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm p-3 text-white placeholder:text-[#71767B] focus:outline-none focus:border-[#FE760B]"
+                      placeholder="Describe how you plan to promote fest registrations across your campus..."
+                      className="w-full bg-[#212327] border border-[#2A2D31] rounded-xl text-xs sm:text-sm p-3 text-white placeholder:text-[#71767B] focus:outline-none focus:border-[#FE760B] resize-none"
                     />
                   </div>
 
@@ -483,7 +535,7 @@ export default function AmbassadorDashboardPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
-                <Sparkles className="w-3 h-3" />
+                <GraduationCap className="w-3 h-3" />
                 Verified Campus Ambassador
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -678,7 +730,7 @@ export default function AmbassadorDashboardPage() {
               </Button>
               {referralCode && (
                 <Link
-                  href={chosenEvent ? `/e/${chosenEvent.slug || chosenEvent.id}?ref=${referralCode}` : `/discover?ref=${referralCode}`}
+                  href={chosenEvent ? `/e/${chosenEvent.slug || chosenEvent.id}?ref=${referralCode}#register` : `/discover?ref=${referralCode}`}
                   target="_blank"
                   className="shrink-0"
                 >

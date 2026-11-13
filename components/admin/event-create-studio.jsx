@@ -56,7 +56,12 @@ import { WideTicket } from "@/components/tickets/wide-ticket";
 import { TicketFullPreviewModal } from "@/components/tickets/ticket-full-preview-modal";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { normalizeHex, isLightColor } from "@/lib/ticket-theme";
-import { searchIndianVenues } from "@/lib/venues-catalog";
+import {
+  searchIndianVenues,
+  isVirtualLocation,
+  getVirtualMeetingUrl,
+  getVirtualPlatformName,
+} from "@/lib/venues-catalog";
 
 import { getPosterLines } from "@/lib/theme-utils";
 export { getPosterLines };
@@ -1098,6 +1103,33 @@ export function EventCreateStudio({
   };
 
   const handleLocationSave = () => {
+    const isVirtualMode =
+      formData.locationType === "virtual" ||
+      isVirtualLocation(formData.virtualLink) ||
+      isVirtualLocation(locationInput);
+
+    if (isVirtualMode) {
+      const link = (getVirtualMeetingUrl(formData.virtualLink || locationInput) || formData.virtualLink || locationInput || "").trim();
+      const platform = getVirtualPlatformName(link || "Virtual Event");
+      setFormData((prev) => ({
+        ...prev,
+        locationType: "virtual",
+        isVirtual: true,
+        isOnline: true,
+        virtualLink: link,
+        location: `Online Event • ${platform}`,
+        locationVenue: platform,
+        locationAddress: link || "Online / Virtual Event Link",
+        latitude: null,
+        longitude: null,
+        locationPin: null,
+      }));
+      setSelectedLocationVenue(null);
+      setShowLocationModal(false);
+      toast.success("Virtual event link confirmed!");
+      return;
+    }
+
     let venue = selectedLocationVenue;
 
     // If user clicked Save Location without manually clicking a suggestion first,
@@ -1233,17 +1265,64 @@ export function EventCreateStudio({
         endTime: formData.endTime,
         timezone: formData.timezone,
         timezoneCity: formData.timezoneCity,
+        isVirtual: Boolean(
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+        ),
+        isOnline: Boolean(
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+        ),
+        locationType:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? "virtual"
+            : "in-person",
+        virtualLink:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? getVirtualMeetingUrl(formData.virtualLink || formData.location)
+            : "",
         location:
-          formData.locationType === "virtual"
-            ? formData.virtualLink.trim() || formData.location.trim() || "Virtual / Online Event"
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? `Online Event • ${getVirtualPlatformName(formData.virtualLink || formData.location)}`
             : formData.location.trim(),
-        locationVenue: formData.locationVenue || formData.location,
-        locationAddress: formData.locationAddress || "",
-        latitude: formData.latitude || null,
-        longitude: formData.longitude || null,
-        locationPin: formData.locationPin || null,
-        locationType: formData.locationType,
-        virtualLink: formData.virtualLink.trim(),
+        locationVenue:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? getVirtualPlatformName(formData.virtualLink || formData.location)
+            : formData.locationVenue || formData.location,
+        locationAddress:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? getVirtualMeetingUrl(formData.virtualLink || formData.location)
+            : formData.locationAddress || "",
+        latitude:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? null
+            : formData.latitude || null,
+        longitude:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? null
+            : formData.longitude || null,
+        locationPin:
+          formData.locationType === "virtual" ||
+          isVirtualLocation(formData.virtualLink) ||
+          isVirtualLocation(formData.location)
+            ? null
+            : formData.locationPin || null,
         locationInstructions: formData.locationInstructions || "",
         totalTickets: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : 9999,
         capacity: formData.limitCapacity ? (parseInt(formData.maxCapacity, 10) || 50) : "Unlimited",
@@ -2259,6 +2338,67 @@ export function EventCreateStudio({
                   )}
                 </div>
               </div>
+            ) : (formData.locationType === "virtual" || isVirtualLocation(formData.virtualLink) || isVirtualLocation(formData.location)) && (formData.virtualLink.trim() || formData.location.trim()) ? (
+              <div className="rounded-2xl bg-white/[0.08] backdrop-blur-md border border-blue-500/30 p-4 space-y-3 shadow-md">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <Video className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-bold text-white truncate">
+                          {getVirtualPlatformName(formData.virtualLink || formData.location)}
+                        </h4>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                          Online Event
+                        </span>
+                      </div>
+                      <p className="text-xs text-blue-300/80 font-mono truncate mt-0.5 select-all">
+                        {getVirtualMeetingUrl(formData.virtualLink || formData.location) || formData.virtualLink || "Virtual meeting link set"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationInput(formData.virtualLink || "");
+                        setShowLocationModal(true);
+                      }}
+                      className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                      title="Edit virtual link"
+                    >
+                      <Pencil className="w-4 h-4 text-[#FE760B]" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          location: "",
+                          locationVenue: "",
+                          locationAddress: "",
+                          virtualLink: "",
+                          locationType: "in-person",
+                          isVirtual: false,
+                          isOnline: false,
+                        }));
+                      }}
+                      className="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                      title="Clear location"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-200/90 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 truncate">
+                    <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span className="truncate">Meeting link will be shared with registered attendees</span>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div
                 onClick={() => {
@@ -3060,7 +3200,7 @@ export function EventCreateStudio({
                     </div>
 
                     {/* Venue & Map preview */}
-                    {formData.locationType === "in-person" && (
+                    {formData.locationType === "in-person" && !isVirtualLocation(formData.location) && (
                       <div className="p-5 sm:p-6 rounded-3xl bg-[#1A1C1F] border border-[#26292E] space-y-3">
                         <div className="flex items-center justify-between">
                           <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -3081,6 +3221,24 @@ export function EventCreateStudio({
                             )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                             className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
                           />
+                        </div>
+                      </div>
+                    )}
+
+                    {(formData.locationType === "virtual" || isVirtualLocation(formData.virtualLink) || isVirtualLocation(formData.location)) && (
+                      <div className="p-5 sm:p-6 rounded-3xl bg-[#1A1C1F] border border-blue-500/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Video className="w-4 h-4 text-blue-400" />
+                            <span>Online Event Access</span>
+                          </h3>
+                          <span className="text-[10px] text-blue-300 font-mono">Virtual Session</span>
+                        </div>
+                        <div className="p-4 rounded-2xl border border-blue-500/20 bg-blue-950/20 space-y-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] block">Meeting Link</span>
+                          <p className="text-xs font-mono text-blue-300 truncate">
+                            {getVirtualMeetingUrl(formData.virtualLink || formData.location) || "Meeting access URL will be provided to registered attendees"}
+                          </p>
                         </div>
                       </div>
                     )}

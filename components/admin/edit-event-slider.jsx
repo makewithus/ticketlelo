@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { IoTicket } from "react-icons/io5";
 import { updateEvent } from "@/lib/firestore";
+import { isVirtualLocation, getVirtualMeetingUrl } from "@/lib/venues-catalog";
 import { setCachedEvent, setCachedOrganiserEvents, getCachedOrganiserEvents } from "@/lib/client-cache";
 
 const THEME_PALETTE = [
@@ -106,6 +107,9 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
             (event.maxCapacity && Number(event.maxCapacity) < 9999)
         );
 
+      const isVirt = isVirtualLocation(event);
+      const meetingUrl = getVirtualMeetingUrl(event);
+
       setFormData({
         name: event.name || event.title || "",
         description: event.description || "",
@@ -114,10 +118,10 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
         endDate: endD,
         endTime: event.endTime || "05:00 pm",
         timezone: event.timezone || "GMT+05:30 Kolkata",
-        locationType: event.locationType || "in-person",
-        location: event.locationVenue || event.location || "",
-        address: event.address || "",
-        virtualLink: event.virtualLink || "",
+        locationType: isVirt ? "virtual" : (event.locationType || "in-person"),
+        location: isVirt ? "Online / Virtual Event" : (event.locationVenue || event.location || ""),
+        address: isVirt ? (meetingUrl || "") : (event.address || ""),
+        virtualLink: meetingUrl || event.virtualLink || "",
         isPaid: Boolean(hasPrice),
         price: event.price ? String(event.price).replace(/[^\d.]/g, "") : "",
         limitCapacity: Boolean(isCapacityRestricted),
@@ -152,6 +156,39 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
         ? Math.max(1, Number(formData.maxCapacity) || 150)
         : 9999;
 
+      const isSavingVirt =
+        formData.locationType === "virtual" ||
+        isVirtualLocation(formData.virtualLink) ||
+        isVirtualLocation(formData.location);
+
+      const resolvedVirtualUrl = getVirtualMeetingUrl(formData.virtualLink || formData.location);
+
+      const locationPayload = isSavingVirt
+        ? {
+            locationType: "virtual",
+            isVirtual: true,
+            isOnline: true,
+            virtualLink: resolvedVirtualUrl,
+            location: "Online / Virtual Event",
+            locationVenue: "Online / Virtual Event",
+            venue: "Online / Virtual Event",
+            address: resolvedVirtualUrl || "Online / Virtual Event",
+            lat: null,
+            lng: null,
+            latitude: null,
+            longitude: null,
+          }
+        : {
+            locationType: "in-person",
+            isVirtual: false,
+            isOnline: false,
+            virtualLink: "",
+            location: formData.location.trim(),
+            locationVenue: formData.location.trim(),
+            address: formData.address.trim(),
+            venue: formData.location.trim(),
+          };
+
       const payload = {
         name: formData.name.trim(),
         title: formData.name.trim(),
@@ -161,11 +198,7 @@ export function EditEventSlider({ isOpen, onClose, event, onEventUpdated }) {
         endDate: formData.endDate,
         endTime: formData.endTime,
         timezone: formData.timezone,
-        locationType: formData.locationType,
-        location: formData.location.trim(),
-        locationVenue: formData.location.trim(),
-        address: formData.address.trim(),
-        virtualLink: formData.virtualLink.trim(),
+        ...locationPayload,
         isPaid: formData.isPaid,
         price: numericPrice,
         ticketPrice: numericPrice,

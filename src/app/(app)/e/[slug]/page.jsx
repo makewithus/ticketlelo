@@ -131,6 +131,18 @@ export default function PublicEventBySlugPage() {
         }
 
         if (!eventData) {
+          try {
+            const apiRes = await fetch(`/api/events/${encodeURIComponent(slug)}`);
+            if (apiRes.ok) {
+              const apiJson = await apiRes.json();
+              if (apiJson?.event) {
+                eventData = apiJson.event;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (!eventData) {
           if (isMounted) {
             setNotFound(true);
             setIsLoading(false);

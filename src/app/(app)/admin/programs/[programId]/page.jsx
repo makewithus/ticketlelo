@@ -39,7 +39,6 @@ import {
   Smartphone,
   Sliders,
   Calculator,
-  Sparkles,
   Tag,
   Ticket,
   Zap,
@@ -906,27 +905,20 @@ export default function OrganizerProgramHubPage({ params }) {
                   <Code className="w-3.5 h-3.5 text-[#FE760B]" />
                   <span>Iframe Embed Form:</span>
                 </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCopy(embedApplyCode, "embed-apply-overview")}
-                    className="text-[11px] h-7 px-2.5 rounded-lg border-[#FE760B]/40 text-[#FE760B] hover:bg-[#FE760B]/10 cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>{copiedLink === "embed-apply-overview" ? "Copied Embed Code!" : "Copy Embed Code"}</span>
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmbedSubTab("apply");
-                      setActiveTab("leaderboard");
-                    }}
-                    className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
-                  >
-                    Customize & Preview →
-                  </button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-embed="embed-apply-overview"
+                  onClick={() => {
+                    setEmbedSubTab("apply");
+                    setActiveTab("leaderboard");
+                  }}
+                  className="text-xs h-8 px-3.5 rounded-xl border border-[#FE760B]/40 bg-[#FE760B]/10 hover:bg-[#FE760B]/20 text-[#FE760B] font-semibold cursor-pointer flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Customize & Preview</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                </Button>
               </div>
             </div>
 
@@ -974,27 +966,20 @@ export default function OrganizerProgramHubPage({ params }) {
                   <Code className="w-3.5 h-3.5 text-[#FE760B]" />
                   <span>Iframe Embed Leaderboard:</span>
                 </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard-overview")}
-                    className="text-[11px] h-7 px-2.5 rounded-lg border-[#2A2D31] text-[#D0D0D1] hover:text-white hover:bg-[#212327] cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>{copiedLink === "embed-leaderboard-overview" ? "Copied Embed Code!" : "Copy Embed Code"}</span>
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmbedSubTab("leaderboard");
-                      setActiveTab("leaderboard");
-                    }}
-                    className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
-                  >
-                    Customize & Preview →
-                  </button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-embed="embed-leaderboard-overview"
+                  onClick={() => {
+                    setEmbedSubTab("leaderboard");
+                    setActiveTab("leaderboard");
+                  }}
+                  className="text-xs h-8 px-3.5 rounded-xl border border-[#2A2D31] bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white font-semibold cursor-pointer flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Customize & Preview</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                </Button>
               </div>
             </div>
           </div>
@@ -1271,9 +1256,13 @@ export default function OrganizerProgramHubPage({ params }) {
             </div>
             <div className="flex items-center gap-2">
               <a href="/api/organizer/programs/import-template" download="ambassadors-import-template.csv">
-                <Button size="sm" variant="outline" className="text-xs h-9 px-3 rounded-xl border-slate-200 dark:border-[#2A2D31]">
-                  <Download className="w-3.5 h-3.5 mr-1" />
-                  Template
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-9 px-3.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] transition-colors cursor-pointer shadow-xs active:scale-[0.98]"
+                >
+                  <Download className="w-3.5 h-3.5 mr-1.5 text-[#FE760B]" />
+                  <span>Download Template</span>
                 </Button>
               </a>
               <Button
@@ -1805,7 +1794,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     type="date"
                     value={settingsForm.startDate}
                     onChange={(e) => setSettingsForm((prev) => ({ ...prev, startDate: e.target.value }))}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl"
+                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl focus:border-[#FE760B] [color-scheme:dark]"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1817,7 +1806,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     type="date"
                     value={settingsForm.endDate}
                     onChange={(e) => setSettingsForm((prev) => ({ ...prev, endDate: e.target.value }))}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl"
+                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl focus:border-[#FE760B] [color-scheme:dark]"
                   />
                 </div>
               </div>

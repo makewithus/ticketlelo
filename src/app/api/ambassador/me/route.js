@@ -79,11 +79,35 @@ export async function GET(request) {
                   slug: evtData.customSlug || evtData.slug || evtSnap.id,
                 });
               } else {
-                events.push({
-                  id: peData.eventId,
-                  name: peData.eventName || "Event",
-                  slug: peData.eventId,
-                });
+                // If direct doc lookup fails, check if the event exists by slug, title, or program.eventId
+                let matchedDoc = null;
+                if (peData.slug) {
+                  const sSnap = await adminDb.collection("events").where("slug", "==", peData.slug).limit(1).get();
+                  if (!sSnap.empty) matchedDoc = sSnap.docs[0];
+                }
+                if (!matchedDoc && peData.eventName) {
+                  const tSnap = await adminDb.collection("events").where("title", "==", peData.eventName).limit(1).get();
+                  if (!tSnap.empty) matchedDoc = tSnap.docs[0];
+                }
+                if (!matchedDoc && program?.eventId) {
+                  const pEvtSnap = await adminDb.collection("events").doc(program.eventId).get();
+                  if (pEvtSnap.exists) matchedDoc = pEvtSnap;
+                }
+
+                if (matchedDoc) {
+                  const mData = matchedDoc.data();
+                  events.push({
+                    id: matchedDoc.id,
+                    name: mData.name || mData.title || peData.eventName || "Event",
+                    slug: mData.customSlug || mData.slug || matchedDoc.id,
+                  });
+                  // Self-heal the stale eventId on programEvents
+                  peDoc.ref.update({
+                    eventId: matchedDoc.id,
+                    slug: mData.customSlug || mData.slug || matchedDoc.id,
+                    eventName: mData.name || mData.title || peData.eventName,
+                  }).catch(() => {});
+                }
               }
             }
           }

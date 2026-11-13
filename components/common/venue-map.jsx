@@ -2,10 +2,15 @@
 
 import React, { useState } from "react";
 import { MapPin, Navigation, ExternalLink, Eye, Copy, Check, Video, Globe, ShieldCheck } from "lucide-react";
-import { parseVenueDisplay } from "@/lib/venues-catalog";
+import {
+  parseVenueDisplay,
+  isVirtualLocation,
+  getVirtualMeetingUrl,
+  getVirtualPlatformName,
+} from "@/lib/venues-catalog";
 import { getReadableAccentColor, getReadableButtonTextColor } from "@/lib/theme-utils";
 
-export { parseVenueDisplay };
+export { parseVenueDisplay, isVirtualLocation, getVirtualMeetingUrl, getVirtualPlatformName };
 
 /**
  * VenueMap Component
@@ -34,44 +39,19 @@ export function VenueMap({
   const readableAccent = getReadableAccentColor(themeColor, true);
   const buttonTextColor = getReadableButtonTextColor(themeColor);
 
-  // Check if event or venue represents an online / virtual event
-  const rawCandidate =
-    virtualLink ||
-    (typeof address === "string" && /^https?:\/\//i.test(address.trim()) ? address.trim() : "") ||
-    (typeof venueName === "string" && /^https?:\/\//i.test(venueName.trim()) ? venueName.trim() : "");
-
+  // Check if event or venue represents an online / virtual event (meet.google.com, zoom.us, etc.)
   const isVirtualEvent = Boolean(
     isOnline ||
-    (event && (event.locationType === "virtual" || event.locationType === "online" || event.isVirtual || event.isOnline)) ||
-    Boolean(rawCandidate) ||
-    (typeof address === "string" && /\b(meet\.google\.com|zoom\.us|teams\.microsoft\.com|webex\.com|streamyard\.com|youtube\.com\/live)\b/i.test(address)) ||
-    (typeof venueName === "string" && /\b(meet\.google\.com|zoom\.us|teams\.microsoft\.com|webex\.com|streamyard\.com|youtube\.com\/live)\b/i.test(venueName)) ||
-    (typeof address === "string" && /^(online|virtual|google meet|zoom meeting)$/i.test(address.trim().toLowerCase())) ||
-    (typeof venueName === "string" && /^(online|virtual|google meet|zoom meeting)$/i.test(venueName.trim().toLowerCase()))
+    isVirtualLocation(event) ||
+    isVirtualLocation(virtualLink) ||
+    isVirtualLocation(address) ||
+    isVirtualLocation(venueName) ||
+    (typeof address === "string" && /\b(meet\.google\.com|zoom\.us)\b/i.test(address)) ||
+    (typeof venueName === "string" && /\b(meet\.google\.com|zoom\.us)\b/i.test(venueName))
   );
 
-  const meetingUrl = (() => {
-    if (rawCandidate) return rawCandidate.trim();
-    if (event?.virtualLink && /^https?:\/\//i.test(event.virtualLink.trim())) return event.virtualLink.trim();
-    const str = `${venueName || ""} ${address || ""}`;
-    const match = str.match(/https?:\/\/[^\s]+/i);
-    if (match) return match[0];
-    const meetMatch = str.match(/\b(meet\.google\.com\/[a-z0-9-]+|zoom\.us\/j\/[0-9]+)\b/i);
-    if (meetMatch) return `https://${meetMatch[0]}`;
-    return "";
-  })();
-
-  const platformName = (() => {
-    const s = `${meetingUrl} ${venueName} ${address}`.toLowerCase();
-    if (s.includes("meet.google.com")) return "Google Meet";
-    if (s.includes("zoom.us")) return "Zoom Meeting";
-    if (s.includes("teams.microsoft.com")) return "Microsoft Teams";
-    if (s.includes("webex.com")) return "Cisco Webex";
-    if (s.includes("youtube.com") || s.includes("youtu.be")) return "YouTube Live Stream";
-    if (s.includes("streamyard.com")) return "StreamYard Stream";
-    if (s.includes("discord.gg") || s.includes("discord.com")) return "Discord Stage";
-    return "Virtual / Online Event";
-  })();
+  const meetingUrl = getVirtualMeetingUrl(virtualLink || event || address || venueName);
+  const platformName = getVirtualPlatformName(meetingUrl || event || venueName || address);
 
   const handleCopyMeetingLink = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard && meetingUrl) {

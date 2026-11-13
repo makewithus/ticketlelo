@@ -29,6 +29,9 @@ import {
   Pencil,
   User,
   Trash2,
+  Video,
+  Globe,
+  ShieldCheck,
 } from "lucide-react";
 import QRCodeLib from "qrcode";
 import { EventControlHeader } from "@/components/admin/event-control-header";
@@ -48,6 +51,11 @@ import { getPublicEventUrl, getPublicEventDisplayUrl } from "@/lib/app-url";
 import { EditEventSlider } from "@/components/admin/edit-event-slider";
 import { SquarePhotoUploadModal } from "@/components/admin/square-photo-upload-modal";
 import { WebScannerModal } from "@/components/admin/web-scanner-modal";
+import {
+  isVirtualLocation,
+  getVirtualMeetingUrl,
+  getVirtualPlatformName,
+} from "@/lib/venues-catalog";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import { OverviewSkeleton } from "@/components/ui/skeleton";
 import {
@@ -434,24 +442,43 @@ export default function EventOverviewPage() {
     if (!event?.id) return;
     setIsSavingLocation(true);
     try {
-      const newLoc = place.name || place.address;
-      const newAddr = place.address || place.name;
-      await updateEvent(event.id, {
-        location: newLoc,
-        address: newAddr,
-        venue: newLoc,
-        lat: place.lat || null,
-        lng: place.lng || null,
-      });
+      const inputStr = place.name || place.address || "";
+      const isInputVirtual = isVirtualLocation(inputStr);
+
+      const updateData = isInputVirtual
+        ? {
+            locationType: "virtual",
+            isVirtual: true,
+            isOnline: true,
+            virtualLink: getVirtualMeetingUrl(inputStr) || inputStr.trim(),
+            location: "Online / Virtual Event",
+            locationVenue: "Online / Virtual Event",
+            address: inputStr.trim(),
+            venue: "Online / Virtual Event",
+            lat: null,
+            lng: null,
+            latitude: null,
+            longitude: null,
+          }
+        : {
+            locationType: "in-person",
+            isVirtual: false,
+            isOnline: false,
+            location: place.name || place.address,
+            address: place.address || place.name,
+            venue: place.name || place.address,
+            lat: place.lat || null,
+            lng: place.lng || null,
+            latitude: place.lat || null,
+            longitude: place.lng || null,
+          };
+
+      await updateEvent(event.id, updateData);
       setEvent((prev) => ({
         ...prev,
-        location: newLoc,
-        address: newAddr,
-        venue: newLoc,
-        lat: place.lat || null,
-        lng: place.lng || null,
+        ...updateData,
       }));
-      toast.success("Event location updated in real time!");
+      toast.success(isInputVirtual ? "Virtual event meeting link updated!" : "Event location updated in real time!");
       setIsEditingLocation(false);
       setLocationQuery("");
     } catch (err) {
@@ -674,6 +701,19 @@ export default function EventOverviewPage() {
     return { month, day, dayName, timeRange };
   }, [event]);
 
+  // Determine if event is online / virtual
+  const isOnlineEvent = useMemo(() => {
+    return isVirtualLocation(event);
+  }, [event]);
+
+  const onlineMeetingUrl = useMemo(() => {
+    return getVirtualMeetingUrl(event);
+  }, [event]);
+
+  const onlinePlatformName = useMemo(() => {
+    return getVirtualPlatformName(event);
+  }, [event]);
+
   if (loading && !event) {
     return <OverviewSkeleton />;
   }
@@ -856,10 +896,17 @@ export default function EventOverviewPage() {
                   {dateInfo.dayName}, {dateInfo.month} {dateInfo.day} • {dateInfo.timeRange}
                 </span>
               </p>
-              <p className="flex items-center gap-2">
-                <MapPin size={13} className="text-[#FE760B] shrink-0" />
-                <span className="truncate">{event.location || "Main Campus Auditorium"}</span>
-              </p>
+              {isOnlineEvent ? (
+                <p className="flex items-center gap-2">
+                  <Video size={13} className="text-[#3DD68C] shrink-0" />
+                  <span className="truncate">Online Event • {onlinePlatformName}</span>
+                </p>
+              ) : (
+                <p className="flex items-center gap-2">
+                  <MapPin size={13} className="text-[#FE760B] shrink-0" />
+                  <span className="truncate">{event.location || "Main Campus Auditorium"}</span>
+                </p>
+              )}
             </div>
 
             {/* Registration Preview Box (Exact Image 1 & 2) */}
@@ -990,25 +1037,49 @@ export default function EventOverviewPage() {
               </div>
             </div>
 
-            {/* Venue Section with Edit Location button */}
+            {/* Venue / Virtual Section with Edit Location button */}
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="flex items-start gap-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#FE760B] shrink-0">
-                  <MapPin size={20} className="text-[#FE760B]" />
-                </div>
+                {isOnlineEvent ? (
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center text-blue-400 shrink-0">
+                    <Video size={20} className="text-blue-400" />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-[#212327] border border-[#2A2D31] flex items-center justify-center text-[#FE760B] shrink-0">
+                    <MapPin size={20} className="text-[#FE760B]" />
+                  </div>
+                )}
                 <div className="min-w-0">
-                  <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(event.address || event.location || "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-bold text-white hover:text-[#FE760B] transition-colors flex items-center gap-1.5 truncate"
-                  >
-                    <span>{event.location || "School of Engineering, CUSAT"}</span>
-                    <ArrowUpRight size={14} className="text-[#9B9EA4] shrink-0" />
-                  </a>
-                  <p className="text-xs text-[#9B9EA4] font-medium mt-0.5 line-clamp-2">
-                    {event.address || event.location || "Main Campus Hall, Kochi, Kerala"}
-                  </p>
+                  {isOnlineEvent ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white truncate">
+                          {onlinePlatformName}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 shrink-0">
+                          Online Event
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#9B9EA4] font-mono mt-0.5 truncate select-all">
+                        {onlineMeetingUrl || "Virtual meeting link set"}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <a
+                        href={`https://maps.google.com/?q=${encodeURIComponent(event.address || event.location || "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-bold text-white hover:text-[#FE760B] transition-colors flex items-center gap-1.5 truncate"
+                      >
+                        <span>{event.location || "School of Engineering, CUSAT"}</span>
+                        <ArrowUpRight size={14} className="text-[#9B9EA4] shrink-0" />
+                      </a>
+                      <p className="text-xs text-[#9B9EA4] font-medium mt-0.5 line-clamp-2">
+                        {event.address || event.location || "Main Campus Hall, Kochi, Kerala"}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1016,7 +1087,7 @@ export default function EventOverviewPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setLocationQuery(event.location || "");
+                    setLocationQuery(onlineMeetingUrl || event.location || "");
                     setIsEditingLocation((prev) => !prev);
                   }}
                   className="px-2.5 py-1 rounded-lg bg-[#212327] hover:bg-[#2A2D31] text-[11px] font-semibold text-slate-300 hover:text-white border border-[#2A2D31] transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
@@ -1027,7 +1098,7 @@ export default function EventOverviewPage() {
               )}
             </div>
 
-            {/* Real-time Location Search & Edit dropdown (Image 5) */}
+            {/* Real-time Location Search & Edit dropdown */}
             {isEditingLocation && (
               <div className="mb-4 p-3 rounded-xl bg-[#131517] border border-[#FE760B]/40 space-y-2 animate-fade-in">
                 <div className="flex items-center gap-2">
@@ -1036,7 +1107,7 @@ export default function EventOverviewPage() {
                       type="text"
                       value={locationQuery}
                       onChange={(e) => setLocationQuery(e.target.value)}
-                      placeholder="Type campus, college, hall or address..."
+                      placeholder="Paste Google Meet/Zoom link OR search venue..."
                       className="w-full h-9 px-3 pr-8 rounded-lg bg-[#1A1C1F] border border-[#2A2D31] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#FE760B]"
                       autoFocus
                     />
@@ -1075,35 +1146,113 @@ export default function EventOverviewPage() {
               </div>
             )}
 
-            {/* Google Maps Interactive Card Styled & Spaced */}
-            <div className="w-full flex-1 min-h-[240px] sm:min-h-[280px] md:min-h-[300px] rounded-2xl overflow-hidden border border-[#2A2D31] mb-2.5 relative bg-[#131517] shadow-inner group flex flex-col">
-              <iframe
-                title="Google Maps Location Preview"
-                width="100%"
-                height="100%"
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                  event.address || event.location || "Delhi, India"
-                )}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
-                className="w-full h-full flex-1 min-h-[240px] border-0 filter contrast-[1.05] brightness-95 rounded-2xl"
-              />
-              <div className="absolute bottom-2.5 right-2.5 z-10">
-                <a
-                  href={`https://maps.google.com/?q=${encodeURIComponent(event.address || event.location || "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-[#131517]/90 hover:bg-[#131517] text-xs font-bold text-white border border-[#2A2D31] backdrop-blur-md transition-all flex items-center gap-1.5 shadow-lg hover:border-[#FE760B]/50 hover:text-[#FE760B]"
-                >
-                  <span>Open in Google Maps</span>
-                  <ExternalLink size={11} />
-                </a>
+            {/* Display Virtual Meeting Room OR Interactive Google Maps Card */}
+            {isOnlineEvent ? (
+              <div className="w-full flex-1 min-h-[240px] sm:min-h-[280px] md:min-h-[300px] rounded-2xl border border-blue-500/20 bg-gradient-to-b from-[#182338]/60 to-[#131517] p-5 mb-2.5 flex flex-col justify-between shadow-inner relative overflow-hidden">
+                <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+
+                <div className="space-y-3.5 relative z-10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                        Live Virtual Access
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                      {onlinePlatformName}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4] block">
+                      Meeting Link for Attendees
+                    </span>
+                    {onlineMeetingUrl ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono text-white truncate select-all flex-1 min-w-0">
+                          {onlineMeetingUrl}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof navigator !== "undefined" && navigator.clipboard) {
+                              navigator.clipboard.writeText(onlineMeetingUrl);
+                              toast.success("Meeting link copied to clipboard!");
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-[11px] font-semibold text-white transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                        >
+                          <Copy size={12} />
+                          <span>Copy</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[#9B9EA4]">
+                        No meeting link provided. Click &quot;Edit&quot; above to add Google Meet or Zoom link.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-white/70">
+                    <p className="flex items-center gap-2 font-medium text-white/90">
+                      <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
+                      <span>Secure Digital Pass Admission</span>
+                    </p>
+                    <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
+                      Registered attendees receive this direct video link on their ticket pass, in email confirmations, and on the public event page.
+                    </p>
+                  </div>
+                </div>
+
+                {onlineMeetingUrl && (
+                  <div className="pt-4 relative z-10">
+                    <a
+                      href={onlineMeetingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-blue-500/25 active:scale-[0.99]"
+                    >
+                      <Video size={15} />
+                      <span>Open {onlinePlatformName}</span>
+                      <ExternalLink size={13} />
+                    </a>
+                  </div>
+                )}
               </div>
-            </div>
+            ) : (
+              /* Google Maps Interactive Card */
+              <div className="w-full flex-1 min-h-[240px] sm:min-h-[280px] md:min-h-[300px] rounded-2xl overflow-hidden border border-[#2A2D31] mb-2.5 relative bg-[#131517] shadow-inner group flex flex-col">
+                <iframe
+                  title="Google Maps Location Preview"
+                  width="100%"
+                  height="100%"
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                    event.address || event.location || "Delhi, India"
+                  )}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                  className="w-full h-full flex-1 min-h-[240px] border-0 filter contrast-[1.05] brightness-95 rounded-2xl"
+                />
+                <div className="absolute bottom-2.5 right-2.5 z-10">
+                  <a
+                    href={`https://maps.google.com/?q=${encodeURIComponent(event.address || event.location || "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-[#131517]/90 hover:bg-[#131517] text-xs font-bold text-white border border-[#2A2D31] backdrop-blur-md transition-all flex items-center gap-1.5 shadow-lg hover:border-[#FE760B]/50 hover:text-[#FE760B]"
+                  >
+                    <span>Open in Google Maps</span>
+                    <ExternalLink size={11} />
+                  </a>
+                </div>
+              </div>
+            )}
 
             <p className="text-[11px] text-[#9B9EA4] mb-4">
-              The address is shown publicly on the event page.
+              {isOnlineEvent
+                ? "The virtual meeting link is shown to registered attendees on their pass and event page."
+                : "The address is shown publicly on the event page."}
             </p>
           </div>
 
