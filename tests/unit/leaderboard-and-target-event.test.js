@@ -88,4 +88,68 @@ describe("Leaderboard Styling, WhatsApp Share & Target Event Selection", () => {
       "API auto-infers toggle and connect actions when action string is omitted"
     );
   });
+
+  it("Ambassador Program Form Embed page provides iframe-optimized registration and auto-resize messaging", () => {
+    const embedApplyPath = path.join(rootDir, "src/app/(app)/embed/programs/[programId]/apply/page.jsx");
+    assert.ok(fs.existsSync(embedApplyPath), "Embed apply page exists");
+    const content = fs.readFileSync(embedApplyPath, "utf-8");
+
+    // Essential form fields & capabilities
+    assert.ok(content.includes("Campus Ambassador Application"), "Includes Campus Ambassador Application badge");
+    assert.ok(content.includes("formData.fullName"), "Includes Full Name input");
+    assert.ok(content.includes("formData.email"), "Includes Email Address input");
+    assert.ok(content.includes("formData.whatsappPhone"), "Includes WhatsApp Phone Number input");
+    assert.ok(content.includes("formData.college"), "Includes College / Campus Name input");
+    assert.ok(content.includes("formData.department"), "Includes Department / Branch input");
+    assert.ok(content.includes("formData.yearOfStudy"), "Includes Year of Study selector");
+    assert.ok(content.includes("promotionPitch"), "Includes promotion pitch field");
+
+    // Auto-resizing iframe postMessage
+    assert.ok(
+      content.includes("ticketlelo:resize"),
+      "Notifies parent window with ticketlelo:resize postMessage for seamless auto-resizing"
+    );
+
+    // API submission & states
+    assert.ok(
+      content.includes("/api/programs/${programId}/apply") || content.includes("/api/programs/"),
+      "Submits application to programs apply API endpoint"
+    );
+    assert.ok(content.includes("Application Received!"), "Renders clear confirmation state upon successful submission");
+    assert.ok(content.includes("Application Under Review"), "Handles pending application status");
+    assert.ok(content.includes("You Are an Active Ambassador!"), "Handles already approved ambassador status");
+  });
+
+  it("Organizer Program Studio provides Form Embed option with iframe code, direct URL and interactive preview", () => {
+    const programDetailPath = path.join(rootDir, "src/app/(app)/admin/programs/[programId]/page.jsx");
+    const content = fs.readFileSync(programDetailPath, "utf-8");
+
+    // Overview Tab Embed Form option
+    assert.ok(
+      content.includes("embedApplyCode") && content.includes("embedApplyUrl"),
+      "Defines application form iframe embed code and URL"
+    );
+    assert.ok(
+      content.includes("embed-apply-overview"),
+      "Includes Copy Embed Code option in Overview Tab"
+    );
+
+    // Embeds & Leaderboard Tab
+    assert.ok(
+      content.includes("Embeds & Leaderboard") || content.includes("Leaderboard & Embed"),
+      "Includes Embeds & Leaderboard tab"
+    );
+    assert.ok(
+      content.includes("Ambassador Application Form Embed"),
+      "Includes dedicated Application Form Embed section"
+    );
+    assert.ok(
+      content.includes("Application Form Live Preview"),
+      "Includes interactive live preview of embedded application form"
+    );
+    assert.ok(
+      content.includes("embedPreviewDevice"),
+      "Includes device toggle (Desktop vs Mobile) for embed preview"
+    );
+  });
 });

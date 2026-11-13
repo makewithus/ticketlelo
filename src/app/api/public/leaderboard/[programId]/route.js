@@ -89,16 +89,28 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Sort descending by points with stable tie-breaking
-    leaderboard.sort((a, b) => b.totalPoints - a.totalPoints);
+    // Sort descending by points with deterministic, documented tie-breaking:
+    // 1. Highest totalPoints first
+    // 2. Earliest achieved timestamp / registration date
+    // 3. Alphabetical by displayName
+    leaderboard.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+      if (timeA && timeB && timeA !== timeB) {
+        return timeA - timeB; // Earlier achievement takes precedence
+      }
+      return (a.displayName || "").localeCompare(b.displayName || "");
+    });
 
-    // Assign integer ranks
+    // Assign integer ranks (Privacy-compliant: no raw revenue, sales, conversion, or attendee details exposed)
     const ranked = leaderboard.slice(0, limit).map((entry, index) => ({
       rank: index + 1,
       displayName: entry.displayName,
       college: entry.college || "",
       totalPoints: entry.totalPoints,
-      referralCount: entry.referralCount || 0,
       avatarInitial: entry.displayName ? entry.displayName.charAt(0).toUpperCase() : "A",
     }));
 

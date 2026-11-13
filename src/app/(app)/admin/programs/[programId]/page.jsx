@@ -35,11 +35,25 @@ import {
   ToggleLeft,
   ToggleRight,
   Filter,
+  Monitor,
+  Smartphone,
+  Sliders,
+  Calculator,
+  Sparkles,
+  Tag,
+  Ticket,
+  Zap,
+  History,
+  Info,
+  Edit3,
+  ArrowUpRight,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPublicBaseUrl } from "@/lib/app-url";
+import PointsEngineTab from "@/components/creator-campus/points-engine-tab";
 
 function parseTimestamp(raw) {
   if (!raw) return new Date();
@@ -95,8 +109,21 @@ export default function OrganizerProgramHubPage({ params }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
 
-  // Tab 6: Points & Rewards
+  // Tab 6: Points & Rewards (Custom Points Engine)
   const [pointsRules, setPointsRules] = useState({
+    global: {
+      freeRegistrationPoints: 10,
+      freeEligible: true,
+      paidType: "multiplier",
+      paidMultiplier: 2,
+      paidRegistrationPoints: 20,
+      paidEligible: true,
+      ineligibleCategories: [],
+    },
+    eventOverrides: {},
+    ticketOverrides: {},
+    bonusRules: [],
+    version: 1,
     basePointsPerTicket: 10,
     paidMultiplier: 2,
     milestones: [],
@@ -122,10 +149,12 @@ export default function OrganizerProgramHubPage({ params }) {
   const [adjustReason, setAdjustReason] = useState("");
   const [adjusting, setAdjusting] = useState(false);
 
-  // Tab 7: Leaderboard
+  // Tab 7: Leaderboard & Embeds
   const [leaderboard, setLeaderboard] = useState([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
   const [copiedLink, setCopiedLink] = useState(null);
+  const [embedSubTab, setEmbedSubTab] = useState("apply"); // "apply" | "leaderboard"
+  const [embedPreviewDevice, setEmbedPreviewDevice] = useState("desktop"); // "desktop" | "mobile"
 
   // Copy helper
   const handleCopy = (text, key) => {
@@ -275,7 +304,22 @@ export default function OrganizerProgramHubPage({ params }) {
     }
   }, [programId, program?.college]);
 
-  // ── Tab 6: Rewards ──
+  // ── Tab 6: Points Rules & Rewards ──
+  const fetchPointsRules = useCallback(async () => {
+    if (!programId) return;
+    try {
+      const res = await authFetch(`/api/organizer/programs/${programId}/points/rules`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.rules) {
+          setPointsRules(data.rules);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading points rules:", err);
+    }
+  }, [programId]);
+
   const fetchRewards = useCallback(async () => {
     if (!programId) return;
     setLoadingRewards(true);
@@ -314,9 +358,14 @@ export default function OrganizerProgramHubPage({ params }) {
     if (activeTab === "events") fetchEvents();
     if (activeTab === "applications") fetchApplications();
     if (activeTab === "ambassadors" || activeTab === "referrals") fetchAmbassadorsAndCodes();
-    if (activeTab === "points") fetchRewards();
+    if (activeTab === "points") {
+      fetchEvents();
+      fetchAmbassadorsAndCodes();
+      fetchPointsRules();
+      fetchRewards();
+    }
     if (activeTab === "leaderboard") fetchLeaderboard();
-  }, [activeTab, fetchEvents, fetchApplications, fetchAmbassadorsAndCodes, fetchRewards, fetchLeaderboard]);
+  }, [activeTab, fetchEvents, fetchApplications, fetchAmbassadorsAndCodes, fetchPointsRules, fetchRewards, fetchLeaderboard]);
 
   // Real-time polling effect (every 8s) to keep application counts & status updated
   useEffect(() => {
@@ -496,6 +545,7 @@ export default function OrganizerProgramHubPage({ params }) {
         body: JSON.stringify({
           ambassadorId: adjustTargetAmb.id,
           userId: adjustTargetAmb.userId,
+          pointsAdjustment: Number(adjustPoints),
           points: Number(adjustPoints),
           reason: adjustReason.trim(),
         }),
@@ -596,7 +646,11 @@ export default function OrganizerProgramHubPage({ params }) {
   const baseUrl = getPublicBaseUrl();
   const publicApplyUrl = `${baseUrl}/programs/${programId}/apply`;
   const publicLeaderboardUrl = `${baseUrl}/leaderboard/${programId}`;
-  const embedCode = `<iframe src="${baseUrl}/embed/leaderboard/${programId}" width="100%" height="600" frameborder="0"></iframe>`;
+  const embedApplyUrl = `${baseUrl}/embed/programs/${programId}/apply`;
+  const embedApplyCode = `<iframe src="${baseUrl}/embed/programs/${programId}/apply" width="100%" height="750" frameborder="0" style="border:none; max-width:100%; border-radius:16px;"></iframe>`;
+  const embedLeaderboardUrl = `${baseUrl}/embed/leaderboard/${programId}`;
+  const embedLeaderboardCode = `<iframe src="${baseUrl}/embed/leaderboard/${programId}" width="100%" height="600" frameborder="0" style="border:none; max-width:100%; border-radius:16px;"></iframe>`;
+  const embedCode = embedLeaderboardCode;
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -605,7 +659,7 @@ export default function OrganizerProgramHubPage({ params }) {
     { id: "ambassadors", label: `Ambassadors (${ambassadors.length})` },
     { id: "referrals", label: `Codes & Import (${referralCodes.length})` },
     { id: "points", label: "Points & Rewards" },
-    { id: "leaderboard", label: "Leaderboard & Embed" },
+    { id: "leaderboard", label: "Embeds & Leaderboard" },
     { id: "settings", label: "Settings" },
   ];
 
@@ -730,62 +784,140 @@ export default function OrganizerProgramHubPage({ params }) {
 
           {/* Quick Sharing & Links */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3 shadow-xs">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#FE760B] uppercase tracking-wider">
-                <Share2 className="w-4 h-4" />
-                <span>Public Ambassador Application Link</span>
+            <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#FE760B] uppercase tracking-wider">
+                  <Share2 className="w-4 h-4" />
+                  <span>Ambassador Application Form</span>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
+                  Direct & Embed
+                </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
-                Share this link on your college campus posters and social channels to invite student ambassador applicants.
+                Share this link on campus posters and WhatsApp groups, or embed the application form directly on your college fest website.
               </p>
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={publicApplyUrl}
-                  className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => handleCopy(publicApplyUrl, "apply")}
-                  className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-3 shrink-0 cursor-pointer"
-                  title="Copy application link"
-                >
-                  {copiedLink === "apply" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                </Button>
-                <Link href={`/programs/${programId}/apply`} target="_blank">
-                  <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open application form in new tab">
-                    <ExternalLink className="w-3.5 h-3.5" />
+              
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Public Application Link:
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={publicApplyUrl}
+                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => handleCopy(publicApplyUrl, "apply")}
+                    className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-3 shrink-0 cursor-pointer"
+                    title="Copy application link"
+                  >
+                    {copiedLink === "apply" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
-                </Link>
+                  <Link href={`/programs/${programId}/apply`} target="_blank">
+                    <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open application form in new tab">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-[#26292E] flex items-center justify-between text-xs flex-wrap gap-2">
+                <span className="text-[11px] text-slate-500 dark:text-[#9B9EA4] flex items-center gap-1.5">
+                  <Code className="w-3.5 h-3.5 text-[#FE760B]" />
+                  <span>Iframe Embed Form:</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopy(embedApplyCode, "embed-apply-overview")}
+                    className="text-[11px] h-7 px-2.5 rounded-lg border-[#FE760B]/40 text-[#FE760B] hover:bg-[#FE760B]/10 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copiedLink === "embed-apply-overview" ? "Copied Embed Code!" : "Copy Embed Code"}</span>
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmbedSubTab("apply");
+                      setActiveTab("leaderboard");
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                  >
+                    Customize & Preview →
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3 shadow-xs">
-              <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-wider">
-                <Award className="w-4 h-4" />
-                <span>Public Leaderboard & Iframe Embed</span>
+            <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-wider">
+                  <Award className="w-4 h-4" />
+                  <span>Public Leaderboard & Embed</span>
+                </div>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/12 text-purple-400 border border-purple-500/25">
+                  Rankings
+                </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
                 Privacy-hardened leaderboard showing ambassador rankings and points. Can be embedded on college portals.
               </p>
-              <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={publicLeaderboardUrl}
-                  className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono"
-                />
-                <Button
-                  size="sm"
-                  onClick={() => handleCopy(publicLeaderboardUrl, "leaderboard")}
-                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-9 px-3 shrink-0 cursor-pointer"
-                >
-                  {copiedLink === "leaderboard" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                </Button>
-                <Link href={`/leaderboard/${programId}`} target="_blank">
-                  <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open public leaderboard in new tab">
-                    <ExternalLink className="w-3.5 h-3.5" />
+
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Public Leaderboard Link:
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={publicLeaderboardUrl}
+                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => handleCopy(publicLeaderboardUrl, "leaderboard")}
+                    className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-9 px-3 shrink-0 cursor-pointer"
+                  >
+                    {copiedLink === "leaderboard" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
-                </Link>
+                  <Link href={`/leaderboard/${programId}`} target="_blank">
+                    <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open public leaderboard in new tab">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-[#26292E] flex items-center justify-between text-xs flex-wrap gap-2">
+                <span className="text-[11px] text-slate-500 dark:text-[#9B9EA4] flex items-center gap-1.5">
+                  <Code className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Iframe Embed Leaderboard:</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard-overview")}
+                    className="text-[11px] h-7 px-2.5 rounded-lg border-purple-500/40 text-purple-400 hover:bg-purple-500/10 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copiedLink === "embed-leaderboard-overview" ? "Copied Embed Code!" : "Copy Embed Code"}</span>
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmbedSubTab("leaderboard");
+                      setActiveTab("leaderboard");
+                    }}
+                    className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                  >
+                    Customize & Preview →
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1124,169 +1256,336 @@ export default function OrganizerProgramHubPage({ params }) {
       )}
 
       {/* ══════════════════════════════════════════════════════
-          TAB 6: POINTS & REWARDS
+          TAB 6: POINTS ENGINE & REWARDS
       ══════════════════════════════════════════════════════ */}
       {activeTab === "points" && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Rules Editor */}
-          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-4 shadow-xs">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Points Calculation Rules</h2>
-            <form onSubmit={handleSavePointsRules} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
-                    Base Points Per Free Registration
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={pointsRules.basePointsPerTicket}
-                    onChange={(e) => setPointsRules({ ...pointsRules, basePointsPerTicket: e.target.value })}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-600 dark:text-[#9B9EA4] block mb-1">
-                    Paid Ticket Multiplier
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={pointsRules.paidMultiplier}
-                    onChange={(e) => setPointsRules({ ...pointsRules, paidMultiplier: e.target.value })}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9"
-                  />
-                </div>
-              </div>
-              <Button
-                type="submit"
-                disabled={savingRules}
-                className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-4 rounded-xl cursor-pointer"
-              >
-                {savingRules ? <Loader2 className="w-4 h-4 animate-spin text-[#131517]" /> : "Save Points Configuration"}
-              </Button>
-            </form>
-          </div>
-
-          {/* Rewards Catalog */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Rewards Catalog</h2>
-                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
-                  Incentives student ambassadors can claim using their accumulated points.
-                </p>
-              </div>
-              <Button
-                onClick={() => setIsAddRewardModalOpen(true)}
-                className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-9 px-3.5 rounded-xl cursor-pointer"
-              >
-                <Plus className="w-4 h-4 mr-1 text-[#131517]" />
-                Add Reward
-              </Button>
-            </div>
-
-            {loadingRewards ? (
-              <div className="py-8 flex justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-              </div>
-            ) : rewards.length === 0 ? (
-              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-8 text-center space-y-2">
-                <Gift className="w-8 h-8 text-slate-400 mx-auto" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">No rewards configured yet</h3>
-                <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
-                  Add merchandise, VIP passes, certificates, or vouchers to motivate your campus ambassador team.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rewards.map((rew) => (
-                  <div
-                    key={rew.id}
-                    className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-4 flex flex-col justify-between space-y-3 shadow-xs"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                          {rew.rewardType}
-                        </span>
-                        <span className="text-xs font-bold text-[#FE760B] tabular-nums">
-                          {rew.pointsRequired} pts
-                        </span>
-                      </div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">{rew.title}</h3>
-                      <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 line-clamp-2">
-                        {rew.description}
-                      </p>
-                    </div>
-
-                    <div className="text-[11px] text-slate-400 dark:text-[#9B9EA4] pt-2 border-t border-slate-100 dark:border-[#2A2D31]">
-                      Inventory: {rew.totalInventory === -1 ? "Unlimited" : `${rew.remainingInventory ?? rew.totalInventory} remaining`}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <PointsEngineTab
+          programId={programId}
+          program={program}
+          connectedEvents={connectedEvents}
+          ambassadors={ambassadors}
+          pointsRules={pointsRules}
+          setPointsRules={setPointsRules}
+          fetchProgram={fetchProgram}
+          rewards={rewards}
+          loadingRewards={loadingRewards}
+          fetchRewards={fetchRewards}
+          setIsAddRewardModalOpen={setIsAddRewardModalOpen}
+          isAdjustModalOpen={isAdjustModalOpen}
+          setIsAdjustModalOpen={setIsAdjustModalOpen}
+          adjustTargetAmb={adjustTargetAmb}
+          setAdjustTargetAmb={setAdjustTargetAmb}
+          adjustPoints={adjustPoints}
+          setAdjustPoints={setAdjustPoints}
+          adjustReason={adjustReason}
+          setAdjustReason={setAdjustReason}
+          adjusting={adjusting}
+          handleManualAdjust={handleManualAdjust}
+        />
       )}
 
       {/* ══════════════════════════════════════════════════════
-          TAB 7: LEADERBOARD & EMBED
+          TAB 7: EMBEDS & LEADERBOARD
       ══════════════════════════════════════════════════════ */}
       {activeTab === "leaderboard" && (
         <div className="space-y-6 animate-fade-in">
-          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3 shadow-xs">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Public Iframe Embed Code</h2>
-            <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
-              Embed this privacy-safe live leaderboard on your college website or fest portal.
-            </p>
-            <div className="relative">
-              <pre className="p-3 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono overflow-x-auto">
-                {embedCode}
-              </pre>
-              <Button
-                size="sm"
-                onClick={() => handleCopy(embedCode, "embed")}
-                className="absolute right-2 top-2 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-7 px-3"
-              >
-                {copiedLink === "embed" ? "Copied!" : "Copy Embed Code"}
-              </Button>
-            </div>
+          {/* Sub-navigation switcher: Application Form Embed vs Leaderboard Embed */}
+          <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl w-fit">
+            <button
+              type="button"
+              onClick={() => setEmbedSubTab("apply")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                embedSubTab === "apply"
+                  ? "bg-[#FE760B] text-[#131517] shadow-sm"
+                  : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Ambassador Application Form Embed</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEmbedSubTab("leaderboard")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                embedSubTab === "leaderboard"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>Leaderboard Embed</span>
+            </button>
           </div>
 
-          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-4 shadow-xs">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">Leaderboard Live Preview</h2>
-              <span className="text-[11px] text-slate-400">Strictly privacy-safe: Display Name and Points only</span>
-            </div>
-
-            {loadingLeaderboard ? (
-              <div className="py-8 flex justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
-              </div>
-            ) : leaderboard.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-6">No ambassadors on the leaderboard yet.</p>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-[#2A2D31]">
-                {leaderboard.map((item) => (
-                  <div key={item.rank} className="py-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        item.rank === 1 ? "bg-amber-400 text-black font-extrabold" : item.rank === 2 ? "bg-slate-300 text-black" : item.rank === 3 ? "bg-amber-700 text-white" : "text-slate-400"
-                      }`}>
-                        {item.rank}
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">{item.displayName}</span>
+          {/* ── SUB-TAB 1: APPLICATION FORM EMBED ── */}
+          {embedSubTab === "apply" && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#FE760B] animate-pulse" />
+                      <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                        Application Form Iframe Embed Code
+                      </h2>
                     </div>
-                    <span className="text-xs font-bold text-[#FE760B] tabular-nums">
-                      {item.totalPoints?.toLocaleString("en-IN") || 0} pts
-                    </span>
+                    <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 max-w-2xl">
+                      Embed this application form directly on your official college fest website, campus club portal, or social link-in-bio. Students can apply to become campus ambassadors without leaving your domain.
+                    </p>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link href={`/embed/programs/${programId}/apply`} target="_blank">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8 px-3 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Open Live Embed</span>
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono overflow-x-auto border border-slate-800">
+                    {embedApplyCode}
+                  </pre>
+                  <Button
+                    size="sm"
+                    onClick={() => handleCopy(embedApplyCode, "embed-apply")}
+                    className="absolute right-2.5 top-2.5 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-7 px-3 cursor-pointer shadow-sm flex items-center gap-1.5"
+                  >
+                    {copiedLink === "embed-apply" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Embed Code</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Direct Link Alternative */}
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-[#9B9EA4]">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">Direct Embed URL:</span>
+                    <code className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#212327] text-slate-800 dark:text-slate-200 text-[11px] font-mono">
+                      {embedApplyUrl}
+                    </code>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopy(embedApplyUrl, "embed-apply-url")}
+                    className="text-xs h-7 px-2.5 text-[#FE760B] hover:bg-[#FE760B]/10 cursor-pointer self-start sm:self-auto"
+                  >
+                    {copiedLink === "embed-apply-url" ? "Copied URL!" : "Copy Direct URL"}
+                  </Button>
+                </div>
+
+                {/* Features Checklist */}
+                <div className="pt-4 border-t border-slate-100 dark:border-[#26292E] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-[#9B9EA4]">
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>Auto-resizing iframe via <code>ticketlelo:resize</code> postMessage</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>Direct guest registration with zero forced login barrier</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span>
+                    <span>Theme support: append <code>?theme=light</code> or <code>?theme=dark</code></span>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Live Interactive Form Preview Card */}
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Code className="w-4 h-4 text-[#FE760B]" />
+                      <span>Application Form Live Preview</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                      Interact with your live embedded ambassador application form exactly as applicants will experience it on your site.
+                    </p>
+                  </div>
+
+                  {/* Desktop / Mobile Switcher */}
+                  <div className="flex items-center rounded-xl bg-slate-100 dark:bg-[#212327] p-1 border border-slate-200 dark:border-[#2A2D31]">
+                    <button
+                      type="button"
+                      onClick={() => setEmbedPreviewDevice("desktop")}
+                      className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                        embedPreviewDevice === "desktop"
+                          ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                          : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Monitor className="w-3.5 h-3.5" />
+                      <span>Desktop</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmbedPreviewDevice("mobile")}
+                      className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                        embedPreviewDevice === "mobile"
+                          ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                          : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                      }`}
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>Mobile (390px)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="w-full flex justify-center py-4 px-2 bg-slate-950/60 rounded-2xl border border-slate-200/40 dark:border-white/10 shadow-inner overflow-hidden">
+                  <div
+                    className={`transition-all duration-300 w-full ${
+                      embedPreviewDevice === "mobile" ? "max-w-[410px]" : "max-w-2xl"
+                    }`}
+                  >
+                    <iframe
+                      src={embedApplyUrl}
+                      className="w-full h-[680px] rounded-2xl border border-slate-800 bg-transparent shadow-2xl"
+                      title="Ambassador Application Form Embed Preview"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── SUB-TAB 2: LEADERBOARD EMBED ── */}
+          {embedSubTab === "leaderboard" && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                      <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                        Public Leaderboard Iframe Embed Code
+                      </h2>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 max-w-2xl">
+                      Embed this privacy-safe live leaderboard on your college website or fest portal to showcase top campus creators and points in real time.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link href={`/leaderboard/${programId}`} target="_blank">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-8 px-3 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Open Public Page</span>
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono overflow-x-auto border border-slate-800">
+                    {embedLeaderboardCode}
+                  </pre>
+                  <Button
+                    size="sm"
+                    onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard")}
+                    className="absolute right-2.5 top-2.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-7 px-3 cursor-pointer shadow-sm flex items-center gap-1.5"
+                  >
+                    {copiedLink === "embed-leaderboard" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Embed Code</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Direct Link Alternative */}
+                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-[#9B9EA4]">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">Direct Leaderboard URL:</span>
+                    <code className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#212327] text-slate-800 dark:text-slate-200 text-[11px] font-mono">
+                      {embedLeaderboardUrl}
+                    </code>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopy(embedLeaderboardUrl, "embed-leaderboard-url")}
+                    className="text-xs h-7 px-2.5 text-purple-400 hover:bg-purple-500/10 cursor-pointer self-start sm:self-auto"
+                  >
+                    {copiedLink === "embed-leaderboard-url" ? "Copied URL!" : "Copy Direct URL"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Leaderboard Live Preview */}
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Award className="w-4 h-4 text-purple-400" />
+                    <span>Leaderboard Live Rankings Preview</span>
+                  </h2>
+                  <span className="text-[11px] text-slate-400">Strictly privacy-safe: Display Name and Points only</span>
+                </div>
+
+                {loadingLeaderboard ? (
+                  <div className="py-8 flex justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+                  </div>
+                ) : leaderboard.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-6">No ambassadors on the leaderboard yet.</p>
+                ) : (
+                  <div className="divide-y divide-slate-100 dark:divide-[#2A2D31]">
+                    {leaderboard.map((item) => (
+                      <div key={item.rank} className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                              item.rank === 1
+                                ? "bg-amber-400 text-black font-extrabold"
+                                : item.rank === 2
+                                ? "bg-slate-300 text-black"
+                                : item.rank === 3
+                                ? "bg-amber-700 text-white"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {item.rank}
+                          </span>
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            {item.displayName}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold text-[#FE760B] tabular-nums">
+                          {item.totalPoints?.toLocaleString("en-IN") || 0} pts
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1528,7 +1827,7 @@ export default function OrganizerProgramHubPage({ params }) {
       {/* ══════════════════════════════════════════════════════
           MODAL 3: ADJUST POINTS MODAL
       ══════════════════════════════════════════════════════ */}
-      {isAdjustModalOpen && adjustTargetAmb && (
+      {isAdjustModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
           onClick={(e) => {
@@ -1538,7 +1837,7 @@ export default function OrganizerProgramHubPage({ params }) {
           <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-2xl my-auto text-white animate-scale-in overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5 shrink-0">
               <h3 className="text-base font-bold text-white tracking-tight">
-                Adjust Points: {adjustTargetAmb.fullName}
+                {adjustTargetAmb ? `Adjust Points: ${adjustTargetAmb.fullName}` : "Manual Points Adjustment"}
               </h3>
               <button
                 type="button"
@@ -1552,7 +1851,29 @@ export default function OrganizerProgramHubPage({ params }) {
             <form onSubmit={handleManualAdjust} className="space-y-3.5 mt-3">
               <div>
                 <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                  Points Delta (+ or -)
+                  Ambassador *
+                </label>
+                <select
+                  value={adjustTargetAmb?.id || ""}
+                  onChange={(e) => {
+                    const found = ambassadors.find((a) => a.id === e.target.value);
+                    setAdjustTargetAmb(found || null);
+                  }}
+                  required
+                  className="w-full bg-[#212327] border border-[#2A2D31] text-xs sm:text-sm text-white h-10 rounded-xl px-3 focus:border-[#FE760B]"
+                >
+                  <option value="">Select ambassador...</option>
+                  {ambassadors.map((amb) => (
+                    <option key={amb.id} value={amb.id}>
+                      {amb.fullName} ({amb.referralCode || amb.id.slice(0, 8)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                  Points Delta (+ or -) *
                 </label>
                 <Input
                   type="number"
@@ -1572,7 +1893,7 @@ export default function OrganizerProgramHubPage({ params }) {
                   required
                   value={adjustReason}
                   onChange={(e) => setAdjustReason(e.target.value)}
-                  placeholder="Enter reason for points adjustment"
+                  placeholder="Mandatory reason for ledger audit record"
                   className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-10 rounded-xl focus:border-[#FE760B]"
                 />
               </div>

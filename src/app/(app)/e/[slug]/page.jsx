@@ -27,6 +27,7 @@ import {
   Sparkles,
   Info,
   Navigation,
+  Video,
 } from "lucide-react";
 import {
   collection,
@@ -329,6 +330,51 @@ export default function PublicEventBySlugPage() {
       ? "#432E01"
       : "#131517");
   const themeLook = getThemeLook(event?.themeColor || event?.theme || themeAccent);
+
+  // Check if event is virtual or online meeting
+  const isOnline = useMemo(() => {
+    if (!event) return false;
+    if (event.locationType === "virtual" || event.locationType === "online") return true;
+    if (event.isVirtual === true || event.isOnline === true) return true;
+    const candidates = [event.virtualLink, event.location, event.venue, event.address];
+    for (const c of candidates) {
+      if (typeof c === "string") {
+        const trimmed = c.trim();
+        if (/^https?:\/\//i.test(trimmed)) return true;
+        if (/\b(meet\.google\.com|zoom\.us|teams\.microsoft\.com|webex\.com|streamyard\.com|youtube\.com\/live)\b/i.test(trimmed)) return true;
+        if (/^(virtual|online event|google meet|zoom meeting)$/i.test(trimmed.toLowerCase())) return true;
+      }
+    }
+    return false;
+  }, [event]);
+
+  const onlineMeetingUrl = useMemo(() => {
+    if (!event) return "";
+    const candidates = [event.virtualLink, event.location, event.venue, event.address];
+    for (const c of candidates) {
+      if (typeof c === "string") {
+        const trimmed = c.trim();
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        const match = trimmed.match(/https?:\/\/[^\s]+/i);
+        if (match) return match[0];
+        const meetMatch = trimmed.match(/\b(meet\.google\.com\/[a-z0-9-]+|zoom\.us\/j\/[0-9]+)\b/i);
+        if (meetMatch) return `https://${meetMatch[0]}`;
+      }
+    }
+    return "";
+  }, [event]);
+
+  const onlinePlatformName = useMemo(() => {
+    const s = `${onlineMeetingUrl} ${event?.venue || ""} ${event?.location || ""}`.toLowerCase();
+    if (s.includes("meet.google.com")) return "Google Meet";
+    if (s.includes("zoom.us")) return "Zoom Meeting";
+    if (s.includes("teams.microsoft.com")) return "Microsoft Teams";
+    if (s.includes("webex.com")) return "Cisco Webex";
+    if (s.includes("youtube.com") || s.includes("youtu.be")) return "YouTube Live Stream";
+    if (s.includes("streamyard.com")) return "StreamYard Stream";
+    if (s.includes("discord.gg") || s.includes("discord.com")) return "Discord Stage";
+    return "Virtual / Online Event";
+  }, [onlineMeetingUrl, event]);
 
   // Dynamic full-page background synchronization matching organizer's chosen theme
   useEffect(() => {
@@ -815,7 +861,7 @@ export default function PublicEventBySlugPage() {
                 </div>
               </div>
 
-              {/* Venue Location */}
+              {/* Venue Location / Online Event Format */}
               <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-start gap-3.5 hover:border-[#FE760B]/30 transition-colors shadow-sm">
                 <div
                   className="p-2.5 rounded-xl shrink-0"
@@ -826,21 +872,43 @@ export default function PublicEventBySlugPage() {
                     borderWidth: "1px",
                   }}
                 >
-                  <MapPin className="w-5 h-5" />
+                  {isOnline ? <Video className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">Venue Location</p>
-                  <a
-                    href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || event.location || "") + " " + (event.city || ""))}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm font-bold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
-                  >
-                    <span>{event.venue || event.location || "Campus Venue"}</span>
-                    <span className="ml-1 text-[10px] text-[#FE760B]">↗</span>
-                  </a>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">
+                    {isOnline ? "Event Format" : "Venue Location"}
+                  </p>
+                  {isOnline ? (
+                    onlineMeetingUrl ? (
+                      <a
+                        href={onlineMeetingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-bold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
+                      >
+                        <span>{onlinePlatformName}</span>
+                        <span className="ml-1 text-[10px] text-[#FE760B]">↗</span>
+                      </a>
+                    ) : (
+                      <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">
+                        {onlinePlatformName}
+                      </p>
+                    )
+                  ) : (
+                    <a
+                      href={event.locationUrl || `https://maps.google.com/?q=${encodeURIComponent((event.venue || event.location || "") + " " + (event.city || ""))}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-bold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
+                    >
+                      <span>{event.venue || event.location || "Campus Venue"}</span>
+                      <span className="ml-1 text-[10px] text-[#FE760B]">↗</span>
+                    </a>
+                  )}
                   <p className="text-xs text-slate-600 dark:text-[#9B9EA4] mt-0.5 truncate">
-                    {event.city || event.subVenue || "Campus Venue"}
+                    {isOnline
+                      ? (onlineMeetingUrl ? "Live meeting link • Click to join" : "Interactive live session")
+                      : (event.city || event.subVenue || "Campus Venue")}
                   </p>
                 </div>
               </div>
@@ -1013,11 +1081,15 @@ export default function PublicEventBySlugPage() {
               </div>
             )}
 
-            {/* Interactive Venue Map */}
+            {/* Interactive Venue Map / Online Event Access */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg px-1">
-                <Navigation className="w-5 h-5" style={{ color: themeAccent }} />
-                <h2>Venue & navigation</h2>
+                {isOnline ? (
+                  <Video className="w-5 h-5" style={{ color: themeAccent }} />
+                ) : (
+                  <Navigation className="w-5 h-5" style={{ color: themeAccent }} />
+                )}
+                <h2>{isOnline ? "Online Event Access" : "Venue & navigation"}</h2>
               </div>
               <VenueMap
                 venueName={event.venue || event.location || event.title}
@@ -1027,6 +1099,9 @@ export default function PublicEventBySlugPage() {
                 latitude={event.latitude || event.lat || null}
                 longitude={event.longitude || event.lng || null}
                 themeColor={themeAccent}
+                isOnline={isOnline}
+                virtualLink={onlineMeetingUrl || event.virtualLink}
+                event={event}
               />
             </div>
           </div>

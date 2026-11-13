@@ -248,6 +248,10 @@ export async function POST(request) {
           referralCode: attribution.referralCode || order.referralCode,
           isPaid: true,
           ticketCount: Number(order.quantity || 1),
+          ticketId: order.ticketConfig?.id || "general",
+          ticketType: order.ticketConfig?.title || "Standard Ticket",
+          isCombo: Boolean(order.ticketConfig?.tierType === "combo" || order.ticketConfig?.isCombo),
+          ticketConfig: order.ticketConfig || null,
         });
       } catch (ptsErr) {
         console.warn("[verify-payment] Points awarding warning:", ptsErr?.message);

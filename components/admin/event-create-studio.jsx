@@ -936,9 +936,6 @@ export function EventCreateStudio({
     }
     const found = THEMES.find((t) => t.id === formData.theme);
     if (found) return found;
-    if (formData.themeColor && formData.themeColor.startsWith("#")) {
-      return deriveThemeFromColor(formData.themeColor);
-    }
     return THEMES[0]; // Minimal
   }, [formData.theme, formData.themeColor, customColorHex]);
 
@@ -1338,11 +1335,11 @@ export function EventCreateStudio({
         limitCapacity: Boolean(formData.limitCapacity),
         maxCapacity: parseInt(formData.maxCapacity, 10) || 50,
         waitlist: Boolean(formData.waitlist),
-        theme: formData.theme,
+        theme: selectedTheme.id || formData.theme || "minimal",
         themeColor: selectedTheme.color || "#FE760B",
         themeHex: selectedTheme.color || "#FE760B",
-        themeName: selectedTheme.name || "Sunset",
-        pageBg: selectedTheme.pageBg || "#131517",
+        themeName: selectedTheme.name || "Minimal",
+        pageBg: selectedTheme.pageBg || "#432E01",
         ticketBgColor: formData.ticketBgColor || selectedTheme.color || "#FE760B",
         coverImage: formData.coverImage || "",
         visibility: formData.visibility,
@@ -1487,15 +1484,6 @@ export function EventCreateStudio({
           </button>
 
           <div className="flex items-center gap-2.5 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setShowEventPagePreviewModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 text-xs font-semibold text-white transition-all cursor-pointer hover:border-[#FE760B]/60 shadow-sm"
-              title="Preview how attendees will see the published event page"
-            >
-              <Eye className="w-3.5 h-3.5 text-[#FE760B]" />
-              <span>Preview Event Page</span>
-            </button>
             <span className="font-semibold text-white/80 tracking-wide hidden sm:inline-block">
               {isEventCancelled
                 ? "Event Cancelled (View Only)"
@@ -2768,11 +2756,8 @@ export function EventCreateStudio({
                             onChange={(e) => {
                               const val = e.target.value.toUpperCase();
                               setTicketHexInput(val.replace(/^#/, ""));
-                              setCustomColorHex(val);
                               setFormData((prev) => ({
                                 ...prev,
-                                theme: "custom",
-                                themeColor: val,
                                 ticketBgColor: val,
                               }));
                             }}
@@ -2801,11 +2786,8 @@ export function EventCreateStudio({
                               setTicketHexInput(raw);
                               if (raw.length === 3 || raw.length === 6) {
                                 const fullHex = normalizeHex(raw);
-                                setCustomColorHex(fullHex);
                                 setFormData((prev) => ({
                                   ...prev,
-                                  theme: "custom",
-                                  themeColor: fullHex,
                                   ticketBgColor: fullHex,
                                 }));
                               }
@@ -2819,11 +2801,8 @@ export function EventCreateStudio({
                           onClick={() => {
                             const fullHex = normalizeHex(ticketHexInput);
                             setTicketHexInput(fullHex.replace(/^#/, ""));
-                            setCustomColorHex(fullHex);
                             setFormData((prev) => ({
                               ...prev,
-                              theme: "custom",
-                              themeColor: fullHex,
                               ticketBgColor: fullHex,
                             }));
                             toast.success(`Ticket color ${fullHex} applied!`);

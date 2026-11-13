@@ -19,6 +19,7 @@ import {
   Info,
   Layers,
   Navigation,
+  Video,
   Share2,
   Users,
   Compass,
@@ -199,6 +200,51 @@ export default function RegisterPage() {
   const formattedDate = event ? formatEventDate(event.date || event.startDate) : "";
   const isPaid = Boolean(event?.isPaid && (event?.price || event?.amount));
   const priceDisplay = isPaid ? `₹${event?.price || event?.amount}` : "Free Pass";
+
+  // Check if event is virtual or online meeting
+  const isOnline = useMemo(() => {
+    if (!event) return false;
+    if (event.locationType === "virtual" || event.locationType === "online") return true;
+    if (event.isVirtual === true || event.isOnline === true) return true;
+    const candidates = [event.virtualLink, event.location, event.venue, event.locationAddress];
+    for (const c of candidates) {
+      if (typeof c === "string") {
+        const trimmed = c.trim();
+        if (/^https?:\/\//i.test(trimmed)) return true;
+        if (/\b(meet\.google\.com|zoom\.us|teams\.microsoft\.com|webex\.com|streamyard\.com|youtube\.com\/live)\b/i.test(trimmed)) return true;
+        if (/^(virtual|online event|google meet|zoom meeting)$/i.test(trimmed.toLowerCase())) return true;
+      }
+    }
+    return false;
+  }, [event]);
+
+  const onlineMeetingUrl = useMemo(() => {
+    if (!event) return "";
+    const candidates = [event.virtualLink, event.location, event.venue, event.locationAddress];
+    for (const c of candidates) {
+      if (typeof c === "string") {
+        const trimmed = c.trim();
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        const match = trimmed.match(/https?:\/\/[^\s]+/i);
+        if (match) return match[0];
+        const meetMatch = trimmed.match(/\b(meet\.google\.com\/[a-z0-9-]+|zoom\.us\/j\/[0-9]+)\b/i);
+        if (meetMatch) return `https://${meetMatch[0]}`;
+      }
+    }
+    return "";
+  }, [event]);
+
+  const onlinePlatformName = useMemo(() => {
+    const s = `${onlineMeetingUrl} ${event?.locationVenue || ""} ${event?.venue || ""} ${event?.location || ""}`.toLowerCase();
+    if (s.includes("meet.google.com")) return "Google Meet";
+    if (s.includes("zoom.us")) return "Zoom Meeting";
+    if (s.includes("teams.microsoft.com")) return "Microsoft Teams";
+    if (s.includes("webex.com")) return "Cisco Webex";
+    if (s.includes("youtube.com") || s.includes("youtu.be")) return "YouTube Live Stream";
+    if (s.includes("streamyard.com")) return "StreamYard Stream";
+    if (s.includes("discord.gg") || s.includes("discord.com")) return "Discord Stage";
+    return "Virtual / Online Event";
+  }, [onlineMeetingUrl, event]);
   const broadLocation =
     event?.locationVenue ||
     (event?.venue && !event.venue.includes(",") ? event.venue : null) ||
@@ -425,7 +471,7 @@ export default function RegisterPage() {
                     </div>
                   </div>
 
-                  {/* Venue Location */}
+                  {/* Venue Location / Online Event Format */}
                   <div
                     className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md hover:border-white/30"
                     style={{
@@ -434,12 +480,36 @@ export default function RegisterPage() {
                     }}
                   >
                     <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
-                      <MapPin className="w-5 h-5" />
+                      {isOnline ? <Video className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Venue Location</p>
-                      <p className="text-sm font-bold text-white mt-0.5 truncate">{broadLocation}</p>
-                      <p className="text-xs text-white/75 mt-0.5 truncate">{event.subVenue || event.room || event.city || "Check gate on arrival"}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                        {isOnline ? "Event Format" : "Venue Location"}
+                      </p>
+                      {isOnline ? (
+                        onlineMeetingUrl ? (
+                          <a
+                            href={onlineMeetingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-bold text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
+                          >
+                            <span>{onlinePlatformName}</span>
+                            <span className="ml-1 text-[10px] text-[#FE760B]">↗</span>
+                          </a>
+                        ) : (
+                          <p className="text-sm font-bold text-white mt-0.5 truncate">
+                            {onlinePlatformName}
+                          </p>
+                        )
+                      ) : (
+                        <p className="text-sm font-bold text-white mt-0.5 truncate">{broadLocation}</p>
+                      )}
+                      <p className="text-xs text-white/75 mt-0.5 truncate">
+                        {isOnline
+                          ? (onlineMeetingUrl ? "Live meeting link • Click to join" : "Interactive live session")
+                          : (event.subVenue || event.room || event.city || "Check gate on arrival")}
+                      </p>
                     </div>
                   </div>
 
@@ -598,11 +668,15 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {/* Interactive Venue Map */}
+                {/* Interactive Venue Map / Online Event Access */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-white font-bold text-lg px-1">
-                    <Navigation className="w-5 h-5 text-emerald-400" />
-                    <h2>Venue & navigation</h2>
+                    {isOnline ? (
+                      <Video className="w-5 h-5" style={{ color: themeAccent }} />
+                    ) : (
+                      <Navigation className="w-5 h-5 text-emerald-400" />
+                    )}
+                    <h2>{isOnline ? "Online Event Access" : "Venue & navigation"}</h2>
                   </div>
                   <VenueMap
                     venueName={event.locationVenue || broadLocation || event.venue || event.name}
@@ -612,6 +686,9 @@ export default function RegisterPage() {
                     latitude={event.latitude || event.lat || null}
                     longitude={event.longitude || event.lng || null}
                     themeColor={themeAccent}
+                    isOnline={isOnline}
+                    virtualLink={onlineMeetingUrl || event.virtualLink}
+                    event={event}
                   />
                 </div>
               </div>

@@ -11,14 +11,53 @@ export async function GET(request, { params }) {
     const { programId } = await params;
     const { searchParams } = new URL(request.url);
     const ambassadorId = searchParams.get("ambassadorId");
+    const eventId = searchParams.get("eventId");
+    const status = searchParams.get("status");
+    const entryType = searchParams.get("entryType");
+    const search = searchParams.get("search")?.toLowerCase().trim();
+    const limitParam = parseInt(searchParams.get("limit") || "200", 10);
 
     let q = adminDb.collection("pointsLedger").where("programId", "==", programId);
     if (ambassadorId) {
       q = q.where("ambassadorId", "==", ambassadorId);
     }
+    if (eventId) {
+      q = q.where("eventId", "==", eventId);
+    }
+    if (status) {
+      q = q.where("status", "==", status);
+    }
 
     const snap = await q.get();
     let entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // In-memory filtering for entryType and search (to support flexible full-text query)
+    if (entryType) {
+      if (entryType === "earn") {
+        entries = entries.filter((e) => e.entryType === "earn" || e.entryType === "earn_with_bonus");
+      } else {
+        entries = entries.filter((e) => e.entryType === entryType);
+      }
+    }
+
+    if (search) {
+      entries = entries.filter((e) => {
+        const text = [
+          e.ambassadorName,
+          e.referralCode,
+          e.orderId,
+          e.registrationId,
+          e.eventTitle,
+          e.ticketType,
+          e.reason,
+          e.appliedRule?.name,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return text.includes(search);
+      });
+    }
 
     // Sort descending by timestamp
     entries.sort((a, b) => {
@@ -27,7 +66,11 @@ export async function GET(request, { params }) {
       return timeB - timeA;
     });
 
-    return NextResponse.json({ success: true, entries });
+    if (limitParam && limitParam > 0) {
+      entries = entries.slice(0, limitParam);
+    }
+
+    return NextResponse.json({ success: true, entries, count: entries.length });
   } catch (err) {
     console.error("[api/organizer/points/ledger GET] Error:", err);
     return NextResponse.json({ error: err.message || "Failed to fetch points ledger" }, { status: 500 });

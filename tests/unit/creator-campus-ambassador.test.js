@@ -324,4 +324,181 @@ Adil Mohammed,adil@example.com,9876543210,CUSAT
       assert.match(detailContent, /Approve & Enrol/, "Review modal must have Approve & Enrol button");
     });
   });
+
+  // ── 4. Custom Points Engine (3-Tier Hierarchy, Combos & Bonuses) ──
+  describe("4. Custom Points Engine — 3-Tier Priority, Combos & Bonus Rules", () => {
+    const customRules = {
+      global: {
+        freeRegistrationPoints: 10,
+        freeEligible: true,
+        paidType: "multiplier",
+        paidMultiplier: 2,
+        paidRegistrationPoints: 20,
+        paidEligible: true,
+        ineligibleCategories: ["complimentary"],
+      },
+      eventOverrides: {
+        evt_praroha: {
+          eventId: "evt_praroha",
+          eventName: "PRAROHA Gaming",
+          freeRegistrationPoints: 20,
+          freeEligible: true,
+          paidType: "fixed",
+          paidRegistrationPoints: 40,
+          paidEligible: true,
+          isActive: true,
+        },
+      },
+      ticketOverrides: {
+        vip_pass: {
+          id: "vip_pass",
+          ticketId: "vip_pass",
+          ticketName: "VIP Pass",
+          points: 30,
+          isCombo: false,
+          isActive: true,
+        },
+        combo_pass: {
+          id: "combo_pass",
+          ticketId: "combo_pass",
+          ticketName: "Combo Pass",
+          points: 40,
+          isCombo: true,
+          isActive: true,
+        },
+      },
+      bonusRules: [
+        {
+          id: "milestone_10",
+          name: "First 10 Referrals Milestone",
+          bonusType: "milestone",
+          bonusPoints: 50,
+          milestoneThreshold: 10,
+          isActive: true,
+        },
+        {
+          id: "early_bird_rush",
+          name: "Early Bird Rush",
+          bonusType: "early_bird",
+          bonusPoints: 10,
+          startDate: "2026-11-01T00:00:00Z",
+          endDate: "2026-11-20T23:59:59Z",
+          isActive: true,
+        },
+      ],
+      version: 2,
+    };
+
+    test("Priority 3: Fallback to Global Default rule when no overrides match", () => {
+      const resFree = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+        rules: customRules,
+        eventId: "other_event",
+      });
+      assert.equal(resFree.basePoints, 10);
+      assert.equal(resFree.appliedRule.level, "global");
+
+      const resPaid = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 2,
+        rules: customRules,
+        eventId: "other_event",
+      });
+      // 10 * 2x * 2 tickets = 40 pts
+      assert.equal(resPaid.basePoints, 40);
+      assert.equal(resPaid.appliedRule.level, "global");
+    });
+
+    test("Priority 2: Event-Specific Rule overrides Global Default (Does NOT sum)", () => {
+      const resEvent = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+        rules: customRules,
+        eventId: "evt_praroha",
+      });
+      // Global is 10, but Event override is 20
+      assert.equal(resEvent.basePoints, 20);
+      assert.equal(resEvent.appliedRule.level, "event");
+      assert.equal(resEvent.appliedRule.ruleId, "evt_praroha");
+    });
+
+    test("Priority 1: Ticket-Specific Rule overrides Event and Global rules (Highest priority)", () => {
+      const resTicket = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 1,
+        rules: customRules,
+        eventId: "evt_praroha", // Has 40 pt paid override, but VIP pass is 30 pts
+        ticketId: "vip_pass",
+        ticketType: "VIP Pass",
+      });
+      assert.equal(resTicket.basePoints, 30);
+      assert.equal(resTicket.appliedRule.level, "ticket");
+      assert.equal(resTicket.appliedRule.name, "VIP Pass");
+    });
+
+    test("Combo Pass has explicit scoring and does NOT multiply across child events", () => {
+      const resCombo = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 1,
+        rules: customRules,
+        ticketId: "combo_pass",
+        ticketType: "Combo Pass",
+        isCombo: true,
+      });
+      assert.equal(resCombo.basePoints, 40);
+      assert.equal(resCombo.appliedRule.isCombo, true);
+    });
+
+    test("Bonus Points Engine: Calculates base + bonuses separately (PRAROHA + Early Bird example)", () => {
+      // Prompt Example: Global free = 10, PRAROHA Gaming event override = 20, Early bird bonus = 10 -> Final = 30 pts
+      const res = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+        rules: customRules,
+        eventId: "evt_praroha",
+        registrationTimestamp: "2026-11-13T12:00:00Z", // Within early bird window
+      });
+      assert.equal(res.basePoints, 20);
+      assert.equal(res.bonusPoints, 10);
+      assert.equal(res.totalPoints, 30);
+    });
+
+    test("Milestone Bonus is awarded on reaching threshold and locked against duplicate awards", () => {
+      // Ambassador moves from 9 to 10 referrals -> crosses threshold 10
+      const resUnlocked = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+        currentRegistrationsCount: 9,
+        rules: customRules,
+        eventId: "other_event",
+      });
+      assert.equal(resUnlocked.bonusPoints, 50);
+      assert.equal(resUnlocked.totalPoints, 60); // 10 base + 50 bonus
+
+      // When ambassador has already been awarded milestone_10
+      const resDuplicateBlocked = calculateEarnedPoints({
+        isPaid: false,
+        ticketCount: 1,
+        currentRegistrationsCount: 9,
+        rules: customRules,
+        eventId: "other_event",
+        awardedMilestoneIds: ["milestone_10"],
+      });
+      assert.equal(resDuplicateBlocked.bonusPoints, 0, "Duplicate milestone must not be awarded again");
+      assert.equal(resDuplicateBlocked.totalPoints, 10);
+    });
+
+    test("Ineligible categories and disabled eligibility evaluate to zero points", () => {
+      const resIneligible = calculateEarnedPoints({
+        isPaid: true,
+        ticketCount: 1,
+        rules: customRules,
+        ticketType: "complimentary",
+      });
+      assert.equal(resIneligible.basePoints, 0);
+      assert.equal(resIneligible.totalPoints, 0);
+      assert.equal(resIneligible.eligible, false);
+    });
+  });
 });

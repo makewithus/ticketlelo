@@ -396,6 +396,10 @@ export async function POST(request) {
           referralCode: referralAttribution.referralCode,
           isPaid: false,
           ticketCount: 1,
+          ticketId: "general",
+          ticketType: event.title || event.name || "Free Admission",
+          isCombo: false,
+          ticketConfig: { id: "general", title: event.title || event.name || "Free Admission", tierType: "free" },
         });
       } catch (ptsErr) {
         console.warn("[register-free] Points awarding warning:", ptsErr?.message);

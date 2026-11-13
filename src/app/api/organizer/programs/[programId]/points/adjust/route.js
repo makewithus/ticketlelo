@@ -9,9 +9,11 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
     const { programId } = await params;
-    const { ambassadorId, pointsAdjustment, reason } = await request.json();
+    const body = await request.json();
+    const { ambassadorId, reason } = body;
+    const pointsAdjustment = body.pointsAdjustment !== undefined ? body.pointsAdjustment : body.points;
 
-    if (!ambassadorId || !pointsAdjustment || !reason) {
+    if (!ambassadorId || pointsAdjustment === undefined || pointsAdjustment === null || !reason) {
       return NextResponse.json({ error: "Ambassador ID, adjustment amount, and reason are required" }, { status: 400 });
     }
 
