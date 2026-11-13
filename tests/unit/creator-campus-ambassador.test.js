@@ -465,13 +465,14 @@ Adil Mohammed,adil@example.com,9876543210,CUSAT
     });
 
     test("Milestone Bonus is awarded on reaching threshold and locked against duplicate awards", () => {
-      // Ambassador moves from 9 to 10 referrals -> crosses threshold 10
+      // Ambassador moves from 9 to 10 referrals -> crosses threshold 10 (tested outside early bird window)
       const resUnlocked = calculateEarnedPoints({
         isPaid: false,
         ticketCount: 1,
         currentRegistrationsCount: 9,
         rules: customRules,
         eventId: "other_event",
+        registrationTimestamp: "2026-12-01T00:00:00Z",
       });
       assert.equal(resUnlocked.bonusPoints, 50);
       assert.equal(resUnlocked.totalPoints, 60); // 10 base + 50 bonus
@@ -483,6 +484,7 @@ Adil Mohammed,adil@example.com,9876543210,CUSAT
         currentRegistrationsCount: 9,
         rules: customRules,
         eventId: "other_event",
+        registrationTimestamp: "2026-12-01T00:00:00Z",
         awardedMilestoneIds: ["milestone_10"],
       });
       assert.equal(resDuplicateBlocked.bonusPoints, 0, "Duplicate milestone must not be awarded again");
