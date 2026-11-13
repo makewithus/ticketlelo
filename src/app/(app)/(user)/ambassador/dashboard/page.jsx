@@ -344,11 +344,11 @@ export default function AmbassadorDashboardPage() {
 
           {/* Application Form Modal */}
           {isApplyOpen && applyProgram && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 text-white animate-scale-in">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[92dvh] overflow-y-auto my-auto p-4 sm:p-6 shadow-2xl space-y-4 text-white animate-scale-in custom-scrollbar">
                 <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5">
-                  <div>
-                    <h3 className="text-base font-bold text-white tracking-tight">
+                  <div className="min-w-0 pr-2">
+                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
                       Apply: {applyProgram.name}
                     </h3>
                     <p className="text-xs text-[#9B9EA4] mt-0.5">
@@ -358,14 +358,14 @@ export default function AmbassadorDashboardPage() {
                   <button
                     type="button"
                     onClick={() => setIsApplyOpen(false)}
-                    className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer"
+                    className="p-1.5 rounded-xl text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer shrink-0"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <form onSubmit={handleApplyToProgram} className="space-y-3.5">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                         Full Name *
@@ -405,7 +405,7 @@ export default function AmbassadorDashboardPage() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
                         Department / Branch
@@ -444,7 +444,7 @@ export default function AmbassadorDashboardPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-3 pt-3.5 border-t border-[#2A2D31]">
+                  <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3.5 border-t border-[#2A2D31]">
                     <Button
                       type="button"
                       variant="outline"
@@ -651,47 +651,54 @@ export default function AmbassadorDashboardPage() {
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Input
-              readOnly
-              value={referralUrl}
-              className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] font-mono text-xs h-10 text-slate-900 dark:text-[#D0D0D1]"
-            />
-            <Button
-              onClick={() => handleCopy(referralUrl, "link")}
-              className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-10 px-4 rounded-xl shrink-0 cursor-pointer shadow-xs transition-colors"
-            >
-              {copiedLink ? <Check className="w-3.5 h-3.5 mr-1 text-[#131517]" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-              {copiedLink ? "Copied Link" : "Copy Link"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleCopy(referralCode, "code")}
-              className="text-xs h-10 px-4 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl font-semibold cursor-pointer transition-colors"
-            >
-              {copiedCode ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-              {copiedCode ? "Copied Code" : "Copy Code"}
-            </Button>
-            {referralCode && (
-              <Link
-                href={chosenEvent ? `/e/${chosenEvent.slug || chosenEvent.id}?ref=${referralCode}` : `/discover?ref=${referralCode}`}
-                target="_blank"
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={referralUrl}
+                className="flex-1 min-w-0 bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] font-mono text-xs h-10 text-slate-900 dark:text-[#D0D0D1] truncate"
+              />
+              <Button
+                onClick={() => handleCopy(referralUrl, "link")}
+                className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-10 px-3.5 sm:px-4 rounded-xl shrink-0 cursor-pointer shadow-xs transition-colors"
               >
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-10 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl cursor-pointer transition-colors"
-                  title="Test referral link in current environment"
+                {copiedLink ? <Check className="w-3.5 h-3.5 mr-1 text-[#131517]" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                <span className="hidden sm:inline">{copiedLink ? "Copied Link" : "Copy Link"}</span>
+                <span className="sm:hidden">{copiedLink ? "Copied" : "Copy"}</span>
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleCopy(referralCode, "code")}
+                className="flex-1 sm:flex-initial text-xs h-9 px-3.5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl font-semibold cursor-pointer transition-colors"
+              >
+                {copiedCode ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                <span>Code: <strong className="text-white font-mono">{referralCode}</strong></span>
+              </Button>
+              {referralCode && (
+                <Link
+                  href={chosenEvent ? `/e/${chosenEvent.slug || chosenEvent.id}?ref=${referralCode}` : `/discover?ref=${referralCode}`}
+                  target="_blank"
+                  className="shrink-0"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              </Link>
-            )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 px-3 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] rounded-xl cursor-pointer transition-colors"
+                    title="Preview referral link"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                    <span className="text-xs">Preview</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
         {/* ── Tabs Navigation ── */}
-        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-[#2A2D31] pb-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-[#2A2D31] pb-2 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
           {[
             { id: "overview", label: "Overview" },
             { id: "ledger", label: `Points History (${activeEnrollment.ledger?.length || 0})` },
@@ -702,7 +709,7 @@ export default function AmbassadorDashboardPage() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
                 activeTab === tab.id
                   ? "bg-[#FE760B] text-[#131517]"
                   : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
@@ -903,8 +910,8 @@ export default function AmbassadorDashboardPage() {
 
         {/* ── QR Code Modal ── */}
         {isQrModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4 animate-scale-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[92dvh] overflow-y-auto my-auto p-5 sm:p-6 shadow-2xl text-center space-y-4 text-white animate-scale-in custom-scrollbar">
               <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3">
                 <div className="flex items-center gap-2">
                   <QrCode className="w-4 h-4 text-[#FE760B]" />
@@ -919,12 +926,12 @@ export default function AmbassadorDashboardPage() {
                 </button>
               </div>
 
-              <div className="p-4 bg-white rounded-2xl flex items-center justify-center mx-auto w-48 h-48 border border-slate-200 shadow-inner">
+              <div className="p-4 bg-white rounded-2xl flex items-center justify-center mx-auto w-44 h-44 sm:w-48 sm:h-48 border border-slate-200 shadow-inner">
                 {/* Dynamically generated QR image via reliable public image provider */}
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(referralUrl)}`}
                   alt="Referral QR"
-                  className="w-40 h-40 object-contain"
+                  className="w-36 h-36 sm:w-40 sm:h-40 object-contain"
                 />
               </div>
 
@@ -937,7 +944,7 @@ export default function AmbassadorDashboardPage() {
 
               <Button
                 onClick={() => setIsQrModalOpen(false)}
-                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-9 rounded-xl cursor-pointer shadow-xs"
+                className="w-full bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-10 rounded-xl cursor-pointer shadow-xs"
               >
                 Done
               </Button>
@@ -947,8 +954,8 @@ export default function AmbassadorDashboardPage() {
 
         {/* ── Claim Confirmation Modal ── */}
         {claimingReward && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-white animate-scale-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto animate-fade-in">
+            <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl max-w-sm w-full max-h-[92dvh] overflow-y-auto my-auto p-5 sm:p-6 shadow-2xl space-y-4 text-white animate-scale-in custom-scrollbar">
               <div className="flex items-center justify-between border-b border-[#2A2D31] pb-3.5">
                 <h3 className="text-sm font-bold text-white tracking-tight">Confirm Reward Claim</h3>
                 <button
@@ -980,7 +987,7 @@ export default function AmbassadorDashboardPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2A2D31]">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-[#2A2D31]">
                 <Button
                   size="sm"
                   variant="outline"

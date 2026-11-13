@@ -78,6 +78,45 @@ export async function POST(req) {
       }
     }
 
+    // Fallback: Check if typed XXXX-XXXX matches a legacy TKT-XXXXXXXX... ticket
+    if (!ticket) {
+      const cleanCandidate = ticketId.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      if (cleanCandidate.length >= 8) {
+        const prefix = `TKT-${cleanCandidate.slice(0, 8)}`;
+        const qLegacy = await adminDb
+          .collection("tickets")
+          .where("ticketId", ">=", prefix)
+          .where("ticketId", "<=", prefix + "\uf8ff")
+          .limit(1)
+          .get();
+        if (!qLegacy.empty) {
+          ticket = { id: qLegacy.docs[0].id, ...qLegacy.docs[0].data() };
+          ticketRef = qLegacy.docs[0].ref;
+        } else {
+          const regLegacy = await adminDb
+            .collection("registrations")
+            .where("ticketId", ">=", prefix)
+            .where("ticketId", "<=", prefix + "\uf8ff")
+            .limit(1)
+            .get();
+          if (!regLegacy.empty) {
+            const regDoc = regLegacy.docs[0];
+            const regData = regDoc.data();
+            ticket = {
+              id: regData.ticketId || ticketId,
+              eventId: regData.eventId,
+              buyerName: regData.fullName,
+              buyerEmail: regData.email,
+              entitledSubEventIds: regData.entitledSubEventIds || [],
+              status: regData.status,
+              usedAt: regData.usedAt,
+            };
+            ticketRef = regDoc.ref;
+          }
+        }
+      }
+    }
+
     if (!ticket) {
       return NextResponse.json({
         status: "not_found",

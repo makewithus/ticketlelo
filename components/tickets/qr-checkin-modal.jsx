@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatTicketDate } from "@/lib/date-utils";
+import { formatTicketId } from "@/lib/ticket-id";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 
@@ -301,7 +302,7 @@ export function QrCheckinModal({
                     <div className="w-full h-full flex flex-col items-center justify-center text-slate-800">
                       <QrCodeIcon className="w-28 h-28 text-slate-900" />
                       <span className="text-[10px] font-mono font-bold text-slate-600 mt-1">
-                        {ticket.ticketId || "TKT-VERIFIED"}
+                        {formatTicketId(ticket.ticketId || ticket.id || "PASS-0001")}
                       </span>
                     </div>
                   )}
@@ -338,7 +339,7 @@ export function QrCheckinModal({
                 {/* JetBrains Mono Ticket ID Code */}
                 <div className="mt-3 text-center">
                   <p className="font-mono font-black text-xs sm:text-sm text-slate-900 tracking-wider">
-                    {ticket.ticketId || ticket.id || "TKT-PASS-001"}
+                    {formatTicketId(ticket.ticketId || ticket.id || "PASS-0001")}
                   </p>
                   <p className="text-[11px] font-semibold text-slate-500 mt-0.5 truncate max-w-[200px]">
                     {ticket.guest || ticket.attendeeName || "Attendee Pass"}

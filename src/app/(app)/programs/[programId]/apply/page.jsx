@@ -201,7 +201,7 @@ export default function PublicProgramApplyPage({ params }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
       <div className="max-w-xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-3">
@@ -228,7 +228,7 @@ export default function PublicProgramApplyPage({ params }) {
         </div>
 
         {/* Application Card */}
-        <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl p-6 sm:p-8 shadow-xl">
+        <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-3xl p-4 sm:p-8 shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>

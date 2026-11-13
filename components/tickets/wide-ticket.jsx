@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { formatTicketMeta } from "./stub-ticket";
 import { resolveTicketTheme, parseTicketTitle } from "@/lib/ticket-theme";
 import { parseFirestoreDate } from "@/lib/date-utils";
+import { formatTicketId } from "@/lib/ticket-id";
 
 // ==================== CODE 128 BARCODE GENERATOR ====================
 const CODE128_START_B = 104;
@@ -172,8 +173,9 @@ export function WideTicket({
         : 199,
   });
 
-  const ticketId =
-    registration.ticketId || registration.id || "TKT-1793-AB12C";
+  const rawTicketId =
+    registration.ticketId || registration.id || "1793-AB12";
+  const ticketId = formatTicketId(rawTicketId);
   const attendeeName =
     registration.attendeeName ||
     registration.name ||

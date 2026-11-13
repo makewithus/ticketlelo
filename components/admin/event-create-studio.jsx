@@ -53,7 +53,6 @@ import { setCachedEvent, setCachedOrganiserEvents, getCachedOrganiserEvents } fr
 import { StubTicket } from "@/components/tickets/stub-ticket";
 import { TicketGraphic } from "@/components/tickets/ticket-graphic";
 import { WideTicket } from "@/components/tickets/wide-ticket";
-import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
 import { TicketFullPreviewModal } from "@/components/tickets/ticket-full-preview-modal";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { normalizeHex, isLightColor } from "@/lib/ticket-theme";
@@ -719,7 +718,6 @@ export function EventCreateStudio({
   const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
   const [showFullTicketModal, setShowFullTicketModal] = useState(false);
   const [modalPreviewDesign, setModalPreviewDesign] = useState("stub");
-  const [previewTab, setPreviewTab] = useState("both"); // "both" | "stub" | "wide"
   const themeColorInputRef = useRef(null);
   const [isResizingText, setIsResizingText] = useState(false);
   const resizeStartPosRef = useRef({ mouseX: 0, startWidth: 85 });
@@ -952,88 +950,6 @@ export function EventCreateStudio({
     typeof formData.description === "string"
       ? formData.description
       : (formData.description?.text || "");
-
-  // Memoized tickets for Deck View preview in Studio matching Image 4
-  const studioDeckTickets = useMemo(() => {
-    const currentTicket = {
-      id: "studio-current-event",
-      title: formData.name || "Event Name",
-      name: formData.name || "Event Name",
-      date: formData.startDate || "Thu, 12 Nov 2026",
-      time: formData.startTime || "06:00 PM",
-      venue: formData.locationVenue || formData.location || "Main Auditorium, Campus",
-      location: formData.locationVenue || formData.location || "Main Auditorium, Campus",
-      theme: formData.theme,
-      themeColor: selectedTheme.color,
-      themeHex: selectedTheme.color,
-      ticketBgColor: formData.ticketBgColor || selectedTheme.color,
-      ticketBgUrl: formData.ticketBgUrl || "",
-      price: formData.isPaid ? formData.price : 0,
-      ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-      ticketType: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-      ticketId: "TKT-1793-DEMO-DECK",
-      guest: "Rahul Sharma (Attendee)",
-      attendeeName: "Rahul Sharma (Attendee)",
-      status: "Valid Pass",
-      entryLabel: "SCAN AT ENTRY",
-      posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
-      posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
-      posterTextMode: formData.posterTextMode,
-      posterTextColor: formData.posterTextColor,
-      ticketTextColor: formData.posterTextColor,
-      posterFontSize: formData.posterFontSize,
-      posterAlign: formData.posterAlign,
-      posterTextY: formData.posterTextY,
-      posterTextBg: formData.posterTextBg,
-      showPosterText: formData.showPosterText,
-    };
-
-    return [
-      {
-        id: "deck-sample-green",
-        title: "Test Event for Developers",
-        theme: "robotics",
-        themeColor: "#10B981",
-        date: "Mon, 12 Oct 2026",
-        time: "11:00 AM",
-        venue: "Innovation Lab",
-        ticketType: "EXPO PASS",
-        guest: "Adil M",
-        ticketId: "TKT-ROBOTICS-004",
-        entryLabel: "SCAN AT ENTRY",
-        price: 99,
-      },
-      {
-        id: "deck-sample-yellow",
-        title: "Honey Singh Concert",
-        theme: "yellow",
-        themeColor: "#EAB308",
-        date: "Wed, 28 Oct 2026",
-        time: "07:00 PM",
-        venue: "Open Arena Grounds",
-        ticketType: "FAN PIT PASS",
-        guest: "Adil M",
-        ticketId: "TKT-CONCERT-183",
-        entryLabel: "SCAN AT ENTRY",
-        price: 999,
-      },
-      {
-        id: "deck-sample-purple",
-        title: "Praroha Gaming",
-        theme: "gaming",
-        themeColor: "#8B5CF6",
-        date: "Sat, 07 Nov 2026",
-        time: "10:00 AM",
-        venue: "School of Engineering",
-        ticketType: "VIP PASS",
-        guest: "Adil M",
-        ticketId: "TKT-PRAROHA-001",
-        entryLabel: "SCAN AT ENTRY",
-        price: 0,
-      },
-      currentTicket,
-    ];
-  }, [formData, selectedTheme]);
 
   // Compress and optimize image to WebP/JPEG using client canvas (instant upload, minimal memory & fits Firestore < 100KB)
   const compressImageFile = (file, maxWidth = 800, maxHeight = 800, quality = 0.72) => {
@@ -2609,7 +2525,7 @@ export function EventCreateStudio({
                   </div>
                 </div>
 
-                {/* Ticket Format & Style (Stub tickets vs Wide tickets) */}
+                {/* Ticket Format & Style */}
                 <div className="p-4 sm:p-5 border-t border-white/10 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
@@ -2619,33 +2535,20 @@ export function EventCreateStudio({
                           Ticket Layout &amp; Template
                         </span>
                         <span className="text-[11px] text-white/60 block leading-tight mt-0.5">
-                          Choose between standard stub ticket or collectible deck view pass. Editable anytime.
+                          Standard high-contrast stub ticket with art banner, perforated tear line, and scannable QR check-in stub.
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                    {/* Option 1: Stub tickets */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, ticketDesign: "stub" }))
-                      }
-                      className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
-                        formData.ticketDesign === "stub"
-                          ? "ring-1 shadow-lg"
-                          : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
-                      }`}
-                      style={
-                        formData.ticketDesign === "stub"
-                          ? {
-                              borderColor: selectedTheme.color,
-                              backgroundColor: `${selectedTheme.color}22`,
-                              boxShadow: `0 0 20px ${selectedTheme.color}25`,
-                            }
-                          : {}
-                      }
+                  <div className="pt-1">
+                    <div
+                      className="p-3.5 sm:p-4 rounded-2xl border text-left relative overflow-hidden flex flex-col justify-between ring-1 shadow-lg"
+                      style={{
+                        borderColor: selectedTheme.color,
+                        backgroundColor: `${selectedTheme.color}22`,
+                        boxShadow: `0 0 20px ${selectedTheme.color}25`,
+                      }}
                     >
                       <div className="flex items-center justify-between mb-1.5 w-full">
                         <span className="text-xs font-bold text-white flex items-center gap-2">
@@ -2653,74 +2556,22 @@ export function EventCreateStudio({
                             className="w-2 h-2 rounded-full"
                             style={{ backgroundColor: selectedTheme.color }}
                           />
-                          Stub tickets (Default)
+                          Standard Stub Ticket (780 × 240)
                         </span>
-                        {formData.ticketDesign === "stub" ? (
-                          <span
-                            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                            style={{
-                              backgroundColor: selectedTheme.color,
-                              color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
-                            }}
-                          >
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </span>
-                        ) : (
-                          <span className="w-5 h-5 rounded-full border border-white/20 bg-black/30 shrink-0" />
-                        )}
+                        <span
+                          className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                          style={{
+                            backgroundColor: selectedTheme.color,
+                            color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
+                          }}
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </span>
                       </div>
                       <p className="text-[11px] text-white/60 leading-relaxed">
-                        780 × 240 art panel + dark QR check-in stub.
+                        Full event artwork, live time &amp; venue details, and scannable check-in stub.
                       </p>
-                    </button>
-
-                    {/* Option 2: Deck View tickets */}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({ ...prev, ticketDesign: "deck" }))
-                      }
-                      className={`p-3.5 sm:p-4 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden group flex flex-col justify-between ${
-                        formData.ticketDesign === "deck" || formData.ticketDesign === "wide"
-                          ? "ring-1 shadow-lg"
-                          : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
-                      }`}
-                      style={
-                        formData.ticketDesign === "deck" || formData.ticketDesign === "wide"
-                          ? {
-                              borderColor: selectedTheme.color,
-                              backgroundColor: `${selectedTheme.color}22`,
-                              boxShadow: `0 0 20px ${selectedTheme.color}25`,
-                            }
-                          : {}
-                      }
-                    >
-                      <div className="flex items-center justify-between mb-1.5 w-full">
-                        <span className="text-xs font-bold text-white flex items-center gap-2">
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: selectedTheme.color }}
-                          />
-                          Deck View tickets
-                        </span>
-                        {formData.ticketDesign === "deck" || formData.ticketDesign === "wide" ? (
-                          <span
-                            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                            style={{
-                              backgroundColor: selectedTheme.color,
-                              color: isLightColor(selectedTheme.color) ? "#131517" : "#FFFFFF",
-                            }}
-                          >
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                          </span>
-                        ) : (
-                          <span className="w-5 h-5 rounded-full border border-white/20 bg-black/30 shrink-0" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-white/60 leading-relaxed">
-                        Interactive collectible deck pass with QR tear notch.
-                      </p>
-                    </button>
+                    </div>
                   </div>
 
                   {/* Ticket Background & Accent Color Card */}
@@ -2905,130 +2756,56 @@ export function EventCreateStudio({
                           Live Attendee Ticket Preview
                         </span>
                       </div>
-
-                      {/* Preview format switcher tabs (Both views, Stub, Deck) */}
-                      <div className="flex items-center rounded-xl bg-white/[0.06] p-1 border border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewTab("both")}
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                            previewTab === "both"
-                              ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
-                              : "text-white/60 hover:text-white"
-                          }`}
-                        >
-                          Both Views
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPreviewTab("stub");
-                            setFormData((prev) => ({ ...prev, ticketDesign: "stub" }));
-                          }}
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                            previewTab === "stub"
-                              ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
-                              : "text-white/60 hover:text-white"
-                          }`}
-                        >
-                          Stub (780×240)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPreviewTab("deck");
-                            setFormData((prev) => ({ ...prev, ticketDesign: "deck" }));
-                          }}
-                          className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                            previewTab === "deck"
-                              ? "bg-[#FE760B] text-[#131517] shadow-sm font-bold"
-                              : "text-white/60 hover:text-white"
-                          }`}
-                        >
-                          Deck View
-                        </button>
-                      </div>
+                      <span className="text-[11px] text-[#FE760B]">Click ticket to view full length</span>
                     </div>
 
                     {/* Ticket Render Container - Clicking preview opens full length ticket */}
-                    <div className="pt-2 pb-1 space-y-4">
-                      {/* Render Stub Ticket if in "both" or "stub" mode */}
-                      {(previewTab === "both" || previewTab === "stub") && (
-                        <div className="space-y-1.5">
-                          {previewTab === "both" && (
-                            <div className="flex items-center justify-between text-xs px-1 text-white/60">
-                              <span className="font-semibold text-white">Stub Layout (780×240)</span>
-                              <span className="text-[11px] text-[#FE760B]">Click ticket to view full length</span>
-                            </div>
-                          )}
-                          <div
-                            onClick={() => {
-                              setModalPreviewDesign("stub");
-                              setShowFullTicketModal(true);
+                    <div className="pt-2 pb-1">
+                      <div
+                        onClick={() => {
+                          setModalPreviewDesign("stub");
+                          setShowFullTicketModal(true);
+                        }}
+                        className="pt-1 pb-1 overflow-hidden flex justify-center cursor-pointer transition-transform hover:scale-[1.005] w-full max-w-full"
+                        title="Click to view full length ticket"
+                      >
+                        <div className="w-full max-w-[780px]">
+                          <StubTicket
+                            event={{
+                              name: formData.name || "Event Name",
+                              title: formData.name || "Event Name",
+                              date: formData.startDate || "2026-11-07",
+                              time: formData.startTime || "12:00 PM",
+                              location: formData.location || "Main Auditorium, Campus",
+                              theme: formData.theme,
+                              themeColor: selectedTheme.color,
+                              themeHex: selectedTheme.color,
+                              ticketBgColor: formData.ticketBgColor || selectedTheme.color,
+                              price: formData.isPaid ? formData.price : "Free",
+                              ticketDesign: "stub",
+                              ticketBgUrl: formData.ticketBgUrl || "",
+                              posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
+                              posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
+                              posterTextMode: formData.posterTextMode,
+                              posterTextColor: formData.posterTextColor,
+                              ticketTextColor: formData.posterTextColor,
+                              posterFontSize: formData.posterFontSize,
+                              posterAlign: formData.posterAlign,
+                              posterTextY: formData.posterTextY,
+                              posterTextBg: formData.posterTextBg,
+                              showPosterText: formData.showPosterText,
                             }}
-                            className="pt-1 pb-1 overflow-hidden flex justify-center cursor-pointer transition-transform hover:scale-[1.005] w-full max-w-full"
-                            title="Click to view full length ticket"
-                          >
-                            <div className="w-full max-w-[780px]">
-                              <StubTicket
-                                event={{
-                                  name: formData.name || "Event Name",
-                                  title: formData.name || "Event Name",
-                                  date: formData.startDate || "2026-11-07",
-                                  time: formData.startTime || "12:00 PM",
-                                  location: formData.location || "Main Auditorium, Campus",
-                                  theme: formData.theme,
-                                  themeColor: selectedTheme.color,
-                                  themeHex: selectedTheme.color,
-                                  ticketBgColor: formData.ticketBgColor || selectedTheme.color,
-                                  price: formData.isPaid ? formData.price : "Free",
-                                  ticketDesign: "stub",
-                                  ticketBgUrl: formData.ticketBgUrl || "",
-                                  posterLine1: formData.posterTextMode === "custom" ? formData.posterLine1 : "",
-                                  posterLine2: formData.posterTextMode === "custom" ? formData.posterLine2 : "",
-                                  posterTextMode: formData.posterTextMode,
-                                  posterTextColor: formData.posterTextColor,
-                                  ticketTextColor: formData.posterTextColor,
-                                  posterFontSize: formData.posterFontSize,
-                                  posterAlign: formData.posterAlign,
-                                  posterTextY: formData.posterTextY,
-                                  posterTextBg: formData.posterTextBg,
-                                  showPosterText: formData.showPosterText,
-                                }}
-                                registration={{
-                                  ticketId: "TKT-1793-DEMO-STUB",
-                                  attendeeName: "Rahul Sharma (Attendee)",
-                                  status: "Valid Pass",
-                                  ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
-                                }}
-                                interactive={true}
-                                showActions={true}
-                              />
-                            </div>
-                          </div>
+                            registration={{
+                              ticketId: "1793-DEMO",
+                              attendeeName: "Rahul Sharma (Attendee)",
+                              status: "Valid Pass",
+                              ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",
+                            }}
+                            interactive={true}
+                            showActions={true}
+                          />
                         </div>
-                      )}
-
-                      {/* Render Deck View Pass if in "both" or "deck" mode matching Image 4 */}
-                      {(previewTab === "both" || previewTab === "deck") && (
-                        <div className={`space-y-2.5 ${previewTab === "both" ? "mt-6 pt-5 border-t border-white/10" : ""}`}>
-                          <div className="flex items-center justify-between text-xs px-1 text-white/60">
-                            <span className="font-semibold text-white flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-[#FE760B]" />
-                              <span>Deck View (Interactive Collectible Passes)</span>
-                            </span>
-                            <span className="text-[11px] text-[#FE760B]">Tap cards to bring forward • Click to inspect</span>
-                          </div>
-
-                          <div className="w-full flex justify-center items-center py-4 px-2 overflow-hidden bg-black/40 rounded-2xl border border-white/10 shadow-inner">
-                            <TicketDeckView
-                              initialTickets={studioDeckTickets}
-                              showStackOnly={true}
-                              compact={true}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3780,7 +3557,7 @@ export function EventCreateStudio({
           showPosterText: formData.showPosterText,
         }}
         ticket={{
-          ticketId: modalPreviewDesign === "wide" ? "TKT-1793-DEMO-WIDE" : "TKT-1793-DEMO-STUB",
+          ticketId: "1793-DEMO",
           attendeeName: "Rahul Sharma (Attendee)",
           status: "Valid Pass",
           ticketTier: formData.isPaid ? "VIP PASS" : "GENERAL PASS",

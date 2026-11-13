@@ -74,3 +74,6 @@ export async function PUT(request, { params }) {
   }
 }
 
+export const PATCH = PUT;
+
+

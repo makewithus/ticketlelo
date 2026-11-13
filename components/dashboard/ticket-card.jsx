@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { formatTicketDate } from "@/lib/date-utils";
+import { formatTicketId } from "@/lib/ticket-id";
 
 export function TicketCard({ registration, event = {} }) {
   const [certLoading, setCertLoading] = useState(false);
@@ -106,7 +107,8 @@ export function TicketCard({ registration, event = {} }) {
     registration?.tierName ||
     registration?.ticketType ||
     "General Pass";
-  const ticketId = registration?.ticketId || `TKT-${registration?.id?.slice(0, 8) || "001"}`;
+  const rawTicketId = registration?.ticketId || registration?.id || "PASS-0001";
+  const ticketId = formatTicketId(rawTicketId);
 
   return (
     <div className="w-full flex flex-col bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-3.5 sm:p-5 shadow-sm transition-all hover:border-slate-300 dark:hover:border-[#383C42]">

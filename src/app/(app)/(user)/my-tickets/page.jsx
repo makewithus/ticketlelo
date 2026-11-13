@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TicketCard } from "@/components/dashboard/ticket-card";
-import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
 import { detectTicketTheme, parseTicketTitle } from "@/components/tickets/stub-ticket";
 import { useAuth } from "@/context/auth-context";
 import { getEvent, subscribeToUserRegistrations } from "@/lib/firestore";
@@ -594,34 +593,6 @@ export default function MyTicketsPage() {
                 All your tickets and passes across all events in one unified account dashboard.
               </p>
             </div>
-
-            {/* View Switcher */}
-            {registrations.length > 0 && (
-              <div className="flex items-center self-start sm:self-auto bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-1 rounded-xl shadow-xs shrink-0">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    viewMode === "grid"
-                      ? "bg-[#FE760B] text-white shadow-xs"
-                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>Grid view</span>
-                </button>
-                <button
-                  onClick={() => setViewMode("deck")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    viewMode === "deck"
-                      ? "bg-[#FE760B] text-white shadow-xs"
-                      : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Deck view</span>
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Search and Filters Toolbar */}
@@ -718,44 +689,6 @@ export default function MyTicketsPage() {
                   Discover Live Events
                 </Button>
               </Link>
-            </div>
-          ) : viewMode === "deck" ? (
-            /* DECK VIEW */
-            <div className="flex justify-center py-2">
-              <TicketDeckView
-                initialTickets={filteredRegistrations.map((reg, idx) => {
-                  const rawEvent = events.get(reg.eventId) || {};
-                  const eventName = rawEvent.name || rawEvent.title || reg.eventName || reg.eventTitle || "Tech Fest 2026";
-                  const detectedTheme = rawEvent.theme || reg.theme || detectTicketTheme(eventName, rawEvent.category || reg.category);
-                  const parsed = parseTicketTitle(eventName);
-                  let displayTitle = parsed.line1.toUpperCase();
-                  if (displayTitle === "PRAROHA") displayTitle = "PRARÖHA";
-                  const isPending = reg.status === "pending" || reg.approvalStatus === "pending";
-                  const subBadge = isPending
-                    ? "PENDING"
-                    : reg.status === "Used"
-                    ? "USED"
-                    : (rawEvent.price === 0 || reg.amount === 0 ? "FREE" : reg.amount ? `₹${reg.amount}` : (reg.ticketTier || "PASS"));
-
-                  return {
-                    id: reg.id || `reg_${idx}`,
-                    title: eventName,
-                    theme: detectedTheme,
-                    date: formatTicketDate(rawEvent.date || reg.eventDate),
-                    time: typeof rawEvent.time === "string" ? rawEvent.time : typeof reg.eventTime === "string" ? reg.eventTime : "12:00 PM",
-                    venue: String(rawEvent.location || rawEvent.venue || reg.venue || reg.location || "MAIN AUDITORIUM"),
-                    ticketType: String(reg.ticketTier || reg.tierName || reg.ticketType || "GENERAL PASS"),
-                    guest: String(reg.attendeeName || reg.fullName || user.fullName || "Guest Attendee"),
-                    ticketId: String(reg.ticketId || `TKT-${reg.id?.slice(0, 8)}`),
-                    qrCode: reg.qrCode,
-                    entryLabel: isPending ? "PENDING APPROVAL" : "SCAN AT ENTRY",
-                    isPending: isPending,
-                    subBadge: subBadge,
-                    price: rawEvent.price !== undefined ? rawEvent.price : reg.amount !== undefined ? reg.amount : null,
-                  };
-                })}
-                onBack={() => setViewMode("grid")}
-              />
             </div>
           ) : (
             /* GRID VIEW */

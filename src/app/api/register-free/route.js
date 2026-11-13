@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
-import { getAuthenticatedUser } from "@/lib/auth-server";
+import { getAuthenticatedUser, checkRestrictedAttendeeEmail } from "@/lib/auth-server";
 import { validateFormSubmission } from "@/lib/form-validator";
 import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
 import { sendTicketDeliveryEmail } from "@/src/app/api/send-ticket-email/route";
@@ -34,20 +34,40 @@ export async function POST(request) {
     }
 
     const callerEmail = String(caller?.email || "").trim().toLowerCase();
+    const callerRole = String(caller?.role || "").toLowerCase().trim();
+    const isCallerOrganiserOrAdmin = callerRole === "organiser" || callerRole === "superadmin" || caller?.isAdmin === true;
+
     const submittedEmail = String(
       formData.email ||
       Object.values(formData).find((value) => typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) ||
       ""
     ).trim().toLowerCase();
 
-    let email = callerEmail;
-    if (!email) {
+    let email = "";
+    if (isCallerOrganiserOrAdmin) {
       if (!submittedEmail) {
         return NextResponse.json({ error: "A valid email address is required to register" }, { status: 400 });
       }
       email = submittedEmail;
-    } else if (submittedEmail && submittedEmail !== email) {
-      return NextResponse.json({ error: "Sign in with the email address used for registration" }, { status: 403 });
+    } else if (callerEmail) {
+      if (submittedEmail && submittedEmail !== callerEmail) {
+        return NextResponse.json({ error: "Sign in with the email address used for registration" }, { status: 403 });
+      }
+      email = callerEmail;
+    } else {
+      if (!submittedEmail) {
+        return NextResponse.json({ error: "A valid email address is required to register" }, { status: 400 });
+      }
+      email = submittedEmail;
+    }
+
+    // Enforce that Organiser and Admin accounts cannot register as event attendees
+    const roleCheck = await checkRestrictedAttendeeEmail(email);
+    if (roleCheck.isRestricted) {
+      return NextResponse.json(
+        { error: roleCheck.message || "This email is registered as an Event Organiser. Organiser accounts cannot register for events as attendees. Please use a different attendee email address." },
+        { status: 400 }
+      );
     }
 
     const emailLimit = checkRateLimit({
@@ -68,7 +88,7 @@ export async function POST(request) {
     const phone = String(formData.whatsappPhone || formData.phone || "").trim().slice(0, 32);
 
     // Resolve user UID and first-time status
-    let userUid = caller?.uid;
+    let userUid = isCallerOrganiserOrAdmin ? null : caller?.uid;
     let isFirstTimeUser = false;
     let setupToken = "";
 
@@ -244,8 +264,12 @@ export async function POST(request) {
 
     const identity = crypto.createHash("sha256").update(`${userUid}:${actualEventId}`).digest("hex");
     const registrationRef = adminDb.collection("registrations").doc(identity);
-    const ticketId = `TKT-${identity.slice(0, 28).toUpperCase()}`;
+    // Human-typeable XXXX-XXXX format (e.g. "7ABA-D722")
+    const shortTicketId = `${identity.slice(0, 4)}-${identity.slice(4, 8)}`.toUpperCase();
+    const legacyTicketId = `TKT-${identity.slice(0, 28).toUpperCase()}`;
+    const ticketId = shortTicketId;
     const ticketRef = adminDb.collection("tickets").doc(ticketId);
+    const legacyTicketRef = adminDb.collection("tickets").doc(legacyTicketId);
     const eventSlug = event.slug || actualEventId;
 
     let qrPayload;
@@ -326,6 +350,32 @@ export async function POST(request) {
       transaction.set(ticketRef, {
         id: ticketId,
         ticketId,
+        userId: userUid,
+        eventId: actualEventId,
+        eventTitle: event.title || event.name || "Event",
+        eventSlug,
+        ticketTitle: "Free Admission",
+        quantity: 1,
+        entitledSubEventIds: [],
+        buyerName: fullName,
+        buyerEmail: email,
+        buyerPhone: phone,
+        amountPaid: 0,
+        ticketDesign: event.ticketDesign || current.ticketDesign || "stub",
+        qrPayload,
+        qrCodeUrl,
+        status: initialTicketStatus,
+        requireApproval: requiresApproval,
+        checkIns: {},
+        issuedAt: now,
+        updatedAt: now,
+      }, { merge: true });
+
+      // Dual-index legacy ID so existing integrations or scanners also resolve without error
+      transaction.set(legacyTicketRef, {
+        id: legacyTicketId,
+        ticketId,
+        legacyTicketId,
         userId: userUid,
         eventId: actualEventId,
         eventTitle: event.title || event.name || "Event",

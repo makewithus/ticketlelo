@@ -3,7 +3,7 @@ import Razorpay from "razorpay";
 import { NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { getAuthenticatedUser } from "@/lib/auth-server";
+import { getAuthenticatedUser, checkRestrictedAttendeeEmail } from "@/lib/auth-server";
 import { configuredPaymentSecret, verifyPaymentHmac } from "@/lib/payment-security";
 import { resolveTicketEntitlements } from "@/lib/combos";
 import { generateQRCode, generateSignedQRPayload } from "@/lib/qr";
@@ -30,6 +30,15 @@ export async function POST(request) {
     const orderSnap = await orderRef.get();
     if (!orderSnap.exists) return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
     const order = orderSnap.data();
+
+    const orderAttendeeEmail = String(order.registrationData?.email || order.userId || "").trim().toLowerCase();
+    const roleCheck = await checkRestrictedAttendeeEmail(orderAttendeeEmail);
+    if (roleCheck.isRestricted) {
+      return NextResponse.json(
+        { success: false, error: roleCheck.message || "Organiser accounts cannot register for events as attendees." },
+        { status: 400 }
+      );
+    }
     if (caller && caller.uid && order.userId && order.userId !== caller.uid) {
       const orderEmail = String(order.registrationData?.email || "").toLowerCase();
       const callerEmail = String(caller.email || "").toLowerCase();
@@ -75,9 +84,13 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: "Captured provider payment does not match this order" }, { status: 400 });
     }
 
-    const ticketId = `TKT-${deterministicId(orderId).slice(0, 28).toUpperCase()}`;
+    const detId = deterministicId(orderId);
+    const shortTicketId = `${detId.slice(0, 4)}-${detId.slice(4, 8)}`.toUpperCase();
+    const legacyTicketId = `TKT-${detId.slice(0, 28).toUpperCase()}`;
+    const ticketId = shortTicketId;
     const registrationId = deterministicId(`registration:${orderId}`);
     const ticketRef = adminDb.collection("tickets").doc(ticketId);
+    const legacyTicketRef = adminDb.collection("tickets").doc(legacyTicketId);
     const registrationRef = adminDb.collection("registrations").doc(registrationId);
     const reservationRef = order.reservationId ? adminDb.collection("reservations").doc(order.reservationId) : null;
     const eventRef = adminDb.collection("events").doc(order.eventId);
@@ -136,6 +149,33 @@ export async function POST(request) {
       transaction.create(ticketRef, {
         id: ticketId,
         ticketId,
+        orderId,
+        paymentId,
+        userId: effectiveUserId,
+        eventId: order.eventId,
+        eventTitle: event.title || event.name || "Event",
+        eventSlug: event.slug || order.eventId,
+        ticketTitle: order.ticketConfig?.title || "Standard Ticket",
+        quantity: order.quantity || 1,
+        entitledSubEventIds: entitlements.entitledSubEventIds,
+        entitledTrackNames: entitlements.entitledTrackNames,
+        buyerName: effectiveName,
+        buyerEmail: effectiveEmail,
+        buyerPhone: effectivePhone,
+        amountPaid: order.pricing?.finalPayable || 0,
+        pricingBreakdown: order.pricing || null,
+        ticketDesign: event.ticketDesign || "stub",
+        qrPayload,
+        qrCodeUrl,
+        status: "Valid",
+        checkIns: {},
+        issuedAt: now,
+        updatedAt: now,
+      });
+      transaction.create(legacyTicketRef, {
+        id: legacyTicketId,
+        ticketId,
+        legacyTicketId,
         orderId,
         paymentId,
         userId: effectiveUserId,

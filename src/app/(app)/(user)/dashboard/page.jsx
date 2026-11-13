@@ -22,7 +22,6 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { TicketCard } from "@/components/dashboard/ticket-card";
-import { TicketDeckView } from "@/components/tickets/ticket-deck-view";
 import { detectTicketTheme, parseTicketTitle } from "@/components/tickets/stub-ticket";
 import { useAuth } from "@/context/auth-context";
 import { getEvent, subscribeToUserRegistrations } from "@/lib/firestore";
@@ -569,34 +568,6 @@ export default function DashboardPage() {
                 Your tickets control room — all event passes in one place.
               </p>
             </div>
-
-            {/* View Mode Switcher */}
-            {registrations.length > 0 && (
-              <div className="flex items-center self-start sm:self-auto bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-0.5 rounded-lg shadow-sm shrink-0">
-                <button
-                  onClick={() => setViewMode("deck")}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                    viewMode === "deck"
-                      ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
-                      : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Deck view</span>
-                </button>
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                    viewMode === "grid"
-                      ? "bg-slate-100 dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm"
-                      : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>Grid view</span>
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Quick Metrics Cards */}
@@ -641,118 +612,53 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* VIEW: DECK VIEW */}
-          {viewMode === "deck" ? (
-            filteredRegistrations.length === 0 ? (
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in shadow-sm">
-                <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
-                  <Ticket className="w-7 h-7 text-[#FE760B]" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mb-6">
-                  {filter === "All"
-                    ? "When you register for college festivals or community events, your passes will appear here."
-                    : `You have no tickets currently matching the "${filter}" filter.`}
-                </p>
-                {filter === "All" && (
-                  <Link href="/discover">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold h-10 px-5 rounded-xl text-sm transition-all shadow-sm cursor-pointer border-none">
-                      Discover live events
-                    </Button>
-                  </Link>
-                )}
+          {/* Tickets List */}
+          {filteredRegistrations.length === 0 ? (
+            <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
+                <Ticket className="w-7 h-7 text-[#FE760B]" />
               </div>
-            ) : (
-              <div className="flex justify-center py-0 opacity-0 animate-fade-in">
-                <TicketDeckView
-                  initialTickets={filteredRegistrations.map((reg, idx) => {
-                    const rawEvent = events.get(reg.eventId) || {};
-                    const eventName = rawEvent.name || rawEvent.title || reg.eventName || reg.eventTitle || "Tech Fest 2026";
-                    const detectedTheme = rawEvent.theme || reg.theme || detectTicketTheme(eventName, rawEvent.category || reg.category);
-                    const parsed = parseTicketTitle(eventName);
-                    let displayTitle = parsed.line1.toUpperCase();
-                    if (displayTitle === "PRAROHA") displayTitle = "PRARÖHA";
-                    const subTitle = parsed.line2 ? parsed.line2.toUpperCase() : (reg.ticketTier || reg.ticketType || "PASS");
-                    const year = parsed.year || getEventYear(rawEvent.date || reg.eventDate, "2026");
-                    const isPending = reg.status === "pending" || reg.approvalStatus === "pending";
-                    const subBadge = isPending
-                      ? "PENDING"
-                      : reg.status === "Used"
-                      ? "USED"
-                      : (rawEvent.price === 0 || reg.amount === 0 ? "FREE" : reg.amount ? `₹${reg.amount}` : (reg.ticketTier || "PASS"));
-
-                    return {
-                      id: reg.id || `reg_${idx}`,
-                      title: eventName,
-                      theme: detectedTheme,
-                      date: formatTicketDate(rawEvent.date || reg.eventDate),
-                      time: typeof rawEvent.time === "string" ? rawEvent.time : typeof reg.eventTime === "string" ? reg.eventTime : "12:00 PM",
-                      venue: String(rawEvent.location || rawEvent.venue || reg.venue || reg.location || "MAIN AUDITORIUM"),
-                      ticketType: String(reg.ticketTier || reg.tierName || reg.ticketType || "GENERAL PASS"),
-                      guest: String(reg.attendeeName || reg.fullName || user.fullName || "Adil M"),
-                      ticketId: String(reg.ticketId || `TKT-${reg.id?.slice(0, 8)}`),
-                      qrCode: reg.qrCode,
-                      entryLabel: isPending ? "PENDING APPROVAL" : "SCAN AT ENTRY",
-                      isPending: isPending,
-                      subBadge: subBadge,
-                      price: rawEvent.price !== undefined ? rawEvent.price : reg.amount !== undefined ? reg.amount : null,
-                    };
-                  })}
-                  onBack={() => setViewMode("grid")}
-                />
-              </div>
-            )
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+                {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mb-6">
+                {filter === "All"
+                  ? "When you register for college festivals or community events, your QR passes will appear here."
+                  : `You have no tickets currently matching the "${filter}" filter.`}
+              </p>
+              {filter === "All" && (
+                <Link href="/discover">
+                  <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold h-10 px-5 rounded-xl text-sm transition-all shadow-sm cursor-pointer border-none">
+                    Discover live events
+                  </Button>
+                </Link>
+              )}
+            </div>
           ) : (
-            /* VIEW: GRID VIEW */
-            filteredRegistrations.length === 0 ? (
-              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-12 text-center max-w-md mx-auto opacity-0 animate-fade-in shadow-sm">
-                <div className="w-14 h-14 rounded-2xl bg-[#FE760B]/10 flex items-center justify-center mx-auto mb-4 border border-[#FE760B]/20">
-                  <Ticket className="w-7 h-7 text-[#FE760B]" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  {filter === "All" ? "No tickets yet" : `No ${filter.toLowerCase()} tickets`}
-                </h3>
-                <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mb-6">
-                  {filter === "All"
-                    ? "When you register for college festivals or community events, your QR passes will appear here."
-                    : `You have no tickets currently matching the "${filter}" filter.`}
-                </p>
-                {filter === "All" && (
-                  <Link href="/discover">
-                    <Button className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold h-10 px-5 rounded-xl text-sm transition-all shadow-sm cursor-pointer border-none">
-                      Discover live events
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {filteredRegistrations.map((registration, i) => {
-                  const rawEvent = events.get(registration.eventId) || {};
-                  const event = {
-                    ...rawEvent,
-                    name: rawEvent.name || rawEvent.title || registration.eventName || registration.eventTitle || "Tech Fest 2026",
-                    location: rawEvent.location || rawEvent.venue || registration.venue || registration.location || "Main Auditorium",
-                    date: rawEvent.date || rawEvent.startDate || registration.eventDate || registration.createdAt?.toDate?.() || new Date(),
-                    time: rawEvent.time || registration.eventTime || registration.time || "12:00 PM",
-                    price: rawEvent.price !== undefined ? rawEvent.price : registration.amount !== undefined ? registration.amount : registration.amountPaid !== undefined ? registration.amountPaid : 199,
-                    category: rawEvent.category || registration.category,
-                    theme: rawEvent.theme || registration.theme,
-                    ticketDesign: registration.ticketDesign || rawEvent.ticketDesign || rawEvent.ticketLayout || registration.ticketLayout || "stub",
-                  };
-                  return (
-                    <div
-                      key={registration.id}
-                      className={`opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)} h-full`}
-                    >
-                      <TicketCard registration={registration} event={event} />
-                    </div>
-                  );
-                })}
-              </div>
-            )
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              {filteredRegistrations.map((registration, i) => {
+                const rawEvent = events.get(registration.eventId) || {};
+                const event = {
+                  ...rawEvent,
+                  name: rawEvent.name || rawEvent.title || registration.eventName || registration.eventTitle || "Tech Fest 2026",
+                  location: rawEvent.location || rawEvent.venue || registration.venue || registration.location || "Main Auditorium",
+                  date: rawEvent.date || rawEvent.startDate || registration.eventDate || registration.createdAt?.toDate?.() || new Date(),
+                  time: rawEvent.time || registration.eventTime || registration.time || "12:00 PM",
+                  price: rawEvent.price !== undefined ? rawEvent.price : registration.amount !== undefined ? registration.amount : registration.amountPaid !== undefined ? registration.amountPaid : 199,
+                  category: rawEvent.category || registration.category,
+                  theme: rawEvent.theme || registration.theme,
+                  ticketDesign: registration.ticketDesign || rawEvent.ticketDesign || rawEvent.ticketLayout || registration.ticketLayout || "stub",
+                };
+                return (
+                  <div
+                    key={registration.id}
+                    className={`opacity-0 animate-fade-in-up stagger-${Math.min(i + 1, 6)} h-full`}
+                  >
+                    <TicketCard registration={registration} event={event} />
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </section>

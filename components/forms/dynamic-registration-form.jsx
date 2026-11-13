@@ -175,6 +175,26 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const { user: authUser } = useAuth();
   const effectiveUser = authUser || auth.currentUser;
 
+  const userRole = String(authUser?.role || effectiveUser?.role || "").toLowerCase().trim();
+  const isSuperAdminEmail = Boolean(
+    effectiveUser?.email &&
+    (effectiveUser.email.toLowerCase().trim() === "adil4ticketlelo@gmail.com" ||
+     effectiveUser.email.toLowerCase().trim() === "superadmin@ticketlelo.com")
+  );
+  const isOrganiserOrAdmin = Boolean(
+    userRole === "organiser" ||
+    userRole === "superadmin" ||
+    authUser?.isAdmin ||
+    effectiveUser?.isAdmin ||
+    isSuperAdminEmail
+  );
+
+  // Email eligibility validation state for attendees
+  const [emailRoleError, setEmailRoleError] = useState(null);
+  const [isCheckingEmailRole, setIsCheckingEmailRole] = useState(false);
+  const emailCheckTimeoutRef = useRef(null);
+  const lastCheckedEmailRef = useRef("");
+
   // Real-time Event and Live Registrations listener
   const [currentEvent, setCurrentEvent] = useState(initialEvent || props.event || null);
   const [liveRegistrationsCount, setLiveRegistrationsCount] = useState(0);
@@ -336,7 +356,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           n.includes("contact")
         );
       });
-      if (emailF && signedIn.email) {
+      if (emailF && signedIn.email && !isOrganiserOrAdmin) {
         initialData[emailF.id] = signedIn.email;
         if (emailF.name) initialData[emailF.name] = signedIn.email;
       }
@@ -725,7 +745,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             n.includes("contact")
           );
         });
-        if (emailF && userToSync.email && next[emailF.id] !== userToSync.email) {
+        if (emailF && userToSync.email && !isOrganiserOrAdmin && next[emailF.id] !== userToSync.email) {
           next[emailF.id] = userToSync.email;
           if (emailF.name) next[emailF.name] = userToSync.email;
           updated = true;
@@ -898,6 +918,72 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     }
   }, [isPaidEvent]);
 
+  // Cleanup email check timer on unmount
+  useEffect(() => {
+    return () => {
+      if (emailCheckTimeoutRef.current) {
+        clearTimeout(emailCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const checkAttendeeEmailRole = async (candidateEmail) => {
+    if (!candidateEmail || typeof candidateEmail !== "string") {
+      setEmailRoleError(null);
+      return { isRestricted: false };
+    }
+    const clean = candidateEmail.trim().toLowerCase();
+    if (!clean || !clean.includes("@") || !clean.includes(".")) {
+      setEmailRoleError(null);
+      return { isRestricted: false };
+    }
+
+    if (clean === lastCheckedEmailRef.current && emailRoleError) {
+      return { isRestricted: true, message: emailRoleError };
+    }
+
+    setIsCheckingEmailRole(true);
+    try {
+      const res = await fetch("/api/auth/check-attendee-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: clean }),
+      });
+      if (!res.ok) {
+        setIsCheckingEmailRole(false);
+        return { isRestricted: false };
+      }
+      const data = await res.json();
+      lastCheckedEmailRef.current = clean;
+      if (data?.isRestricted) {
+        setEmailRoleError(data.message);
+        return data;
+      } else {
+        setEmailRoleError(null);
+        return { isRestricted: false };
+      }
+    } catch (err) {
+      console.warn("[dynamic-registration-form] Email check warning:", err);
+      return { isRestricted: false };
+    } finally {
+      setIsCheckingEmailRole(false);
+    }
+  };
+
+  const triggerDebouncedEmailCheck = (val) => {
+    if (emailCheckTimeoutRef.current) {
+      clearTimeout(emailCheckTimeoutRef.current);
+    }
+    const clean = String(val || "").trim().toLowerCase();
+    if (!clean || !clean.includes("@") || !clean.includes(".")) {
+      setEmailRoleError(null);
+      return;
+    }
+    emailCheckTimeoutRef.current = setTimeout(() => {
+      checkAttendeeEmailRole(clean);
+    }, 350);
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -949,6 +1035,17 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         }
       }
     });
+
+    if (emailRoleError) {
+      const emailF = customForm?.fields?.find((f) => {
+        const t = String(f?.type || "").toLowerCase();
+        const n = String(f?.name || f?.label || f?.id || "").toLowerCase();
+        return t === "email" || n === "email" || n.includes("email");
+      });
+      if (emailF) {
+        newErrors[emailF.id] = emailRoleError;
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -1065,14 +1162,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create payment order");
-      }
+      const orderData = await response.json().catch(() => ({}));
 
-      const orderData = await response.json();
-
-      if (!orderData.success) {
-        throw new Error(orderData.error || "Failed to create order");
+      if (!response.ok || !orderData.success) {
+        throw new Error(orderData.error || "Failed to create payment order");
       }
 
       const gatewayOrder = orderData.order || {
@@ -1276,10 +1369,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       });
 
       let email =
-        effectiveUser?.email ||
         (emailField ? (formData[emailField.id] || formData[emailField.name]) : "") ||
         formData.email ||
-        auth.currentUser?.email ||
+        (!isOrganiserOrAdmin ? effectiveUser?.email : "") ||
+        (!isOrganiserOrAdmin ? auth.currentUser?.email : "") ||
         "";
       email = typeof email === "string" ? email.trim().toLowerCase() : "";
 
@@ -1315,6 +1408,20 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         return;
       }
 
+      // Enforce that Organiser and Admin accounts cannot register for events as attendees
+      if (emailRoleError) {
+        toast.error(emailRoleError);
+        setIsLoading(false);
+        return;
+      }
+
+      const roleCheck = await checkAttendeeEmailRole(email);
+      if (roleCheck?.isRestricted) {
+        toast.error(roleCheck.message || "Organiser accounts cannot register for events as attendees.");
+        setIsLoading(false);
+        return;
+      }
+
       // Phone validation - enforce valid 10-digit number ONLY if phoneField is in the form schema
       if (phoneField) {
         if (phoneField.required && (!phone || phone === "")) {
@@ -1339,6 +1446,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
       const signedInUser = auth.currentUser;
       if (
+        !isOrganiserOrAdmin &&
         signedInUser &&
         signedInUser.email &&
         email &&
@@ -1383,7 +1491,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         payloadFormData[phoneField.id] = phone;
       }
 
-      const existingUser = signedInUser
+      const existingUser = (!isOrganiserOrAdmin && signedInUser)
         ? (await getCurrentUser(signedInUser.uid)) || {
             id: signedInUser.uid,
             email: signedInUser.email,
@@ -1524,14 +1632,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create payment order");
-      }
+      const orderData = await response.json().catch(() => ({}));
 
-      const orderData = await response.json();
-
-      if (!orderData.success) {
-        throw new Error(orderData.error || "Failed to create order");
+      if (!response.ok || !orderData.success) {
+        throw new Error(orderData.error || "Failed to create payment order");
       }
 
       // Load Razorpay checkout
@@ -1758,7 +1862,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           String(field.name || field.label || field.id).toLowerCase() === "email" ||
           String(field.name || field.label || field.id).toLowerCase().includes("email");
         const isUserLoggedIn = Boolean(effectiveUser?.email);
-        const isEmailLocked = isEmail && isUserLoggedIn;
+        const isEmailLocked = isEmail && isUserLoggedIn && !isOrganiserOrAdmin;
         const fieldValue = isEmailLocked
           ? effectiveUser.email
           : (formData[field.id] !== undefined && formData[field.id] !== ""
@@ -1785,6 +1889,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               }
             }
           }
+          if (isEmail) {
+            setEmailRoleError(null);
+            triggerDebouncedEmailCheck(val);
+          }
           updateValue(val);
         };
 
@@ -1801,6 +1909,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 [field.id]: "Please enter a valid 10-digit phone number",
               }));
             }
+          }
+          if (isEmail && fieldValue) {
+            checkAttendeeEmailRole(String(fieldValue));
           }
         };
 
@@ -1859,11 +1970,16 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 className={`w-full px-3.5 py-2.5 h-11 border rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm ${
                   isEmailLocked
                     ? "bg-slate-100 dark:bg-[#1A1C1F] cursor-not-allowed opacity-90 border-slate-200 dark:border-[#2A2D31] select-none pr-10"
+                    : isEmail && emailRoleError
+                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-500/5 dark:bg-red-500/10 text-red-500 dark:text-red-300 pr-10"
                     : error
                     ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-slate-50 dark:bg-[#212327]"
                     : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-slate-50 dark:bg-[#212327]"
                 }`}
               />
+              {isEmail && isCheckingEmailRole && (
+                <Loader2 className="w-4 h-4 text-[#FE760B] animate-spin absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none select-none" />
+              )}
               {isEmailLocked && (
                 <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none select-none" />
               )}
@@ -1873,7 +1989,16 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 <span>Email is locked to your account for security and consistency.</span>
               </p>
             )}
-            {error && !isEmailLocked && (
+            {isEmail && emailRoleError && (
+              <div className="mt-1.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2.5 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-left">
+                  <p className="font-semibold text-red-300">Organiser Email Not Permitted</p>
+                  <p className="text-red-200/90 leading-relaxed">{emailRoleError}</p>
+                </div>
+              </div>
+            )}
+            {error && !isEmailLocked && (!isEmail || !emailRoleError) && (
               <p className="text-[11px] text-red-500 dark:text-red-400 mt-1 font-medium">{error}</p>
             )}
           </div>
@@ -2267,6 +2392,19 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
     <>
       <div className="w-full max-w-xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Organiser Notice Banner */}
+          {isOrganiserOrAdmin && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-left">
+                <p className="font-semibold text-amber-200">Organiser Account Detected</p>
+                <p className="text-amber-200/90 leading-relaxed">
+                  You are signed in as an Event Organiser ({effectiveUser?.email}). Organiser accounts manage events and cannot register as attendees with their organiser email. To register, please enter a different attendee email address below.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col space-y-4">
             {customForm.fields
               ?.filter((field) => field.id && field.type)
@@ -2365,10 +2503,19 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               <AlertCircle className="w-4 h-4 text-[#FE760B]" />
               <span>Registration Closed</span>
             </button>
+          ) : emailRoleError ? (
+            <button
+              type="button"
+              disabled
+              className="w-full bg-red-500/10 text-red-400 border border-red-500/30 cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 select-none transition-all"
+            >
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <span>Organiser Email Not Permitted</span>
+            </button>
           ) : (
             <button
               type="submit"
-              disabled={isLoading || paymentProcessing}
+              disabled={isLoading || paymentProcessing || isCheckingEmailRole}
               style={{
                 backgroundColor: props.themeColor || currentEvent?.themeColor || currentEvent?.themeHex || "#FE760B",
               }}
@@ -2378,6 +2525,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>{paymentProcessing ? "Processing Payment..." : "Registering..."}</span>
+                </>
+              ) : isCheckingEmailRole ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Checking Email...</span>
                 </>
               ) : isPaidEvent ? (
                 <span>

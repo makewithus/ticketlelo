@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRestrictedAttendeeEmail } from "@/lib/auth-server";
 
 /**
  * Safely compares two strings in constant time to prevent timing attacks.
@@ -62,6 +63,15 @@ export async function POST(request) {
 
     if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
       return NextResponse.json({ error: "A valid email address is required." }, { status: 400 });
+    }
+
+    // Enforce that Organiser and Admin accounts cannot use guest attendee password setup
+    const roleCheck = await checkRestrictedAttendeeEmail(rawEmail);
+    if (roleCheck.isRestricted) {
+      return NextResponse.json(
+        { error: "This email address is registered as an Event Organiser or Administrator. Please sign in via the Organiser Portal at /login." },
+        { status: 400 }
+      );
     }
 
     // Rate limiting per target email

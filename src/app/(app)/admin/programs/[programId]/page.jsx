@@ -69,6 +69,17 @@ function parseTimestamp(raw) {
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
+function toDateInputValue(raw) {
+  if (!raw) return "";
+  try {
+    const d = parseTimestamp(raw);
+    if (!d || isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+}
+
 export default function OrganizerProgramHubPage({ params }) {
   const unwrappedParams = use(params);
   const programId = unwrappedParams.programId;
@@ -155,6 +166,72 @@ export default function OrganizerProgramHubPage({ params }) {
   const [copiedLink, setCopiedLink] = useState(null);
   const [embedSubTab, setEmbedSubTab] = useState("apply"); // "apply" | "leaderboard"
   const [embedPreviewDevice, setEmbedPreviewDevice] = useState("desktop"); // "desktop" | "mobile"
+
+  // Tab 8: Program Settings Form State
+  const [settingsForm, setSettingsForm] = useState({
+    title: "",
+    college: "",
+    description: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  useEffect(() => {
+    if (program) {
+      setSettingsForm({
+        title: program.title || program.name || "",
+        college: program.college || "",
+        description: program.description || "",
+        startDate: toDateInputValue(program.startDate),
+        endDate: toDateInputValue(program.endDate),
+      });
+    }
+  }, [program]);
+
+  const handleSaveSettings = async (e) => {
+    e?.preventDefault?.();
+    const cleanTitle = (settingsForm.title || "").trim();
+    if (!cleanTitle) {
+      toast.error("Program title cannot be empty");
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      const res = await authFetch(`/api/organizer/programs/${programId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: cleanTitle,
+          name: cleanTitle,
+          college: (settingsForm.college || "").trim(),
+          description: (settingsForm.description || "").trim(),
+          startDate: settingsForm.startDate || null,
+          endDate: settingsForm.endDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update settings");
+      }
+      setProgram((prev) => ({
+        ...prev,
+        ...data.program,
+        title: cleanTitle,
+        name: cleanTitle,
+        college: (settingsForm.college || "").trim(),
+        description: (settingsForm.description || "").trim(),
+        startDate: settingsForm.startDate || null,
+        endDate: settingsForm.endDate || null,
+      }));
+      toast.success("Program settings saved successfully!");
+    } catch (err) {
+      console.error("Save settings error:", err);
+      toast.error(err.message || "Failed to update program settings");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   // Copy helper
   const handleCopy = (text, key) => {
@@ -806,7 +883,7 @@ export default function OrganizerProgramHubPage({ params }) {
                   <Input
                     readOnly
                     value={publicApplyUrl}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono"
+                    className="flex-1 min-w-0 bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono truncate"
                   />
                   <Button
                     size="sm"
@@ -855,11 +932,11 @@ export default function OrganizerProgramHubPage({ params }) {
 
             <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-3.5 shadow-xs">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#FE760B] uppercase tracking-wider">
                   <Award className="w-4 h-4" />
                   <span>Public Leaderboard & Embed</span>
                 </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/12 text-purple-400 border border-purple-500/25">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
                   Rankings
                 </span>
               </div>
@@ -875,12 +952,12 @@ export default function OrganizerProgramHubPage({ params }) {
                   <Input
                     readOnly
                     value={publicLeaderboardUrl}
-                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono"
+                    className="flex-1 min-w-0 bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-xs h-9 font-mono truncate"
                   />
                   <Button
                     size="sm"
                     onClick={() => handleCopy(publicLeaderboardUrl, "leaderboard")}
-                    className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-9 px-3 shrink-0 cursor-pointer"
+                    className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-9 px-3 shrink-0 cursor-pointer"
                   >
                     {copiedLink === "leaderboard" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
@@ -894,7 +971,7 @@ export default function OrganizerProgramHubPage({ params }) {
 
               <div className="pt-3 border-t border-slate-100 dark:border-[#26292E] flex items-center justify-between text-xs flex-wrap gap-2">
                 <span className="text-[11px] text-slate-500 dark:text-[#9B9EA4] flex items-center gap-1.5">
-                  <Code className="w-3.5 h-3.5 text-purple-400" />
+                  <Code className="w-3.5 h-3.5 text-[#FE760B]" />
                   <span>Iframe Embed Leaderboard:</span>
                 </span>
                 <div className="flex items-center gap-2">
@@ -902,7 +979,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     size="sm"
                     variant="outline"
                     onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard-overview")}
-                    className="text-[11px] h-7 px-2.5 rounded-lg border-purple-500/40 text-purple-400 hover:bg-purple-500/10 cursor-pointer flex items-center gap-1.5"
+                    className="text-[11px] h-7 px-2.5 rounded-lg border-[#2A2D31] text-[#D0D0D1] hover:text-white hover:bg-[#212327] cursor-pointer flex items-center gap-1.5"
                   >
                     <Copy className="w-3 h-3" />
                     <span>{copiedLink === "embed-leaderboard-overview" ? "Copied Embed Code!" : "Copy Embed Code"}</span>
@@ -966,16 +1043,16 @@ export default function OrganizerProgramHubPage({ params }) {
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-[#2A2D31] bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] overflow-hidden">
               {connectedEvents.map((ev) => (
-                <div key={ev.eventId || ev.id} className="p-4 flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <div key={ev.eventId || ev.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                       {ev.eventTitle || ev.title || ev.name || "Event Pass"}
                     </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                    <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-0.5 truncate">
                       {ev.venue || "Campus Venue"} • Linked to this Ambassador Program
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     <button
                       type="button"
                       onClick={() => handleToggleEvent(ev.eventId || ev.id, !ev.enableReferral)}
@@ -1225,16 +1302,16 @@ export default function OrganizerProgramHubPage({ params }) {
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-[#2A2D31] bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] overflow-hidden">
               {referralCodes.map((codeDoc) => (
-                <div key={codeDoc.code || codeDoc.id} className="p-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-mono font-bold text-[#FE760B] bg-[#FE760B]/10 px-2.5 py-1 rounded-xl border border-[#FE760B]/20">
+                <div key={codeDoc.code || codeDoc.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-mono font-bold text-[#FE760B] bg-[#FE760B]/10 px-2.5 py-1 rounded-xl border border-[#FE760B]/20 shrink-0">
                       {codeDoc.code}
                     </span>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {codeDoc.assignedToName || codeDoc.assignedTo || "Campus Ambassador"}
                       </p>
-                      <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                      <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate">
                         {codeDoc.assignedToEmail || ""}
                       </p>
                     </div>
@@ -1244,7 +1321,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     size="sm"
                     variant="outline"
                     onClick={() => handleCopy(codeDoc.code, codeDoc.code)}
-                    className="text-xs h-8 px-3 rounded-lg border-slate-200 dark:border-[#2A2D31]"
+                    className="text-xs h-8 px-3 rounded-lg border-slate-200 dark:border-[#2A2D31] self-end sm:self-auto shrink-0"
                   >
                     {copiedLink === codeDoc.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
@@ -1290,11 +1367,11 @@ export default function OrganizerProgramHubPage({ params }) {
       {activeTab === "leaderboard" && (
         <div className="space-y-6 animate-fade-in">
           {/* Sub-navigation switcher: Application Form Embed vs Leaderboard Embed */}
-          <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl w-fit">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 p-1 bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl w-full sm:w-fit">
             <button
               type="button"
               onClick={() => setEmbedSubTab("apply")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 embedSubTab === "apply"
                   ? "bg-[#FE760B] text-[#131517] shadow-sm"
                   : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
@@ -1306,9 +1383,9 @@ export default function OrganizerProgramHubPage({ params }) {
             <button
               type="button"
               onClick={() => setEmbedSubTab("leaderboard")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 embedSubTab === "leaderboard"
-                  ? "bg-purple-600 text-white shadow-sm"
+                  ? "bg-[#FE760B] text-[#131517] shadow-sm"
                   : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
               }`}
             >
@@ -1348,34 +1425,41 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
                 </div>
 
-                <div className="relative">
-                  <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono overflow-x-auto border border-slate-800">
+                {/* Structured Top-Bar Code Container (No Overlapping Button) */}
+                <div className="rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-900/90 dark:bg-[#15171A] overflow-hidden">
+                  <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/60 dark:bg-[#0E1012] border-b border-slate-800 dark:border-[#2A2D31]">
+                    <div className="flex items-center gap-2">
+                      <Code className="w-3.5 h-3.5 text-[#FE760B]" />
+                      <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#9B9EA4]">HTML EMBED SNIPPET</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCopy(embedApplyCode, "embed-apply")}
+                      className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-7 px-3 rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
+                    >
+                      {copiedLink === "embed-apply" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Embed Code</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="p-4 text-xs font-mono text-slate-200 dark:text-[#D0D0D1] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
                     {embedApplyCode}
                   </pre>
-                  <Button
-                    size="sm"
-                    onClick={() => handleCopy(embedApplyCode, "embed-apply")}
-                    className="absolute right-2.5 top-2.5 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-semibold text-xs h-7 px-3 cursor-pointer shadow-sm flex items-center gap-1.5"
-                  >
-                    {copiedLink === "embed-apply" ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Embed Code</span>
-                      </>
-                    )}
-                  </Button>
                 </div>
 
                 {/* Direct Link Alternative */}
-                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-[#9B9EA4]">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Direct Embed URL:</span>
-                    <code className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#212327] text-slate-800 dark:text-slate-200 text-[11px] font-mono">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-slate-700 dark:text-slate-200 shrink-0">Direct Embed URL:</span>
+                    <code className="text-xs font-mono text-[#FE760B] truncate">
                       {embedApplyUrl}
                     </code>
                   </div>
@@ -1383,7 +1467,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     size="sm"
                     variant="ghost"
                     onClick={() => handleCopy(embedApplyUrl, "embed-apply-url")}
-                    className="text-xs h-7 px-2.5 text-[#FE760B] hover:bg-[#FE760B]/10 cursor-pointer self-start sm:self-auto"
+                    className="text-xs h-8 px-3 text-[#FE760B] hover:text-[#FF8A2B] hover:bg-[#FE760B]/10 font-semibold cursor-pointer shrink-0 self-start sm:self-auto"
                   >
                     {copiedLink === "embed-apply-url" ? "Copied URL!" : "Copy Direct URL"}
                   </Button>
@@ -1472,7 +1556,7 @@ export default function OrganizerProgramHubPage({ params }) {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-[#FE760B] animate-pulse" />
                       <h2 className="text-base font-bold text-slate-900 dark:text-white">
                         Public Leaderboard Iframe Embed Code
                       </h2>
@@ -1496,34 +1580,41 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
                 </div>
 
-                <div className="relative">
-                  <pre className="p-3.5 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono overflow-x-auto border border-slate-800">
+                {/* Structured Top-Bar Code Container (No Overlapping Button) */}
+                <div className="rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-900/90 dark:bg-[#15171A] overflow-hidden">
+                  <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/60 dark:bg-[#0E1012] border-b border-slate-800 dark:border-[#2A2D31]">
+                    <div className="flex items-center gap-2">
+                      <Code className="w-3.5 h-3.5 text-[#FE760B]" />
+                      <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#9B9EA4]">HTML EMBED SNIPPET</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard")}
+                      className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-7 px-3 rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
+                    >
+                      {copiedLink === "embed-leaderboard" ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy Embed Code</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="p-4 text-xs font-mono text-slate-200 dark:text-[#D0D0D1] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
                     {embedLeaderboardCode}
                   </pre>
-                  <Button
-                    size="sm"
-                    onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard")}
-                    className="absolute right-2.5 top-2.5 bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-7 px-3 cursor-pointer shadow-sm flex items-center gap-1.5"
-                  >
-                    {copiedLink === "embed-leaderboard" ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Embed Code</span>
-                      </>
-                    )}
-                  </Button>
                 </div>
 
                 {/* Direct Link Alternative */}
-                <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-[#9B9EA4]">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Direct Leaderboard URL:</span>
-                    <code className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#212327] text-slate-800 dark:text-slate-200 text-[11px] font-mono">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-bold text-slate-700 dark:text-slate-200 shrink-0">Direct Leaderboard URL:</span>
+                    <code className="text-xs font-mono text-[#FE760B] truncate">
                       {embedLeaderboardUrl}
                     </code>
                   </div>
@@ -1531,7 +1622,7 @@ export default function OrganizerProgramHubPage({ params }) {
                     size="sm"
                     variant="ghost"
                     onClick={() => handleCopy(embedLeaderboardUrl, "embed-leaderboard-url")}
-                    className="text-xs h-7 px-2.5 text-purple-400 hover:bg-purple-500/10 cursor-pointer self-start sm:self-auto"
+                    className="text-xs h-8 px-3 text-[#FE760B] hover:text-[#FF8A2B] hover:bg-[#FE760B]/10 font-semibold cursor-pointer shrink-0 self-start sm:self-auto"
                   >
                     {copiedLink === "embed-leaderboard-url" ? "Copied URL!" : "Copy Direct URL"}
                   </Button>
@@ -1542,7 +1633,7 @@ export default function OrganizerProgramHubPage({ params }) {
               <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Award className="w-4 h-4 text-purple-400" />
+                    <Award className="w-4 h-4 text-[#FE760B]" />
                     <span>Leaderboard Live Rankings Preview</span>
                   </h2>
                   <span className="text-[11px] text-slate-400">Strictly privacy-safe: Display Name and Points only</span>
@@ -1590,48 +1681,204 @@ export default function OrganizerProgramHubPage({ params }) {
       )}
 
       {/* ══════════════════════════════════════════════════════
-          TAB 8: SETTINGS
+          TAB 8: PROGRAM SETTINGS
       ══════════════════════════════════════════════════════ */}
       {activeTab === "settings" && (
-        <div className="space-y-6 animate-fade-in">
-          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 space-y-4 shadow-xs">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Program Metadata</h2>
-            <div className="space-y-3 text-xs">
+        <div className="space-y-6 animate-fade-in max-w-4xl">
+          {/* Card 1: Program General Settings */}
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-[#2A2D31]">
               <div>
-                <span className="font-semibold text-slate-500 block mb-0.5">Program ID</span>
-                <p className="font-mono text-slate-700 dark:text-[#D0D0D1]">{program.id}</p>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-[#FE760B]" />
+                  <span>Program Settings & Information</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+                  Update your campus ambassador program profile, target institutions, and schedule.
+                </p>
               </div>
-              <div>
-                <span className="font-semibold text-slate-500 block mb-0.5">Target College / Campus</span>
-                <p className="text-slate-700 dark:text-[#D0D0D1]">{program.college || "General"}</p>
-              </div>
-              <div>
-                <span className="font-semibold text-slate-500 block mb-0.5">Description</span>
-                <p className="text-slate-700 dark:text-[#D0D0D1]">{program.description || "N/A"}</p>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span
+                  className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${
+                    program.status === "published"
+                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                      : program.status === "archived"
+                      ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                      : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                  }`}
+                >
+                  {program.status || "Draft"}
+                </span>
               </div>
             </div>
+
+            <form onSubmit={handleSaveSettings} className="space-y-4">
+              {/* Program ID Read-Only with Copy */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-600 dark:text-[#D0D0D1]">
+                  Program ID
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={program.id}
+                    className="font-mono text-xs h-9 bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#9B9EA4]"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopy(program.id, "program-id")}
+                    className="h-9 px-3 text-xs bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 cursor-pointer shrink-0"
+                  >
+                    {copiedLink === "program-id" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy ID</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Program Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Program Name <span className="text-[#FE760B]">*</span>
+                </label>
+                <Input
+                  type="text"
+                  required
+                  placeholder="e.g. Pravaah 2026 Campus Ambassador Program"
+                  value={settingsForm.title}
+                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl focus:border-[#FE760B]"
+                />
+              </div>
+
+              {/* Campus / University Focus */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Target Campus / Institution
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. CUSAT, Kochi or All Colleges"
+                  value={settingsForm.college}
+                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, college: e.target.value }))}
+                  className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl focus:border-[#FE760B]"
+                />
+                <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                  Helps categorize and target student ambassadors from specific colleges or regions.
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Program Description
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Describe the ambassador program, responsibilities, rewards, and eligibility..."
+                  value={settingsForm.description}
+                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="w-full bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs p-3 rounded-xl focus:border-[#FE760B] focus:outline-hidden resize-none"
+                />
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Program Start Date</span>
+                  </label>
+                  <Input
+                    type="date"
+                    value={settingsForm.startDate}
+                    onChange={(e) => setSettingsForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#FE760B]" />
+                    <span>Program End Date</span>
+                  </label>
+                  <Input
+                    type="date"
+                    value={settingsForm.endDate}
+                    onChange={(e) => setSettingsForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                    className="bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs h-10 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-3 border-t border-slate-100 dark:border-[#2A2D31] flex justify-end">
+                <Button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-10 px-5 rounded-xl cursor-pointer shadow-md flex items-center gap-2"
+                >
+                  {savingSettings ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Settings...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
 
-          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-rose-500/30 p-5 space-y-3 shadow-xs">
-            <h2 className="text-base font-bold text-rose-500">Danger Zone</h2>
-            <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
-              Archiving a program pauses all referral tracking, closes applications, and freezes rewards redemption.
+          {/* Card 2: Danger Zone */}
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-rose-500/25 p-5 sm:p-6 space-y-4 shadow-xs">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-500" />
+              <h2 className="text-base font-bold text-rose-500">Danger Zone</h2>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-[#9B9EA4] max-w-xl">
+              Archiving a program pauses all referral tracking, closes applications, and freezes rewards redemption. You can restore it to draft anytime if you wish to resume.
             </p>
-            {program.status !== "archived" ? (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (confirm("Are you sure you want to archive this program?")) {
-                    handleStatusChange("archived");
-                  }
-                }}
-                className="text-xs text-rose-500 border-rose-500/40 hover:bg-rose-500/10 cursor-pointer"
-              >
-                Archive Program
-              </Button>
-            ) : (
-              <p className="text-xs font-semibold text-slate-400">This program is archived.</p>
-            )}
+            <div className="pt-2">
+              {program.status !== "archived" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (confirm("Are you sure you want to archive this ambassador program? Active referrals and redemptions will be paused.")) {
+                      handleStatusChange("archived");
+                    }
+                  }}
+                  className="text-xs text-rose-500 border-rose-500/40 hover:bg-rose-500/10 cursor-pointer font-semibold rounded-xl h-9 px-4"
+                >
+                  Archive Program
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleStatusChange("draft")}
+                  className="text-xs text-amber-400 border-amber-500/40 hover:bg-amber-500/10 cursor-pointer font-semibold rounded-xl h-9 px-4"
+                >
+                  Restore to Draft
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

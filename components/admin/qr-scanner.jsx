@@ -966,7 +966,7 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Enter ticket ID"
+                  placeholder="Enter ticket ID (e.g. XXXX-XXXX)"
                   value={manualTicketId}
                   onChange={(e) => setManualTicketId(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleManualEntry()}

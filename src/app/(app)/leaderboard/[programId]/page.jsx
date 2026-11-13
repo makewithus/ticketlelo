@@ -134,18 +134,19 @@ export default function PublicProgramLeaderboardPage({ params }) {
             <button
               type="button"
               onClick={handleShare}
-              className="h-9 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] transition-all shadow-xs cursor-pointer"
+              className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] transition-all shadow-xs cursor-pointer shrink-0"
             >
               {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5 text-[#FE760B]" />}
               <span className="hidden sm:inline">{copiedLink ? "Copied Link" : "Share"}</span>
             </button>
             <ThemeToggle />
-            <Link href="/ambassador/dashboard">
+            <Link href="/ambassador/dashboard" className="shrink-0">
               <button
                 type="button"
-                className="h-9 px-3.5 sm:px-4 rounded-xl text-xs font-bold bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                className="h-9 px-3 sm:px-4 rounded-xl text-xs font-bold bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] transition-all shadow-md cursor-pointer flex items-center gap-1.5"
               >
-                <span>Ambassador Portal</span>
+                <span className="hidden sm:inline">Ambassador Portal</span>
+                <span className="sm:hidden">Portal</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </Link>
@@ -261,7 +262,7 @@ export default function PublicProgramLeaderboardPage({ params }) {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end pt-4">
                 {/* 2nd Place */}
                 {top2 && (
-                  <div className="sm:order-1 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-5 shadow-lg text-center space-y-3 relative">
+                  <div className="order-2 sm:order-1 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-5 shadow-lg text-center space-y-3 relative">
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
                       🥈 Rank #2
                     </span>
@@ -285,9 +286,9 @@ export default function PublicProgramLeaderboardPage({ params }) {
                   </div>
                 )}
 
-                {/* 1st Place (Center & Elevated) */}
+                {/* 1st Place (Center & Elevated on Desktop, Top on Mobile) */}
                 {top1 && (
-                  <div className="sm:order-2 rounded-2xl bg-gradient-to-b from-amber-500/15 to-white dark:to-[#1A1C1F] border-2 border-amber-500/40 p-6 shadow-xl text-center space-y-3 relative sm:-mt-4">
+                  <div className="order-1 sm:order-2 rounded-2xl bg-gradient-to-b from-amber-500/15 to-white dark:to-[#1A1C1F] border-2 border-amber-500/40 p-6 shadow-xl text-center space-y-3 relative sm:-mt-4">
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-black bg-amber-400 text-black shadow-md flex items-center gap-1">
                       <span>👑</span>
                       <span>Rank #1</span>
@@ -314,7 +315,7 @@ export default function PublicProgramLeaderboardPage({ params }) {
 
                 {/* 3rd Place */}
                 {top3 && (
-                  <div className="sm:order-3 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-5 shadow-lg text-center space-y-3 relative">
+                  <div className="order-3 sm:order-3 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-5 shadow-lg text-center space-y-3 relative">
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-800 text-white border border-amber-700">
                       🥉 Rank #3
                     </span>

@@ -7,7 +7,7 @@ import { calculateOrderPricing } from "@/lib/pricing";
 import { reserveTicketCapacity, releaseCapacityReservation } from "@/lib/capacity-reservation";
 import { validateCouponCode } from "@/lib/coupons";
 import { adminAuth, adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
-import { getAuthenticatedUser } from "@/lib/auth-server";
+import { getAuthenticatedUser, checkRestrictedAttendeeEmail } from "@/lib/auth-server";
 import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
 import { resolveCommissionRule, calculateCommissionBreakdown } from "@/lib/payments/commission-engine";
 import { resolveReferralCode, isSelfReferral } from "@/lib/creator-campus/referral-registry";
@@ -54,10 +54,22 @@ export async function POST(request) {
       return NextResponse.json({ error: "A valid email address is required for checkout" }, { status: 400 });
     }
 
-    let userUid = caller?.uid;
+    // Enforce that Organiser and Admin accounts cannot register for paid tickets
+    const roleCheck = await checkRestrictedAttendeeEmail(safeEmail);
+    if (roleCheck.isRestricted) {
+      return NextResponse.json(
+        { error: roleCheck.message || "This email is registered as an Event Organiser. Organiser accounts cannot register for events as attendees. Please use a different attendee email address." },
+        { status: 400 }
+      );
+    }
+
+    const callerRole = String(caller?.role || "").toLowerCase().trim();
+    const isCallerOrganiserOrAdmin = callerRole === "organiser" || callerRole === "superadmin" || caller?.isAdmin === true;
+
+    let userUid = isCallerOrganiserOrAdmin ? null : caller?.uid;
     let isFirstTimeUser = false;
 
-    if (caller) {
+    if (caller && !isCallerOrganiserOrAdmin) {
       if (caller.email && safeEmail !== caller.email.trim().toLowerCase()) {
         return NextResponse.json({ error: "Checkout email must match the signed-in account" }, { status: 403 });
       }

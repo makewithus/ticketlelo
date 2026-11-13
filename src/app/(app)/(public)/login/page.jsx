@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Phone,
   KeyRound,
+  AlertCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -1139,9 +1140,46 @@ function UnifiedLoginContent() {
                   <motion.div
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center"
+                    className={
+                      error.toLowerCase().includes("already exists") || error.toLowerCase().includes("already in use")
+                        ? "text-amber-300 text-xs bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 space-y-2.5 text-left"
+                        : "text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center"
+                    }
                   >
-                    {error}
+                    {error.toLowerCase().includes("already exists") || error.toLowerCase().includes("already in use") ? (
+                      <>
+                        <div className="flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                            <p className="font-semibold text-amber-200">Account Already Exists</p>
+                            <p className="text-amber-300/90 leading-relaxed">
+                              An account already exists with <strong>{email}</strong>. Please sign in with your existing password, or reset it if you&apos;ve forgotten it.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode("signin");
+                              setError("");
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-[#FE760B] hover:bg-[#FE760B]/90 text-white font-semibold text-xs transition-colors cursor-pointer"
+                          >
+                            Sign in with password &rarr;
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleOpenForgotPassword}
+                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs transition-colors cursor-pointer"
+                          >
+                            Forgot password?
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      error
+                    )}
                   </motion.div>
                 )}
 

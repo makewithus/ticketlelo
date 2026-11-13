@@ -16,6 +16,7 @@ import {
   parseTicketTitle as parseTicketTitleUniversal,
 } from "@/lib/ticket-theme";
 import { QrCheckinModal } from "./qr-checkin-modal";
+import { formatTicketId } from "@/lib/ticket-id";
 
 export { parseTicketTitleUniversal as parseTicketTitle, formatTicketMeta };
 
@@ -109,8 +110,9 @@ export function StubTicket({
         : 199,
   });
 
-  const ticketId =
-    registration.ticketId || registration.id || "TKT-1793-AB12C";
+  const rawTicketId =
+    registration.ticketId || registration.id || "1793-AB12";
+  const ticketId = formatTicketId(rawTicketId);
   const attendeeName =
     registration.attendeeName ||
     registration.name ||

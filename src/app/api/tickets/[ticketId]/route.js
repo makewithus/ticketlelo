@@ -51,6 +51,20 @@ export async function GET(request, { params }) {
         .get();
       if (!qSnap.empty) {
         ticket = { id: qSnap.docs[0].id, ...qSnap.docs[0].data() };
+      } else {
+        const cleanCandidate = ticketId.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        if (cleanCandidate.length >= 8) {
+          const prefix = `TKT-${cleanCandidate.slice(0, 8)}`;
+          const legacySnap = await adminDb
+            .collection("tickets")
+            .where("ticketId", ">=", prefix)
+            .where("ticketId", "<=", prefix + "\uf8ff")
+            .limit(1)
+            .get();
+          if (!legacySnap.empty) {
+            ticket = { id: legacySnap.docs[0].id, ...legacySnap.docs[0].data() };
+          }
+        }
       }
     }
 
@@ -65,6 +79,20 @@ export async function GET(request, { params }) {
       registration = { id: regSnap.docs[0].id, ...regSnap.docs[0].data() };
     } else if (ticket) {
       registration = ticket;
+    } else {
+      const cleanCandidate = ticketId.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+      if (cleanCandidate.length >= 8) {
+        const prefix = `TKT-${cleanCandidate.slice(0, 8)}`;
+        const legacyRegSnap = await adminDb
+          .collection("registrations")
+          .where("ticketId", ">=", prefix)
+          .where("ticketId", "<=", prefix + "\uf8ff")
+          .limit(1)
+          .get();
+        if (!legacyRegSnap.empty) {
+          registration = { id: legacyRegSnap.docs[0].id, ...legacyRegSnap.docs[0].data() };
+        }
+      }
     }
 
     if (!ticket && !registration) {

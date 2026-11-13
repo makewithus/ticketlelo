@@ -240,8 +240,8 @@ export default function OrganizerProgramsListPage() {
         </div>
 
         <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-3.5 sm:p-5 flex items-center gap-3 sm:gap-3.5 shadow-xs">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20">
-            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-[#FE760B]/10 text-[#FE760B] flex items-center justify-center shrink-0 border border-[#FE760B]/20">
+            <Award className="w-4 h-4 sm:w-5 sm:h-5 text-[#FE760B]" />
           </div>
           <div className="min-w-0">
             <div className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
@@ -391,8 +391,8 @@ export default function OrganizerProgramsListPage() {
 
       {/* ── 5. Create Program Modal ── */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all overflow-y-auto animate-fade-in">
-          <div className="relative w-full max-w-lg max-h-[90vh] bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl flex flex-col shadow-2xl overflow-hidden text-white animate-scale-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md transition-all overflow-y-auto animate-fade-in">
+          <div className="relative w-full max-w-lg max-h-[92dvh] my-auto bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl flex flex-col shadow-2xl overflow-hidden text-white animate-scale-in">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#2A2D31] p-5 sm:p-6 shrink-0">
               <div className="space-y-1 pr-3">

@@ -544,12 +544,12 @@ export default function PointsEngineTab({
           >
             <Zap className="w-3.5 h-3.5" />
             <span>Bonus & Milestone Rules</span>
-            {pointsRules.bonusRules?.length > 0 && (
+            {Array.isArray(pointsRules?.bonusRules) && pointsRules.bonusRules.length > 0 && (
               <span
                 className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
                   pointsSubTab === "bonus"
                     ? "bg-[#131517]/20 text-[#131517]"
-                    : "bg-purple-500/20 text-purple-400"
+                    : "bg-[#FE760B]/20 text-[#FE760B]"
                 }`}
               >
                 {pointsRules.bonusRules.length}
@@ -623,7 +623,7 @@ export default function PointsEngineTab({
             className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-9 px-3.5 rounded-xl cursor-pointer shadow-xs gap-1.5"
           >
             <Calculator className="w-3.5 h-3.5" />
-            <span>+ Manual Adjustment</span>
+            <span>Manual Adjustment</span>
           </Button>
         )}
       </div>
@@ -634,7 +634,7 @@ export default function PointsEngineTab({
       {pointsSubTab === "config" && (
         <div className="space-y-6">
           {/* Rule Hierarchy Explainer Banner */}
-          <div className="bg-linear-to-r from-[#FE760B]/10 via-purple-500/10 to-transparent border border-[#FE760B]/20 rounded-2xl p-4.5">
+          <div className="bg-gradient-to-r from-[#FE760B]/10 via-[#FE760B]/5 to-transparent border border-[#FE760B]/20 rounded-2xl p-4.5">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-xl bg-[#FE760B]/15 text-[#FE760B] shrink-0">
                 <Layers className="w-5 h-5" />
@@ -648,7 +648,7 @@ export default function PointsEngineTab({
                 </div>
                 <p className="text-slate-600 dark:text-[#9B9EA4] leading-relaxed">
                   Base points are strictly evaluated in priority order:{" "}
-                  <strong className="text-purple-400 font-semibold">1. Ticket-Specific Rule (Highest)</strong> →{" "}
+                  <strong className="text-[#FE760B] font-semibold">1. Ticket-Specific Rule (Highest)</strong> →{" "}
                   <strong className="text-blue-400 font-semibold">2. Event-Specific Rule</strong> →{" "}
                   <strong className="text-emerald-400 font-semibold">3. Global Program Default</strong>.
                   Only the highest-priority applicable base rule applies (base rules are never summed together).
@@ -984,7 +984,7 @@ export default function PointsEngineTab({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-[#2A2D31]">
               <div className="space-y-0.5">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#FE760B]"></span>
                   <span>3. Ticket-Specific Scoring Rules (Highest Priority)</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
@@ -993,16 +993,16 @@ export default function PointsEngineTab({
               </div>
               <Button
                 onClick={() => openAddTicketOverride()}
-                className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-9 px-3.5 rounded-xl cursor-pointer shadow-xs gap-1.5"
+                className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-9 px-3.5 rounded-xl cursor-pointer shadow-xs gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Ticket Rule</span>
+                <span>Add Ticket Rule</span>
               </Button>
             </div>
 
             {Object.keys(pointsRules.ticketOverrides || {}).length === 0 ? (
               <div className="py-8 text-center space-y-2 border border-dashed border-slate-200 dark:border-[#2A2D31] rounded-xl">
-                <Ticket className="w-8 h-8 text-slate-400 mx-auto" />
+                <Ticket className="w-8 h-8 text-[#FE760B]/70 mx-auto" />
                 <h4 className="text-xs font-bold text-slate-700 dark:text-[#D0D0D1]">
                   No ticket-specific rules configured
                 </h4>
@@ -1019,13 +1019,13 @@ export default function PointsEngineTab({
                       key={key}
                       className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition-all ${
                         isActive
-                          ? "bg-purple-500/5 border-purple-500/30"
+                          ? "bg-slate-50 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31]"
                           : "bg-slate-100 dark:bg-[#212327]/50 border-slate-300 dark:border-[#2A2D31] opacity-75"
                       }`}
                     >
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/25">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/25">
                             Priority #1 Override
                           </span>
                           <span className="text-base font-extrabold text-[#FE760B] tabular-nums">
@@ -1110,7 +1110,7 @@ export default function PointsEngineTab({
                 className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-9 px-4 rounded-xl cursor-pointer shadow-md gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Create Bonus Rule</span>
+                <span>Create Bonus Rule</span>
               </Button>
             </div>
 
@@ -1133,7 +1133,7 @@ export default function PointsEngineTab({
                   }
                   className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] cursor-pointer transition-all flex items-center gap-1.5"
                 >
-                  <Award className="w-3.5 h-3.5 text-purple-400" />
+                  <Award className="w-3.5 h-3.5 text-amber-400" />
                   <span>First 10 Referrals (+50 pts)</span>
                 </button>
 
@@ -1190,19 +1190,19 @@ export default function PointsEngineTab({
             </div>
 
             {/* Configured Bonus Rules List */}
-            {pointsRules.bonusRules?.length === 0 ? (
+            {(!pointsRules?.bonusRules || pointsRules.bonusRules.length === 0) ? (
               <div className="py-10 text-center space-y-2 border border-dashed border-slate-200 dark:border-[#2A2D31] rounded-2xl">
                 <Zap className="w-8 h-8 text-slate-400 mx-auto" />
                 <h4 className="text-sm font-bold text-slate-700 dark:text-[#D0D0D1]">
                   No bonus rules active
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-[#9B9EA4] max-w-sm mx-auto">
-                  Click a quick preset above or "+ Create Bonus Rule" to set up milestones, early bird bonuses, or event-specific boosters.
+                  Click a quick preset above or &ldquo;Create Bonus Rule&rdquo; to set up milestones, early bird bonuses, or event-specific boosters.
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {pointsRules.bonusRules.map((bRule) => {
+                {(pointsRules?.bonusRules || []).map((bRule) => {
                   const isActive = bRule.isActive !== false;
                   return (
                     <div
@@ -1218,7 +1218,7 @@ export default function PointsEngineTab({
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               bRule.bonusType === "milestone"
-                                ? "bg-purple-500/15 text-purple-400 border border-purple-500/25"
+                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/25"
                                 : bRule.bonusType === "early_bird"
                                 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
                                 : "bg-blue-500/15 text-blue-400 border border-blue-500/25"
@@ -1245,7 +1245,7 @@ export default function PointsEngineTab({
                         <div className="text-[11px] text-slate-500 dark:text-[#9B9EA4] space-y-1 pt-1 border-t border-slate-200/60 dark:border-[#2A2D31]">
                           {bRule.milestoneThreshold && (
                             <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-[#D0D0D1]">
-                              <Award className="w-3.5 h-3.5 text-purple-400" />
+                              <Award className="w-3.5 h-3.5 text-amber-400" />
                               <span>Threshold: {bRule.milestoneThreshold} referrals (Awarded once per ambassador)</span>
                             </div>
                           )}
@@ -1489,7 +1489,7 @@ export default function PointsEngineTab({
                           </td>
                           <td className="py-3 px-3 text-right tabular-nums">
                             {entry.bonusPoints > 0 ? (
-                              <span className="font-bold text-purple-400">+{entry.bonusPoints}</span>
+                              <span className="font-bold text-[#FE760B]">+{entry.bonusPoints}</span>
                             ) : (
                               <span className="text-slate-400">0</span>
                             )}
@@ -1583,7 +1583,7 @@ export default function PointsEngineTab({
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/20">
                         {rew.rewardType}
                       </span>
                       <span className="text-xs font-bold text-[#FE760B] tabular-nums">
@@ -1894,7 +1894,7 @@ export default function PointsEngineTab({
               </div>
 
               {/* Combo Pass flag */}
-              <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-1">
+              <div className="p-3.5 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/25 space-y-1">
                 <label className="flex items-center gap-2 text-xs font-bold text-white cursor-pointer">
                   <input
                     type="checkbox"
@@ -2031,7 +2031,7 @@ export default function PointsEngineTab({
 
               {/* Conditional Inputs based on Bonus Type */}
               {editingBonusRule.bonusType === "milestone" && (
-                <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-1.5">
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-1.5">
                   <label className="text-xs font-bold text-white block">
                     Milestone Referral Threshold *
                   </label>
@@ -2238,8 +2238,8 @@ export default function PointsEngineTab({
                 {/* Bonus Breakdown */}
                 <div className="p-3 rounded-lg bg-[#1A1C1F] border border-[#2A2D31] space-y-1">
                   <div className="flex items-center justify-between font-semibold">
-                    <span className="text-purple-300">2. Bonus Points Engine</span>
-                    <span className="text-purple-400 font-mono font-bold">
+                    <span className="text-amber-300">2. Bonus Points Engine</span>
+                    <span className="text-amber-400 font-mono font-bold">
                       +{inspectLedgerEntry.bonusPoints || 0} pts
                     </span>
                   </div>
@@ -2249,7 +2249,7 @@ export default function PointsEngineTab({
                       {inspectLedgerEntry.bonusBreakdown.map((b, i) => (
                         <li key={i} className="flex items-center justify-between">
                           <span>• {b.name} ({b.type})</span>
-                          <span className="font-bold text-purple-400">+{b.points} pts</span>
+                          <span className="font-bold text-amber-400">+{b.points} pts</span>
                         </li>
                       ))}
                     </ul>
