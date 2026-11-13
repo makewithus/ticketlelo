@@ -103,3 +103,4 @@ export async function GET(request) {
     return NextResponse.json({ error: err.message || "Failed to list events" }, { status: 500 });
   }
 }
+
