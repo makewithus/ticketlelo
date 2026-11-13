@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { COLOR_SWATCHES, getThemeLook, getPosterLines } from '../../lib/theme-utils.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { COLOR_SWATCHES, getThemeLook, getPosterLines, getReadableAccentColor, getReadableButtonTextColor } from '../../lib/theme-utils.js';
 
 test('Event Page Look: Real-time Theme Colors & Banner Gradient Mapping', () => {
   // 1. Verify 6 canonical swatches exist
@@ -42,4 +44,32 @@ test('Event Page Look: Real-time Theme Colors & Banner Gradient Mapping', () => 
   const linesCustom = getPosterLines("Tech Fest", "custom", "Hackathon", "Night");
   assert.strictEqual(linesCustom.line1, "HACKATHON");
   assert.strictEqual(linesCustom.line2, "NIGHT");
+});
+
+test('Event Page Look: WCAG Contrast & Legibility Guarantees on Any Theme Accent', () => {
+  // 1. Deep purple (#4C1D95) gets boosted in dark mode so it's not invisible black-on-black
+  const boostedPurple = getReadableAccentColor('#4C1D95', true);
+  assert.notStrictEqual(boostedPurple.toLowerCase(), '#4c1d95');
+  assert.match(boostedPurple, /^#[0-9a-f]{6}$/i);
+
+  // 2. Yellow (#FDE003) retains vibrant tone and returns #000000 for button text
+  const yellowAccent = getReadableAccentColor('#FDE003', true);
+  assert.strictEqual(yellowAccent.toLowerCase(), '#fde003');
+  assert.strictEqual(getReadableButtonTextColor('#FDE003'), '#000000');
+
+  // 3. Orange (#FE760B) retains identity and returns #FFFFFF for button text
+  const orangeAccent = getReadableAccentColor('#FE760B', true);
+  assert.strictEqual(orangeAccent.toLowerCase(), '#fe760b');
+  assert.strictEqual(getReadableButtonTextColor('#FE760B'), '#FFFFFF');
+
+  // 4. Verify e/[slug]/page.jsx uses high contrast text classes for badges and host email
+  const slugContent = fs.readFileSync(path.resolve(process.cwd(), 'src/app/(app)/e/[slug]/page.jsx'), 'utf-8');
+
+  // Badges must use crisp text classes, not invisible dark style={{ color: themeAccent }}
+  assert.match(slugContent, /Official event pass<\/span>/);
+  assert.match(slugContent, /text-slate-800 dark:text-white[^>]*>[\s\S]*?Official event pass/);
+  assert.match(slugContent, /text-slate-800 dark:text-white[^>]*>[\s\S]*?Happening now/);
+
+  // Host email must have high contrast text classes
+  assert.match(slugContent, /href=\{`mailto:\$\{organizerEmail\}`\}[^>]*text-slate-500 dark:text-\[#9B9EA4\]/);
 });

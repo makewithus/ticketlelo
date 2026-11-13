@@ -49,28 +49,30 @@ describe("Online Events, Theme Synchronization & Preview Button Removal Verifica
     assert.ok(regContent.includes("Event Format"), "/register/[eventId] displays Event Format for online sessions");
   });
 
-  it("resolveEventTheme: Minimal theme guarantees canonical olive-brown #432E01 background and #FE760B accent", () => {
+  it("resolveEventTheme: Minimal theme guarantees canonical dark #131517 background, #FE760B accent, and dark card styling", () => {
     // 1. Clean minimal event
     const minimalEvent = { theme: "minimal" };
     const resolved = resolveEventTheme(minimalEvent);
 
-    assert.equal(resolved.pageBg, "#432E01", "Minimal theme must have pageBg #432E01");
+    assert.equal(resolved.pageBg, "#131517", "Minimal theme must have pageBg #131517");
     assert.equal(resolved.color, "#FE760B", "Minimal theme must have accent #FE760B");
     assert.equal(resolved.name, "Minimal");
+    assert.equal(resolved.cardBg, "#1A1C1F", "Minimal theme must have cardBg #1A1C1F");
+    assert.equal(resolved.cardBorder, "#2A2D31", "Minimal theme must have cardBorder #2A2D31");
 
-    // 2. Event with stale custom color and pageBg from previous draft
+    // 2. Event with legacy #432E01 or stale custom color and pageBg from previous draft
     const staleCustomEvent = {
       theme: "minimal",
       themeName: "Minimal",
       themeColor: "#45016A",
-      pageBg: "rgb(28, 12, 42)",
+      pageBg: "#432E01",
     };
     const resolvedStale = resolveEventTheme(staleCustomEvent);
 
     assert.equal(
       resolvedStale.pageBg,
-      "#432E01",
-      "Selected minimal preset must NOT be overridden by stale custom pageBg"
+      "#131517",
+      "Selected minimal preset must sanitize legacy #432E01 and stale custom pageBg to #131517"
     );
     assert.equal(
       resolvedStale.color,

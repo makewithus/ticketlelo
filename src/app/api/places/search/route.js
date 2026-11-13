@@ -110,16 +110,16 @@ export async function GET(request) {
     }
 
     if (Array.isArray(places) && places.length > 0) {
-      // Merge curated top matches with Google Places
-      const combined = [...curatedMatches];
-      for (const p of places) {
+      // Prioritize live Google Places results, supplementing with unique curated venue matches
+      const combined = [...places];
+      for (const c of curatedMatches) {
         const alreadyExists = combined.some(
-          (c) =>
-            c.name.toLowerCase() === p.name.toLowerCase() ||
-            (c.lat && p.lat && Math.abs(c.lat - p.lat) < 0.002 && Math.abs(c.lng - p.lng) < 0.002)
+          (p) =>
+            p.name.toLowerCase() === c.name.toLowerCase() ||
+            (p.lat && c.lat && Math.abs(p.lat - c.lat) < 0.002 && Math.abs(p.lng - c.lng) < 0.002)
         );
         if (!alreadyExists) {
-          combined.push(p);
+          combined.push(c);
         }
       }
       return NextResponse.json({ places: combined.slice(0, 8), source: "google" });

@@ -32,7 +32,7 @@ import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import { getEvent, subscribeToEvent } from "@/lib/firestore";
 import { getMajorEventBySlug } from "@/lib/events-engine";
-import { resolveEventTheme } from "@/lib/theme-utils";
+import { resolveEventTheme, getReadableAccentColor } from "@/lib/theme-utils";
 import { getSubEventsForEvent } from "@/lib/sub-events";
 import { getCombosForEvent } from "@/lib/combos";
 import { VenueMap } from "@/components/common/venue-map";
@@ -170,12 +170,13 @@ export default function RegisterPage() {
 
   // Derive theme properties with canonical Minimal Theme as default / when selected
   const theme = useMemo(() => resolveEventTheme(event), [event]);
-  const pageBg =
+  const rawPageBg =
     theme?.pageBg ||
-    (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal"
-      ? "#432E01"
-      : "#131517");
+    event?.pageBg ||
+    "#131517";
+  const pageBg = rawPageBg === "#432E01" ? "#131517" : rawPageBg;
   const themeAccent = theme?.color || theme?.hex || "#FE760B";
+  const readableAccent = useMemo(() => getReadableAccentColor(themeAccent, true), [themeAccent]);
 
   // Dynamic full-page background synchronization to ensure zero static color mismatch
   useEffect(() => {
@@ -672,9 +673,9 @@ export default function RegisterPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-white font-bold text-lg px-1">
                     {isOnline ? (
-                      <Video className="w-5 h-5" style={{ color: themeAccent }} />
+                      <Video className="w-5 h-5" style={{ color: readableAccent }} />
                     ) : (
-                      <Navigation className="w-5 h-5 text-emerald-400" />
+                      <Navigation className="w-5 h-5" style={{ color: readableAccent }} />
                     )}
                     <h2>{isOnline ? "Online Event Access" : "Venue & navigation"}</h2>
                   </div>

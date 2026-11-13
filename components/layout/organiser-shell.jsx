@@ -186,7 +186,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
       style={
         isCreateEvent
           ? {
-              backgroundColor: "var(--studio-bg, #432E01)",
+              backgroundColor: "var(--studio-bg, #131517)",
             }
           : undefined
       }
@@ -577,7 +577,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
         style={
           isCreateEvent
             ? {
-                backgroundColor: "var(--studio-bg, #432E01)",
+                backgroundColor: "var(--studio-bg, #131517)",
               }
             : undefined
         }

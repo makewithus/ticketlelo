@@ -1,3 +1,18 @@
+// Suppress DEP0169 url.parse deprecation warning from third-party libraries
+if (typeof process !== 'undefined' && typeof process.emitWarning === 'function') {
+  const originalEmitWarning = process.emitWarning;
+  process.emitWarning = function (warning, ...args) {
+    if (
+      (typeof warning === 'string' && (warning.includes('DEP0169') || warning.includes('url.parse()'))) ||
+      (args[0] && (args[0] === 'DEP0169' || args[0]?.code === 'DEP0169')) ||
+      (typeof warning === 'object' && warning?.code === 'DEP0169')
+    ) {
+      return;
+    }
+    return originalEmitWarning.apply(process, [warning, ...args]);
+  };
+}
+
 // Unit/simulation tests must never inherit production credentials or load .env.
 process.env.NODE_ENV = 'test';
 for (const key of Object.keys(process.env)) {

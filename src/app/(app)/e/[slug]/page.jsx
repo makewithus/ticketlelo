@@ -46,7 +46,7 @@ import { DynamicRegistrationForm } from "@/components/forms/dynamic-registration
 import { formatEventDate, parseFirestoreDate } from "@/lib/date-utils";
 import { VenueMap } from "@/components/common/venue-map";
 import { useAuth } from "@/context/auth-context";
-import { getThemeLook, resolveEventTheme } from "@/lib/theme-utils";
+import { getThemeLook, resolveEventTheme, getReadableAccentColor } from "@/lib/theme-utils";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
@@ -324,11 +324,12 @@ export default function PublicEventBySlugPage() {
   // Derive theme properties unconditionally matching React Rules of Hooks
   const eventTheme = useMemo(() => resolveEventTheme(event), [event]);
   const themeAccent = eventTheme?.color || eventTheme?.hex || event?.themeColor || "#FE760B";
-  const pageBg =
+  const readableAccent = useMemo(() => getReadableAccentColor(themeAccent, true), [themeAccent]);
+  const rawPageBg =
     eventTheme?.pageBg ||
-    (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal"
-      ? "#432E01"
-      : "#131517");
+    event?.pageBg ||
+    "#131517";
+  const pageBg = rawPageBg === "#432E01" ? "#131517" : rawPageBg;
   const themeLook = getThemeLook(event?.themeColor || event?.theme || themeAccent);
 
   // Check if event is virtual or online meeting
@@ -718,18 +719,16 @@ export default function PublicEventBySlugPage() {
 
           <div className="flex items-center gap-2.5">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm text-slate-800 dark:text-white border ${
                 isClosedForRegistration
-                  ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                  ? "bg-red-500/10 text-red-500 border-red-500/20"
                   : ""
               }`}
               style={
                 !isClosedForRegistration
                   ? {
-                      backgroundColor: `${themeAccent}18`,
-                      borderColor: `${themeAccent}35`,
-                      color: themeAccent,
-                      borderWidth: "1px",
+                      backgroundColor: `${themeAccent}20`,
+                      borderColor: `${themeAccent}45`,
                     }
                   : undefined
               }
@@ -738,7 +737,7 @@ export default function PublicEventBySlugPage() {
                 className={`w-2 h-2 rounded-full ${
                   isClosedForRegistration ? "bg-red-500" : "animate-pulse"
                 }`}
-                style={!isClosedForRegistration ? { backgroundColor: themeAccent } : undefined}
+                style={!isClosedForRegistration ? { backgroundColor: readableAccent } : undefined}
               />
               {isClosedForRegistration
                 ? "● Registration closed"
@@ -769,27 +768,25 @@ export default function PublicEventBySlugPage() {
               <div className="relative z-10 space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <div
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider text-slate-800 dark:text-white"
                     style={{
-                      backgroundColor: `${themeAccent}15`,
-                      borderColor: `${themeAccent}30`,
-                      color: themeAccent,
+                      backgroundColor: `${themeAccent}20`,
+                      borderColor: `${themeAccent}45`,
                       borderWidth: "1px",
                     }}
                   >
-                    <Ticket className="w-3.5 h-3.5" style={{ color: themeAccent }} />
+                    <Ticket className="w-3.5 h-3.5" style={{ color: readableAccent }} />
                     <span>Official event pass</span>
                   </div>
                   <div
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-800 dark:text-white"
                     style={{
-                      backgroundColor: `${themeAccent}15`,
-                      borderColor: `${themeAccent}30`,
-                      color: themeAccent,
+                      backgroundColor: `${themeAccent}20`,
+                      borderColor: `${themeAccent}45`,
                       borderWidth: "1px",
                     }}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: themeAccent }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: readableAccent }} />
                     <span>Happening now</span>
                   </div>
                 </div>
@@ -821,23 +818,15 @@ export default function PublicEventBySlugPage() {
                       <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                         {organizerName}
                       </span>
-                      <span
-                        className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-mono font-bold"
-                        style={{
-                          backgroundColor: `${themeAccent}15`,
-                          borderColor: `${themeAccent}30`,
-                          color: themeAccent,
-                          borderWidth: "1px",
-                        }}
-                      >
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-mono font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <CheckCircle2 className="w-2.5 h-2.5" />
                         Verified
                       </span>
                     </div>
                     {organizerEmail && (
                       <a
                         href={`mailto:${organizerEmail}`}
-                        className="text-[11px] hover:underline truncate block font-medium"
-                        style={{ color: themeAccent }}
+                        className="text-[11px] text-slate-500 dark:text-[#9B9EA4] hover:text-[#FE760B] dark:hover:text-white hover:underline truncate block font-medium transition-colors"
                       >
                         {organizerEmail}
                       </a>
@@ -866,9 +855,9 @@ export default function PublicEventBySlugPage() {
                 <div
                   className="p-2.5 rounded-xl shrink-0"
                   style={{
-                    backgroundColor: `${themeAccent}15`,
-                    borderColor: `${themeAccent}30`,
-                    color: themeAccent,
+                    backgroundColor: `${themeAccent}20`,
+                    borderColor: `${themeAccent}40`,
+                    color: readableAccent,
                     borderWidth: "1px",
                   }}
                 >
@@ -1085,9 +1074,9 @@ export default function PublicEventBySlugPage() {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg px-1">
                 {isOnline ? (
-                  <Video className="w-5 h-5" style={{ color: themeAccent }} />
+                  <Video className="w-5 h-5" style={{ color: readableAccent }} />
                 ) : (
-                  <Navigation className="w-5 h-5" style={{ color: themeAccent }} />
+                  <Navigation className="w-5 h-5" style={{ color: readableAccent }} />
                 )}
                 <h2>{isOnline ? "Online Event Access" : "Venue & navigation"}</h2>
               </div>
@@ -1176,7 +1165,7 @@ export default function PublicEventBySlugPage() {
               {/* User email badge if signed in */}
               {user && (
                 <div className="flex items-center gap-2 bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl px-3 py-2 mb-4">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: themeAccent }} />
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: readableAccent }} />
                   <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                     {user?.fullName || user?.name || "Attendee"}
                   </span>
@@ -1227,7 +1216,7 @@ export default function PublicEventBySlugPage() {
               {/* Micro Trust Strip */}
               <div className="mt-5 pt-4 border-t border-slate-200 dark:border-[#2A2D31] flex items-center justify-between text-[11px] text-slate-500 dark:text-[#9B9EA4]">
                 <span className="flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" style={{ color: themeAccent }} />
+                  <ShieldCheck className="w-3.5 h-3.5" style={{ color: readableAccent }} />
                   100% secure checkout
                 </span>
                 <span>TicketLelo verified</span>

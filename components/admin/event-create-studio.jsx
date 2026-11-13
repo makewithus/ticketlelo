@@ -95,8 +95,8 @@ const THEMES = [
     id: "minimal",
     name: "Minimal",
     color: "#FE760B",
-    pageBg: "#432E01",
-    bg: "#432E01",
+    pageBg: "#131517",
+    bg: "#131517",
     sun: "#FE760B",
     text: "#FFFFFF",
   },
@@ -1339,7 +1339,7 @@ export function EventCreateStudio({
         themeColor: selectedTheme.color || "#FE760B",
         themeHex: selectedTheme.color || "#FE760B",
         themeName: selectedTheme.name || "Minimal",
-        pageBg: selectedTheme.pageBg || "#432E01",
+        pageBg: selectedTheme.pageBg === "#432E01" ? "#131517" : (selectedTheme.pageBg || "#131517"),
         ticketBgColor: formData.ticketBgColor || selectedTheme.color || "#FE760B",
         coverImage: formData.coverImage || "",
         visibility: formData.visibility,
@@ -1435,8 +1435,8 @@ export function EventCreateStudio({
 
   const currentBgColor =
     formData.theme === "minimal"
-      ? "#432E01"
-      : selectedTheme?.pageBg || "#432E01";
+      ? "#131517"
+      : (selectedTheme?.pageBg === "#432E01" ? "#131517" : selectedTheme?.pageBg) || "#131517";
 
   // Dynamic full-page background synchronization to ensure zero static color mismatch
   useEffect(() => {
@@ -2301,12 +2301,7 @@ export function EventCreateStudio({
                       <ExternalLink className="w-2.5 h-2.5 text-[#FE760B]" />
                     </a>
                   </div>
-                  {formData.latitude && formData.longitude && (
-                    <div className="absolute bottom-2 left-2 z-10 pointer-events-none text-[10px] text-white bg-black/85 px-2.5 py-1 rounded-md backdrop-blur-sm border border-white/10 font-mono flex items-center gap-1.5 shadow-md">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C] animate-pulse" />
-                      <span>{Number(formData.latitude).toFixed(4)}° N, {Number(formData.longitude).toFixed(4)}° E</span>
-                    </div>
-                  )}
+
                 </div>
 
                 {/* + Add Further Instructions button matching screenshot */}
@@ -3505,30 +3500,12 @@ export function EventCreateStudio({
                                 <MapPin className="w-4 h-4" />
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="text-xs sm:text-sm font-bold text-white leading-snug group-hover:text-[#FE760B] transition-colors">
-                                    {item.name}
-                                  </p>
-                                  {item.isVerified && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30">
-                                      <Check className="w-2.5 h-2.5" /> Verified Campus
-                                    </span>
-                                  )}
-                                  {item.category && !item.isVerified && (
-                                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-[#9B9EA4]">
-                                      {item.category}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-[#9B9EA4] truncate mt-0.5">
+                                <p className="text-xs sm:text-sm font-bold text-white leading-snug group-hover:text-[#FE760B] transition-colors truncate">
+                                  {item.name}
+                                </p>
+                                <p className="text-[11px] text-[#9B9EA4] line-clamp-2 mt-0.5">
                                   {item.address}
                                 </p>
-                                {item.lat && item.lng && (
-                                  <p className="text-[10px] font-mono text-[#3DD68C]/90 mt-0.5 flex items-center gap-1">
-                                    <MapPin className="w-2.5 h-2.5 text-[#3DD68C]" />
-                                    <span>{Number(item.lat).toFixed(4)}° N, {Number(item.lng).toFixed(4)}° E</span>
-                                  </p>
-                                )}
                               </div>
                             </div>
                           ))
@@ -3622,17 +3599,15 @@ export function EventCreateStudio({
                           className="w-full h-full filter saturate-[0.9] contrast-[1.05]"
                         />
 
-                        {/* Coords & Venue Floating Badge */}
-                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[10px] text-white bg-black/85 px-2.5 py-1.5 rounded-lg backdrop-blur-sm border border-white/10 font-mono shadow-md">
-                          <span className="truncate max-w-[200px] flex items-center gap-1">
+                        {/* Venue Floating Badge */}
+                        <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10 text-[11px] text-white bg-black/80 px-2.5 py-1.5 rounded-lg backdrop-blur-sm border border-white/10 shadow-md">
+                          <span className="truncate max-w-[220px] flex items-center gap-1.5 font-medium">
                             <MapPin className="w-3 h-3 text-[#FE760B] shrink-0" />
                             <span className="truncate">{selectedLocationVenue.name}</span>
                           </span>
-                          <span className="text-[#3DD68C] font-bold flex items-center gap-1">
+                          <span className="text-[#3DD68C] text-[10px] font-semibold flex items-center gap-1.5 shrink-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C] animate-pulse" />
-                            {selectedLocationVenue.lat && selectedLocationVenue.lng
-                              ? `${Number(selectedLocationVenue.lat).toFixed(4)}° N, ${Number(selectedLocationVenue.lng).toFixed(4)}° E`
-                              : "Real-Time Location Mapped"}
+                            <span>Real-Time Location Mapped</span>
                           </span>
                         </div>
                       </div>
