@@ -4,6 +4,21 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 
+function formatTimestampToString(raw) {
+  if (!raw) return null;
+  if (typeof raw === "string") return raw;
+  if (typeof raw?.toDate === "function") {
+    try {
+      const d = raw.toDate();
+      if (!isNaN(d.getTime())) return d.toISOString();
+    } catch {}
+  }
+  if (typeof raw?.seconds === "number") return new Date(raw.seconds * 1000).toISOString();
+  if (typeof raw?._seconds === "number") return new Date(raw._seconds * 1000).toISOString();
+  if (raw instanceof Date) return raw.toISOString();
+  return null;
+}
+
 export async function GET(request) {
   try {
     const caller = await getAuthenticatedUser(request);
@@ -39,8 +54,8 @@ export async function GET(request) {
           description: typeof data.description === "string" ? data.description : data.description?.text || "",
           slug: data.customSlug || data.slug || doc.id,
           customSlug: data.customSlug || data.slug || doc.id,
-          date: data.date || data.startDate || null,
-          startDate: data.startDate || data.date || null,
+          date: formatTimestampToString(data.date || data.startDate),
+          startDate: formatTimestampToString(data.startDate || data.date),
           venue: data.venue || data.location || "",
           location: data.location || data.venue || "",
           status: data.status || "active",

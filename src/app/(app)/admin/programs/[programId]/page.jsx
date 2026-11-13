@@ -46,6 +46,7 @@ import {
   Info,
   Edit3,
   ArrowUpRight,
+  ArrowRight,
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +67,40 @@ function parseTimestamp(raw) {
   if (typeof raw?._seconds === "number") return new Date(raw._seconds * 1000);
   const d = new Date(raw);
   return isNaN(d.getTime()) ? new Date() : d;
+}
+
+function formatDisplayDate(raw) {
+  if (!raw) return "";
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "number") {
+    try {
+      return new Date(raw).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    } catch {
+      return "";
+    }
+  }
+  if (typeof raw === "object") {
+    try {
+      if (typeof raw.toDate === "function") {
+        return raw.toDate().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      }
+      if (typeof raw._seconds === "number") {
+        return new Date(raw._seconds * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      }
+      if (typeof raw.seconds === "number") {
+        return new Date(raw.seconds * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      }
+    } catch {}
+  }
+  return "";
+}
+
+function renderSafeText(raw, fallback = "") {
+  if (raw === null || raw === undefined) return fallback;
+  if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
+    return String(raw);
+  }
+  return fallback;
 }
 
 function toDateInputValue(raw) {
@@ -103,6 +138,7 @@ export default function OrganizerProgramHubPage({ params }) {
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [isRejectingMode, setIsRejectingMode] = useState(false);
   const [processingApp, setProcessingApp] = useState(false);
 
   // Tab 4: Active Ambassadors
@@ -538,6 +574,7 @@ export default function OrganizerProgramHubPage({ params }) {
       if (!res.ok) throw new Error(data.error || "Failed to reject application");
       toast.success("Application rejected and applicant notified.");
       setSelectedApp(null);
+      setIsRejectingMode(false);
       setRejectReason("");
       fetchApplications();
       fetchProgram();
@@ -892,6 +929,19 @@ export default function OrganizerProgramHubPage({ params }) {
                   >
                     {copiedLink === "apply" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const shareText = `Apply to become a Campus Ambassador for ${program?.name || "our program"}: ${publicApplyUrl}`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank", "noopener,noreferrer");
+                    }}
+                    className="text-xs h-9 px-3 shrink-0 bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] border border-[#25D366]/35 rounded-xl cursor-pointer"
+                    title="Share Application Link on WhatsApp"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.456 5.712 1.457h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                  </Button>
                   <Link href={`/programs/${programId}/apply`} target="_blank">
                     <Button size="sm" variant="outline" className="text-xs h-9 px-3 shrink-0 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] cursor-pointer" title="Open application form in new tab">
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -1137,8 +1187,12 @@ export default function OrganizerProgramHubPage({ params }) {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setSelectedApp(app)}
-                      className="text-xs h-8 px-3 rounded-lg border-slate-200 dark:border-[#2A2D31]"
+                      onClick={() => {
+                        setSelectedApp(app);
+                        setIsRejectingMode(false);
+                        setRejectReason("");
+                      }}
+                      className="text-xs h-8 px-3 rounded-lg border-slate-200 dark:border-[#2A2D31] bg-[#212327] text-[#D0D0D1] hover:bg-[#2A2D31] hover:text-white transition-colors cursor-pointer"
                     >
                       Review
                     </Button>
@@ -1148,7 +1202,7 @@ export default function OrganizerProgramHubPage({ params }) {
                           size="sm"
                           disabled={processingApp}
                           onClick={() => handleApproveApp(app.id)}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8 px-3 rounded-lg"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8 px-3 rounded-lg cursor-pointer transition-colors"
                         >
                           Approve
                         </Button>
@@ -1156,8 +1210,12 @@ export default function OrganizerProgramHubPage({ params }) {
                           size="sm"
                           variant="outline"
                           disabled={processingApp}
-                          onClick={() => setSelectedApp(app)}
-                          className="text-rose-400 border-rose-500/30 hover:bg-rose-500/10 text-xs h-8 px-3 rounded-lg"
+                          onClick={() => {
+                            setSelectedApp(app);
+                            setIsRejectingMode(true);
+                            setRejectReason("");
+                          }}
+                          className="text-rose-400 border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-300 text-xs h-8 px-3 rounded-lg cursor-pointer transition-colors"
                         >
                           Reject
                         </Button>
@@ -1306,14 +1364,31 @@ export default function OrganizerProgramHubPage({ params }) {
                     </div>
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCopy(codeDoc.code, codeDoc.code)}
-                    className="text-xs h-8 px-3 rounded-lg border-slate-200 dark:border-[#2A2D31] self-end sm:self-auto shrink-0"
-                  >
-                    {copiedLink === codeDoc.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  </Button>
+                  <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopy(codeDoc.code, codeDoc.code)}
+                      className="text-xs h-8 px-3 rounded-lg border-slate-200 dark:border-[#2A2D31] bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white cursor-pointer"
+                      title="Copy referral code"
+                    >
+                      {copiedLink === codeDoc.code ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const shareText = `Use referral code ${codeDoc.code} for ${program?.name || "the event"}: ${publicApplyUrl || `${getPublicBaseUrl()}/programs/${programId}/apply`}?ref=${codeDoc.code}`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank", "noopener,noreferrer");
+                      }}
+                      className="text-xs h-8 px-2.5 rounded-lg border-slate-200 dark:border-[#2A2D31] bg-[#212327] hover:bg-[#2A2D31] text-[#25D366] hover:text-[#25D366] transition-colors cursor-pointer"
+                      title="Share Referral Code on WhatsApp"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.456 5.712 1.457h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1910,7 +1985,7 @@ export default function OrganizerProgramHubPage({ params }) {
                           {ev.title || ev.name}
                         </p>
                         <p className="text-[10px] text-[#9B9EA4] truncate">
-                          {ev.date || "Date TBA"}
+                          {formatDisplayDate(ev.date || ev.startDate) || "Date TBA"}
                         </p>
                       </div>
                       <Button
@@ -1943,7 +2018,11 @@ export default function OrganizerProgramHubPage({ params }) {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedApp(null);
+            if (e.target === e.currentTarget) {
+              setSelectedApp(null);
+              setIsRejectingMode(false);
+              setRejectReason("");
+            }
           }}
         >
           <div className="relative w-full max-w-lg max-h-[90vh] bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl flex flex-col shadow-2xl text-white my-auto animate-scale-in overflow-hidden">
@@ -1951,16 +2030,23 @@ export default function OrganizerProgramHubPage({ params }) {
             <div className="flex items-center justify-between border-b border-[#2A2D31] p-5 sm:p-6 shrink-0 bg-[#16181A]">
               <div className="pr-3">
                 <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                  {selectedApp.fullName}
+                  {isRejectingMode ? "Reject Application" : renderSafeText(selectedApp.fullName, "Applicant Details")}
                 </h3>
                 <p className="text-xs text-[#9B9EA4] mt-0.5">
-                  {selectedApp.college} • {selectedApp.answers?.department || "Student"} ({selectedApp.answers?.yearOfStudy || "Ambassador"})
+                  {isRejectingMode
+                    ? `Specify reason for ${renderSafeText(selectedApp.fullName)}`
+                    : `${renderSafeText(selectedApp.college, "Campus")} • ${renderSafeText(selectedApp.answers?.department, "Student")} (${renderSafeText(selectedApp.answers?.yearOfStudy, "Ambassador")})`}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedApp(null)}
+                onClick={() => {
+                  setSelectedApp(null);
+                  setIsRejectingMode(false);
+                  setRejectReason("");
+                }}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-[#9B9EA4] hover:text-white hover:bg-[#2A2D31] transition-all cursor-pointer shrink-0"
+                title="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1968,82 +2054,115 @@ export default function OrganizerProgramHubPage({ params }) {
 
             {/* Modal Scrollable Body */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-5 sm:p-6 space-y-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
-                  Contact Information
-                </span>
-                <p className="text-white text-sm font-medium">{selectedApp.email}</p>
-                <p className="text-[#FE760B] text-xs font-mono mt-0.5">WhatsApp: {selectedApp.whatsappPhone}</p>
-              </div>
+              {isRejectingMode ? (
+                /* ── Reject Reason Mode ── */
+                <div className="space-y-4 animate-fade-in">
+                  <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 space-y-1">
+                    <p className="text-xs font-bold text-rose-400">
+                      You are rejecting the application from {renderSafeText(selectedApp.fullName)}.
+                    </p>
+                    <p className="text-[11px] text-[#9B9EA4] leading-relaxed">
+                      Please provide a clear reason. This explanation is required and will be sent to the applicant so they know why their application was not accepted.
+                    </p>
+                  </div>
 
-              {selectedApp.answers?.socialProfile && (
-                <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                  <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
-                    Social Profile / Portfolio Link
-                  </span>
-                  <a
-                    href={selectedApp.answers.socialProfile}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[#FE760B] hover:underline break-all text-xs font-mono"
-                  >
-                    {selectedApp.answers.socialProfile}
-                  </a>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-rose-400 uppercase tracking-wider block">
+                      Rejection Reason <span className="text-rose-500">* (Required)</span>
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="e.g., Campus capacity filled, incomplete application, does not meet eligibility criteria..."
+                      className="w-full bg-[#212327] border border-[#2A2D31] focus:border-rose-500 rounded-xl p-3 text-xs sm:text-sm text-white placeholder:text-[#71767B] focus:outline-none transition-colors resize-none"
+                      autoFocus
+                    />
+                  </div>
                 </div>
-              )}
+              ) : (
+                /* ── Standard Review Mode ── */
+                <>
+                  <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                    <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
+                      Contact Information
+                    </span>
+                    <p className="text-white text-sm font-medium">{renderSafeText(selectedApp.email)}</p>
+                    <p className="text-[#FE760B] text-xs font-mono mt-0.5">
+                      WhatsApp: {renderSafeText(selectedApp.whatsappPhone)}
+                    </p>
+                  </div>
 
-              {selectedApp.answers?.clubRoles && (
-                <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                  <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
-                    Club Leadership / Campus Roles
-                  </span>
-                  <p className="text-white text-xs leading-relaxed">{selectedApp.answers.clubRoles}</p>
-                </div>
-              )}
+                  {selectedApp.answers?.socialProfile && (
+                    <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                      <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
+                        Social Profile / Portfolio Link
+                      </span>
+                      <a
+                        href={String(selectedApp.answers.socialProfile)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#FE760B] hover:underline break-all text-xs font-mono"
+                      >
+                        {String(selectedApp.answers.socialProfile)}
+                      </a>
+                    </div>
+                  )}
 
-              {selectedApp.answers?.promotionPitch && (
-                <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
-                  <span className="font-semibold text-[#FE760B] uppercase tracking-wider text-[10px] block mb-1">
-                    Promotion Strategy Pitch
-                  </span>
-                  <p className="text-slate-200 text-xs leading-relaxed">{selectedApp.answers.promotionPitch}</p>
-                </div>
-              )}
+                  {selectedApp.answers?.clubRoles && (
+                    <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                      <span className="font-semibold text-[#9B9EA4] uppercase tracking-wider text-[10px] block mb-1">
+                        Club Leadership / Campus Roles
+                      </span>
+                      <p className="text-white text-xs leading-relaxed">{renderSafeText(selectedApp.answers.clubRoles)}</p>
+                    </div>
+                  )}
 
-              {selectedApp.status === "pending" && (
-                <div className="pt-2">
-                  <label className="text-[11px] font-semibold text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
-                    Optional Rejection Feedback (only if rejecting)
-                  </label>
-                  <Input
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Enter rejection reason for applicant"
-                    className="bg-[#212327] border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] h-11 rounded-xl focus:border-[#FE760B]"
-                  />
-                </div>
+                  {selectedApp.answers?.promotionPitch && (
+                    <div className="p-3.5 rounded-xl bg-[#212327] border border-[#2A2D31]">
+                      <span className="font-semibold text-[#FE760B] uppercase tracking-wider text-[10px] block mb-1">
+                        Promotion Strategy Pitch
+                      </span>
+                      <p className="text-slate-200 text-xs leading-relaxed">{renderSafeText(selectedApp.answers.promotionPitch)}</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {/* Modal Sticky Footer */}
-            <div className="flex items-center justify-end gap-3 p-4 sm:p-5 border-t border-[#2A2D31] shrink-0 bg-[#16181A]">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setSelectedApp(null)}
-                className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
-              >
-                Close
-              </Button>
-              {selectedApp.status === "pending" && (
+            {/* Modal Sticky Footer - NO REDUNDANT CLOSE BUTTON */}
+            <div className="flex items-center justify-between gap-3 p-4 sm:p-5 border-t border-[#2A2D31] shrink-0 bg-[#16181A]">
+              {isRejectingMode ? (
                 <>
                   <Button
                     size="sm"
-                    disabled={processingApp}
-                    onClick={() => handleRejectApp(selectedApp.id)}
-                    className="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs h-10 px-4 rounded-xl cursor-pointer shadow-sm transition-colors"
+                    variant="outline"
+                    onClick={() => {
+                      setIsRejectingMode(false);
+                      setRejectReason("");
+                    }}
+                    className="h-10 px-4 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border-[#2A2D31] text-xs font-semibold cursor-pointer transition-colors"
                   >
-                    Reject
+                    Back to Review
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={processingApp || !rejectReason.trim()}
+                    onClick={() => handleRejectApp(selectedApp.id)}
+                    className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs h-10 px-5 rounded-xl cursor-pointer shadow-sm transition-colors"
+                  >
+                    {processingApp ? "Rejecting..." : "Confirm Rejection"}
+                  </Button>
+                </>
+              ) : selectedApp.status === "pending" ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsRejectingMode(true)}
+                    className="h-10 px-4 rounded-xl border-rose-500/40 text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    Reject Application
                   </Button>
                   <Button
                     size="sm"
@@ -2054,6 +2173,10 @@ export default function OrganizerProgramHubPage({ params }) {
                     Approve & Enrol
                   </Button>
                 </>
+              ) : (
+                <div className="w-full text-right">
+                  <span className="text-xs text-[#9B9EA4] italic">Application processed ({selectedApp.status}).</span>
+                </div>
               )}
             </div>
           </div>

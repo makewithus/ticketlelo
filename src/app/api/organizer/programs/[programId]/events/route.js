@@ -7,6 +7,21 @@ import {
   toggleEventReferral,
 } from "@/lib/creator-campus/programs-service";
 
+function formatTimestampToString(raw) {
+  if (!raw) return null;
+  if (typeof raw === "string") return raw;
+  if (typeof raw?.toDate === "function") {
+    try {
+      const d = raw.toDate();
+      if (!isNaN(d.getTime())) return d.toISOString();
+    } catch {}
+  }
+  if (typeof raw?.seconds === "number") return new Date(raw.seconds * 1000).toISOString();
+  if (typeof raw?._seconds === "number") return new Date(raw._seconds * 1000).toISOString();
+  if (raw instanceof Date) return raw.toISOString();
+  return null;
+}
+
 export async function GET(request, { params }) {
   try {
     const caller = await getAuthenticatedUser(request);
@@ -59,7 +74,7 @@ export async function GET(request, { params }) {
           name: ed.name || ed.title || "Untitled Event",
           title: ed.name || ed.title || "Untitled Event",
           slug: ed.customSlug || ed.slug || d.id,
-          date: ed.date || ed.startDate || null,
+          date: formatTimestampToString(ed.date || ed.startDate),
           isActive: ed.isActive ?? true,
         });
       }
@@ -84,7 +99,7 @@ export async function GET(request, { params }) {
                   name: ed.name || ed.title || "Untitled Event",
                   title: ed.name || ed.title || "Untitled Event",
                   slug: ed.customSlug || ed.slug || d.id,
-                  date: ed.date || ed.startDate || null,
+                  date: formatTimestampToString(ed.date || ed.startDate),
                   isActive: ed.isActive ?? true,
                 });
               }
