@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, Suspense, memo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense, memo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,7 +23,10 @@ import {
   Building2,
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   LayoutGrid,
+  Rows3,
   ListFilter,
   X,
   Radio,
@@ -36,12 +39,20 @@ import {
   ArrowUpRight,
   Shield,
   Menu,
+  Zap,
+  Code2,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StubTicket } from "@/components/tickets/stub-ticket";
-import { formatEventDate, getEventLiveStatus } from "@/lib/date-utils";
+import {
+  formatEventDate,
+  getEventLiveStatus,
+  getEventDateRange,
+  parseFirestoreDate,
+} from "@/lib/date-utils";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCachedItem, setCachedItem } from "@/lib/client-cache";
@@ -143,6 +154,48 @@ function areEventsIdentical(prev, next) {
   return true;
 }
 
+// Animated number counter with smooth easing (count-up effect)
+function AnimatedCounter({ end = 0, duration = 1400, suffix = "", prefix = "" }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const target = Number(end) || 0;
+    if (target === 0) return;
+
+    let startTimestamp = null;
+    let animationFrameId = null;
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const elapsed = timestamp - startTimestamp;
+      const progress = Math.min(elapsed / duration, 1);
+      // Smooth easeOutCubic curve
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const current = Math.floor(easeOut * target);
+      setCount(current);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(step);
+      } else {
+        setCount(target);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(step);
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [end, duration]);
+
+  return (
+    <span className="tabular-nums font-black">
+      {prefix}
+      {count}
+      {suffix}
+    </span>
+  );
+}
+
 function DiscoverEventsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
@@ -160,6 +213,34 @@ function DiscoverEventsPageContent() {
   const [copiedId, setCopiedId] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [viewMode, setViewMode] = useState("grid");
+  const categoryScrollRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Keyboard shortcut: Press "/" to focus search bar
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (
+        e.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleScrollCategories = (direction) => {
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.scrollBy({
+        left: direction === "left" ? -260 : 260,
+        behavior: "smooth",
+      });
+    }
+  };
 
   // Referral code attribution and instant target event resolution
   useEffect(() => {
@@ -487,19 +568,144 @@ function DiscoverEventsPageContent() {
     });
   }, [events, searchTerm, selectedCategory]);
 
-  // Sort logic
+  // Metrics summary
+  const metrics = useMemo(() => {
+    let liveCount = 0;
+    let upcomingCount = 0;
+    let endedCount = 0;
+    let freeCount = 0;
+    let campusCount = 0;
+
+    for (const ev of events) {
+      const timing = getEventLiveStatus(ev);
+      if (timing.isLive) liveCount++;
+      else if (timing.isUpcoming) upcomingCount++;
+      else if (timing.isEnded) endedCount++;
+
+      const isFree =
+        !ev.isPaid ||
+        String(ev.price).toLowerCase() === "free" ||
+        ev.price === 0 ||
+        ev.price === "0";
+      if (isFree) freeCount++;
+
+      const isCampus = /(university|college|iit|nit|kiet|cusat|campus|fest)/i.test(
+        (ev.location || "") + " " + (ev.locationVenue || "") + " " + (ev.title || "")
+      );
+      if (isCampus) campusCount++;
+    }
+
+    return {
+      total: events.length,
+      liveCount,
+      upcomingCount,
+      endedCount,
+      freeCount,
+      campusCount,
+    };
+  }, [events]);
+
+  // Real-time category counts
+  const categoryCounts = useMemo(() => {
+    const counts = { all: events.length };
+    counts.live = metrics.liveCount;
+    counts.upcoming = metrics.upcomingCount;
+    counts.free = metrics.freeCount;
+    counts.paid = Math.max(0, events.length - metrics.freeCount);
+
+    counts.popular = events.filter((e) => {
+      const c = (e.category || "").toLowerCase();
+      return c.includes("popular") || c.includes("featured") || e.isPopular || e.featured;
+    }).length;
+
+    counts.tech = events.filter((e) => {
+      const c = (e.category || "").toLowerCase();
+      const t = (e.title || e.name || "").toLowerCase();
+      const d = (e.description || "").toLowerCase();
+      return c.includes("tech") || t.includes("tech") || d.includes("tech") || d.includes("ai") || t.includes("ai");
+    }).length;
+
+    counts.dev = events.filter((e) => {
+      const t = (e.title || e.name || "").toLowerCase();
+      const d = (e.description || "").toLowerCase();
+      return (
+        t.includes("developer") || t.includes("dev") || t.includes("hackathon") ||
+        t.includes("sprint") || d.includes("dev") || d.includes("code")
+      );
+    }).length;
+
+    counts.gaming = events.filter((e) => {
+      const c = (e.category || "").toLowerCase();
+      const t = (e.title || e.name || "").toLowerCase();
+      const d = (e.description || "").toLowerCase();
+      return c.includes("gaming") || t.includes("gaming") || t.includes("esports") || d.includes("game");
+    }).length;
+
+    counts.shows = events.filter((e) => {
+      const c = (e.category || "").toLowerCase();
+      const t = (e.title || e.name || "").toLowerCase();
+      return c.includes("concert") || c.includes("standup") || t.includes("concert") || t.includes("music") || t.includes("open mic");
+    }).length;
+
+    counts.campus = metrics.campusCount;
+
+    return counts;
+  }, [events, metrics]);
+
+  // Sort logic (Strict priority: Live events first -> Upcoming by date -> Ended at bottom)
   const sortedEvents = useMemo(() => {
     const list = [...filteredEvents];
-    if (sortBy === "date-asc") {
-      list.sort((a, b) => {
-        const da = a.startDate || a.date ? new Date(a.startDate || a.date).getTime() : 0;
-        const db = b.startDate || b.date ? new Date(b.startDate || b.date).getTime() : 0;
-        return da - db;
-      });
-    } else if (sortBy === "name-asc") {
-      list.sort((a, b) => (a.title || a.name || "").localeCompare(b.title || b.name || ""));
-    } else if (sortBy === "capacity-desc") {
-      list.sort((a, b) => {
+
+    const getEventTimestamp = (ev, useEnd = false) => {
+      const range = getEventDateRange(ev);
+      if (useEnd && range.end) return range.end.getTime();
+      if (range.start) return range.start.getTime();
+      const raw = ev.startDate || ev.date || ev.eventDate;
+      const parsed = parseFirestoreDate(raw);
+      if (parsed) return parsed.getTime();
+      return useEnd ? 0 : Number.MAX_SAFE_INTEGER;
+    };
+
+    const getStatusRank = (ev) => {
+      const timing = getEventLiveStatus(ev);
+      if (timing.isLive) return 0;       // Tier 0: LIVE NOW (highest priority!)
+      if (timing.isUpcoming) return 1;   // Tier 1: UPCOMING
+      return 2;                          // Tier 2: ENDED / PAST
+    };
+
+    list.sort((a, b) => {
+      const rankA = getStatusRank(a);
+      const rankB = getStatusRank(b);
+
+      // 1. Primary sorting: Live (0) -> Upcoming (1) -> Ended (2)
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+
+      // 2. Secondary sorting within the same status tier:
+      if (sortBy === "date-asc" || sortBy === "live-upcoming") {
+        if (rankA === 0) {
+          // LIVE: soonest ending or latest starting
+          return getEventTimestamp(a) - getEventTimestamp(b);
+        }
+        if (rankA === 1) {
+          // UPCOMING: soonest upcoming date first (today -> tomorrow -> next week...)
+          return getEventTimestamp(a) - getEventTimestamp(b);
+        }
+        // ENDED: newest ended first (most recent past event at top of ended section)
+        return getEventTimestamp(b, true) - getEventTimestamp(a, true);
+      }
+
+      if (sortBy === "date-desc") {
+        // Furthest date first
+        return getEventTimestamp(b) - getEventTimestamp(a);
+      }
+
+      if (sortBy === "name-asc") {
+        return (a.title || a.name || "").localeCompare(b.title || b.name || "");
+      }
+
+      if (sortBy === "capacity-desc") {
         const getCapNum = (item) => {
           const raw = item?.capacity ?? item?.totalTickets ?? item?.maxCapacity;
           if (typeof raw === "string" && raw.toLowerCase().includes("unlimited")) return 999999;
@@ -508,26 +714,17 @@ function DiscoverEventsPageContent() {
           return Number.isFinite(parsed) ? parsed : 0;
         };
         return getCapNum(b) - getCapNum(a);
-      });
-    } else if (sortBy === "price-asc") {
-      list.sort((a, b) => (a.isPaid ? 1 : 0) - (b.isPaid ? 1 : 0));
-    }
+      }
+
+      if (sortBy === "price-asc") {
+        return (a.isPaid ? 1 : 0) - (b.isPaid ? 1 : 0);
+      }
+
+      return 0;
+    });
+
     return list;
   }, [filteredEvents, sortBy]);
-
-  // Metrics summary
-  const metrics = useMemo(() => {
-    const total = events.length;
-    const freeCount = events.filter(
-      (e) => !e.isPaid || String(e.price).toLowerCase() === "free"
-    ).length;
-    const campusCount = events.filter((e) =>
-      /(university|college|iit|nit|kiet|cusat|campus)/i.test(
-        (e.location || "") + " " + (e.title || "")
-      )
-    ).length;
-    return { total, freeCount, campusCount };
-  }, [events]);
 
   if (isRedirecting) {
     return (
@@ -699,13 +896,30 @@ function DiscoverEventsPageContent() {
         </AnimatePresence>
       </header>
 
-      {/* ── Hero Showcase Section ── */}
-      <section className="relative pt-10 sm:pt-14 pb-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Subtle decorative glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-2xl h-48 bg-gradient-to-b from-[#FE760B]/15 via-[#FE760B]/5 to-transparent blur-3xl pointer-events-none rounded-full" />
+      {/* ── Hero Showcase Section (Image 2 - Animated Hero with Live Counters) ── */}
+      <section className="relative pt-10 sm:pt-16 pb-10 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto overflow-hidden">
+        {/* Ambient multi-layer glow and subtle grid */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-72 bg-gradient-to-b from-[#FE760B]/18 via-[#FF8A2B]/8 to-transparent blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-emerald-500/10 blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute inset-0 bg-[radial-gradient(#2A2D31_1px,transparent_1px)] [background-size:24px_24px] opacity-30 pointer-events-none" />
 
-        <div className="relative text-center max-w-3xl mx-auto space-y-4">
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15]">
+        <div className="relative text-center max-w-4xl mx-auto space-y-4">
+          {/* Top Live Radar Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1A1C1F]/90 border border-[#FE760B]/30 shadow-lg shadow-[#FE760B]/10 backdrop-blur-md mb-1 animate-fade-in">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FE760B] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FE760B]" />
+            </span>
+            <span className="text-[11px] font-extrabold text-white tracking-wider uppercase">
+              TICKETLELO DISCOVERY RADAR
+            </span>
+            <span className="text-[#9B9EA4] text-[10px]">•</span>
+            <span className="text-[11px] font-semibold text-[#FE760B]">
+              {metrics.liveCount > 0 ? `${metrics.liveCount} Live Now` : "Live & Upcoming Experiences"}
+            </span>
+          </div>
+
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.12]">
             Experience Every Moment. <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-[#FE760B] via-[#FF8A2B] to-[#FDE003] bg-clip-text text-transparent">
               Participate Live.
@@ -716,127 +930,401 @@ function DiscoverEventsPageContent() {
             Browse curated developer meetups, collegiate tech fests, esports showdowns, and workshops across India. Tear off digital passes and reserve your spot instantly.
           </p>
 
-          {/* Quick Metrics Cards - fixed min-heights to eliminate layout shift */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 pt-3 max-w-2xl mx-auto text-left w-full">
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
-                <Flame className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
-                <span className="truncate">Live Events</span>
+          {/* 4 Interactive Glassmorphic Metric Cards with Animated Counters */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 pt-6 max-w-5xl mx-auto text-left w-full">
+            {/* Card 1: Live & Total Events */}
+            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-[#FE760B]/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-[#FE760B]/10 hover:-translate-y-1 flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform border ${
+                    metrics.liveCount > 0
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                      : "bg-[#FE760B]/15 border-[#FE760B]/25 text-[#FE760B]"
+                  }`}
+                >
+                  {metrics.liveCount > 0 ? (
+                    <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  ) : (
+                    <Flame className="w-4 h-4 text-[#FE760B]" />
+                  )}
+                </div>
+                {metrics.liveCount > 0 ? (
+                  <span className="flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shadow-xs">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                    </span>
+                    {metrics.liveCount} Live
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold text-[#FE760B] bg-[#FE760B]/10 border border-[#FE760B]/25 px-2.5 py-0.5 rounded-full">
+                    Active
+                  </span>
+                )}
               </div>
-              <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">
-                {events.length}+
+              <div className="mt-4">
+                <div className="text-[10px] sm:text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                  {metrics.liveCount > 0 ? "Live Events" : "Curated Events"}
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    <AnimatedCounter
+                      end={metrics.liveCount > 0 ? metrics.liveCount : events.length}
+                    />
+                  </span>
+                  <span className="text-xs font-semibold text-[#9B9EA4]">
+                    {metrics.liveCount > 0 ? "Active Now" : "+ Listed"}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
-                <Ticket className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span className="truncate">Free Entry</span>
+            {/* Card 2: Free Entry */}
+            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-emerald-500/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Ticket className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                  Free Access
+                </span>
               </div>
-              <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">
-                {metrics.freeCount} Events
+              <div className="mt-4">
+                <div className="text-[10px] sm:text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                  Free Entry
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    <AnimatedCounter end={metrics.freeCount} />
+                  </span>
+                  <span className="text-xs font-semibold text-[#9B9EA4]">Passes</span>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
-                <GraduationCap className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span className="truncate">Campus &amp; Hubs</span>
+            {/* Card 3: Campus & Hubs */}
+            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-amber-400/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-amber-400/10 hover:-translate-y-1 flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 rounded-full">
+                  Pan-India
+                </span>
               </div>
-              <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">
-                {metrics.campusCount} Venues
+              <div className="mt-4">
+                <div className="text-[10px] sm:text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                  Campus &amp; Hubs
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    <AnimatedCounter
+                      end={metrics.campusCount || Math.max(1, Math.round(events.length * 0.4))}
+                    />
+                  </span>
+                  <span className="text-xs font-semibold text-[#9B9EA4]">Venues</span>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-[#1A1C1F] p-3 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden min-h-[76px] flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-[#9B9EA4] font-medium truncate">
-                <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-                <span className="truncate">Pass Delivery</span>
+            {/* Card 4: Pass Delivery */}
+            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-purple-400/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-purple-400/10 hover:-translate-y-1 flex flex-col justify-between group">
+              <div className="flex items-center justify-between">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-400/30 text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <QrCode className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-400/30 px-2.5 py-0.5 rounded-full">
+                  Instant
+                </span>
               </div>
-              <div className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white mt-1 truncate">
-                Instant QR
+              <div className="mt-4">
+                <div className="text-[10px] sm:text-[11px] font-bold text-[#9B9EA4] uppercase tracking-wider">
+                  Pass Delivery
+                </div>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    Instant QR
+                  </span>
+                  <span className="text-xs font-semibold text-[#9B9EA4]">Digital</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Search & Filter Control Hub (div format) ── */}
+      {/* ── Search & Filter Control Hub (Image 3 - Redesigned Command Dock) ── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 space-y-4 w-full">
-        <div className="bg-white dark:bg-[#1A1C1F] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-sm space-y-4 w-full overflow-hidden">
-          {/* Search bar & Sort Controls */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 w-full">
-            {/* Search Input */}
-            <div className="relative flex-1 min-w-0">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-[#9B9EA4]" />
+        <div className="bg-[#1A1C1F]/95 backdrop-blur-2xl p-4 sm:p-5 rounded-3xl border border-[#2A2D31] shadow-2xl space-y-4 w-full">
+          {/* Top Row: Search input dock & Sort / View toggles */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 w-full">
+            {/* Search Input Container */}
+            <div className="relative flex-1 min-w-0 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FE760B] transition-colors" />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search events by title, venue, city, tech stack, or tags..."
-                className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#FE760B]/40 focus:border-[#FE760B] transition-all"
+                className="w-full pl-11 pr-24 py-3 rounded-2xl bg-[#131517] border border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#64748B] focus:outline-none focus:ring-2 focus:ring-[#FE760B]/40 focus:border-[#FE760B] transition-all shadow-inner"
               />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+              <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                {searchTerm ? (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="p-1 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-all cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <kbd className="hidden sm:inline-flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-mono text-[#9B9EA4] bg-[#212327] border border-[#2A2D31] rounded-md shadow-xs pointer-events-none">
+                    / to search
+                  </kbd>
+                )}
+              </div>
             </div>
 
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-              <div className="relative w-full sm:w-auto">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full sm:w-auto appearance-none pl-3.5 pr-8 py-2.5 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#FE760B]/40 cursor-pointer"
+            {/* Sort Dropdown & View Mode Segmented Control */}
+            <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 justify-between sm:justify-end">
+              {/* Custom Sort Select */}
+              <div className="relative flex-1 sm:flex-initial">
+                <div className="relative flex items-center">
+                  <ListFilter className="w-3.5 h-3.5 text-[#FE760B] absolute left-3.5 pointer-events-none" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full sm:w-auto appearance-none pl-9 pr-9 py-2.5 rounded-2xl bg-[#131517] border border-[#2A2D31] text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-[#FE760B]/40 cursor-pointer transition-all hover:bg-[#1A1C1F]"
+                  >
+                    <option value="date-asc">Date: Live &amp; Upcoming First</option>
+                    <option value="date-desc">Date: Furthest / Latest First</option>
+                    <option value="name-asc">Title: A to Z</option>
+                    <option value="capacity-desc">Capacity: Highest First</option>
+                    <option value="price-asc">Price: Free Passes First</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 w-3.5 h-3.5 text-[#9B9EA4] pointer-events-none" />
+                </div>
+              </div>
+
+              {/* View Mode Toggle (Grid vs Compact List) */}
+              <div className="flex items-center p-1 bg-[#131517] border border-[#2A2D31] rounded-2xl shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-xl text-xs transition-all cursor-pointer ${
+                    viewMode === "grid"
+                      ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                      : "text-[#9B9EA4] hover:text-white"
+                  }`}
+                  title="Grid View"
                 >
-                  <option value="date-asc">Date: Upcoming First</option>
-                  <option value="name-asc">Title: A to Z</option>
-                  <option value="capacity-desc">Capacity: Highest First</option>
-                  <option value="price-asc">Price: Free First</option>
-                </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded-xl text-xs transition-all cursor-pointer ${
+                    viewMode === "list"
+                      ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                      : "text-[#9B9EA4] hover:text-white"
+                  }`}
+                  title="List View"
+                >
+                  <Rows3 className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Interactive Category Filter Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 pt-1 w-full max-w-full">
-            {CATEGORIES.map((cat) => {
-              const Icon = cat.icon;
-              const isActive = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all select-none cursor-pointer ${
-                    isActive
-                      ? "bg-[#FE760B] text-white shadow-sm shadow-[#FE760B]/30"
-                      : "bg-slate-100 dark:bg-[#131517] text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31]"
-                  }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#FE760B]"}`} />
-                  <span>{cat.label}</span>
-                </button>
-              );
-            })}
+          {/* Middle Row: Category Filter Slider with Navigation Chevrons */}
+          <div className="relative flex items-center gap-2 pt-1 border-t border-[#2A2D31]">
+            {/* Scroll Left Button */}
+            <button
+              type="button"
+              onClick={() => handleScrollCategories("left")}
+              className="hidden sm:flex shrink-0 w-8 h-8 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] items-center justify-center transition-all cursor-pointer active:scale-95"
+              title="Scroll left"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Scrollable Category Pills */}
+            <div
+              ref={categoryScrollRef}
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth py-1 w-full"
+            >
+              {CATEGORIES.map((cat) => {
+                const Icon = cat.icon;
+                const isActive = selectedCategory === cat.id;
+                const count = categoryCounts[cat.id] ?? 0;
+                const isLivePill = cat.id === "live";
+
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all select-none cursor-pointer shrink-0 ${
+                      isActive
+                        ? "bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] text-[#131517] shadow-lg shadow-[#FE760B]/25 scale-[1.02]"
+                        : "bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
+                    }`}
+                  >
+                    <span className="relative flex items-center justify-center">
+                      <Icon
+                        className={`w-3.5 h-3.5 ${
+                          isActive
+                            ? "text-[#131517]"
+                            : isLivePill
+                            ? "text-emerald-400"
+                            : "text-[#FE760B]"
+                        }`}
+                      />
+                      {isLivePill && count > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                      )}
+                    </span>
+                    <span>{cat.label}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                        isActive
+                          ? "bg-[#131517]/25 text-[#131517]"
+                          : "bg-[#131517] text-[#9B9EA4]"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Scroll Right Button */}
+            <button
+              type="button"
+              onClick={() => handleScrollCategories("right")}
+              className="hidden sm:flex shrink-0 w-8 h-8 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31] items-center justify-center transition-all cursor-pointer active:scale-95"
+              title="Scroll right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Quick Trending Chips (using clean SVG icons, zero emojis) */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[#2A2D31]/60 text-xs">
+            <span className="text-[11px] font-bold text-[#FE760B] uppercase tracking-wider flex items-center gap-1 mr-1">
+              <Flame className="w-3.5 h-3.5 text-[#FE760B]" />
+              <span>Trending:</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("live")}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedCategory === "live"
+                  ? "bg-emerald-500 text-black shadow-md shadow-emerald-500/20"
+                  : "bg-[#212327] hover:bg-[#2A2D31] text-emerald-400 hover:text-emerald-300 border border-emerald-500/30"
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              <span>Live Now</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("campus")}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedCategory === "campus"
+                  ? "bg-[#FE760B] text-black font-bold shadow-md shadow-[#FE760B]/20"
+                  : "bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31]"
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
+              <span>College Fests</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("dev")}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedCategory === "dev"
+                  ? "bg-[#FE760B] text-black font-bold shadow-md shadow-[#FE760B]/20"
+                  : "bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31]"
+              }`}
+            >
+              <Code2 className="w-3.5 h-3.5 text-sky-400" />
+              <span>Hackathons</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("free")}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedCategory === "free"
+                  ? "bg-[#FE760B] text-black font-bold shadow-md shadow-[#FE760B]/20"
+                  : "bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31]"
+              }`}
+            >
+              <Ticket className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Free Entry</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("gaming")}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedCategory === "gaming"
+                  ? "bg-[#FE760B] text-black font-bold shadow-md shadow-[#FE760B]/20"
+                  : "bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31]"
+              }`}
+            >
+              <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />
+              <span>Esports LAN</span>
+            </button>
           </div>
         </div>
 
         {/* Results Counter & Active Filter Indicators */}
-        <div className="flex items-center justify-between text-xs font-medium text-slate-500 dark:text-[#9B9EA4] px-1">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-medium text-[#9B9EA4] px-1 gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>
-              Showing <strong className="text-slate-900 dark:text-white">{sortedEvents.length}</strong> of{" "}
+              Showing <strong className="text-white font-bold">{sortedEvents.length}</strong> of{" "}
               {events.length} listed events
             </span>
+            {metrics.liveCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {metrics.liveCount} Live Now
+              </span>
+            )}
             {searchTerm && (
-              <span className="bg-[#FE760B]/10 text-[#FE760B] px-2 py-0.5 rounded-md font-semibold">
-                matching &quot;{searchTerm}&quot;
+              <span className="bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30 px-2 py-0.5 rounded-md font-semibold flex items-center gap-1">
+                <span>&ldquo;{searchTerm}&rdquo;</span>
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="hover:text-white cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {selectedCategory !== "all" && (
+              <span className="bg-[#212327] text-white border border-[#2A2D31] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1">
+                <span>{CATEGORIES.find((c) => c.id === selectedCategory)?.label || selectedCategory}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("all")}
+                  className="hover:text-[#FE760B] cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               </span>
             )}
           </div>
@@ -847,17 +1335,53 @@ function DiscoverEventsPageContent() {
                 setSearchTerm("");
                 setSelectedCategory("all");
               }}
-              className="text-[#FE760B] hover:underline font-semibold flex items-center gap-1"
+              className="text-[#FE760B] hover:text-[#FF8A2B] font-bold flex items-center gap-1 self-start sm:self-auto cursor-pointer transition-colors"
             >
-              <X className="w-3 h-3" />
-              Reset Filters
+              <X className="w-3.5 h-3.5" />
+              Reset All Filters
             </button>
           )}
         </div>
       </section>
 
-      {/* ── Main Events Grid in "Div Format" ── */}
+      {/* ── Main Events Grid / List in "Div Format" ── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+        {/* Live Radar Spotlight Alert Banner (when live events exist and no narrowing search) */}
+        {metrics.liveCount > 0 && selectedCategory === "all" && !searchTerm && (
+          <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#1A1C1F] to-[#1A1C1F] border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-md shadow-emerald-950/50">
+                <Radio className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                    </span>
+                    Live Now on TicketLelo
+                  </span>
+                  <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {metrics.liveCount} {metrics.liveCount === 1 ? "Event Active" : "Events Active"}
+                  </span>
+                </div>
+                <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  These events are currently taking place across campuses &amp; hubs. Join right now or check digital passes.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("live")}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black font-extrabold text-xs transition-all flex items-center gap-1.5 shrink-0 self-stretch sm:self-auto justify-center cursor-pointer shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/50"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Filter Live Events
+            </button>
+          </div>
+        )}
+
         {isLoading && events.length === 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-4 animate-fade-in">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -897,16 +1421,20 @@ function DiscoverEventsPageContent() {
                 setSearchTerm("");
                 setSelectedCategory("all");
               }}
-              className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all"
+              className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all cursor-pointer"
             >
               View All Events
             </button>
           </motion.div>
         ) : (
-          /* Event Cards Grid - stable, non-jumping CSS grid */
+          /* Event Cards Container: Responsive Grid or List Layout */
           <div
-            id="events-grid"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            id="events-container"
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "flex flex-col gap-4"
+            }
           >
             {sortedEvents.map((ev, index) => {
               const palette = PROCEDURAL_PALETTES[index % PROCEDURAL_PALETTES.length];
@@ -914,7 +1442,6 @@ function DiscoverEventsPageContent() {
               const timing = getEventLiveStatus(ev);
               const isPaid = ev.isPaid || (ev.price && String(ev.price).toLowerCase() !== "free" && ev.price !== 0 && ev.price !== "0");
               const priceLabel = isPaid ? (typeof ev.price === "number" ? `₹${ev.price}` : String(ev.price).startsWith("₹") ? ev.price : `₹${ev.price}`) : "Free";
-              const hasBanner = Boolean(ev.bannerUrl || ev.coverImage);
               const stableKey = ev.id || ev.slug || `event-${index}`;
               const eventHref = `/e/${ev.slug || ev.id}${refCode ? `?ref=${encodeURIComponent(refCode)}#register` : ""}`;
 
@@ -964,10 +1491,197 @@ function DiscoverEventsPageContent() {
                 progressPercent = num > 0 ? Math.min(100, Math.round((takenSeats / num) * 100)) : 0;
               }
 
+              // Render: Grid Card vs Horizontal List Card
+              if (viewMode === "list") {
+                return (
+                  <div
+                    key={stableKey}
+                    className={`group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col md:flex-row overflow-hidden hover:-translate-y-0.5 ${
+                      timing.isLive
+                        ? "border-emerald-500/60 ring-2 ring-emerald-500/25 shadow-emerald-950/40"
+                        : "border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 hover:shadow-[#FE760B]/10"
+                    }`}
+                  >
+                    {/* Left Banner Thumbnail */}
+                    <div className="relative h-48 md:h-auto md:w-80 shrink-0 overflow-hidden bg-slate-900 select-none">
+                      <EventBanner
+                        event={ev}
+                        aspect="auto"
+                        className="w-full h-full rounded-none border-none shadow-none"
+                      />
+
+                      {/* Badge Bar */}
+                      <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-transparent border border-amber-500/40 text-amber-500 backdrop-blur-xs">
+                          {ev.isPopular || ev.featured ? "POPULAR" : ev.category || "EVENT"}
+                        </span>
+
+                        {timing.isLive ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/50 text-emerald-300 text-[10px] font-bold shadow-md shadow-emerald-950/40">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                            </span>
+                            <span>LIVE</span>
+                          </div>
+                        ) : timing.isEnded ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-zinc-400 text-[10px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                            <span>ENDED</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white text-[10px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                            <span>UPCOMING</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Ticket Preview Icon */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewEvent(ev);
+                        }}
+                        title="Interactive Ticket Preview & Tear"
+                        className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white border border-white/10 flex items-center justify-center transition-all shadow-md backdrop-blur-md cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Middle Details Body */}
+                    <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-3">
+                      <div className="space-y-1.5">
+                        <Link
+                          href={eventHref}
+                          className="block group-hover:text-[#FE760B] transition-colors"
+                        >
+                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white line-clamp-1 tracking-tight">
+                            {ev.title || ev.name}
+                          </h3>
+                        </Link>
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] line-clamp-2 leading-relaxed">
+                          {ev.description || "Join fellow developers, creators, and enthusiasts for this curated experience."}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-[#2A2D31]">
+                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                          <Calendar className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+                          <span className="truncate">{dateDisplay || "Date announced soon"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                          <MapPin className="w-3.5 h-3.5 text-[#FE760B] shrink-0" />
+                          <span className="truncate">
+                            {ev.locationVenue || ev.location || "Venue announced on pass"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Capacity bar */}
+                      <div className="pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-[#9B9EA4] mb-1">
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3 text-[#FE760B]" />
+                            <span>{capacityLabel}</span>
+                          </span>
+                          {timing.isEnded ? (
+                            <span className="text-zinc-500 font-bold">Closed</span>
+                          ) : spotsLeft === 0 && !isExplicitUnlimited ? (
+                            <span className="text-rose-500 font-bold">Sold Out</span>
+                          ) : (
+                            <span className="text-emerald-500 font-bold">Passes Open</span>
+                          )}
+                        </div>
+                        {!isExplicitUnlimited && (
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-[#131517] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] rounded-full transition-all duration-300"
+                              style={{ width: `${progressPercent}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Action & Pricing Dock */}
+                    <div className="p-5 sm:p-6 md:w-56 shrink-0 flex flex-col justify-between items-stretch md:border-l border-t md:border-t-0 border-slate-100 dark:border-[#2A2D31] bg-slate-50/50 dark:bg-[#131517]/50 gap-4">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[#9B9EA4]">
+                          Pass Price
+                        </div>
+                        <div className={`text-2xl font-black mt-0.5 ${isPaid ? "text-[#FE760B]" : "text-emerald-400"}`}>
+                          {priceLabel}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Link
+                          href={eventHref}
+                          className={`w-full font-extrabold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md group/btn ${
+                            timing.isLive
+                              ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black shadow-emerald-500/25 ring-1 ring-emerald-400/50"
+                              : timing.isEnded
+                              ? "bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
+                              : "bg-[#FE760B] hover:bg-[#FF8A2B] text-white shadow-[#FE760B]/20"
+                          }`}
+                        >
+                          {timing.isLive ? (
+                            <>
+                              <span className="w-2 h-2 rounded-full bg-black animate-ping" />
+                              <span>Join Live Event</span>
+                              <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                            </>
+                          ) : timing.isEnded ? (
+                            <>
+                              <span>View Details</span>
+                              <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Participate Now</span>
+                              <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                            </>
+                          )}
+                        </Link>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPreviewEvent(ev)}
+                            title="Interactive Ticket Preview & Tear"
+                            className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1A1C1F] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Ticket className="w-3.5 h-3.5" />
+                            <span>Preview Ticket</span>
+                          </button>
+                          <button
+                            onClick={(e) => handleCopyLink(e, ev)}
+                            title="Share event link"
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1A1C1F] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors cursor-pointer"
+                          >
+                            {copiedId === ev.id ? (
+                              <Check className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <Share2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Standard Grid Card
               return (
                 <div
                   key={stableKey}
-                  className="group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-[#FE760B]/10 flex flex-col overflow-hidden hover:-translate-y-1.5"
+                  className={`group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col overflow-hidden hover:-translate-y-1.5 ${
+                    timing.isLive
+                      ? "border-emerald-500/60 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-950/40"
+                      : "border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 hover:shadow-[#FE760B]/10"
+                  }`}
                 >
                   {/* ── Top Poster Graphic / Visual Banner ── */}
                   <div className="relative h-52 sm:h-56 w-full shrink-0 overflow-hidden bg-slate-900 select-none">
@@ -980,7 +1694,7 @@ function DiscoverEventsPageContent() {
                     {/* Badge Bar inside graphic */}
                     <div className="absolute top-3 left-3 flex items-center gap-2 z-10 pointer-events-none">
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-transparent border border-amber-500/40 text-amber-500 backdrop-blur-xs">
-                        {ev.isPopular || ev.featured ? "POPULAR" : ev.category || "POPULAR"}
+                        {ev.isPopular || ev.featured ? "POPULAR" : ev.category || "EVENT"}
                       </span>
 
                       {timing.isLive ? (
@@ -1096,17 +1810,38 @@ function DiscoverEventsPageContent() {
                       {/* Primary Participate CTA */}
                       <Link
                         href={eventHref}
-                        className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md shadow-[#FE760B]/20 group/btn"
+                        className={`flex-1 font-extrabold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all shadow-md group/btn ${
+                          timing.isLive
+                            ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-black shadow-emerald-500/25 ring-1 ring-emerald-400/50"
+                            : timing.isEnded
+                            ? "bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
+                            : "bg-[#FE760B] hover:bg-[#FF8A2B] active:bg-[#FE760B] text-white shadow-[#FE760B]/20"
+                        }`}
                       >
-                        <span>{timing.isEnded ? "View Event" : "Participate Now"}</span>
-                        <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                        {timing.isLive ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-black animate-ping" />
+                            <span>Join Live Event</span>
+                            <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                          </>
+                        ) : timing.isEnded ? (
+                          <>
+                            <span>View Event</span>
+                            <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                          </>
+                        ) : (
+                          <>
+                            <span>Participate Now</span>
+                            <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                          </>
+                        )}
                       </Link>
 
                       {/* Interactive Ticket Preview Modal Button */}
                       <button
                         onClick={() => setPreviewEvent(ev)}
                         title="Interactive Ticket Preview & Tear"
-                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors cursor-pointer"
                       >
                         <Ticket className="w-4 h-4" />
                       </button>
@@ -1115,7 +1850,7 @@ function DiscoverEventsPageContent() {
                       <button
                         onClick={(e) => handleCopyLink(e, ev)}
                         title="Share event link"
-                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+                        className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-700 dark:text-slate-200 hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors cursor-pointer"
                       >
                         {copiedId === ev.id ? (
                           <Check className="w-4 h-4 text-emerald-500" />

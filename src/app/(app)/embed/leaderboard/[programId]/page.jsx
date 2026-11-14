@@ -1,15 +1,28 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Award, Users } from "lucide-react";
 
 export default function EmbedLeaderboardPage({ params }) {
   const unwrappedParams = use(params);
   const programId = unwrappedParams.programId;
+  const searchParams = useSearchParams();
+  const themeParam = searchParams?.get("theme") || "dark";
 
   const [leaderboard, setLeaderboard] = useState([]);
   const [programName, setProgramName] = useState("");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (themeParam === "light") {
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.add("dark");
+      }
+    }
+  }, [themeParam]);
 
   useEffect(() => {
     async function loadData() {

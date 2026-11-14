@@ -48,6 +48,9 @@ import {
   ArrowUpRight,
   ArrowRight,
   RefreshCw,
+  Sun,
+  Moon,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -201,6 +204,18 @@ export default function OrganizerProgramHubPage({ params }) {
   const [copiedLink, setCopiedLink] = useState(null);
   const [embedSubTab, setEmbedSubTab] = useState("apply"); // "apply" | "leaderboard"
   const [embedPreviewDevice, setEmbedPreviewDevice] = useState("desktop"); // "desktop" | "mobile"
+
+  // Real-Time Customizer States - Application Form
+  const [embedApplyTheme, setEmbedApplyTheme] = useState("dark"); // "dark" | "light"
+  const [embedApplyHeight, setEmbedApplyHeight] = useState(750);
+  const [embedApplyRadius, setEmbedApplyRadius] = useState(16);
+  const [embedApplyCustomCode, setEmbedApplyCustomCode] = useState(null);
+
+  // Real-Time Customizer States - Leaderboard
+  const [embedLeaderboardTheme, setEmbedLeaderboardTheme] = useState("dark"); // "dark" | "light"
+  const [embedLeaderboardHeight, setEmbedLeaderboardHeight] = useState(600);
+  const [embedLeaderboardRadius, setEmbedLeaderboardRadius] = useState(16);
+  const [embedLeaderboardCustomCode, setEmbedLeaderboardCustomCode] = useState(null);
 
   // Tab 8: Program Settings Form State
   const [settingsForm, setSettingsForm] = useState({
@@ -759,11 +774,123 @@ export default function OrganizerProgramHubPage({ params }) {
   const baseUrl = getPublicBaseUrl();
   const publicApplyUrl = `${baseUrl}/programs/${programId}/apply`;
   const publicLeaderboardUrl = `${baseUrl}/leaderboard/${programId}`;
-  const embedApplyUrl = `${baseUrl}/embed/programs/${programId}/apply`;
-  const embedApplyCode = `<iframe src="${baseUrl}/embed/programs/${programId}/apply" width="100%" height="750" frameborder="0" style="border:none; max-width:100%; border-radius:16px;"></iframe>`;
-  const embedLeaderboardUrl = `${baseUrl}/embed/leaderboard/${programId}`;
-  const embedLeaderboardCode = `<iframe src="${baseUrl}/embed/leaderboard/${programId}" width="100%" height="600" frameborder="0" style="border:none; max-width:100%; border-radius:16px;"></iframe>`;
+
+  // Generated default application form embed code
+  const defaultApplyUrl = `${baseUrl}/embed/programs/${programId}/apply${embedApplyTheme === "light" ? "?theme=light" : ""}`;
+  const defaultApplyCode = `<iframe src="${defaultApplyUrl}" width="100%" height="${embedApplyHeight}" frameborder="0" style="border:none; max-width:100%; border-radius:${embedApplyRadius}px;"></iframe>`;
+  const embedApplyCode = embedApplyCustomCode !== null ? embedApplyCustomCode : defaultApplyCode;
+
+  // Real-time parsing from active code
+  const parsedApply = (() => {
+    const code = embedApplyCode || defaultApplyCode;
+    const srcMatch = code.match(/src=["']([^"']+)["']/i);
+    const heightMatch = code.match(/height=["']?(\d+)[px%]?["']?/i);
+    const radiusMatch = code.match(/border-radius:\s*(\d+)px/i);
+    return {
+      src: srcMatch ? srcMatch[1] : defaultApplyUrl,
+      height: heightMatch ? parseInt(heightMatch[1], 10) : embedApplyHeight,
+      borderRadius: radiusMatch ? parseInt(radiusMatch[1], 10) : embedApplyRadius,
+    };
+  })();
+  const embedApplyUrl = parsedApply.src;
+
+  // Generated default leaderboard embed code
+  const defaultLeaderboardUrl = `${baseUrl}/embed/leaderboard/${programId}${embedLeaderboardTheme === "light" ? "?theme=light" : ""}`;
+  const defaultLeaderboardCode = `<iframe src="${defaultLeaderboardUrl}" width="100%" height="${embedLeaderboardHeight}" frameborder="0" style="border:none; max-width:100%; border-radius:${embedLeaderboardRadius}px;"></iframe>`;
+  const embedLeaderboardCode = embedLeaderboardCustomCode !== null ? embedLeaderboardCustomCode : defaultLeaderboardCode;
+
+  // Real-time parsing from active leaderboard code
+  const parsedLeaderboard = (() => {
+    const code = embedLeaderboardCode || defaultLeaderboardCode;
+    const srcMatch = code.match(/src=["']([^"']+)["']/i);
+    const heightMatch = code.match(/height=["']?(\d+)[px%]?["']?/i);
+    const radiusMatch = code.match(/border-radius:\s*(\d+)px/i);
+    return {
+      src: srcMatch ? srcMatch[1] : defaultLeaderboardUrl,
+      height: heightMatch ? parseInt(heightMatch[1], 10) : embedLeaderboardHeight,
+      borderRadius: radiusMatch ? parseInt(radiusMatch[1], 10) : embedLeaderboardRadius,
+    };
+  })();
+  const embedLeaderboardUrl = parsedLeaderboard.src;
   const embedCode = embedLeaderboardCode;
+
+  // Handlers for Application Form Embed Customization
+  const handleApplyThemeChange = (newTheme) => {
+    setEmbedApplyTheme(newTheme);
+    const query = newTheme === "light" ? "?theme=light" : "";
+    if (embedApplyCustomCode !== null) {
+      const updated = embedApplyCustomCode.replace(/src=["']([^"']*)["']/i, (m, url) => {
+        const clean = url.replace(/\?theme=(light|dark)/, "");
+        return `src="${clean}${query}"`;
+      });
+      setEmbedApplyCustomCode(updated);
+    }
+  };
+
+  const handleApplyHeightChange = (newHeight) => {
+    const h = Math.max(300, Math.min(1600, parseInt(newHeight, 10) || 750));
+    setEmbedApplyHeight(h);
+    if (embedApplyCustomCode !== null) {
+      const updated = embedApplyCustomCode.replace(/height=["']?\d+[px%]?["']?/i, `height="${h}"`);
+      setEmbedApplyCustomCode(updated);
+    }
+  };
+
+  const handleApplyRadiusChange = (newRadius) => {
+    const r = Math.max(0, Math.min(48, parseInt(newRadius, 10) || 0));
+    setEmbedApplyRadius(r);
+    if (embedApplyCustomCode !== null) {
+      const updated = embedApplyCustomCode.replace(/border-radius:\s*\d+px/i, `border-radius:${r}px`);
+      setEmbedApplyCustomCode(updated);
+    }
+  };
+
+  const handleResetApplyCode = () => {
+    setEmbedApplyTheme("dark");
+    setEmbedApplyHeight(750);
+    setEmbedApplyRadius(16);
+    setEmbedApplyCustomCode(null);
+    toast.success("Form embed code reset to default");
+  };
+
+  // Handlers for Leaderboard Embed Customization
+  const handleLeaderboardThemeChange = (newTheme) => {
+    setEmbedLeaderboardTheme(newTheme);
+    const query = newTheme === "light" ? "?theme=light" : "";
+    if (embedLeaderboardCustomCode !== null) {
+      const updated = embedLeaderboardCustomCode.replace(/src=["']([^"']*)["']/i, (m, url) => {
+        const clean = url.replace(/\?theme=(light|dark)/, "");
+        return `src="${clean}${query}"`;
+      });
+      setEmbedLeaderboardCustomCode(updated);
+    }
+  };
+
+  const handleLeaderboardHeightChange = (newHeight) => {
+    const h = Math.max(300, Math.min(1600, parseInt(newHeight, 10) || 600));
+    setEmbedLeaderboardHeight(h);
+    if (embedLeaderboardCustomCode !== null) {
+      const updated = embedLeaderboardCustomCode.replace(/height=["']?\d+[px%]?["']?/i, `height="${h}"`);
+      setEmbedLeaderboardCustomCode(updated);
+    }
+  };
+
+  const handleLeaderboardRadiusChange = (newRadius) => {
+    const r = Math.max(0, Math.min(48, parseInt(newRadius, 10) || 0));
+    setEmbedLeaderboardRadius(r);
+    if (embedLeaderboardCustomCode !== null) {
+      const updated = embedLeaderboardCustomCode.replace(/border-radius:\s*\d+px/i, `border-radius:${r}px`);
+      setEmbedLeaderboardCustomCode(updated);
+    }
+  };
+
+  const handleResetLeaderboardCode = () => {
+    setEmbedLeaderboardTheme("dark");
+    setEmbedLeaderboardHeight(600);
+    setEmbedLeaderboardRadius(16);
+    setEmbedLeaderboardCustomCode(null);
+    toast.success("Leaderboard embed code reset to default");
+  };
 
   const pendingAppsCount = program.stats?.pendingApplications ?? applications.filter((a) => a.status === "pending").length;
 
@@ -1489,7 +1616,7 @@ export default function OrganizerProgramHubPage({ params }) {
           {/* ── SUB-TAB 1: APPLICATION FORM EMBED ── */}
           {embedSubTab === "apply" && (
             <div className="space-y-6 animate-fade-in">
-              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-5 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
@@ -1497,14 +1624,17 @@ export default function OrganizerProgramHubPage({ params }) {
                       <h2 className="text-base font-bold text-slate-900 dark:text-white">
                         Application Form Iframe Embed Code
                       </h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
+                        Live Editable
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 max-w-2xl">
-                      Embed this application form directly on your official college fest website, campus club portal, or social link-in-bio. Students can apply to become campus ambassadors without leaving your domain.
+                      Embed this application form directly on your official college fest website, campus club portal, or social link-in-bio. Edit the code directly or use the quick controls below — the live preview updates automatically in real time.
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <Link href={`/embed/programs/${programId}/apply`} target="_blank">
+                    <Link href={embedApplyUrl} target="_blank">
                       <Button
                         size="sm"
                         variant="outline"
@@ -1517,34 +1647,175 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
                 </div>
 
-                {/* Structured Top-Bar Code Container (No Overlapping Button) */}
-                <div className="rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-900/90 dark:bg-[#15171A] overflow-hidden">
+                {/* Real-time Customization Controls Toolbar */}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-[#212327]/60 border border-slate-200 dark:border-[#2A2D31] space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-[#D0D0D1] uppercase tracking-wider flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                      <span>Live Customization Controls</span>
+                    </span>
+                    <span className="text-[11px] text-[#9B9EA4]">
+                      Changes sync in real-time with the editable code &amp; live preview below
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    {/* Theme Selector */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                        Appearance Theme
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white dark:bg-[#15171A] border border-slate-200 dark:border-[#2A2D31]">
+                        <button
+                          type="button"
+                          onClick={() => handleApplyThemeChange("dark")}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            embedApplyTheme === "dark"
+                              ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                              : "text-slate-600 dark:text-[#9B9EA4] hover:text-white"
+                          }`}
+                        >
+                          <Moon className="w-3 h-3" />
+                          <span>Dark</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApplyThemeChange("light")}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            embedApplyTheme === "light"
+                              ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                              : "text-slate-600 dark:text-[#9B9EA4] hover:text-white"
+                          }`}
+                        >
+                          <Sun className="w-3 h-3" />
+                          <span>Light</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Iframe Height */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">
+                          Iframe Height
+                        </label>
+                        <span className="text-[11px] font-mono text-[#FE760B] font-semibold">
+                          {parsedApply.height}px
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[650, 750, 850, 1000].map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => handleApplyHeightChange(h)}
+                            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer ${
+                              parsedApply.height === h
+                                ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold shadow-xs"
+                                : "bg-white dark:bg-[#15171A] text-slate-600 dark:text-[#D0D0D1] border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50"
+                            }`}
+                          >
+                            {h}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Corner Radius */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">
+                          Corner Radius
+                        </label>
+                        <span className="text-[11px] font-mono text-[#FE760B] font-semibold">
+                          {parsedApply.borderRadius}px
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[0, 8, 16, 24].map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => handleApplyRadiusChange(r)}
+                            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer ${
+                              parsedApply.borderRadius === r
+                                ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold shadow-xs"
+                                : "bg-white dark:bg-[#15171A] text-slate-600 dark:text-[#D0D0D1] border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50"
+                            }`}
+                          >
+                            {r}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Structured Top-Bar Code Container (Interactive & Editable) */}
+                <div className="rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-900/90 dark:bg-[#15171A] overflow-hidden focus-within:border-[#FE760B] transition-colors">
                   <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/60 dark:bg-[#0E1012] border-b border-slate-800 dark:border-[#2A2D31]">
                     <div className="flex items-center gap-2">
                       <Code className="w-3.5 h-3.5 text-[#FE760B]" />
-                      <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#9B9EA4]">HTML EMBED SNIPPET</span>
+                      <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#9B9EA4]">
+                        HTML EMBED SNIPPET
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                        Editable
+                      </span>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleCopy(embedApplyCode, "embed-apply")}
-                      className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-7 px-3 rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
-                    >
-                      {copiedLink === "embed-apply" ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Embed Code</span>
-                        </>
+
+                    <div className="flex items-center gap-2">
+                      {embedApplyCustomCode !== null && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleResetApplyCode}
+                          className="text-[11px] h-7 px-2.5 text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset</span>
+                        </Button>
                       )}
-                    </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => handleCopy(embedApplyCode, "embed-apply")}
+                        className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-7 px-3 rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
+                      >
+                        {copiedLink === "embed-apply" ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Embed Code</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <pre className="p-4 text-xs font-mono text-slate-200 dark:text-[#D0D0D1] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
-                    {embedApplyCode}
-                  </pre>
+
+                  {/* Editable Code Textarea */}
+                  <div className="relative">
+                    <textarea
+                      value={embedApplyCode}
+                      onChange={(e) => setEmbedApplyCustomCode(e.target.value)}
+                      rows={3}
+                      spellCheck={false}
+                      className="w-full p-4 text-xs font-mono text-slate-200 dark:text-[#D0D0D1] bg-transparent outline-none border-none resize-y min-h-[90px] leading-relaxed selection:bg-[#FE760B]/30 custom-scrollbar"
+                      placeholder="<iframe ...></iframe>"
+                    />
+                  </div>
+
+                  <div className="px-4 py-2 border-t border-slate-800/80 dark:border-[#212327] bg-slate-950/40 dark:bg-[#121316] flex items-center justify-between text-[11px] text-slate-400 dark:text-[#71767B]">
+                    <span>💡 Edit or customize the code above directly — live preview below updates automatically</span>
+                    <span className="font-mono text-[10px]">
+                      {embedApplyCode.length} chars
+                    </span>
+                  </div>
                 </div>
 
                 {/* Direct Link Alternative */}
@@ -1631,8 +1902,13 @@ export default function OrganizerProgramHubPage({ params }) {
                     }`}
                   >
                     <iframe
-                      src={embedApplyUrl}
-                      className="w-full h-[680px] rounded-2xl border border-slate-800 bg-transparent shadow-2xl"
+                      key={`${parsedApply.src}-${parsedApply.height}-${parsedApply.borderRadius}`}
+                      src={parsedApply.src}
+                      style={{
+                        height: `${Math.min(Math.max(parsedApply.height, 350), 1400)}px`,
+                        borderRadius: `${parsedApply.borderRadius}px`,
+                      }}
+                      className="w-full rounded-2xl border border-slate-800 bg-transparent shadow-2xl transition-all duration-300"
                       title="Ambassador Application Form Embed Preview"
                     />
                   </div>
@@ -1644,7 +1920,7 @@ export default function OrganizerProgramHubPage({ params }) {
           {/* ── SUB-TAB 2: LEADERBOARD EMBED ── */}
           {embedSubTab === "leaderboard" && (
             <div className="space-y-6 animate-fade-in">
-              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-5 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
@@ -1652,9 +1928,12 @@ export default function OrganizerProgramHubPage({ params }) {
                       <h2 className="text-base font-bold text-slate-900 dark:text-white">
                         Public Leaderboard Iframe Embed Code
                       </h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25">
+                        Live Editable
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1 max-w-2xl">
-                      Embed this privacy-safe live leaderboard on your college website or fest portal to showcase top campus creators and points in real time.
+                      Embed this privacy-safe live leaderboard on your college website or fest portal to showcase top campus creators and points in real time. Edit the code directly or use the quick controls below.
                     </p>
                   </div>
 
@@ -1672,34 +1951,175 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
                 </div>
 
-                {/* Structured Top-Bar Code Container (No Overlapping Button) */}
-                <div className="rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-900/90 dark:bg-[#15171A] overflow-hidden">
+                {/* Real-time Customization Controls Toolbar */}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-[#212327]/60 border border-slate-200 dark:border-[#2A2D31] space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-[#D0D0D1] uppercase tracking-wider flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-[#FE760B]" />
+                      <span>Live Customization Controls</span>
+                    </span>
+                    <span className="text-[11px] text-[#9B9EA4]">
+                      Changes sync in real-time with the editable code &amp; live preview below
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    {/* Theme Selector */}
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider block mb-1.5">
+                        Appearance Theme
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white dark:bg-[#15171A] border border-slate-200 dark:border-[#2A2D31]">
+                        <button
+                          type="button"
+                          onClick={() => handleLeaderboardThemeChange("dark")}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            embedLeaderboardTheme === "dark"
+                              ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                              : "text-slate-600 dark:text-[#9B9EA4] hover:text-white"
+                          }`}
+                        >
+                          <Moon className="w-3 h-3" />
+                          <span>Dark</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleLeaderboardThemeChange("light")}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                            embedLeaderboardTheme === "light"
+                              ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                              : "text-slate-600 dark:text-[#9B9EA4] hover:text-white"
+                          }`}
+                        >
+                          <Sun className="w-3 h-3" />
+                          <span>Light</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Iframe Height */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">
+                          Iframe Height
+                        </label>
+                        <span className="text-[11px] font-mono text-[#FE760B] font-semibold">
+                          {parsedLeaderboard.height}px
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[500, 600, 750, 900].map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => handleLeaderboardHeightChange(h)}
+                            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer ${
+                              parsedLeaderboard.height === h
+                                ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold shadow-xs"
+                                : "bg-white dark:bg-[#15171A] text-slate-600 dark:text-[#D0D0D1] border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50"
+                            }`}
+                          >
+                            {h}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Corner Radius */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-wider">
+                          Corner Radius
+                        </label>
+                        <span className="text-[11px] font-mono text-[#FE760B] font-semibold">
+                          {parsedLeaderboard.borderRadius}px
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[0, 8, 16, 24].map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => handleLeaderboardRadiusChange(r)}
+                            className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg border transition-all cursor-pointer ${
+                              parsedLeaderboard.borderRadius === r
+                                ? "bg-[#FE760B] text-[#131517] border-[#FE760B] font-bold shadow-xs"
+                                : "bg-white dark:bg-[#15171A] text-slate-600 dark:text-[#D0D0D1] border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50"
+                            }`}
+                          >
+                            {r}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Structured Top-Bar Code Container (Interactive & Editable) */}
+                <div className="rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-slate-900/90 dark:bg-[#15171A] overflow-hidden focus-within:border-[#FE760B] transition-colors">
                   <div className="flex items-center justify-between px-3.5 py-2.5 bg-slate-950/60 dark:bg-[#0E1012] border-b border-slate-800 dark:border-[#2A2D31]">
                     <div className="flex items-center gap-2">
                       <Code className="w-3.5 h-3.5 text-[#FE760B]" />
-                      <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#9B9EA4]">HTML EMBED SNIPPET</span>
+                      <span className="text-[11px] font-mono font-medium text-slate-400 dark:text-[#9B9EA4]">
+                        HTML EMBED SNIPPET
+                      </span>
+                      <span className="text-[10px] text-emerald-400 font-mono font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                        Editable
+                      </span>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard")}
-                      className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-7 px-3 rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
-                    >
-                      {copiedLink === "embed-leaderboard" ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Embed Code</span>
-                        </>
+
+                    <div className="flex items-center gap-2">
+                      {embedLeaderboardCustomCode !== null && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleResetLeaderboardCode}
+                          className="text-[11px] h-7 px-2.5 text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer flex items-center gap-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset</span>
+                        </Button>
                       )}
-                    </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() => handleCopy(embedLeaderboardCode, "embed-leaderboard")}
+                        className="bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs h-7 px-3 rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
+                      >
+                        {copiedLink === "embed-leaderboard" ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Embed Code</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <pre className="p-4 text-xs font-mono text-slate-200 dark:text-[#D0D0D1] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
-                    {embedLeaderboardCode}
-                  </pre>
+
+                  {/* Editable Code Textarea */}
+                  <div className="relative">
+                    <textarea
+                      value={embedLeaderboardCode}
+                      onChange={(e) => setEmbedLeaderboardCustomCode(e.target.value)}
+                      rows={3}
+                      spellCheck={false}
+                      className="w-full p-4 text-xs font-mono text-slate-200 dark:text-[#D0D0D1] bg-transparent outline-none border-none resize-y min-h-[90px] leading-relaxed selection:bg-[#FE760B]/30 custom-scrollbar"
+                      placeholder="<iframe ...></iframe>"
+                    />
+                  </div>
+
+                  <div className="px-4 py-2 border-t border-slate-800/80 dark:border-[#212327] bg-slate-950/40 dark:bg-[#121316] flex items-center justify-between text-[11px] text-slate-400 dark:text-[#71767B]">
+                    <span>💡 Edit or customize the code above directly — live preview below updates automatically</span>
+                    <span className="font-mono text-[10px]">
+                      {embedLeaderboardCode.length} chars
+                    </span>
+                  </div>
                 </div>
 
                 {/* Direct Link Alternative */}
@@ -1723,49 +2143,28 @@ export default function OrganizerProgramHubPage({ params }) {
 
               {/* Leaderboard Live Preview */}
               <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl border border-slate-200 dark:border-[#2A2D31] p-5 sm:p-6 space-y-4 shadow-xs">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Award className="w-4 h-4 text-[#FE760B]" />
-                    <span>Leaderboard Live Rankings Preview</span>
+                    <span>Leaderboard Embed Live Preview</span>
                   </h2>
                   <span className="text-[11px] text-slate-400">Strictly privacy-safe: Display Name and Points only</span>
                 </div>
 
-                {loadingLeaderboard ? (
-                  <div className="py-8 flex justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#FE760B]" />
+                <div className="w-full flex justify-center py-4 px-2 bg-slate-950/60 rounded-2xl border border-slate-200/40 dark:border-white/10 shadow-inner overflow-hidden">
+                  <div className="w-full max-w-2xl transition-all duration-300">
+                    <iframe
+                      key={`${parsedLeaderboard.src}-${parsedLeaderboard.height}-${parsedLeaderboard.borderRadius}`}
+                      src={parsedLeaderboard.src}
+                      style={{
+                        height: `${Math.min(Math.max(parsedLeaderboard.height, 300), 1200)}px`,
+                        borderRadius: `${parsedLeaderboard.borderRadius}px`,
+                      }}
+                      className="w-full rounded-2xl border border-slate-800 bg-transparent shadow-2xl transition-all duration-300"
+                      title="Leaderboard Embed Preview"
+                    />
                   </div>
-                ) : leaderboard.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">No ambassadors on the leaderboard yet.</p>
-                ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-[#2A2D31]">
-                    {leaderboard.map((item) => (
-                      <div key={item.rank} className="py-2.5 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              item.rank === 1
-                                ? "bg-amber-400 text-black font-extrabold"
-                                : item.rank === 2
-                                ? "bg-slate-300 text-black"
-                                : item.rank === 3
-                                ? "bg-amber-700 text-white"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {item.rank}
-                          </span>
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">
-                            {item.displayName}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-[#FE760B] tabular-nums">
-                          {item.totalPoints?.toLocaleString("en-IN") || 0} pts
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           )}

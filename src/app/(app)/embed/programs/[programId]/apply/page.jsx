@@ -32,6 +32,16 @@ export default function EmbedProgramApplyPage({ params }) {
   const searchParams = useSearchParams();
   const themeParam = searchParams.get("theme") || "dark";
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (themeParam === "light") {
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.add("dark");
+      }
+    }
+  }, [themeParam]);
+
   const { user } = useAuth();
   const cardRef = useRef(null);
 
