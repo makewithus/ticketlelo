@@ -765,19 +765,21 @@ export default function OrganizerProgramHubPage({ params }) {
   const embedLeaderboardCode = `<iframe src="${baseUrl}/embed/leaderboard/${programId}" width="100%" height="600" frameborder="0" style="border:none; max-width:100%; border-radius:16px;"></iframe>`;
   const embedCode = embedLeaderboardCode;
 
+  const pendingAppsCount = program.stats?.pendingApplications ?? applications.filter((a) => a.status === "pending").length;
+
   const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "events", label: `Events (${connectedEvents.length})` },
-    { id: "applications", label: `Applications (${program.stats?.pendingApplications || 0})` },
-    { id: "ambassadors", label: `Ambassadors (${ambassadors.length})` },
-    { id: "referrals", label: `Codes & Import (${referralCodes.length})` },
-    { id: "points", label: "Points & Rewards" },
-    { id: "leaderboard", label: "Embeds & Leaderboard" },
-    { id: "settings", label: "Settings" },
+    { id: "overview", label: "Overview", icon: Layers },
+    { id: "events", label: "Events", count: connectedEvents.length, icon: Calendar },
+    { id: "applications", label: "Applications", count: pendingAppsCount, alert: pendingAppsCount > 0, icon: Users },
+    { id: "ambassadors", label: "Ambassadors", count: ambassadors.length, icon: Award },
+    { id: "referrals", label: "Codes & Import", count: referralCodes.length, icon: FileSpreadsheet },
+    { id: "points", label: "Points & Rewards", icon: Sliders },
+    { id: "leaderboard", label: "Embeds & Leaderboard", icon: Code },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20 space-y-6">
       {/* ── Top Breadcrumbs & Header ── */}
       <div>
         <Link
@@ -845,21 +847,47 @@ export default function OrganizerProgramHubPage({ params }) {
       </div>
 
       {/* ── Tabs Navigation ── */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto border-b border-slate-200 dark:border-[#2A2D31] pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === tab.id
-                ? "bg-[#FE760B] text-[#131517] shadow-xs"
-                : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327]"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="bg-slate-100 dark:bg-[#1A1C1F] p-1.5 rounded-2xl border border-slate-200 dark:border-[#2A2D31] shadow-xs overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1 min-w-max">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-[#FE760B] text-[#131517] shadow-sm font-extrabold"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-[#24262B]"
+                }`}
+              >
+                {Icon && (
+                  <Icon
+                    className={`w-3.5 h-3.5 ${
+                      isActive ? "text-[#131517]" : "text-slate-400 dark:text-[#9B9EA4]"
+                    }`}
+                  />
+                )}
+                <span>{tab.label}</span>
+                {typeof tab.count === "number" && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold leading-none ${
+                      isActive
+                        ? "bg-[#131517]/20 text-[#131517]"
+                        : tab.alert
+                        ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/25"
+                        : "bg-slate-200 dark:bg-[#2A2D31] text-slate-600 dark:text-[#9B9EA4]"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════
