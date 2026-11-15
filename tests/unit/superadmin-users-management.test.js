@@ -42,6 +42,31 @@ describe("Super Admin Users Management & Login Flow Verification", () => {
     assert.ok(content.includes("export async function POST"), "Defines POST handler for user creation");
     assert.ok(content.includes("export async function PATCH"), "Defines PATCH handler for role modification");
     assert.ok(content.includes("isAuthorizedSuperAdmin"), "Enforces super admin authorization");
+    assert.ok(content.includes('targetRole === "user"'), "Handles setting role to user");
+    assert.ok(content.includes("revoked"), "Revokes approved hosting requests when user role is attendee");
+  });
+
+  test("checkRestrictedAttendeeEmail respects authoritative user role", () => {
+    const authServerPath = path.join(root, "lib/auth-server.js");
+    const content = fs.readFileSync(authServerPath, "utf-8");
+
+    assert.ok(content.includes('role === "user"'), "Explicitly handles role === 'user'");
+    assert.ok(content.includes('return { isRestricted: false, role: "user" }'), "Returns unrestricted for user role");
+    assert.ok(content.includes("Check approved hostingRequests collection"), "Checks hosting requests for guests");
+  });
+
+  test("Users Management UI prevents dropdown clipping on bottom rows", () => {
+    const pagePath = path.join(root, "src/app/(app)/superadmin/users/page.jsx");
+    const content = fs.readFileSync(pagePath, "utf-8");
+
+    assert.ok(
+      content.includes("dropDirection={idx >= Math.max(0, filteredUsers.length - 2) ? \"up\" : \"down\"}"),
+      "Dynamically sets dropDirection to 'up' for bottom rows"
+    );
+    assert.ok(
+      content.includes("min-h-[340px]"),
+      "Enforces minimum height on table container to prevent clipping"
+    );
   });
 
   test("Super Admin Impersonation API endpoint generates custom tokens for dashboard login", () => {

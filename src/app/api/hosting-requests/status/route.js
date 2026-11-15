@@ -145,8 +145,15 @@ export async function GET(request) {
 
     const data = docSnap.data();
     const rawStatus = data.status || "pending";
-    // If the user's account is already marked as organiser, treat request as approved
-    const status = isUserOrganiser && rawStatus === "pending" ? "approved" : rawStatus;
+    // If the account in users collection is explicitly "user", they are an attendee, NOT an approved organiser
+    let status = rawStatus;
+    if (userRole === "user") {
+      if (status === "approved") {
+        status = "revoked";
+      }
+    } else if (isUserOrganiser && rawStatus === "pending") {
+      status = "approved";
+    }
     const isApproved = status === "approved";
     const isRejected = status === "rejected";
     const isPending = status === "pending" && !isApproved;

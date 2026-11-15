@@ -43,6 +43,10 @@ export async function GET(request) {
         }
       }
 
+      const rawRole = data.role ? String(data.role).trim() : null;
+      const role = rawRole || (data.isAdmin ? "organiser" : "user");
+      const isAdmin = role === "superAdmin" || role === "organiser";
+
       return {
         id: doc.id,
         uid: doc.id,
@@ -51,8 +55,8 @@ export async function GET(request) {
         displayName: data.displayName || data.fullName || "",
         whatsappPhone: data.whatsappPhone || data.phone || "",
         phone: data.phone || data.whatsappPhone || "",
-        role: data.role || "user",
-        isAdmin: Boolean(data.isAdmin),
+        role,
+        isAdmin,
         createdAt: createdAtStr,
         hasSetPassword: data.hasSetPassword !== false,
       };
@@ -230,6 +234,33 @@ export async function PATCH(request) {
       },
       { merge: true }
     );
+
+    // If changing role to "user", revoke any active approved hostingRequests for this user's email
+    if (targetRole === "user") {
+      try {
+        const uDoc = await adminDb.collection("users").doc(userId).get();
+        const userEmail = (uDoc.data()?.email || "").toLowerCase().trim();
+        if (userEmail) {
+          const hrSnap = await adminDb
+            .collection("hostingRequests")
+            .where("email", "==", userEmail)
+            .get();
+          const batch = adminDb.batch();
+          let count = 0;
+          hrSnap.forEach((doc) => {
+            if (doc.data()?.status === "approved") {
+              batch.update(doc.ref, { status: "revoked", revokedAt: nowIso });
+              count++;
+            }
+          });
+          if (count > 0) {
+            await batch.commit();
+          }
+        }
+      } catch (hrErr) {
+        console.warn("[superadmin/users] Error revoking hostingRequests:", hrErr.message);
+      }
+    }
 
     return NextResponse.json({
       success: true,

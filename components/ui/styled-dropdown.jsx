@@ -27,7 +27,30 @@ export function StyledDropdown({
   disabled = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [actualDirection, setActualDirection] = useState(dropDirection === "up" ? "up" : "down");
   const dropdownRef = useRef(null);
+
+  // Auto-detect available vertical space to prevent clipping below viewport or table borders
+  useEffect(() => {
+    if (isOpen && dropdownRef.current && typeof window !== "undefined") {
+      if (dropDirection === "up") {
+        setActualDirection("up");
+      } else if (dropDirection === "down") {
+        setActualDirection("down");
+      } else {
+        const rect = dropdownRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        // If less than 220px below and ample space above, open upwards
+        if (spaceBelow < 220 && rect.top > 200) {
+          setActualDirection("up");
+        } else {
+          setActualDirection("down");
+        }
+      }
+    } else {
+      setActualDirection(dropDirection === "up" ? "up" : "down");
+    }
+  }, [isOpen, dropDirection]);
 
   // Normalize options to { value, label } format
   const normalizedOptions = options.map((opt) =>
@@ -131,10 +154,10 @@ export function StyledDropdown({
         <div
           role="listbox"
           tabIndex={-1}
-          className={`absolute z-50 ${
+          className={`absolute z-[100] ${
             isFullWidth ? "w-full" : "min-w-[210px]"
           } p-1.5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 ${
-            dropDirection === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+            actualDirection === "up" ? "bottom-full mb-1.5" : "top-full mt-1.5"
           } ${align === "right" ? "right-0" : "left-0"} ${menuClassName}`}
         >
           {computedHeader && (

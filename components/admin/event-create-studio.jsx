@@ -3586,63 +3586,63 @@ export function EventCreateStudio({
               </div>
             )}
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleLocationSave}
-                className="flex-1 py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-xs transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
-              >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>Save Location</span>
-              </button>
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-4 border-t border-[#2A2D31]">
               <button
                 type="button"
                 onClick={() => setShowLocationModal(false)}
-                className="px-5 py-3.5 rounded-2xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer text-center"
               >
                 Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleLocationSave}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs transition-all shadow-md shadow-[#FE760B]/20 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Save Location</span>
               </button>
             </div>
           </div>
         </div>
       )}
-      {/* Event Description Modal (Crisp, clean & modern matching Image 4) */}
+      {/* Event Description Modal (Clean, professional TicketLelo design system) */}
       {showDescriptionModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-150"
           onClick={() => setShowDescriptionModal(false)}
         >
           <div
-            className="w-full max-w-xl bg-[#181A1D] border border-[#26292E] rounded-3xl shadow-2xl relative p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 text-white"
+            className="w-full max-w-xl bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-white"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Top Close 'X' Button */}
-            <button
-              type="button"
-              onClick={() => setShowDescriptionModal(false)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              title="Close modal"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            {/* Header: Icon + Title & Description */}
-            <div className="flex items-center gap-3 pr-8">
-              <div className="w-10 h-10 rounded-2xl bg-[#22252A] border border-white/5 flex items-center justify-center text-[#FE760B] shrink-0">
-                <Edit3 className="w-5 h-5 text-[#FE760B]" />
+            {/* Header: Clean title, subtitle & close button */}
+            <div className="px-6 py-5 border-b border-[#2A2D31] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#FE760B]/15 border border-[#FE760B]/25 flex items-center justify-center text-[#FE760B] shrink-0">
+                  <Edit3 className="w-4 h-4 text-[#FE760B]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight">
+                    Event Description
+                  </h3>
+                  <p className="text-xs text-[#9B9EA4] mt-0.5">
+                    Provide clear details about what attendees should expect
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-base font-bold text-white leading-tight">
-                  Event Description
-                </h3>
-                <p className="text-xs text-[#9B9EA4] leading-relaxed mt-0.5">
-                  Provide clear details about what attendees should expect
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowDescriptionModal(false)}
+                className="w-8 h-8 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-[#212327] border border-transparent hover:border-[#2A2D31] flex items-center justify-center transition-colors cursor-pointer"
+                title="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Content: Single crisp unified container without double-borders */}
-            <div className="rounded-2xl bg-[#121417] border border-[#26292E] focus-within:border-[#FE760B] transition-colors p-4 space-y-3">
+            {/* Body: Direct clean textarea without double-nested containers */}
+            <div className="p-6 space-y-3">
               <textarea
                 value={safeDescription}
                 onChange={(e) =>
@@ -3652,34 +3652,35 @@ export function EventCreateStudio({
                   }))
                 }
                 placeholder="Who should come? What's the event about? Include schedule, guidelines, and what to bring..."
-                rows={7}
-                className="w-full bg-transparent text-xs sm:text-sm text-white placeholder:text-[#64748B] border-0 outline-none ring-0 focus:outline-none focus:ring-0 resize-none leading-relaxed font-normal"
+                rows={8}
+                className="tl-bare-input w-full p-4 rounded-xl bg-[#212327] border border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/25 text-sm text-white placeholder:text-[#64748B] outline-none transition-all resize-y min-h-[160px] leading-relaxed font-normal"
               />
-              <div className="flex items-center justify-between text-[11px] text-[#9B9EA4] pt-2 border-t border-white/5 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
-                  Markdown &amp; line breaks supported
+
+              {/* Helper strip */}
+              <div className="flex items-center justify-between text-xs text-[#9B9EA4] pt-1">
+                <span>Markdown formatting and line breaks supported</span>
+                <span className="tabular-nums font-medium text-[#9B9EA4]">
+                  {safeDescription.length} characters
                 </span>
-                <span className="font-mono text-xs text-[#9B9EA4]">{safeDescription.length} characters</span>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3 pt-2">
+            {/* Footer: Balanced, professional action buttons */}
+            <div className="px-6 py-4 bg-[#141618] border-t border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setShowDescriptionModal(false)}
-                className="flex-1 py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer text-center"
               >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>Save Description</span>
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={() => setShowDescriptionModal(false)}
-                className="px-5 py-3.5 rounded-2xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs transition-all shadow-md shadow-[#FE760B]/20 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Cancel
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Save Description</span>
               </button>
             </div>
           </div>
@@ -3843,21 +3844,21 @@ export function EventCreateStudio({
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-4 border-t border-[#2A2D31]">
               <button
                 type="button"
                 onClick={() => setShowCapacityModal(false)}
-                className="flex-1 py-3.5 rounded-2xl bg-[#FE760B] hover:bg-[#ff8624] text-[#131517] font-extrabold text-sm transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.005] active:scale-[0.99]"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer text-center"
               >
-                <Check className="w-4 h-4 stroke-[3]" />
-                <span>Save Capacity</span>
+                Cancel
               </button>
               <button
                 type="button"
                 onClick={() => setShowCapacityModal(false)}
-                className="px-5 py-3.5 rounded-2xl bg-[#212327] hover:bg-[#2A2D31] text-[#9B9EA4] hover:text-white text-xs font-semibold border border-[#2A2D31] transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-xs transition-all shadow-md shadow-[#FE760B]/20 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                Cancel
+                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Save Capacity</span>
               </button>
             </div>
           </div>

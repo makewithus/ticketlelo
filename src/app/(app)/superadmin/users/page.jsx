@@ -251,7 +251,7 @@ export default function SuperAdminUsersPage() {
             type="button"
             onClick={() => fetchUsers(true)}
             disabled={refreshing}
-            className="p-2.5 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors disabled:opacity-50"
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] text-slate-700 dark:text-[#D0D0D1] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors disabled:opacity-50 cursor-pointer"
             title="Refresh Users"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
@@ -260,9 +260,9 @@ export default function SuperAdminUsersPage() {
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#EA580C] text-white font-semibold text-sm shadow-md transition-all active:scale-[0.98]"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-sm shadow-md shadow-[#FE760B]/20 transition-all active:scale-[0.98] cursor-pointer"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4 stroke-[2.5]" />
             <span>Create User</span>
           </button>
         </div>
@@ -273,17 +273,17 @@ export default function SuperAdminUsersPage() {
         <button
           type="button"
           onClick={() => setRoleFilter("all")}
-          className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
             roleFilter === "all"
-              ? "bg-[#FE760B]/12 border-[#FE760B]/50 ring-2 ring-[#FE760B]/25 shadow-sm"
-              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42]"
+              ? "bg-[#FE760B]/10 border-[#FE760B]/60 ring-1 ring-[#FE760B]/30 shadow-sm"
+              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42] hover:bg-slate-50 dark:hover:bg-[#212327]/60"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4]">ALL USERS</span>
+            <span className="text-xs font-bold tracking-wider text-slate-500 dark:text-[#9B9EA4] uppercase">ALL USERS</span>
             <Users className="w-4 h-4 text-slate-400 dark:text-[#9B9EA4]" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
             {stats.total}
           </div>
         </button>
@@ -291,17 +291,17 @@ export default function SuperAdminUsersPage() {
         <button
           type="button"
           onClick={() => setRoleFilter("user")}
-          className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
             roleFilter === "user"
-              ? "bg-blue-500/15 border-blue-500/50 ring-2 ring-blue-500/25 shadow-sm"
-              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42]"
+              ? "bg-blue-500/10 border-blue-500/60 ring-1 ring-blue-500/30 shadow-sm"
+              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42] hover:bg-slate-50 dark:hover:bg-[#212327]/60"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">ATTENDEES</span>
+            <span className="text-xs font-bold tracking-wider text-blue-600 dark:text-blue-400 uppercase">ATTENDEES</span>
             <UserCheck className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
             {stats.attendees}
           </div>
         </button>
@@ -309,17 +309,17 @@ export default function SuperAdminUsersPage() {
         <button
           type="button"
           onClick={() => setRoleFilter("organiser")}
-          className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
             roleFilter === "organiser"
-              ? "bg-[#FE760B]/12 border-[#FE760B]/50 ring-2 ring-[#FE760B]/25 shadow-sm"
-              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42]"
+              ? "bg-[#FE760B]/10 border-[#FE760B]/60 ring-1 ring-[#FE760B]/30 shadow-sm"
+              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42] hover:bg-slate-50 dark:hover:bg-[#212327]/60"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#FE760B]">ORGANISERS</span>
+            <span className="text-xs font-bold tracking-wider text-[#FE760B] uppercase">ORGANISERS</span>
             <Building2 className="w-4 h-4 text-[#FE760B]" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
             {stats.organisers}
           </div>
         </button>
@@ -327,24 +327,24 @@ export default function SuperAdminUsersPage() {
         <button
           type="button"
           onClick={() => setRoleFilter("superAdmin")}
-          className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
+          className={`text-left p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer ${
             roleFilter === "superAdmin"
-              ? "bg-red-500/15 border-red-500/50 ring-2 ring-red-500/25 shadow-sm"
-              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42]"
+              ? "bg-red-500/10 border-red-500/60 ring-1 ring-red-500/30 shadow-sm"
+              : "bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#3A3D42] hover:bg-slate-50 dark:hover:bg-[#212327]/60"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-red-500">SUPER ADMINS</span>
+            <span className="text-xs font-bold tracking-wider text-red-500 dark:text-red-400 uppercase">SUPER ADMINS</span>
             <ShieldAlert className="w-4 h-4 text-red-500" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
             {stats.superAdmins}
           </div>
         </button>
       </div>
 
       {/* ── Controls: Search & Role Filter Tabs ── */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-[#9B9EA4]" />
@@ -366,23 +366,27 @@ export default function SuperAdminUsersPage() {
           )}
         </div>
 
-        {/* Role Filter Dropdown + Quick Pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <StyledDropdown
-            icon={Shield}
-            label="Filter Role"
-            value={roleFilter}
-            options={[
-              { value: "all", label: `All Roles (${stats.total})` },
-              { value: "user", label: `Attendees (${stats.attendees})` },
-              { value: "organiser", label: `Organisers (${stats.organisers})` },
-              { value: "superAdmin", label: `Super Admins (${stats.superAdmins})` },
-            ]}
-            onChange={(val) => setRoleFilter(val)}
-            align="right"
-          />
+        {/* Unified Role Filter Controls (Dropdown on small mobile, Segmented pills on sm+) */}
+        <div className="flex items-center gap-2">
+          {/* Mobile dropdown selector */}
+          <div className="sm:hidden w-full">
+            <StyledDropdown
+              icon={Shield}
+              label="Role"
+              value={roleFilter}
+              options={[
+                { value: "all", label: `All Roles (${stats.total})` },
+                { value: "user", label: `Attendees (${stats.attendees})` },
+                { value: "organiser", label: `Organisers (${stats.organisers})` },
+                { value: "superAdmin", label: `Super Admins (${stats.superAdmins})` },
+              ]}
+              onChange={(val) => setRoleFilter(val)}
+              className="w-full"
+            />
+          </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {/* Clean Segmented Pill Tabs */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-slate-100 dark:bg-[#1A1C1F] p-1 rounded-xl border border-slate-200 dark:border-[#2A2D31]">
             {[
               { id: "all", label: `All (${stats.total})` },
               { id: "user", label: `Attendees (${stats.attendees})` },
@@ -393,10 +397,10 @@ export default function SuperAdminUsersPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setRoleFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   roleFilter === tab.id
-                    ? "bg-[#FE760B] text-black font-bold shadow-xs"
-                    : "bg-slate-100 dark:bg-[#212327] text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
+                    ? "bg-[#FE760B] text-[#131517] font-bold shadow-xs"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#212327]"
                 }`}
               >
                 {tab.label}
@@ -407,7 +411,7 @@ export default function SuperAdminUsersPage() {
       </div>
 
       {/* ── Users Table ── */}
-      <div className="border border-slate-200 dark:border-[#2A2D31] rounded-2xl overflow-hidden bg-white dark:bg-[#1A1C1F] shadow-sm">
+      <div className="border border-slate-200 dark:border-[#2A2D31] rounded-2xl bg-white dark:bg-[#1A1C1F] shadow-sm min-h-[340px]">
         {filteredUsers.length === 0 ? (
           <div className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-slate-400 dark:text-[#9B9EA4] mb-3 opacity-50" />
@@ -419,7 +423,7 @@ export default function SuperAdminUsersPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 dark:bg-[#212327]/60 text-slate-500 dark:text-[#9B9EA4] text-xs uppercase font-semibold border-b border-slate-200 dark:border-[#2A2D31]">
                 <tr>
@@ -431,7 +435,7 @@ export default function SuperAdminUsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-[#2A2D31]/60">
-                {filteredUsers.map((u) => {
+                {filteredUsers.map((u, idx) => {
                   const uid = u.uid || u.id;
                   const isSuper = u.role === "superAdmin";
                   const isOrganiser = u.role === "organiser" || u.role === "organizer";
@@ -494,6 +498,7 @@ export default function SuperAdminUsersPage() {
                             value={u.role || "user"}
                             disabled={isCurrentlyUpdating}
                             onChange={(newRole) => handleRoleChange(uid, newRole)}
+                            dropDirection={idx >= Math.max(0, filteredUsers.length - 2) ? "up" : "down"}
                             options={[
                               { value: "user", label: "User (Attendee)" },
                               { value: "organiser", label: "Organiser (Host)" },
@@ -535,7 +540,7 @@ export default function SuperAdminUsersPage() {
                           type="button"
                           onClick={() => handleImpersonate(u)}
                           disabled={isCurrentlyImpersonating}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-[#FE760B] hover:text-black text-slate-700 dark:bg-[#212327] dark:text-[#D0D0D1] dark:hover:bg-[#FE760B] dark:hover:text-black border border-slate-200 dark:border-[#2A2D31] transition-all cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] transition-all cursor-pointer disabled:opacity-50"
                           title={`Log in as ${u.fullName || u.email}`}
                         >
                           {isCurrentlyImpersonating ? (
@@ -686,18 +691,18 @@ export default function SuperAdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 dark:text-[#D0D0D1] hover:bg-slate-100 dark:hover:bg-[#212327] text-sm font-semibold transition-colors"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] text-sm font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createSubmitting}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#EA580C] text-white font-semibold text-sm shadow-md transition-all disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold text-sm shadow-md shadow-[#FE760B]/20 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {createSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin stroke-[2.5]" />
                       <span>Creating...</span>
                     </>
                   ) : (
