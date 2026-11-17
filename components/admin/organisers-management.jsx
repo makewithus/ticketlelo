@@ -71,30 +71,30 @@ function renderEventStatusBadge(eventStatus) {
   }
   if (eventStatus === "Ended") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#9B9EA4] border border-[#2A2D31]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9B9EA4] border border-slate-200 dark:border-[#2A2D31]">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-[#9B9EA4]" />
         Ended
       </span>
     );
   }
   if (eventStatus === "Draft") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#9B9EA4] border border-[#2A2D31]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-[#9B9EA4] border border-slate-200 dark:border-[#2A2D31]">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-[#9B9EA4]" />
         Draft
       </span>
     );
   }
   if (eventStatus === "No Event" || eventStatus === "Unpublished") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/5 text-[#71767B] border border-[#2A2D31]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#71767B]" />
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-[#71767B] border border-slate-200 dark:border-[#2A2D31]">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-[#71767B]" />
         No Event
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/15 text-[#3DD68C] border border-[#3DD68C]/30">
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#3DD68C]/15 text-emerald-700 dark:text-[#3DD68C] border border-[#3DD68C]/30">
       <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
       Published
     </span>
@@ -528,14 +528,14 @@ export function OrganisersManagement() {
       {/* Header matching Image 1: Title + Count Badge + Subtitle */}
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Organisers
           </h1>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#212327] border border-[#2A2D31] text-[#9B9EA4]">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#9B9EA4]">
             {organisers.length}
           </span>
         </div>
-        <p className="text-xs sm:text-sm text-[#9B9EA4] mt-1">
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
           Everyone approved to host events.
         </p>
       </div>
@@ -544,7 +544,7 @@ export function OrganisersManagement() {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         {/* Search Input */}
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71767B]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-[#71767B]" />
           <input
             type="text"
             value={searchTerm}
@@ -553,14 +553,14 @@ export function OrganisersManagement() {
               setPage(1);
             }}
             placeholder="Search name, event or login email"
-            className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs sm:text-sm text-white placeholder:text-[#71767B] outline-none focus:border-[#FE760B] transition-colors"
+            className="w-full h-10 pl-10 pr-3.5 rounded-xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#71767B] outline-none focus:border-[#FE760B] transition-colors"
           />
         </div>
 
-        {/* Filter Pills matching Image 1 */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 touch-pan-x">
+        {/* Segmented Filter Buttons matching Image 1 */}
+        <div className="inline-flex items-center bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-1 gap-1 flex-wrap sm:flex-nowrap">
           {[
-            { id: "all", label: "All" },
+            { id: "all", label: `All (${organisers.length})` },
             { id: "paid", label: "Paid" },
             { id: "free", label: "Free" },
             { id: "live", label: "Live now" },
@@ -575,10 +575,10 @@ export function OrganisersManagement() {
                   setActiveFilter(pill.id);
                   setPage(1);
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                   isActive
-                    ? "bg-white text-[#131517] shadow-sm"
-                    : "bg-[#1A1C1F] text-[#9B9EA4] hover:text-white border border-[#2A2D31]"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 {pill.label}
@@ -589,25 +589,25 @@ export function OrganisersManagement() {
       </div>
 
       {/* High-Density Data Table / Mobile Card Container */}
-      <div className="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-[#2A2D31] bg-white dark:bg-[#1A1C1F] overflow-hidden shadow-xs">
         {/* Desktop Table View (Hidden on mobile < md) */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#2A2D31] text-[11px] font-semibold text-[#71767B] uppercase tracking-wider select-none">
+              <tr className="border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/70 dark:bg-[#131517]/50 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] select-none">
                 <th className="py-3.5 px-5 whitespace-nowrap min-w-[200px]">ORGANISER</th>
                 <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">EVENT</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">EVENT STATUS</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">TICKETS</th>
                 <th className="py-3.5 px-4 whitespace-nowrap min-w-[180px]">LOGIN EMAIL</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">APPROVED</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap"> </th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#2A2D31]/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-[#2A2D31]">
               {paginatedOrganisers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#9B9EA4] text-xs">
+                  <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-[#9B9EA4] text-xs">
                     No approved organisers found matching your filters.
                   </td>
                 </tr>
@@ -620,7 +620,7 @@ export function OrganisersManagement() {
                   return (
                     <tr
                       key={item.id}
-                      className="hover:bg-white/[0.02] transition-colors group"
+                      className="hover:bg-slate-50/80 dark:hover:bg-[#212327]/60 transition-colors group"
                     >
                       {/* Column 1: ORGANISER with Avatar */}
                       <td className="py-4 px-5 min-w-[200px]">
@@ -631,10 +631,10 @@ export function OrganisersManagement() {
                             {initials}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs sm:text-sm font-bold text-white truncate">
+                            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                               {item.name}
                             </div>
-                            <div className="text-[11px] text-[#71767B] truncate">
+                            <div className="text-[11px] text-slate-500 dark:text-[#71767B] truncate">
                               {formatCollege(item.college)}
                             </div>
                           </div>
@@ -644,10 +644,10 @@ export function OrganisersManagement() {
                       {/* Column 2: EVENT */}
                       <td className="py-4 px-4 min-w-[180px]">
                         <div className="min-w-0">
-                          <div className="text-xs sm:text-sm font-semibold text-white truncate max-w-[200px]">
+                          <div className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[200px]">
                             {item.eventTitle}
                           </div>
-                          <div className="text-[11px] text-[#71767B]">
+                          <div className="text-[11px] text-slate-500 dark:text-[#71767B]">
                             {item.isPaid ? "Paid" : "Free"}
                           </div>
                         </div>
@@ -659,9 +659,9 @@ export function OrganisersManagement() {
                       </td>
 
                       {/* Column 4: TICKETS */}
-                      <td className="py-4 px-4 text-xs sm:text-sm font-mono text-white whitespace-nowrap">
+                      <td className="py-4 px-4 text-xs sm:text-sm font-mono text-slate-900 dark:text-white whitespace-nowrap">
                         {item.tickets === "Unlimited" ? (
-                          <span className="text-xs font-semibold text-[#9B9EA4]">Unlimited</span>
+                          <span className="text-xs font-semibold text-slate-500 dark:text-[#9B9EA4]">Unlimited</span>
                         ) : (
                           Number(item.tickets || 0).toLocaleString()
                         )}
@@ -670,7 +670,7 @@ export function OrganisersManagement() {
                       {/* Column 5: LOGIN EMAIL with Duplicate Badge */}
                       <td className="py-4 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-[#D0D0D1]">
+                          <span className="text-xs font-mono text-slate-700 dark:text-[#D0D0D1]">
                             {item.loginEmail}
                           </span>
                           {item.isDuplicate && (
@@ -682,7 +682,7 @@ export function OrganisersManagement() {
                       </td>
 
                       {/* Column 6: APPROVED DATE */}
-                      <td className="py-4 px-4 text-xs font-medium text-[#9B9EA4] whitespace-nowrap">
+                      <td className="py-4 px-4 text-xs font-medium text-slate-500 dark:text-[#9B9EA4] whitespace-nowrap">
                         {formatApprovedDate(item.approvedAt)}
                       </td>
 
@@ -691,7 +691,7 @@ export function OrganisersManagement() {
                         <button
                           type="button"
                           onClick={(e) => toggleActionMenu(e, item)}
-                          className="action-menu-trigger p-1.5 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                          className="action-menu-trigger p-1.5 rounded-lg text-slate-400 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
                           title="Actions"
                           aria-label="Actions"
                         >

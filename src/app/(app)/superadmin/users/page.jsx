@@ -244,19 +244,19 @@ export default function SuperAdminUsersPage() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+    <div className="space-y-6">
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-[#2A2D31]">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
               Users Management
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/30">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#212327] text-slate-700 dark:text-[#9B9EA4] border border-slate-200 dark:border-[#2A2D31]">
               {users.length} Total
             </span>
           </div>
-          <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
             Complete system directory. Manage roles, provision accounts, and access user dashboards.
           </p>
         </div>
@@ -444,7 +444,7 @@ export default function SuperAdminUsersPage() {
         ) : (
           <div className="overflow-x-auto rounded-2xl min-h-[340px]">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 dark:bg-[#212327]/60 text-slate-500 dark:text-[#9B9EA4] text-xs uppercase font-semibold border-b border-slate-200 dark:border-[#2A2D31]">
+              <thead className="bg-slate-50/70 dark:bg-[#131517]/50 text-slate-500 dark:text-[#9B9EA4] text-[12px] uppercase font-semibold tracking-[0.6px] border-b border-slate-200 dark:border-[#2A2D31]">
                 <tr>
                   <th className="py-3.5 px-4 sm:px-6">User / Identity</th>
                   <th className="py-3.5 px-4">Contact</th>
@@ -453,7 +453,7 @@ export default function SuperAdminUsersPage() {
                   <th className="py-3.5 px-4 sm:px-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-[#2A2D31]/60">
+              <tbody className="divide-y divide-slate-200 dark:divide-[#2A2D31]/60">
                 {filteredUsers.map((u, idx) => {
                   const uid = u.uid || u.id;
                   const isSuper = u.role === "superAdmin";

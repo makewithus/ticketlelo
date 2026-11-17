@@ -383,13 +383,15 @@ export function SuperAdminSupportView() {
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Super Admin Support Center</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/30">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Support tickets
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#212327] text-slate-700 dark:text-[#9B9EA4] border border-slate-200 dark:border-[#2A2D31]">
               Live Queue
             </span>
           </div>
-          <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
             Resolve organizer technical inquiries, manage settlement hold disputes, and communicate securely.
           </p>
         </div>

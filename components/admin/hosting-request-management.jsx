@@ -585,7 +585,7 @@ export function HostingRequestManagement() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Spacious Search Bar */}
           <div className="relative flex-1 min-w-[260px]">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9B9EA4]" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-[#9B9EA4]" />
             <input
               type="text"
               value={searchTerm}
@@ -594,14 +594,14 @@ export function HostingRequestManagement() {
                 setCurrentPage(1);
               }}
               placeholder="Search by event title, organizer name, college, email..."
-              className="w-full h-10 pl-10 pr-4 bg-[#1A1C1F] border border-[#2A2D31] rounded-xl text-xs sm:text-sm text-white placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-colors"
+              className="w-full h-10 pl-10 pr-4 bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-colors"
             />
           </div>
 
           {/* Status Filter Badges & Live Status */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {/* Real-time Status Indicator (No manual refresh button) */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-xs">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-xs">
               <span className="relative flex h-2 w-2">
                 <span
                   className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
@@ -616,7 +616,7 @@ export function HostingRequestManagement() {
               </span>
               <span
                 className={`text-[11px] font-semibold ${
-                  isLiveConnected ? "text-emerald-400" : "text-[#9B9EA4]"
+                  isLiveConnected ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-[#9B9EA4]"
                 }`}
               >
                 {isLiveConnected ? "Live" : "Syncing"}
@@ -732,35 +732,35 @@ export function HostingRequestManagement() {
       </div>
 
       {/* Requests Table Container */}
-      <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
-              <tr className="border-b border-[#2A2D31] bg-[#131517]/50">
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[220px]">
+              <tr className="border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/70 dark:bg-[#131517]/50">
+                <th className="py-3 px-5 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[220px]">
                   EVENT
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[200px]">
+                <th className="py-3 px-5 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] whitespace-nowrap min-w-[200px]">
                   REQUESTED BY
                 </th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
+                <th className="py-3 px-4 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
                   TYPE
                 </th>
-                <th className="py-3 px-4 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
+                <th className="py-3 px-4 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
                   TICKETS
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
+                <th className="py-3 px-5 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] text-center whitespace-nowrap">
                   STATUS
                 </th>
-                <th className="py-3 px-5 text-[12px] font-semibold text-[#9B9EA4] uppercase tracking-[0.6px] text-right whitespace-nowrap">
+                <th className="py-3 px-5 text-[12px] font-semibold text-slate-500 dark:text-[#9B9EA4] uppercase tracking-[0.6px] text-right whitespace-nowrap">
                   ACTIONS
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#2A2D31]">
+            <tbody className="divide-y divide-slate-200 dark:divide-[#2A2D31]">
               {paginatedRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-[#9B9EA4] text-sm">
+                  <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-[#9B9EA4] text-sm">
                     No hosting requests found matching your filter.
                   </td>
                 </tr>
@@ -774,13 +774,13 @@ export function HostingRequestManagement() {
                   return (
                     <tr
                       key={request.id}
-                      className="hover:bg-[#212327]/60 transition-colors group cursor-pointer"
+                      className="hover:bg-slate-50/80 dark:hover:bg-[#212327]/60 transition-colors group cursor-pointer"
                       onClick={() => setSelectedDetailRequest(request)}
                     >
                       {/* Event Column */}
                       <td className="py-3.5 px-5 min-w-[220px]">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-xs text-white">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center font-bold text-xs text-slate-900 dark:text-white">
                             {request.coverUrl ? (
                               <img
                                 src={request.coverUrl}
@@ -794,10 +794,10 @@ export function HostingRequestManagement() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-white group-hover:text-[#FE760B] transition-colors">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-[#FE760B] transition-colors">
                               {request.eventTitle}
                             </div>
-                            <div className="text-xs text-[#9B9EA4] mt-0.5 whitespace-nowrap">
+                            <div className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5 whitespace-nowrap">
                               Sent {formatRequestDate(request.createdAt)}
                             </div>
                           </div>
@@ -807,11 +807,11 @@ export function HostingRequestManagement() {
                       {/* Requested By Column */}
                       <td className="py-3.5 px-5 min-w-[200px]">
                         <div>
-                          <span className="text-sm font-medium text-white">
+                          <span className="text-sm font-medium text-slate-900 dark:text-white">
                             {request.name}
                           </span>
                         </div>
-                        <div className="text-xs text-[#9B9EA4] mt-0.5 truncate max-w-[220px]">
+                        <div className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5 truncate max-w-[220px]">
                           {request.college || "Independent Organiser"} · {request.email}
                         </div>
                       </td>
@@ -823,7 +823,7 @@ export function HostingRequestManagement() {
                             Paid
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/10 text-slate-300">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-transparent">
                             Free
                           </span>
                         )}
@@ -831,7 +831,7 @@ export function HostingRequestManagement() {
 
                       {/* Tickets Column */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span className="text-sm text-white font-mono font-semibold tabular-nums">
+                        <span className="text-sm text-slate-900 dark:text-white font-mono font-semibold tabular-nums">
                           {request.numberOfTickets || "—"}
                         </span>
                       </td>
@@ -887,7 +887,7 @@ export function HostingRequestManagement() {
                               onClick={() => handleResendApprovalEmail(request)}
                               disabled={processingId === request.id}
                               title={`Resend approval email to ${request.email}`}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#9B9EA4] hover:text-white bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white bg-white dark:bg-[#212327] hover:bg-slate-50 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs"
                             >
                               <Mail className="w-3.5 h-3.5 text-[#FE760B]" />
                               <span>Resend</span>

@@ -609,19 +609,12 @@ export function SuperAdminPlansView() {
       {/* ── 1. Top Section Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-[#FE760B]/12 border border-[#FE760B]/25 flex items-center justify-center text-[#FE760B] shrink-0">
-              <Layers size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                Subscription Plans & Facilities
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4]">
-                Manage organizer subscription tiers, allocate platform facilities, and execute instant 1-click updates.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Plans &amp; facilities
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
+            Manage organizer subscription tiers, allocate platform facilities, and execute instant 1-click updates.
+          </p>
         </div>
 
         <div className="flex items-center gap-2.5 self-start md:self-auto">
@@ -855,7 +848,7 @@ export function SuperAdminPlansView() {
               <col className="w-[10%]" />
             </colgroup>
             <thead>
-              <tr className="bg-slate-50/90 dark:bg-[#1A1C1F] border-b border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#9E9E9F] font-bold text-[11px] uppercase tracking-wider">
+              <tr className="bg-slate-50/70 dark:bg-[#131517]/50 border-b border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#9B9EA4] font-semibold text-[12px] uppercase tracking-[0.6px]">
                 <th className="py-3.5 px-4">Organizer / User</th>
                 <th className="py-3.5 px-4">Current Plan</th>
                 <th className="py-3.5 px-4">Event Usage</th>

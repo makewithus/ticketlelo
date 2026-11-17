@@ -371,8 +371,10 @@ export default function SuperAdminPaymentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Marketplace Payments & Settlements</h1>
-          <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Payments &amp; Payouts
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
             Double-entry ledger control, calendar-aware T+4 organizer settlements, and platform commission management.
           </p>
         </div>

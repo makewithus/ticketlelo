@@ -204,15 +204,14 @@ export function SiteSettingsManager() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Sliders className="w-6 h-6 text-[#FE760B]" />
-            Site Settings &amp; Platform Configuration
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-0.5">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Site settings
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
             Configure homepage countdown timer, platform metadata, and operational parameters.
           </p>
         </div>
