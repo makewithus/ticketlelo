@@ -25,6 +25,7 @@ import {
   Smartphone,
   Monitor,
   Calendar,
+  Lock,
 } from "lucide-react";
 import {
   getEventsByOrganiser,
@@ -37,6 +38,7 @@ import {
   createCustomForm,
   updateCustomForm,
 } from "@/lib/form-generator";
+import { getCachedOrganiserEvents, getCachedEvent } from "@/lib/client-cache";
 import { useAuth } from "@/context/auth-context";
 import { BrandLoader } from "@/components/ui/brand-loader";
 
@@ -88,21 +90,62 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState(propEventId || "");
-  const [event, setEvent] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const initialEventId = propEventId || (searchParams ? searchParams.get("eventId") : "") || "";
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (initialEventId) return initialEventId;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("admin_selected_event_id");
+        if (stored) return stored;
+      } catch {}
+    }
+    return "";
+  });
+  const [event, setEvent] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : "");
+    if (targetId) {
+      const cached = getCachedEvent(targetId);
+      if (cached) return cached;
+    }
+    return null;
+  });
+  const [events, setEvents] = useState(() => {
+    if (typeof window === "undefined") return [];
+    if (user?.uid || user?.id) {
+      const cachedList = getCachedOrganiserEvents(user.uid || user.id);
+      if (Array.isArray(cachedList) && cachedList.length > 0) return cachedList;
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : "");
+    if (targetId && getCachedEvent(targetId)) return false;
+    return true;
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   // Registration Status & Group Registration
-  const [registrationStatus, setRegistrationStatus] = useState("Open");
-  const [groupRegistration, setGroupRegistration] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState(() => {
+    return event?.registrationStatus || (event?.isActive !== false ? "Open" : "Closed");
+  });
+  const [groupRegistration, setGroupRegistration] = useState(() => Boolean(event?.groupRegistration));
 
   // Personal Information Configuration
-  const [personalInfo, setPersonalInfo] = useState({
-    nameMode: "Full Name", // "Full Name" | "First and Last Name"
-    emailRequired: true,
-    phoneMode: "Required", // "Off" | "Optional" | "Required"
+  const [personalInfo, setPersonalInfo] = useState(() => {
+    if (event?.personalInfoConfig) {
+      return {
+        nameMode: event.personalInfoConfig.nameMode || "Full Name",
+        emailRequired: true,
+        phoneMode: event.personalInfoConfig.phoneMode || "Required",
+      };
+    }
+    return {
+      nameMode: "Full Name", // "Full Name" | "First and Last Name"
+      emailRequired: true,
+      phoneMode: "Required", // "Off" | "Optional" | "Required"
+    };
   });
 
   // Modals for Personal Info Fields Configuration (clean & crisp matching Image 4)
@@ -111,7 +154,12 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
   const [showEmailModal, setShowEmailModal] = useState(false);
 
   // Custom Questions List
-  const [customQuestions, setCustomQuestions] = useState(DEFAULT_CUSTOM_QUESTIONS);
+  const [customQuestions, setCustomQuestions] = useState(() => {
+    if (Array.isArray(event?.customQuestions) && event.customQuestions.length > 0) {
+      return event.customQuestions;
+    }
+    return DEFAULT_CUSTOM_QUESTIONS;
+  });
 
   // Modal: Add / Edit Question
   const [showQuestionModal, setShowQuestionModal] = useState(false);
@@ -1257,8 +1305,9 @@ export function RegistrationStudio({ eventId: propEventId = null }) {
                       : "Complete RSVP & Get Pass"}
                   </span>
                 </button>
-                <p className="text-center text-[10px] text-[#9B9EA4] mt-2">
-                  🔒 Preview Mode • Submissions here will not create permanent attendee records
+                <p className="text-center text-[10px] text-[#9B9EA4] mt-2 flex items-center justify-center gap-1">
+                  <Lock className="w-3 h-3 text-[#9B9EA4]" />
+                  <span>Preview Mode • Submissions here will not create permanent attendee records</span>
                 </p>
               </div>
             </div>

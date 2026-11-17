@@ -1916,12 +1916,12 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 disabled={isLoading}
                 className={`w-full px-3.5 py-2.5 h-11 border rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none transition-all text-base sm:text-sm ${
                   isEmailLocked
-                    ? "bg-slate-100 dark:bg-[#1A1C1F] cursor-not-allowed opacity-90 border-slate-200 dark:border-[#2A2D31] select-none pr-10"
+                    ? "bg-slate-100 dark:bg-[#1A1C1F] cursor-not-allowed opacity-90 border-slate-300 dark:border-[#2A2D31] select-none pr-10"
                     : isEmail && emailRoleError
-                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-500/5 dark:bg-red-500/10 text-red-500 dark:text-red-300 pr-10"
+                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/60 dark:bg-red-500/10 text-red-950 dark:text-red-300 pr-10"
                     : error
-                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-slate-50 dark:bg-[#212327]"
-                    : "border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-slate-50 dark:bg-[#212327]"
+                    ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500 bg-red-50/30 dark:bg-[#212327]"
+                    : "border-slate-300 dark:border-[#2A2D31] hover:border-slate-400 dark:hover:border-[#3A3D42] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] bg-slate-50/60 dark:bg-[#212327] focus:bg-white dark:focus:bg-[#1E2024]"
                 }`}
               />
               {isEmail && isCheckingEmailRole && (
@@ -1937,11 +1937,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               </p>
             )}
             {isEmail && emailRoleError && (
-              <div className="mt-1.5 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2.5 animate-fadeIn">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <div className="mt-1.5 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-xs flex items-start gap-2.5 animate-fadeIn shadow-xs">
+                <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0 mt-0.5" />
                 <div className="space-y-0.5 text-left">
-                  <p className="font-semibold text-red-300">Organiser Email Not Permitted</p>
-                  <p className="text-red-200/90 leading-relaxed">{emailRoleError}</p>
+                  <p className="font-bold text-red-950 dark:text-red-300">Organiser Email Not Permitted</p>
+                  <p className="text-red-900/90 dark:text-red-200/90 leading-relaxed font-medium">{emailRoleError}</p>
                 </div>
               </div>
             )}
@@ -2341,11 +2341,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Organiser Notice Banner */}
           {isOrganiserOrAdmin && (
-            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 text-xs flex items-start gap-2.5 shadow-xs">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="space-y-1 text-left">
-                <p className="font-semibold text-amber-200">Organiser Account Detected</p>
-                <p className="text-amber-200/90 leading-relaxed">
+                <p className="font-bold text-amber-950 dark:text-amber-200">Organiser Account Detected</p>
+                <p className="text-amber-900/90 dark:text-amber-200/90 leading-relaxed font-medium">
                   You are signed in as an Event Organiser ({effectiveUser?.email}). Organiser accounts manage events and cannot register as attendees with their organiser email. To register, please enter a different attendee email address below.
                 </p>
               </div>
@@ -2375,7 +2375,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                         setCouponCode(e.target.value.toUpperCase())
                       }
                       disabled={isLoading || couponValidating}
-                      className="flex-1 min-w-0 px-3.5 py-2 h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-base sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase"
+                      className="flex-1 min-w-0 px-3.5 py-2 h-11 bg-slate-50/60 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] hover:border-slate-400 dark:hover:border-[#3A3D42] rounded-xl text-base sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase"
                     />
                     <button
                       type="button"
@@ -2383,7 +2383,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                       disabled={
                         isLoading || couponValidating || !couponCode.trim()
                       }
-                      className="px-4 py-2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] text-slate-800 dark:text-white font-semibold text-sm rounded-xl transition-all flex items-center justify-center shrink-0"
+                      className="px-4 py-2 h-11 bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-300 dark:border-[#2A2D31] text-slate-800 dark:text-white font-semibold text-sm rounded-xl transition-all flex items-center justify-center shrink-0"
                     >
                       {couponValidating ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -2432,7 +2432,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                 disabled={isLoading}
-                className="w-full px-3.5 py-2 h-11 bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl text-base sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase font-mono"
+                className="w-full px-3.5 py-2 h-11 bg-slate-50/60 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] hover:border-slate-400 dark:hover:border-[#3A3D42] rounded-xl text-base sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4] focus:outline-none focus:border-[#FE760B] transition-all uppercase font-mono"
               />
               <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4]">
                 Have an ambassador referral code? Enter it here.
@@ -2445,13 +2445,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <button
               type="button"
               disabled
-              className="w-full bg-slate-200 dark:bg-[#1E2024] text-slate-500 dark:text-[#9B9EA4] border border-slate-300 dark:border-[#2A2D31] cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 opacity-80 shadow-none select-none transition-all"
+              className="w-full bg-slate-100 dark:bg-[#1E2024] text-slate-600 dark:text-[#9B9EA4] border border-slate-300 dark:border-[#2A2D31] cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 shadow-none select-none transition-all"
             >
-              <AlertCircle className="w-4 h-4 text-[#FE760B]" />
+              <AlertCircle className="w-4 h-4 text-slate-500 dark:text-[#9B9EA4]" />
               <span>
-                {regStatus.reason === "draft_or_private"
-                  ? "Registration Closed (Draft / Private Mode)"
-                  : regStatus.reason === "capacity_reached"
+                {regStatus.reason === "capacity_reached"
                   ? "Registration Closed (Capacity Reached)"
                   : "Registration Closed"}
               </span>
@@ -2460,9 +2458,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <button
               type="button"
               disabled
-              className="w-full bg-red-500/10 text-red-400 border border-red-500/30 cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 select-none transition-all"
+              className="w-full bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-500/30 cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 select-none transition-all"
             >
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-500 shrink-0" />
               <span>Organiser Email Not Permitted</span>
             </button>
           ) : (
@@ -2493,9 +2491,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               )}
             </button>
           )}
-          <p className="text-center text-xs text-slate-500 dark:text-[#9B9EA4] mt-2">
-            Secure payment via Razorpay
-          </p>
+          {isPaidEvent && finalPayableAmount > 0 && !isClosedForRegistration && (
+            <p className="text-center text-xs text-slate-500 dark:text-[#9B9EA4] mt-2">
+              Secure payment via Razorpay
+            </p>
+          )}
         </form>
       </div>
 

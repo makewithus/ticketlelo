@@ -325,18 +325,37 @@ export function HostingRequestManagement() {
   };
 
   const counts = useMemo(() => {
+    let pending = 0;
+    let approved = 0;
+    let rejected = 0;
+
+    for (const r of requests) {
+      const st = (r.status || "pending").toLowerCase().trim();
+      if (st === "pending") {
+        pending++;
+      } else if (st === "approved") {
+        approved++;
+      } else if (st === "rejected") {
+        rejected++;
+      } else {
+        pending++;
+      }
+    }
+
     return {
-      pending: requests.filter((r) => r.status === "pending").length,
-      approved: requests.filter((r) => r.status === "approved").length,
-      rejected: requests.filter((r) => r.status === "rejected").length,
+      total: requests.length,
+      pending,
+      approved,
+      rejected,
     };
   }, [requests]);
 
   const filteredRequests = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     const list = requests.filter((req) => {
+      const rawStatus = (req.status || "pending").toLowerCase().trim();
       const matchesStatus =
-        statusFilter === "all" ? true : req.status === statusFilter;
+        statusFilter === "all" ? true : rawStatus === statusFilter;
       const searchable = [
         req.eventTitle,
         req.name,
@@ -364,6 +383,12 @@ export function HostingRequestManagement() {
     });
 
     list.sort((a, b) => {
+      // Pending requests always rank first so superadmins can act on new submissions immediately
+      const aPending = a.status === "pending";
+      const bPending = b.status === "pending";
+      if (aPending && !bPending) return -1;
+      if (!aPending && bPending) return 1;
+
       const ta = a.createdAt?.toDate
         ? a.createdAt.toDate().getTime()
         : new Date(a.createdAt || 0).getTime();
@@ -372,11 +397,7 @@ export function HostingRequestManagement() {
         : new Date(b.createdAt || 0).getTime();
 
       if (sortBy === "oldest") return ta - tb;
-      if (sortBy === "urgent") {
-        if (a.status === "pending" && b.status !== "pending") return -1;
-        if (b.status === "pending" && a.status !== "pending") return 1;
-        return tb - ta;
-      }
+      if (sortBy === "urgent") return tb - ta;
       if (sortBy === "title") {
         return (a.eventTitle || "").localeCompare(b.eventTitle || "");
       }
@@ -603,7 +624,7 @@ export function HostingRequestManagement() {
             </div>
 
             {/* Status Segmented Buttons */}
-            <div className="inline-flex items-center bg-[#1A1C1F] border border-[#2A2D31] rounded-xl p-1 gap-1">
+            <div className="inline-flex items-center bg-slate-100 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-1 gap-1 flex-wrap sm:flex-nowrap">
               <button
                 onClick={() => {
                   setStatusFilter("all");
@@ -611,8 +632,8 @@ export function HostingRequestManagement() {
                 }}
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                   statusFilter === "all"
-                    ? "bg-[#212327] text-white shadow-sm"
-                    : "text-[#9B9EA4] hover:text-white"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 All ({counts.total})
@@ -624,8 +645,8 @@ export function HostingRequestManagement() {
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                   statusFilter === "pending"
-                    ? "bg-[#212327] text-white shadow-sm"
-                    : "text-[#9B9EA4] hover:text-white"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FDE003]" />
@@ -638,8 +659,8 @@ export function HostingRequestManagement() {
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                   statusFilter === "approved"
-                    ? "bg-[#212327] text-white shadow-sm"
-                    : "text-[#9B9EA4] hover:text-white"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
@@ -652,8 +673,8 @@ export function HostingRequestManagement() {
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                   statusFilter === "rejected"
-                    ? "bg-[#212327] text-white shadow-sm"
-                    : "text-[#9B9EA4] hover:text-white"
+                    ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-xs"
+                    : "text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B6B]" />
@@ -745,9 +766,10 @@ export function HostingRequestManagement() {
                 </tr>
               ) : (
                 paginatedRequests.map((request) => {
-                  const isPending = request.status === "pending";
-                  const isApproved = request.status === "approved";
-                  const isRejected = request.status === "rejected";
+                  const rawStatus = (request.status || "pending").toLowerCase().trim();
+                  const isPending = rawStatus === "pending";
+                  const isApproved = rawStatus === "approved";
+                  const isRejected = rawStatus === "rejected";
 
                   return (
                     <tr
@@ -817,18 +839,18 @@ export function HostingRequestManagement() {
                       {/* Status Column */}
                       <td className="py-3.5 px-5 text-center whitespace-nowrap">
                         {isPending ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/25">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" />
                             Pending
                           </span>
                         ) : isApproved ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
                             Approved
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/25">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/25">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400" />
                             Rejected
                           </span>
                         )}

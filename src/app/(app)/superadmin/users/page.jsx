@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -11,6 +12,7 @@ import {
   Building2,
   UserCheck,
   LogIn,
+  ExternalLink,
   Loader2,
   RefreshCw,
   Phone,
@@ -28,12 +30,23 @@ import { signInWithCustomToken } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { toast } from "sonner";
 import { BrandLoader } from "@/components/ui/brand-loader";
+import { SuperAdminTableSkeleton } from "@/components/ui/skeleton";
 import { StyledDropdown } from "@/components/ui/styled-dropdown";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 export default function SuperAdminUsersPage() {
   const router = useRouter();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache hydration for instant zero-lag rendering
+  const [users, setUsers] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = getCachedItem("superadmin_users_list");
+        if (Array.isArray(cached) && cached.length > 0) return cached;
+      } catch {}
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => users.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all"); // "all" | "user" | "organiser" | "superAdmin"
@@ -51,6 +64,11 @@ export default function SuperAdminUsersPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchUsers = async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
@@ -62,6 +80,7 @@ export default function SuperAdminUsersPage() {
       const data = await res.json();
       if (data.users) {
         setUsers(data.users);
+        setCachedItem("superadmin_users_list", data.users, 15 * 60 * 1000);
       }
     } catch (err) {
       console.error("[UsersPage] Error fetching users:", err);
@@ -166,7 +185,7 @@ export default function SuperAdminUsersPage() {
       }
 
       toast.success(
-        `Logged in as ${targetUser.fullName || targetUser.email}! Redirecting to dashboard...`
+        `Accessing portal for ${targetUser.fullName || targetUser.email}! Redirecting...`
       );
 
       // Transition to target user's appropriate portal
@@ -175,7 +194,7 @@ export default function SuperAdminUsersPage() {
       }, 700);
     } catch (err) {
       console.error("[UsersPage] Impersonate error:", err);
-      toast.error(err.message || "Impersonation failed");
+      toast.error(err.message || "Portal access failed");
       setImpersonatingId(null);
     }
   };
@@ -224,10 +243,6 @@ export default function SuperAdminUsersPage() {
     }
   };
 
-  if (loading) {
-    return <BrandLoader message="Loading system users..." fullScreen />;
-  }
-
   return (
     <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       {/* ── Page Header ── */}
@@ -242,7 +257,7 @@ export default function SuperAdminUsersPage() {
             </span>
           </div>
           <p className="text-sm text-slate-600 dark:text-[#9B9EA4] mt-1">
-            Complete system directory. Change roles, provision accounts, or login to any user dashboard.
+            Complete system directory. Manage roles, provision accounts, and access user dashboards.
           </p>
         </div>
 
@@ -411,8 +426,12 @@ export default function SuperAdminUsersPage() {
       </div>
 
       {/* ── Users Table ── */}
-      <div className="border border-slate-200 dark:border-[#2A2D31] rounded-2xl bg-white dark:bg-[#1A1C1F] shadow-sm min-h-[340px]">
-        {filteredUsers.length === 0 ? (
+      <div className="border border-slate-200 dark:border-[#2A2D31] rounded-2xl bg-white dark:bg-[#1A1C1F] shadow-sm min-h-[340px] overflow-hidden">
+        {loading && users.length === 0 ? (
+          <div className="p-4 sm:p-6 space-y-4">
+            <SuperAdminTableSkeleton />
+          </div>
+        ) : filteredUsers.length === 0 ? (
           <div className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-slate-400 dark:text-[#9B9EA4] mb-3 opacity-50" />
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">No users found</h3>
@@ -423,7 +442,7 @@ export default function SuperAdminUsersPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl">
+          <div className="overflow-x-auto rounded-2xl min-h-[340px]">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 dark:bg-[#212327]/60 text-slate-500 dark:text-[#9B9EA4] text-xs uppercase font-semibold border-b border-slate-200 dark:border-[#2A2D31]">
                 <tr>
@@ -498,7 +517,7 @@ export default function SuperAdminUsersPage() {
                             value={u.role || "user"}
                             disabled={isCurrentlyUpdating}
                             onChange={(newRole) => handleRoleChange(uid, newRole)}
-                            dropDirection={idx >= Math.max(0, filteredUsers.length - 2) ? "up" : "down"}
+                            dropDirection={filteredUsers.length >= 4 && idx >= filteredUsers.length - 2 && idx > 0 ? "up" : "down"}
                             options={[
                               { value: "user", label: "User (Attendee)" },
                               { value: "organiser", label: "Organiser (Host)" },
@@ -534,30 +553,24 @@ export default function SuperAdminUsersPage() {
                         )}
                       </td>
 
-                      {/* Actions: Impersonate / Login as user */}
+                      {/* Actions: Impersonate / Open user portal */}
                       <td className="py-4 px-4 sm:px-6 text-right">
                         <button
                           type="button"
                           onClick={() => handleImpersonate(u)}
                           disabled={isCurrentlyImpersonating}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] transition-all cursor-pointer disabled:opacity-50"
-                          title={`Log in as ${u.fullName || u.email}`}
+                          title={`Open portal for ${u.fullName || u.email}`}
                         >
                           {isCurrentlyImpersonating ? (
                             <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FE760B]" />
                               <span>Switching...</span>
                             </>
                           ) : (
                             <>
-                              <LogIn className="w-3.5 h-3.5" />
-                              <span>
-                                {isSuper
-                                  ? "Login as Admin"
-                                  : isOrganiser
-                                  ? "Login as Organiser"
-                                  : "Login as Attendee"}
-                              </span>
+                              <ExternalLink className="w-3.5 h-3.5 text-[#FE760B]" />
+                              <span>Open Portal</span>
                             </>
                           )}
                         </button>
@@ -572,12 +585,16 @@ export default function SuperAdminUsersPage() {
       </div>
 
       {/* ── Create User Modal ── */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+      {isCreateModalOpen && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsCreateModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
           <div
             className="w-full max-w-md bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-6 shadow-2xl relative"
-            role="dialog"
-            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#2A2D31]">
@@ -712,7 +729,8 @@ export default function SuperAdminUsersPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Ticket, ArrowUpRight, AlertTriangle, Clock } from "lucide-react";
 import { getEvent } from "@/lib/firestore";
 import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
@@ -17,6 +17,7 @@ export function EventControlHeader({
   isCancellationPending: propIsCancelPending = null,
   extraActions = null,
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const urlEventId = searchParams ? searchParams.get("eventId") : null;
   const [storedEventId, setStoredEventId] = useState(null);
@@ -207,6 +208,9 @@ export function EventControlHeader({
               <Link
                 key={tab.name}
                 href={tab.href}
+                prefetch={true}
+                onMouseEnter={() => router.prefetch(tab.href)}
+                onTouchStart={() => router.prefetch(tab.href)}
                 className={`pb-3 font-medium transition-colors relative block ${
                   isActive
                     ? "text-[#061A3F] dark:text-white font-bold"

@@ -53,11 +53,33 @@ export default function MoreEventSettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Safe SSR hydration - avoids hydration mismatch
+  // Synchronous cache hydration for instant 0ms rendering
   const initialEventId = searchParams?.get("eventId") || null;
-  const [activeEventId, setActiveEventId] = useState(initialEventId);
-  const [currentEvent, setCurrentEvent] = useState(null);
-  const [loadingEvent, setLoadingEvent] = useState(true);
+  const [activeEventId, setActiveEventId] = useState(() => {
+    if (initialEventId) return initialEventId;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("admin_selected_event_id");
+        if (stored) return stored;
+      } catch {}
+    }
+    return null;
+  });
+  const [currentEvent, setCurrentEvent] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
+    if (targetId) {
+      const cached = getCachedEvent(targetId);
+      if (cached) return cached;
+    }
+    return null;
+  });
+  const [loadingEvent, setLoadingEvent] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
+    if (targetId && getCachedEvent(targetId)) return false;
+    return true;
+  });
 
   const isPaidEvent = Boolean(
     currentEvent?.isPaid ||
@@ -84,11 +106,11 @@ export default function MoreEventSettingsPage() {
   );
 
   const [copied, setCopied] = useState(false);
-  const [customDomain, setCustomDomain] = useState("");
-  const [customSlug, setCustomSlug] = useState("event");
+  const [customDomain, setCustomDomain] = useState(() => currentEvent?.customDomain || "");
+  const [customSlug, setCustomSlug] = useState(() => currentEvent?.slug || currentEvent?.id || "event");
   const [isSavingSlug, setIsSavingSlug] = useState(false);
   const [selectedColor, setSelectedColor] = useState(COLOR_SWATCHES[0]);
-  const [isPublished, setIsPublished] = useState(true);
+  const [isPublished, setIsPublished] = useState(() => currentEvent?.isActive !== false);
   const [bannerPreview, setBannerPreview] = useState(null);
 
   // Ticket Artwork & Background State
@@ -1677,11 +1699,11 @@ export default function MoreEventSettingsPage() {
                   This is a paid event with attendee financial transactions. To ensure refund compliance and settlement holds are properly processed, paid event cancellation requires Super Admin authorization.
                 </p>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
                   <button
                     type="button"
                     onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer min-h-[44px] flex items-center justify-center"
                   >
                     Keep Event Active
                   </button>
@@ -1691,7 +1713,7 @@ export default function MoreEventSettingsPage() {
                       setShowCancelModal(false);
                       setShowCancellationTicketModal(true);
                     }}
-                    className="px-5 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                    className="px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]"
                   >
                     <span>Request Super Admin Approval →</span>
                   </button>
@@ -1708,11 +1730,11 @@ export default function MoreEventSettingsPage() {
                   Cancelling will immediately stop all operations, close registrations on the public event page, and place this event into View-Only Mode. You will be redirected to the events list.
                 </p>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
                   <button
                     type="button"
                     onClick={() => setShowCancelModal(false)}
-                    className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer min-h-[44px] flex items-center justify-center"
                   >
                     Keep Event Active
                   </button>
@@ -1720,7 +1742,7 @@ export default function MoreEventSettingsPage() {
                     type="button"
                     disabled={isCancelling}
                     onClick={handleConfirmCancelEvent}
-                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 min-h-[44px] flex items-center justify-center"
                   >
                     {isCancelling ? "Cancelling..." : "Confirm Cancellation"}
                   </button>
@@ -1792,18 +1814,18 @@ export default function MoreEventSettingsPage() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
                 <button
                   type="button"
                   onClick={() => setShowCancellationTicketModal(false)}
-                  className="px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer border border-[#2A2D31]"
+                  className="px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer border border-[#2A2D31] min-h-[44px] flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingTicket || !cancellationReason.trim() || cancellationReason.trim().length < 10}
-                  className="px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
                 >
                   <Send size={14} />
                   <span>{isSubmittingTicket ? "Submitting Ticket..." : "Submit Ticket to Super Admin"}</span>
@@ -1837,11 +1859,11 @@ export default function MoreEventSettingsPage() {
               This action <strong>cannot be undone</strong>. The event record, registration forms, and guest pass data will be permanently deleted from the database.
             </p>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-[#2A2D31]">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-xs font-semibold text-[#9B9EA4] hover:text-white transition-colors cursor-pointer min-h-[44px] flex items-center justify-center"
               >
                 Cancel
               </button>
@@ -1849,7 +1871,7 @@ export default function MoreEventSettingsPage() {
                 type="button"
                 disabled={isDeleting}
                 onClick={handleDeleteEvent}
-                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 min-h-[44px] flex items-center justify-center"
               >
                 {isDeleting ? "Deleting..." : "Permanently Delete"}
               </button>

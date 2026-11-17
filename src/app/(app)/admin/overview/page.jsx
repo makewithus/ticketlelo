@@ -128,13 +128,50 @@ export default function EventOverviewPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
-  // Safe SSR hydration - avoids hydration mismatch
+  // Synchronous cache hydration for instant 0ms rendering
   const initialEventId = searchParams.get("eventId") || "";
-  const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState(initialEventId);
-  const [event, setEvent] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState(() => {
+    if (initialEventId) return initialEventId;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("admin_selected_event_id");
+        if (stored) return stored;
+      } catch {}
+    }
+    return "";
+  });
+  const [event, setEvent] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : "");
+    if (targetId) {
+      const cached = getCachedEvent(targetId);
+      if (cached) return cached;
+    }
+    return null;
+  });
+  const [events, setEvents] = useState(() => {
+    if (typeof window === "undefined") return [];
+    if (user?.uid || user?.id) {
+      const cachedList = getCachedOrganiserEvents(user.uid || user.id);
+      if (Array.isArray(cachedList) && cachedList.length > 0) return cachedList;
+    }
+    return [];
+  });
+  const [registrations, setRegistrations] = useState(() => {
+    if (typeof window === "undefined") return [];
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : "");
+    if (targetId) {
+      const cachedRegs = getCachedRegistrations(targetId);
+      if (Array.isArray(cachedRegs)) return cachedRegs;
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const targetId = initialEventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : "");
+    if (targetId && getCachedEvent(targetId)) return false;
+    return true;
+  });
   const [copied, setCopied] = useState(false);
   const [showEventDropdown, setShowEventDropdown] = useState(false);
   const [isUpdatingLive, setIsUpdatingLive] = useState(false);

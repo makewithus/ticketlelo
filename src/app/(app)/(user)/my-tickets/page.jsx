@@ -282,7 +282,7 @@ export default function MyTicketsPage() {
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href="/dashboard" prefetch={false} className="flex items-center gap-2.5 group shrink-0">
+            <Link href="/dashboard" prefetch={true} className="flex items-center gap-2.5 group shrink-0">
               <Image
                 src={LOGO_SRC}
                 alt="TicketLelo"
@@ -303,7 +303,7 @@ export default function MyTicketsPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={false}
+                  prefetch={true}
                   className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold transition-all whitespace-nowrap shrink-0 border select-none ${
                     isActive
                       ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
@@ -479,7 +479,7 @@ export default function MyTicketsPage() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        prefetch={false}
+                        prefetch={true}
                         onClick={() => setMobileMenuOpen(false)}
                         className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
                           isActive

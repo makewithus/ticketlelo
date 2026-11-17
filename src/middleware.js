@@ -27,7 +27,7 @@ export function middleware(request) {
       maxAge: 60 * 60 * 24 * 30, // 30-day attribution window
       sameSite: "lax",
     });
-    redirectRes.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+    redirectRes.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
     return redirectRes;
   }
 
@@ -52,7 +52,7 @@ export function middleware(request) {
       sameSite: "lax",
     });
   }
-  response.headers.set("Cross-Origin-Opener-Policy", "unsafe-none");
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   return response;
 }
 

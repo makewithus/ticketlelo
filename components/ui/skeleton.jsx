@@ -748,4 +748,123 @@ export function MoreSettingsSkeleton() {
   );
 }
 
+/**
+ * Superadmin Email Monitoring & Infrastructure Skeleton
+ * Matches `src/app/(app)/superadmin/emails/page.jsx` and `components/admin/email-monitoring.jsx`.
+ */
+export function EmailMonitoringSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in w-full text-slate-900 dark:text-white">
+      {/* Top Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="w-6 h-6 rounded-lg" />
+            <Skeleton className="h-6 w-56 sm:w-72 rounded-xl" />
+          </div>
+          <Skeleton className="h-4 w-72 sm:w-96 rounded-md" />
+        </div>
+        <Skeleton className="h-9 w-28 rounded-xl shrink-0" />
+      </div>
+
+      {/* Quota Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Daily Quota Card Skeleton */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-36 rounded-md" />
+            <Skeleton className="h-4 w-16 rounded-md" />
+          </div>
+          <Skeleton className="w-full h-2 rounded-full" />
+          <div className="flex items-center justify-between pt-1">
+            <Skeleton className="h-3.5 w-28 rounded-md" />
+            <Skeleton className="h-3.5 w-36 rounded-md" />
+          </div>
+          <Skeleton className="h-3 w-44 rounded-md" />
+        </div>
+
+        {/* Monthly Quota Card Skeleton */}
+        <div className="p-4 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-3">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-32 rounded-md" />
+            <Skeleton className="h-4 w-20 rounded-md" />
+          </div>
+          <Skeleton className="w-full h-2 rounded-full" />
+          <div className="flex items-center justify-between pt-1">
+            <Skeleton className="h-3.5 w-28 rounded-md" />
+          </div>
+        </div>
+      </div>
+
+      {/* Aggregate Stats Bar Skeleton (7 items) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div
+            key={i}
+            className="p-3 rounded-xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-center space-y-1.5"
+          >
+            <Skeleton className="h-3 w-14 mx-auto rounded" />
+            <Skeleton className="h-6 w-10 mx-auto rounded-lg" />
+          </div>
+        ))}
+      </div>
+
+      {/* Filter and Search Bar Skeleton */}
+      <div className="p-3 rounded-xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex flex-col sm:flex-row items-center gap-3">
+        <Skeleton className="h-9 flex-1 w-full rounded-lg" />
+        <Skeleton className="h-9 w-full sm:w-44 rounded-lg shrink-0" />
+      </div>
+
+      {/* Table Skeleton */}
+      <div className="rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50 dark:bg-[#131517]">
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4]">Priority / Type</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4]">Recipient</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4]">Subject</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4]">Status</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4]">Attempts</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4]">Created</th>
+                <th className="py-3 px-4 font-semibold uppercase text-[10px] text-slate-400 dark:text-[#9B9EA4] text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-[#2A2D31]">
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <tr key={idx}>
+                  <td className="py-3.5 px-4">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-7 rounded" />
+                      <Skeleton className="h-3.5 w-24 rounded" />
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <Skeleton className="h-4 w-36 rounded" />
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <Skeleton className="h-4 w-48 rounded" />
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <Skeleton className="h-4 w-6 rounded" />
+                  </td>
+                  <td className="py-3.5 px-4">
+                    <Skeleton className="h-4 w-28 rounded" />
+                  </td>
+                  <td className="py-3.5 px-4 text-right">
+                    <Skeleton className="h-6 w-14 rounded-lg ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default Skeleton;

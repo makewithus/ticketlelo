@@ -25,13 +25,29 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getCachedPrograms, setCachedPrograms } from "@/lib/client-cache";
 
 export default function OrganizerProgramsListPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [programs, setPrograms] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache hydration for instant 0ms rendering
+  const [programs, setPrograms] = useState(() => {
+    if (typeof window === "undefined" || !user?.uid) return [];
+    try {
+      const cached = getCachedPrograms(user.uid);
+      if (Array.isArray(cached) && cached.length > 0) return cached;
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined" || !user?.uid) return true;
+    try {
+      const cached = getCachedPrograms(user.uid);
+      if (Array.isArray(cached) && cached.length > 0) return false;
+    } catch {}
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -91,9 +107,9 @@ export default function OrganizerProgramsListPage() {
     };
   }, [user, isCreateOpen]);
 
-  const fetchPrograms = useCallback(async () => {
+  const fetchPrograms = useCallback(async (showLoading = false) => {
     if (!user) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const res = await authFetch("/api/organizer/programs");
       if (!res.ok) {
@@ -101,7 +117,11 @@ export default function OrganizerProgramsListPage() {
         throw new Error(err.error || "Failed to load ambassador programs");
       }
       const data = await res.json();
-      setPrograms(data.programs || []);
+      const list = data.programs || [];
+      setPrograms(list);
+      if (user?.uid) {
+        setCachedPrograms(user.uid, list);
+      }
     } catch (err) {
       console.error("Failed to fetch programs:", err);
       toast.error(err.message || "Failed to load ambassador programs");
@@ -111,7 +131,7 @@ export default function OrganizerProgramsListPage() {
   }, [user]);
 
   useEffect(() => {
-    fetchPrograms();
+    fetchPrograms(false);
   }, [fetchPrograms]);
 
   const handleCreate = async (e) => {

@@ -149,7 +149,7 @@ export async function GET(request) {
     let status = rawStatus;
     if (userRole === "user") {
       if (status === "approved") {
-        status = "revoked";
+        status = "rejected";
       }
     } else if (isUserOrganiser && rawStatus === "pending") {
       status = "approved";

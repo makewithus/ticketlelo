@@ -60,8 +60,8 @@ describe("Super Admin Users Management & Login Flow Verification", () => {
     const content = fs.readFileSync(pagePath, "utf-8");
 
     assert.ok(
-      content.includes("dropDirection={idx >= Math.max(0, filteredUsers.length - 2) ? \"up\" : \"down\"}"),
-      "Dynamically sets dropDirection to 'up' for bottom rows"
+      content.includes("dropDirection={filteredUsers.length >= 4 && idx >= filteredUsers.length - 2 && idx > 0 ? \"up\" : \"down\"}"),
+      "Dynamically sets dropDirection to 'up' for bottom rows on multi-row tables while preventing top row clipping"
     );
     assert.ok(
       content.includes("min-h-[340px]"),

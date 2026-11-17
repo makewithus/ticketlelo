@@ -102,7 +102,7 @@ export default function SuperAdminLayout({ children }) {
     };
   }, []);
 
-  if (loading) {
+  if (loading && !user) {
     return <BrandLoader message="Loading..." fullScreen />;
   }
 
@@ -203,7 +203,7 @@ export default function SuperAdminLayout({ children }) {
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link href="/superadmin/hosting-requests" prefetch={false} className="flex items-center gap-2.5 group shrink-0">
+            <Link href="/superadmin/hosting-requests" className="flex items-center gap-2.5 group shrink-0">
               <Image
                 src={LOGO_SRC}
                 alt="TicketLelo"
@@ -233,7 +233,9 @@ export default function SuperAdminLayout({ children }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={false}
+                  prefetch={true}
+                  onMouseEnter={() => router.prefetch(item.href)}
+                  onTouchStart={() => router.prefetch(item.href)}
                   className={`flex items-center gap-1.5 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold transition-all whitespace-nowrap shrink-0 border select-none ${
                     isActive
                       ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
@@ -406,8 +408,8 @@ export default function SuperAdminLayout({ children }) {
                       <Link
                         key={item.href}
                         href={item.href}
-                        prefetch={false}
-                        onClick={() => setMobileSidebarOpen(false)}
+                        prefetch={true}
+                        onClick={() => setMobileMenuOpen ? setMobileMenuOpen(false) : setMobileSidebarOpen(false)}
                         className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border ${
                           isActive
                             ? "text-[#FE760B] bg-[#FE760B]/10 dark:bg-[#FE760B]/15 border-[#FE760B]/30 shadow-xs"
@@ -437,6 +439,7 @@ export default function SuperAdminLayout({ children }) {
                 <div className="space-y-1">
                   <Link
                     href="/admin/dashboard"
+                    prefetch={true}
                     onClick={() => setMobileSidebarOpen(false)}
                     className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
                   >
@@ -446,6 +449,7 @@ export default function SuperAdminLayout({ children }) {
 
                   <Link
                     href="/dashboard"
+                    prefetch={true}
                     onClick={() => setMobileSidebarOpen(false)}
                     className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
                   >

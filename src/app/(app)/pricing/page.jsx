@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -249,23 +249,23 @@ export default function PricingPage() {
               {/* Features List with refined font-medium weight */}
               <ul className="space-y-3 text-xs text-[#D0D0D1]">
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">1 event</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">300 guests per event</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Basic registration form</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">QR tickets & email delivery</span>
                 </li>
                 <li className="flex items-center gap-2.5 text-[#9B9EA4]">
-                  <span className="text-[#9B9EA4] font-semibold shrink-0">✕</span>
+                  <X className="w-3.5 h-3.5 text-[#9B9EA4] shrink-0" />
                   <span className="font-medium text-[#9B9EA4]">No payments, branding, insights or blasts</span>
                 </li>
               </ul>
@@ -307,27 +307,27 @@ export default function PricingPage() {
               {/* Features List with refined font-medium weight */}
               <ul className="space-y-3 text-xs text-[#D0D0D1]">
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">3 events</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">1,000 guests per event</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Razorpay payments & coupons</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Custom branding, banner & URL</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Insights & blasts</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Email support</span>
                 </li>
               </ul>
@@ -382,23 +382,23 @@ export default function PricingPage() {
               {/* Features List with refined font-medium weight */}
               <ul className="space-y-3 text-xs text-[#D0D0D1]">
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">10 events</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Unlimited guests</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Everything in Starter</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Advanced insights</span>
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <span className="text-[#3DD68C] font-semibold shrink-0">✓</span>
+                  <Check className="w-3.5 h-3.5 text-[#3DD68C] shrink-0" />
                   <span className="font-medium text-[#D0D0D1]">Priority support & early access</span>
                 </li>
               </ul>

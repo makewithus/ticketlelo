@@ -1517,10 +1517,20 @@ export function EventCreateStudio({
         )}
         <form
           onSubmit={handleFormSubmit}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch"
         >
           {/* ================= LEFT COLUMN: POSTER & THEME ================= */}
-          <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-4 lg:sticky lg:top-20 w-full">
+          <div className="lg:col-span-5 flex flex-col justify-between items-center lg:items-start space-y-4 lg:sticky lg:top-20 w-full h-full">
+            {/* Column Label matching Right Column "EVENT NAME *" */}
+            <div className="space-y-1 w-full">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-white/50 block">
+                Event Banner Artwork *
+              </label>
+              <div className="text-xs font-semibold text-white/70 h-7 flex items-center">
+                <span>Cover Poster &amp; Interactive Canvas</span>
+              </div>
+            </div>
+
             {/* Poster Card (Square, 1:1, rounded-3xl) with Draggable Text Overlay */}
             <div
               ref={posterContainerRef}
@@ -1532,7 +1542,7 @@ export function EventCreateStudio({
                   setShowTypographyModal(true);
                 }
               }}
-              className="w-full max-w-[420px] lg:max-w-none aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none"
+              className="w-full max-w-[420px] lg:max-w-none aspect-square rounded-3xl overflow-hidden relative border border-[#2A2D31] shadow-2xl bg-[#1A1C1F] group select-none shrink-0"
             >
               {formData.coverImage ? (
                 // Custom Uploaded Banner Image
@@ -2000,31 +2010,33 @@ export function EventCreateStudio({
           </div>
 
           {/* ================= RIGHT COLUMN: EVENT DETAILS ================= */}
-          <div className="lg:col-span-7 flex flex-col space-y-4 w-full">
+          <div className="lg:col-span-7 flex flex-col justify-between space-y-4 w-full h-full">
 
             {/* Event Name Input (Cleanly labeled & aligned with top of poster card) */}
             <div className="space-y-1">
               <label className="text-[11px] font-bold uppercase tracking-wider text-white/50 block">
                 Event Name *
               </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    name: val,
-                    title: val,
-                    // If in auto mode, clear any custom posterLines so they don't override the name
-                    ...(prev.posterTextMode !== "custom" ? { posterLine1: "", posterLine2: "" } : {}),
-                    showPosterText: true,
-                  }));
-                }}
-                placeholder="Event Name"
-                required
-                className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl lg:text-5xl font-black text-white placeholder:text-white/25 !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight leading-tight"
-              />
+              <div className="min-h-7 flex items-center">
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      name: val,
+                      title: val,
+                      // If in auto mode, clear any custom posterLines so they don't override the name
+                      ...(prev.posterTextMode !== "custom" ? { posterLine1: "", posterLine2: "" } : {}),
+                      showPosterText: true,
+                    }));
+                  }}
+                  placeholder="Event Name"
+                  required
+                  className="tl-bare-input w-full !bg-transparent text-3xl sm:text-4xl lg:text-5xl font-black text-white placeholder:text-white/25 !border-none !outline-none !shadow-none focus:outline-none focus:ring-0 p-0 tracking-tight leading-tight"
+                />
+              </div>
             </div>
 
             {/* Date & Time Card */}

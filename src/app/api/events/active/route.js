@@ -1,22 +1,29 @@
 import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
+import { parseFirestoreDate, getEventDateRange, getEventLiveStatus } from "@/lib/date-utils";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 function parseEventDate(data) {
-  if (data.date) {
-    if (typeof data.date?.toDate === "function") {
-      return data.date.toDate().toISOString();
-    }
-    const d = new Date(data.date);
-    if (!isNaN(d.getTime())) return d.toISOString();
-  }
+  if (!data) return new Date().toISOString();
+
+  // 1. If explicit startDate is provided, prioritize it (with startTime if present)
   if (data.startDate) {
     const timeStr = data.startTime ? ` ${data.startTime}` : "";
-    const d = new Date(`${data.startDate}${timeStr}`);
-    if (!isNaN(d.getTime())) return d.toISOString();
-    return String(data.startDate);
+    const combined = `${data.startDate}${timeStr}`;
+    const parsedCombined = parseFirestoreDate(combined);
+    if (parsedCombined) return parsedCombined.toISOString();
+    const parsedStart = parseFirestoreDate(data.startDate);
+    if (parsedStart) return parsedStart.toISOString();
   }
+
+  // 2. Check date or eventDate
+  const rawDate = data.date || data.eventDate;
+  if (rawDate) {
+    const parsed = parseFirestoreDate(rawDate);
+    if (parsed) return parsed.toISOString();
+  }
+
   return new Date().toISOString();
 }
 
@@ -38,6 +45,11 @@ function serializePublicEvent(id, data) {
     startTime: data.startTime || null,
     endDate: data.endDate || null,
     endTime: data.endTime || null,
+    status: data.status || "published",
+    isLive: Boolean(data.isLive),
+    isCancelled: Boolean(data.isCancelled),
+    ticketsSold: data.ticketsSold || data.registrationsCount || 0,
+    registrationsCount: data.registrationsCount || data.ticketsSold || 0,
     totalTickets: (() => {
       const raw = data.totalTickets ?? data.capacity ?? data.maxCapacity ?? 150;
       if (typeof raw === "number" && !isNaN(raw)) return raw;
@@ -113,6 +125,45 @@ export async function GET() {
         events.push(ev);
       }
     }
+
+    // Strict priority ordering: Live events first -> Upcoming (nearest date first) -> Ended (newest ended first)
+    const getStatusRank = (ev) => {
+      const timing = getEventLiveStatus(ev);
+      if (timing.isLive) return 0;
+      if (timing.isUpcoming) return 1;
+      return 2;
+    };
+
+    const getEventTimestamp = (ev, useEnd = false) => {
+      const range = getEventDateRange(ev);
+      if (useEnd && range.end) return range.end.getTime();
+      if (range.start) return range.start.getTime();
+      const parsed = parseFirestoreDate(ev.startDate || ev.date);
+      if (parsed) return parsed.getTime();
+      return useEnd ? 0 : Number.MAX_SAFE_INTEGER;
+    };
+
+    events.sort((a, b) => {
+      const rankA = getStatusRank(a);
+      const rankB = getStatusRank(b);
+
+      if (rankA !== rankB) {
+        return rankA - rankB;
+      }
+
+      if (rankA === 0) {
+        // Live events: soonest ending or latest starting
+        return getEventTimestamp(a) - getEventTimestamp(b);
+      }
+
+      if (rankA === 1) {
+        // Upcoming events: nearest upcoming date first (today -> tomorrow -> next week...)
+        return getEventTimestamp(a) - getEventTimestamp(b);
+      }
+
+      // Ended events: most recently ended first
+      return getEventTimestamp(b, true) - getEventTimestamp(a, true);
+    });
 
     return NextResponse.json(
       { success: true, events },

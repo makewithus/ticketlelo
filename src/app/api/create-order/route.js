@@ -141,7 +141,7 @@ export async function POST(request) {
           : orderClosedReason === "capacity_reached"
           ? "Registration capacity reached. This event is sold out."
           : orderClosedReason === "draft_or_private"
-          ? "This event is currently in draft or private mode. Registrations are closed."
+          ? "Registrations for this event are currently closed."
           : "Registration is closed for this event.";
       return NextResponse.json({ error: msg }, { status: 409 });
     }

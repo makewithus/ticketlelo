@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense, memo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense, memo, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -349,35 +349,22 @@ function DiscoverEventsPageContent() {
               .map((ev) => {
                 function safeToISO(inputVal) {
                   if (!inputVal) return new Date().toISOString();
-                  try {
-                    if (typeof inputVal?.toDate === "function") {
-                      const d = inputVal.toDate();
-                      if (!isNaN(d.getTime())) return d.toISOString();
-                    }
-                    if (typeof inputVal?.seconds === "number") {
-                      const d = new Date(inputVal.seconds * 1000);
-                      if (!isNaN(d.getTime())) return d.toISOString();
-                    }
-                    if (inputVal instanceof Date) {
-                      if (!isNaN(inputVal.getTime())) return inputVal.toISOString();
-                    }
-                    if (typeof inputVal === "string") {
-                      const d = new Date(inputVal);
-                      if (!isNaN(d.getTime())) return d.toISOString();
-                    }
-                  } catch (e) {
-                    console.warn("Invalid date value, falling back:", inputVal);
-                  }
-                  return new Date().toISOString();
+                  const parsed = parseFirestoreDate(inputVal);
+                  return parsed ? parsed.toISOString() : new Date().toISOString();
                 }
 
                 let dateStr = new Date().toISOString();
-                if (ev.date) {
-                  dateStr = safeToISO(ev.date);
-                } else if (ev.startDate) {
+                if (ev.startDate) {
                   const timeStr = ev.startTime ? ` ${ev.startTime}` : "";
                   const combined = `${ev.startDate}${timeStr}`;
-                  dateStr = safeToISO(combined);
+                  const parsedCombined = parseFirestoreDate(combined);
+                  if (parsedCombined) {
+                    dateStr = parsedCombined.toISOString();
+                  } else {
+                    dateStr = safeToISO(ev.startDate);
+                  }
+                } else if (ev.date || ev.eventDate) {
+                  dateStr = safeToISO(ev.date || ev.eventDate);
                 }
 
                 return {
@@ -397,6 +384,11 @@ function DiscoverEventsPageContent() {
                   startTime: ev.startTime || null,
                   endDate: ev.endDate || null,
                   endTime: ev.endTime || null,
+                  status: ev.status || "published",
+                  isLive: Boolean(ev.isLive),
+                  isCancelled: Boolean(ev.isCancelled),
+                  ticketsSold: ev.ticketsSold || ev.registrationsCount || 0,
+                  registrationsCount: ev.registrationsCount || ev.ticketsSold || 0,
                   totalTickets: (() => {
                     const raw = ev.totalTickets ?? ev.capacity ?? ev.maxCapacity ?? 150;
                     if (typeof raw === "number" && !isNaN(raw)) return raw;
@@ -933,7 +925,7 @@ function DiscoverEventsPageContent() {
           {/* 4 Interactive Glassmorphic Metric Cards with Animated Counters */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 pt-6 max-w-5xl mx-auto text-left w-full">
             {/* Card 1: Live & Total Events */}
-            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-[#FE760B]/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-[#FE760B]/10 hover:-translate-y-1 flex flex-col justify-between group">
+            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-[#FE760B]/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-[#FE760B]/10 hover:-translate-y-1 flex flex-col justify-between group min-h-[76px]">
               <div className="flex items-center justify-between">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform border ${
@@ -980,7 +972,7 @@ function DiscoverEventsPageContent() {
             </div>
 
             {/* Card 2: Free Entry */}
-            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-emerald-500/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 flex flex-col justify-between group">
+            <div className="bg-gradient-to-b from-[#1C1E22] to-[#141619] p-4 sm:p-5 rounded-2xl border border-[#2A2D33] hover:border-emerald-500/50 transition-all duration-300 shadow-md hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 flex flex-col justify-between group min-h-[76px]">
               <div className="flex items-center justify-between">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Ticket className="w-4 h-4" />
@@ -1491,17 +1483,36 @@ function DiscoverEventsPageContent() {
                 progressPercent = num > 0 ? Math.min(100, Math.round((takenSeats / num) * 100)) : 0;
               }
 
+              const prevTiming = index > 0 ? getEventLiveStatus(sortedEvents[index - 1]) : null;
+              const isFirstEnded = timing.isEnded && (!prevTiming || !prevTiming.isEnded) && selectedCategory === "all" && index > 0;
+
               // Render: Grid Card vs Horizontal List Card
               if (viewMode === "list") {
                 return (
-                  <div
-                    key={stableKey}
-                    className={`group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col md:flex-row overflow-hidden hover:-translate-y-0.5 ${
-                      timing.isLive
-                        ? "border-emerald-500/60 ring-2 ring-emerald-500/25 shadow-emerald-950/40"
-                        : "border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 hover:shadow-[#FE760B]/10"
-                    }`}
-                  >
+                  <Fragment key={stableKey}>
+                    {isFirstEnded && (
+                      <div className="w-full py-5 my-2 border-t border-dashed border-slate-300 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-[#9B9EA4]">
+                          <span className="w-2.5 h-2.5 rounded-full bg-zinc-500" />
+                          <span>Past &amp; Concluded Events</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-[#212327] text-slate-700 dark:text-[#D0D0D1] border border-slate-300 dark:border-[#2A2D31]">
+                            {metrics.endedCount}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                          These events have concluded. Active &amp; upcoming events are listed above.
+                        </span>
+                      </div>
+                    )}
+                    <div
+                      className={`group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col md:flex-row overflow-hidden hover:-translate-y-0.5 ${
+                        timing.isLive
+                          ? "border-emerald-500/60 ring-2 ring-emerald-500/25 shadow-emerald-950/40"
+                          : timing.isEnded
+                          ? "border-slate-200/70 dark:border-[#2A2D31]/70 opacity-80 hover:opacity-100"
+                          : "border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 hover:shadow-[#FE760B]/10"
+                      }`}
+                    >
                     {/* Left Banner Thumbnail */}
                     <div className="relative h-48 md:h-auto md:w-80 shrink-0 overflow-hidden bg-slate-900 select-none">
                       <EventBanner
@@ -1670,16 +1681,33 @@ function DiscoverEventsPageContent() {
                       </div>
                     </div>
                   </div>
-                );
-              }
+                </Fragment>
+              );
+            }
 
-              // Standard Grid Card
-              return (
+            // Standard Grid Card
+            return (
+              <Fragment key={stableKey}>
+                {isFirstEnded && (
+                  <div className="col-span-full w-full py-5 my-2 border-t border-dashed border-slate-300 dark:border-[#2A2D31] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-[#9B9EA4]">
+                      <span className="w-2.5 h-2.5 rounded-full bg-zinc-500" />
+                      <span>Past &amp; Concluded Events</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-[#212327] text-slate-700 dark:text-[#D0D0D1] border border-slate-300 dark:border-[#2A2D31]">
+                        {metrics.endedCount}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                      These events have concluded. Active &amp; upcoming events are listed above.
+                    </span>
+                  </div>
+                )}
                 <div
-                  key={stableKey}
                   className={`group relative bg-white dark:bg-[#1A1C1F] rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col overflow-hidden hover:-translate-y-1.5 ${
                     timing.isLive
                       ? "border-emerald-500/60 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-950/40"
+                      : timing.isEnded
+                      ? "border-slate-200/70 dark:border-[#2A2D31]/70 opacity-80 hover:opacity-100"
                       : "border-slate-200 dark:border-[#2A2D31] hover:border-[#FE760B]/50 hover:shadow-[#FE760B]/10"
                   }`}
                 >
@@ -1861,7 +1889,8 @@ function DiscoverEventsPageContent() {
                     </div>
                   </div>
                 </div>
-              );
+              </Fragment>
+            );
             })}
           </div>
         )}

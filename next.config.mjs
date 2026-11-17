@@ -20,6 +20,9 @@ const nextConfig = {
    * /login, /host-event, and dashboard routes resolve
    * consistently behind static CDNs and reverse proxies.
    */
+  experimental: {
+    turbopackUseSystemTlsCerts: true,
+  },
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   typescript: {
@@ -44,7 +47,7 @@ const nextConfig = {
         headers: [
           {
             key: "Cross-Origin-Opener-Policy",
-            value: "unsafe-none",
+            value: "same-origin-allow-popups",
           },
         ],
       },

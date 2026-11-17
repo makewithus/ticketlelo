@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebase";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 const DEFAULT_COUNTDOWN_AT = "2026-11-07T10:00:00+05:30";
 
@@ -52,22 +53,24 @@ function calculateRemaining(target) {
 }
 
 export function SiteSettingsManager() {
-  const [savedCountdownAt, setSavedCountdownAt] = useState("");
-  const [countdownAt, setCountdownAt] = useState("");
-  const [lastSavedTime, setLastSavedTime] = useState("");
-  const [loading, setLoading] = useState(true);
+  const cachedSettings = typeof window !== "undefined" ? getCachedItem("superadmin_site_settings") : null;
+  const initialCountdown = cachedSettings?.countdownAt ? toLocalInput(cachedSettings.countdownAt) : toLocalInput(DEFAULT_COUNTDOWN_AT);
+  const [savedCountdownAt, setSavedCountdownAt] = useState(() => initialCountdown);
+  const [countdownAt, setCountdownAt] = useState(() => initialCountdown);
+  const [lastSavedTime, setLastSavedTime] = useState(() => cachedSettings?.updatedAt || "");
+  const [loading, setLoading] = useState(() => !cachedSettings);
   const [saving, setSaving] = useState(false);
   const datePickerRef = useRef(null);
 
   // Platform operational settings
-  const [siteConfig, setSiteConfig] = useState({
+  const [siteConfig, setSiteConfig] = useState(() => cachedSettings?.siteConfig || {
     platformName: "TicketLelo",
     supportEmail: "support@ticketlelo.com",
     serviceFeePercent: "2.5",
     maintenanceMode: false,
     publicDiscovery: true,
   });
-  const [savedSiteConfig, setSavedSiteConfig] = useState({
+  const [savedSiteConfig, setSavedSiteConfig] = useState(() => cachedSettings?.siteConfig || {
     platformName: "TicketLelo",
     supportEmail: "support@ticketlelo.com",
     serviceFeePercent: "2.5",
@@ -110,6 +113,16 @@ export function SiteSettingsManager() {
             setSiteConfig(data.siteConfig);
             setSavedSiteConfig(data.siteConfig);
           }
+
+          setCachedItem(
+            "superadmin_site_settings",
+            {
+              countdownAt: raw,
+              updatedAt: data.updatedAt || new Date().toISOString(),
+              siteConfig: data.siteConfig || null,
+            },
+            15 * 60 * 1000
+          );
         }
       } catch (err) {
         if (active) {

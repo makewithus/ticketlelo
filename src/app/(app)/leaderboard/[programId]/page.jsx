@@ -22,6 +22,8 @@ import {
   Ticket,
   ChevronRight,
   TrendingUp,
+  Crown,
+  Medal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -227,8 +229,8 @@ export default function PublicProgramLeaderboardPage({ params }) {
             {leaderboard.length === 1 && top1 && (
               <div className="relative rounded-3xl bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-500/10 dark:via-[#1A1C1F] dark:to-[#1A1C1F] border-2 border-amber-500/40 p-6 sm:p-8 shadow-xl max-w-xl mx-auto text-center space-y-4">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 text-black font-black text-2xl sm:text-3xl flex items-center justify-center mx-auto shadow-lg relative">
-                  <span>{top1.avatarInitial || top1.displayName?.charAt(0) || "👑"}</span>
-                  <span className="absolute -top-2.5 -right-1 text-xl sm:text-2xl drop-shadow-md">👑</span>
+                  <span>{top1.avatarInitial || top1.displayName?.charAt(0) || "1"}</span>
+                  <Crown className="w-5 h-5 text-amber-500 absolute -top-2.5 -right-1 drop-shadow-md" />
                 </div>
 
                 <div className="space-y-1">
@@ -263,8 +265,9 @@ export default function PublicProgramLeaderboardPage({ params }) {
                 {/* 2nd Place */}
                 {top2 && (
                   <div className="order-2 sm:order-1 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-5 shadow-lg text-center space-y-3 relative">
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600">
-                      🥈 Rank #2
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 inline-flex items-center gap-1">
+                      <Medal className="w-3 h-3 text-slate-400" />
+                      <span>Rank #2</span>
                     </span>
                     <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-lg flex items-center justify-center mx-auto">
                       {top2.avatarInitial || top2.displayName?.charAt(0) || "2"}
@@ -290,7 +293,8 @@ export default function PublicProgramLeaderboardPage({ params }) {
                 {top1 && (
                   <div className="order-1 sm:order-2 rounded-2xl bg-gradient-to-b from-amber-500/15 to-white dark:to-[#1A1C1F] border-2 border-amber-500/40 p-6 shadow-xl text-center space-y-3 relative sm:-mt-4">
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-black bg-amber-400 text-black shadow-md flex items-center gap-1">
-                      <span>👑</span>
+                      <Crown className="w-3.5 h-3.5 text-black" />
+                      <span className="sr-only">👑</span>
                       <span>Rank #1</span>
                     </span>
                     <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-amber-200 text-black font-extrabold text-xl flex items-center justify-center mx-auto shadow-md">
@@ -316,8 +320,9 @@ export default function PublicProgramLeaderboardPage({ params }) {
                 {/* 3rd Place */}
                 {top3 && (
                   <div className="order-3 sm:order-3 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] p-5 shadow-lg text-center space-y-3 relative">
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-800 text-white border border-amber-700">
-                      🥉 Rank #3
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-800 text-white border border-amber-700 inline-flex items-center gap-1">
+                      <Medal className="w-3 h-3 text-amber-300" />
+                      <span>Rank #3</span>
                     </span>
                     <div className="w-12 h-12 rounded-full bg-amber-800/20 text-amber-500 border border-amber-700/30 font-bold text-lg flex items-center justify-center mx-auto">
                       {top3.avatarInitial || top3.displayName?.charAt(0) || "3"}
@@ -425,7 +430,7 @@ export default function PublicProgramLeaderboardPage({ params }) {
                       <span
                         className={`w-8 h-8 rounded-full flex items-center justify-center text-xs shrink-0 ${badgeColor}`}
                       >
-                        {isTop1 ? "👑" : amb.rank}
+                        {isTop1 ? <Crown className="w-3.5 h-3.5 text-amber-500" /> : amb.rank}
                       </span>
 
                       <div className="w-8 h-8 rounded-full bg-[#FE760B]/12 text-[#FE760B] font-bold text-xs flex items-center justify-center shrink-0 border border-[#FE760B]/25">

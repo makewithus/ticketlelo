@@ -18,6 +18,7 @@ import {
   Layers,
   CheckCircle,
   Tag,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -486,7 +487,8 @@ export function SubEventModal({ event, isOpen, onClose }) {
                   parseTimeToMinutes(formData.endTime) <= parseTimeToMinutes(formData.startTime) && (
                     <div className="md:col-span-3 -mt-1">
                       <p className="text-[11px] text-amber-400 font-medium flex items-center gap-1.5">
-                        <span>⚠️ End time must be after start time ({formData.startTime}).</span>
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>End time must be after start time ({formData.startTime}).</span>
                       </p>
                     </div>
                   )}

@@ -13,6 +13,7 @@ import {
   KeyRound,
   Trash2,
   AlertTriangle,
+  Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -541,7 +542,7 @@ export function OrganisersManagement() {
 
       {/* Filter and Search Bar matching Image 1 */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        {/* Search Input with 🔍 */}
+        {/* Search Input */}
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71767B]" />
           <input
@@ -951,8 +952,8 @@ export function OrganisersManagement() {
                     </div>
 
                     <div className="flex items-center justify-between text-xs text-[#9B9EA4] pt-1 border-t border-[#2A2D31]/40">
-                      <span className="font-mono text-white flex items-center gap-1">
-                        <span className="text-[#FE760B]">🎫</span>{" "}
+                      <span className="font-mono text-white flex items-center gap-1.5">
+                        <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
                         {item.tickets === "Unlimited"
                           ? "Unlimited"
                           : `${Number(item.tickets || 0).toLocaleString()} tickets`}

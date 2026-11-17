@@ -1010,8 +1010,8 @@ export function QRScanner({ event: propEvent = null, eventId: propEventId = null
                           <span className="truncate max-w-[120px]">
                             {guest.fullName || guest.name || guest.ticketId}
                           </span>
-                          <span className="opacity-60 text-[9px]">
-                            {isUsed ? "✓" : "→"}
+                          <span className="opacity-60 text-[9px] flex items-center">
+                            {isUsed ? <Check className="w-2.5 h-2.5" /> : "→"}
                           </span>
                         </button>
                       );

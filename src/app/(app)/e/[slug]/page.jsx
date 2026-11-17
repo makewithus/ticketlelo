@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import { EventPageSkeleton } from "@/components/ui/skeleton";
@@ -29,6 +29,10 @@ import {
   Info,
   Navigation,
   Video,
+  Menu,
+  X,
+  Compass,
+  Building2,
 } from "lucide-react";
 import {
   collection,
@@ -73,6 +77,7 @@ export default function PublicEventBySlugPage() {
   const [currentTime, setCurrentTime] = useState("1:04 PM GMT+5:30");
   const [mounted, setMounted] = useState(false);
   const [hostImageError, setHostImageError] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Live local time formatted matching Image 1
   useEffect(() => {
@@ -492,7 +497,20 @@ export default function PublicEventBySlugPage() {
   const isClosedForRegistration = regStatus.isClosed;
   const isEventDraftOrPrivate = regStatus.reason === "draft_or_private";
 
-  const priceDisplay = event.price !== undefined && event.price !== "" ? (event.price.toString().startsWith("₹") ? event.price : `₹${event.price}`) : "Free";
+  const isFreePrice =
+    !event.price ||
+    event.price === 0 ||
+    event.price === "0" ||
+    String(event.price || "").toLowerCase() === "free" ||
+    !event.isPaid;
+
+  const priceDisplay = isFreePrice
+    ? "Free"
+    : typeof event.price === "number"
+    ? `₹${event.price}`
+    : String(event.price).startsWith("₹")
+    ? event.price
+    : `₹${event.price}`;
 
   const eventTitle = (event.name || event.title || "Event").trim();
   const posterLines = getPosterLines(
@@ -572,8 +590,8 @@ export default function PublicEventBySlugPage() {
         backgroundColor: activePageBg,
       }}
     >
-      {/* Top Navigation - Transparent & seamless without harsh dividing line */}
-      <header className="sticky top-0 z-40 bg-transparent border-b border-transparent px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 transition-colors max-w-full overflow-hidden">
+      {/* Top Navigation - Seamless, fully responsive with mobile drawer */}
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#131517]/90 backdrop-blur-md border-b border-slate-200/60 dark:border-[#2A2D31]/60 px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 transition-colors max-w-full">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           {/* Left: Brand Icon + Navigation Links */}
           <div className="flex items-center gap-2.5 sm:gap-6 shrink-0">
@@ -585,7 +603,7 @@ export default function PublicEventBySlugPage() {
                 className="h-5 sm:h-7 w-auto object-contain"
               />
             </Link>
-            <nav className="flex items-center gap-2.5 sm:gap-5 text-xs sm:text-sm font-medium">
+            <nav className="hidden md:flex items-center gap-2.5 sm:gap-5 text-xs sm:text-sm font-medium">
               <Link
                 href={
                   user?.role === "organiser" || user?.role === "superAdmin" || user?.isAdmin
@@ -602,13 +620,19 @@ export default function PublicEventBySlugPage() {
               >
                 Discover
               </Link>
+              <Link
+                href="/pricing"
+                className="text-slate-500 dark:text-[#9B9EA4] hover:text-[#FE760B] dark:hover:text-[#FE760B] transition-colors"
+              >
+                Pricing
+              </Link>
             </nav>
           </div>
 
-          {/* Right: Live time + Create Event + ThemeToggle + Account / Sign in */}
-          <div className="flex items-center gap-2 sm:gap-3.5">
+          {/* Right: Live time + Create Event + ThemeToggle + Account / Sign in + Mobile Hamburger */}
+          <div className="flex items-center gap-2 sm:gap-3">
             <span
-              className="text-[12px] sm:text-[13px] font-sans font-medium text-slate-500 dark:text-[#9B9EA4] tracking-normal tabular-nums select-none"
+              className="text-[12px] sm:text-[13px] font-sans font-medium text-slate-500 dark:text-[#9B9EA4] tracking-normal tabular-nums select-none hidden md:inline-block"
               suppressHydrationWarning
             >
               {mounted ? currentTime : "11:42 pm IST"}
@@ -616,7 +640,7 @@ export default function PublicEventBySlugPage() {
 
             <Link
               href="/host-event"
-              className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:text-[#FE760B] transition-colors whitespace-nowrap"
+              className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:text-[#FE760B] transition-colors whitespace-nowrap hidden sm:inline-flex min-h-[36px] items-center"
             >
               Create Event
             </Link>
@@ -653,13 +677,69 @@ export default function PublicEventBySlugPage() {
             ) : (
               <Link
                 href="/login"
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] dark:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-sm"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] dark:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-sm min-h-[36px] flex items-center"
               >
                 Sign in
               </Link>
             )}
+
+            {/* Mobile Hamburger Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((prev) => !prev)}
+              aria-label="Toggle navigation menu"
+              className="md:hidden p-2 rounded-xl text-slate-700 dark:text-[#9B9EA4] hover:bg-slate-100 dark:hover:bg-[#212327] border border-transparent hover:border-slate-200 dark:border-[#2A2D31] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+            >
+              {mobileNavOpen ? <X className="w-5 h-5 text-[#FE760B]" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        <AnimatePresence>
+          {mobileNavOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden border-t border-slate-200/80 dark:border-[#2A2D31] bg-white/98 dark:bg-[#131517]/98 backdrop-blur-xl px-4 py-3 space-y-1 overflow-hidden"
+            >
+              <Link
+                href="/"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-colors"
+              >
+                <Calendar className="w-4 h-4 text-[#FE760B]" />
+                <span>Events Home</span>
+              </Link>
+              <Link
+                href="/discover"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25 transition-colors"
+              >
+                <Compass className="w-4 h-4 text-[#FE760B]" />
+                <span>Discover Hub</span>
+              </Link>
+              <Link
+                href="/host-event"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-colors"
+              >
+                <Building2 className="w-4 h-4 text-[#FE760B]" />
+                <span>Host an Event</span>
+              </Link>
+              <Link
+                href="/pricing"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-colors"
+              >
+                <Tag className="w-4 h-4 text-[#FE760B]" />
+                <span>Plans &amp; Pricing</span>
+              </Link>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Main Content Layout */}
@@ -1121,14 +1201,12 @@ export default function PublicEventBySlugPage() {
               {/* Spot Availability Banner */}
               <div className="bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3 flex items-start gap-3 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center shrink-0">
-                  <Clock size={16} className="text-[#9B9EA4]" />
+                  <Clock size={16} className="text-slate-400 dark:text-[#9B9EA4]" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                     {isClosedForRegistration
-                      ? isEventDraftOrPrivate
-                        ? "Registration Closed (Draft / Private Mode)"
-                        : "Registration Closed"
+                      ? "Registration Closed"
                       : hasCapacityLimit
                       ? seatsLeft === 0
                         ? "Event Sold Out / Fully Booked"
@@ -1141,9 +1219,7 @@ export default function PublicEventBySlugPage() {
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-0.5">
                     {isClosedForRegistration
-                      ? isEventDraftOrPrivate
-                        ? "This event is currently in draft or private mode. Public registrations are closed."
-                        : "Registrations for this event have closed."
+                      ? "Registrations for this event are currently closed."
                       : hasCapacityLimit && seatsLeft === 0
                       ? "Registrations for this event have reached maximum capacity."
                       : "Hurry up and register before the event fills up!"}

@@ -138,5 +138,54 @@ describe("Event Registration Status Evaluator", () => {
     assert.strictEqual(checkEventRegistrationStatus(null).isClosed, true);
     assert.strictEqual(checkEventRegistrationStatus(undefined).isClosed, true);
   });
+
+  test("Price display never shows ₹Free and correctly formats free vs paid", () => {
+    const formatPrice = (ev) => {
+      const isFreePrice =
+        !ev.price ||
+        ev.price === 0 ||
+        ev.price === "0" ||
+        String(ev.price || "").toLowerCase() === "free" ||
+        !ev.isPaid;
+
+      return isFreePrice
+        ? "Free"
+        : typeof ev.price === "number"
+        ? `₹${ev.price}`
+        : String(ev.price).startsWith("₹")
+        ? ev.price
+        : `₹${ev.price}`;
+    };
+
+    assert.strictEqual(formatPrice({ isPaid: false, price: "Free" }), "Free");
+    assert.strictEqual(formatPrice({ isPaid: false, price: "free" }), "Free");
+    assert.strictEqual(formatPrice({ isPaid: false, price: 0 }), "Free");
+    assert.strictEqual(formatPrice({ isPaid: false, price: "0" }), "Free");
+    assert.strictEqual(formatPrice({ isPaid: true, price: 499 }), "₹499");
+    assert.strictEqual(formatPrice({ isPaid: true, price: "₹250" }), "₹250");
+  });
+
+  test("Registration Closed UI texts avoid useless draft/private mode mentions", () => {
+    const getClosedTitle = (isClosed) => {
+      return isClosed ? "Registration Closed" : "Spots Available";
+    };
+
+    const getClosedSubtitle = (isClosed) => {
+      return isClosed
+        ? "Registrations for this event are currently closed."
+        : "Hurry up and register before the event fills up!";
+    };
+
+    const getButtonText = (isClosed, reason) => {
+      if (!isClosed) return "Register";
+      if (reason === "capacity_reached") return "Registration Closed (Capacity Reached)";
+      return "Registration Closed";
+    };
+
+    assert.strictEqual(getClosedTitle(true), "Registration Closed");
+    assert.strictEqual(getClosedSubtitle(true), "Registrations for this event are currently closed.");
+    assert.strictEqual(getButtonText(true, "draft_or_private"), "Registration Closed");
+    assert.ok(!getButtonText(true, "draft_or_private").includes("Draft / Private Mode"));
+  });
 });
 

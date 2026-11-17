@@ -19,10 +19,26 @@ import {
 } from "lucide-react";
 import { SUPPORT_STATUSES, SUPPORT_CATEGORIES } from "@/lib/support/types";
 import { SupportTicketModal } from "./support-ticket-modal";
+import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
 export function SupportCenter({ initialTicketId = null }) {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache hydration for instant 0ms rendering
+  const [tickets, setTickets] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const cached = getCachedItem("organizer_support_tickets");
+      if (Array.isArray(cached) && cached.length > 0) return cached;
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const cached = getCachedItem("organizer_support_tickets");
+      if (Array.isArray(cached) && cached.length > 0) return false;
+    } catch {}
+    return true;
+  });
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -39,6 +55,7 @@ export function SupportCenter({ initialTicketId = null }) {
       const data = await res.json();
       if (res.ok) {
         setTickets(data.tickets || []);
+        setCachedItem("organizer_support_tickets", data.tickets || [], 10 * 60 * 1000);
       }
     } catch (err) {
       console.error("[SupportCenter] fetch error:", err);
@@ -63,7 +80,8 @@ export function SupportCenter({ initialTicketId = null }) {
   };
 
   useEffect(() => {
-    fetchTickets(true);
+    const hasCache = Boolean(getCachedItem("organizer_support_tickets"));
+    fetchTickets(!hasCache);
   }, [statusFilter]);
 
   useEffect(() => {

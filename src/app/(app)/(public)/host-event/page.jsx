@@ -38,7 +38,7 @@ export default function HostEventPage() {
                   ? "/admin/dashboard"
                   : "/dashboard"
               }
-              prefetch={false}
+              prefetch={true}
               className="px-3 sm:px-3.5 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-xs font-semibold text-white hover:bg-[#2A2D31] hover:border-[#FE760B]/40 transition-all flex items-center gap-2 shadow-sm max-w-[180px] sm:max-w-none"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
@@ -47,7 +47,7 @@ export default function HostEventPage() {
           ) : (
             <Link
               href="/login"
-              prefetch={false}
+              prefetch={true}
               className="px-3.5 py-1.5 rounded-lg bg-[#FE760B] hover:bg-[#FF8A2B] text-xs font-bold text-white transition-colors shadow-sm whitespace-nowrap"
             >
               Sign in

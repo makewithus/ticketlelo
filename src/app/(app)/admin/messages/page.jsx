@@ -22,9 +22,14 @@ import {
   Calendar,
   CloudRain,
   RotateCcw,
+  Frown,
+  Meh,
+  Smile,
+  Heart,
 } from "lucide-react";
 import { EventControlHeader } from "@/components/admin/event-control-header";
 import { getEvent, updateEvent } from "@/lib/firestore";
+import { getCachedEvent } from "@/lib/client-cache";
 import {
   subscribeBlastsForEvent,
   createBlastMessage,
@@ -85,7 +90,15 @@ export default function BlastsPage() {
   const searchParams = useSearchParams();
   const eventIdParam = searchParams.get("eventId");
 
-  const [currentEvent, setCurrentEvent] = useState(null);
+  const [currentEvent, setCurrentEvent] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const targetId = eventIdParam || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
+    if (targetId) {
+      const cached = getCachedEvent(targetId);
+      if (cached) return cached;
+    }
+    return null;
+  });
   const [blasts, setBlasts] = useState(DEFAULT_BLASTS);
   const [filter, setFilter] = useState("all");
 
@@ -115,7 +128,11 @@ export default function BlastsPage() {
 
   // Feedback Email Slider State
   const [feedbackDate, setFeedbackDate] = useState("Tue, 3 Nov   12:30 am");
-  const [feedbackSubject, setFeedbackSubject] = useState("Thanks for joining Tech Fest 2026");
+  const [feedbackSubject, setFeedbackSubject] = useState(() => {
+    return currentEvent?.name || currentEvent?.title
+      ? `Thanks for joining ${currentEvent.name || currentEvent.title}`
+      : "Thanks for joining Tech Fest 2026";
+  });
   const [feedbackBody, setFeedbackBody] = useState("");
   const [selectedEmoji, setSelectedEmoji] = useState(null);
   const [isSchedulingFeedback, setIsSchedulingFeedback] = useState(false);
@@ -839,26 +856,27 @@ export default function BlastsPage() {
                   </p>
                   <div className="flex items-center gap-2">
                     {[
-                      { emoji: "😡", label: "Very dissatisfied" },
-                      { emoji: "🙁", label: "Dissatisfied" },
-                      { emoji: "😐", label: "Neutral" },
-                      { emoji: "🙂", label: "Satisfied" },
-                      { emoji: "🤩", label: "Loved it" },
+                      { Icon: Frown, label: "Very dissatisfied", color: "text-rose-400" },
+                      { Icon: Frown, label: "Dissatisfied", color: "text-amber-400" },
+                      { Icon: Meh, label: "Neutral", color: "text-slate-400" },
+                      { Icon: Smile, label: "Satisfied", color: "text-emerald-400" },
+                      { Icon: Heart, label: "Loved it", color: "text-pink-400" },
                     ].map((item, idx) => {
                       const isSelected = selectedEmoji === idx;
+                      const IconComponent = item.Icon;
                       return (
                         <button
                           key={idx}
                           type="button"
                           onClick={() => setSelectedEmoji(idx)}
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-transform cursor-pointer ${
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                             isSelected
                               ? "bg-amber-500/20 border border-amber-500/40 scale-110"
                               : "bg-[#F1F5F9] dark:bg-[#212327] border border-[#D9DBE0] dark:border-[#2A2D31] hover:scale-105"
                           }`}
                           title={item.label}
                         >
-                          {item.emoji}
+                          <IconComponent className={`w-4 h-4 ${isSelected ? "text-[#FE760B]" : item.color}`} />
                         </button>
                       );
                     })}

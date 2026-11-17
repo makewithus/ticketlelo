@@ -7,6 +7,7 @@ import {
   Award,
   RotateCcw,
   Scissors,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -453,8 +454,9 @@ export function StubTicket({
               {/* Verified "CHECKED IN / ADMITTED" Stamp overlay when stub is torn off */}
               {isTorn && !isPending && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-                  <div className="transform -rotate-12 border sm:border-2 border-emerald-500 bg-emerald-600/95 text-white font-mono font-black text-[7px] xs:text-[8.5px] sm:text-xs px-1.5 xs:px-2 sm:px-2.5 py-0.5 rounded shadow-xl uppercase tracking-wider backdrop-blur-xs ring-2 ring-emerald-500/40 animate-scale-in">
-                    ✓ CHECKED IN
+                  <div className="transform -rotate-12 border sm:border-2 border-emerald-500 bg-emerald-600/95 text-white font-mono font-black text-[7px] xs:text-[8.5px] sm:text-xs px-1.5 xs:px-2 sm:px-2.5 py-0.5 rounded shadow-xl uppercase tracking-wider backdrop-blur-xs ring-2 ring-emerald-500/40 animate-scale-in flex items-center gap-1">
+                    <Check className="w-2.5 h-2.5 xs:w-3 xs:h-3 stroke-[3]" />
+                    <span>CHECKED IN</span>
                   </div>
                 </div>
               )}

@@ -83,24 +83,27 @@ const SETTLEMENT_STATUS_STYLES = {
 
 export default function SuperAdminPaymentsPage() {
   const [activeTab, setActiveTab] = useState("overview"); // "overview" | "settlements" | "commissions" | "reconcile"
-  // Safe SSR hydration - avoids hydration mismatch
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache hydration for instant 0ms rendering
+  const [summary, setSummary] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const cached = getCachedItem("superadmin_payments_summary");
+      if (cached) return cached;
+    } catch {}
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const cached = getCachedItem("superadmin_payments_summary");
+      if (cached) return false;
+    } catch {}
+    return true;
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [trendData, setTrendData] = useState([]);
   const [reconReports, setReconReports] = useState([]);
   const [runningRecon, setRunningRecon] = useState(false);
-
-  // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
-  useEffect(() => {
-    try {
-      const cached = getCachedItem("superadmin_payments_summary");
-      if (cached) {
-        setSummary(cached);
-        setLoading(false);
-      }
-    } catch {}
-  }, []);
 
   // Settlements state
   const [settlements, setSettlements] = useState([]);

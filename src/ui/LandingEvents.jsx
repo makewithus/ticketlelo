@@ -21,7 +21,7 @@ const LEFT_STYLE = `
 #tl-events-image img { display:block; width:100%; height:auto; transform:none !important; }
 `;
 
-import { formatShortDate } from "@/lib/date-utils";
+import { formatShortDate, getEventLiveStatus } from "@/lib/date-utils";
 
 const formatDate = (date) => {
   return formatShortDate(date, "");
@@ -159,8 +159,14 @@ export default function LandingEvents() {
   }, [loadEvents]);
 
   if (!mount) return null;
+  const activeOnly = events.filter((ev) => {
+    const timing = getEventLiveStatus(ev);
+    return !timing.isEnded;
+  });
+  const displayEvents = activeOnly.length > 0 ? activeOnly : events;
+
   return createPortal(
-    <EventsSection events={events} loading={loading} loadError={loadError} onRetry={loadEvents} />,
+    <EventsSection events={displayEvents} loading={loading} loadError={loadError} onRetry={loadEvents} />,
     mount,
   );
 }

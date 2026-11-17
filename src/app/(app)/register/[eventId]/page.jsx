@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "next-themes";
 import {
   ArrowLeft,
   Loader2,
@@ -23,6 +24,9 @@ import {
   Share2,
   Users,
   Compass,
+  Menu,
+  X,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -51,6 +55,7 @@ export default function RegisterPage() {
   const [combos, setCombos] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timeStr, setTimeStr] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Live IST Clock
   useEffect(() => {
@@ -168,25 +173,32 @@ export default function RegisterPage() {
     };
   }, [eventId, router]);
 
+  // Track active theme for light / dark mode adaptation
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const isLight = mounted && resolvedTheme === "light";
+
   // Derive theme properties with canonical Minimal Theme as default / when selected
   const theme = useMemo(() => resolveEventTheme(event), [event]);
   const rawPageBg =
     theme?.pageBg ||
     event?.pageBg ||
     "#131517";
-  const pageBg = rawPageBg === "#432E01" ? "#131517" : rawPageBg;
+  const darkPageBg = rawPageBg === "#432E01" ? "#131517" : rawPageBg;
+  const activePageBg = isLight ? "#F8FAFC" : darkPageBg;
   const themeAccent = theme?.color || theme?.hex || "#FE760B";
-  const readableAccent = useMemo(() => getReadableAccentColor(themeAccent, true), [themeAccent]);
+  const readableAccent = useMemo(() => getReadableAccentColor(themeAccent, !isLight), [themeAccent, isLight]);
 
-  // Dynamic full-page background synchronization to ensure zero static color mismatch
+  // Dynamic full-page background synchronization to ensure zero static color mismatch across modes
   useEffect(() => {
     if (typeof document !== "undefined") {
       const prevHtmlBg = document.documentElement.style.backgroundColor;
       const prevBodyBg = document.body.style.backgroundColor;
 
-      document.documentElement.style.backgroundColor = pageBg;
-      document.body.style.backgroundColor = pageBg;
-      document.documentElement.style.setProperty("--register-page-bg", pageBg);
+      document.documentElement.style.backgroundColor = activePageBg;
+      document.body.style.backgroundColor = activePageBg;
+      document.documentElement.style.setProperty("--register-page-bg", activePageBg);
       document.documentElement.style.setProperty("--register-theme-accent", themeAccent);
 
       return () => {
@@ -196,7 +208,7 @@ export default function RegisterPage() {
         document.documentElement.style.removeProperty("--register-theme-accent");
       };
     }
-  }, [pageBg, themeAccent]);
+  }, [activePageBg, themeAccent]);
 
   const formattedDate = event ? formatEventDate(event.date || event.startDate) : "";
   const isPaid = Boolean(event?.isPaid && (event?.price || event?.amount));
@@ -259,23 +271,19 @@ export default function RegisterPage() {
 
   return (
     <div
-      className="min-h-screen text-white relative selection:bg-[#FE760B] selection:text-[#131517] overflow-x-hidden transition-colors duration-300"
+      className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white relative selection:bg-[#FE760B] selection:text-[#131517] overflow-x-hidden transition-colors duration-300"
       style={{
-        backgroundColor: pageBg,
+        backgroundColor: activePageBg,
       }}
     >
       {/* ── Seamless Integrated Header matching Theme Background ── */}
       <header
-        className="sticky top-0 z-40 w-full border-b transition-colors backdrop-blur-md"
-        style={{
-          backgroundColor: `${pageBg}F0`,
-          borderColor: "rgba(255, 255, 255, 0.12)",
-        }}
+        className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-white/10 transition-colors backdrop-blur-md bg-white/90 dark:bg-[#131517]/90"
       >
         <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* Left: Brand Logo + Nav Links */}
           <div className="flex items-center gap-6 sm:gap-8">
-            <Link href="/" prefetch={false} className="shrink-0 flex items-center group py-0.5">
+            <Link href="/" className="shrink-0 flex items-center group py-0.5">
               <Image
                 src="/logo/ticketlelo-logo-nav.png"
                 alt="TicketLelo"
@@ -288,13 +296,13 @@ export default function RegisterPage() {
             <nav className="hidden sm:flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-medium">
               <Link
                 href="/#events"
-                className="text-white/80 hover:text-white transition-colors"
+                className="text-slate-600 dark:text-white/80 hover:text-slate-900 dark:hover:text-white transition-colors"
               >
                 Events
               </Link>
               <Link
                 href="/discover"
-                className="inline-flex items-center gap-1.5 text-white font-semibold hover:text-[#FE760B] transition-colors"
+                className="inline-flex items-center gap-1.5 text-slate-900 dark:text-white font-semibold hover:text-[#FE760B] transition-colors"
               >
                 <Compass className="w-3.5 h-3.5 text-[#FE760B]" />
                 <span>Discover</span>
@@ -302,11 +310,11 @@ export default function RegisterPage() {
             </nav>
           </div>
 
-          {/* Right: Live Clock + Theme Toggle + User Avatar / Sign In */}
-          <div className="flex items-center gap-3 sm:gap-4">
+          {/* Right: Live Clock + Theme Toggle + User Avatar / Sign In + Mobile Hamburger */}
+          <div className="flex items-center gap-2 sm:gap-3.5">
             {timeStr && (
               <span
-                className="text-[12px] sm:text-[13px] font-sans font-medium text-white/70 tracking-normal tabular-nums select-none hidden md:inline-block"
+                className="text-[12px] sm:text-[13px] font-sans font-medium text-slate-500 dark:text-white/70 tracking-normal tabular-nums select-none hidden md:inline-block"
                 suppressHydrationWarning
               >
                 {timeStr}
@@ -341,13 +349,69 @@ export default function RegisterPage() {
             ) : (
               <Link
                 href="/login"
-                className="px-3.5 py-1.5 rounded-xl bg-white/10 border border-white/20 text-xs font-semibold text-white hover:bg-white/20 transition-all shadow-sm"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-[#212327] dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] dark:text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-sm min-h-[36px] flex items-center"
               >
                 Sign In
               </Link>
             )}
+
+            {/* Mobile Hamburger Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((prev) => !prev)}
+              aria-label="Toggle navigation menu"
+              className="sm:hidden p-2 rounded-xl text-slate-700 dark:text-[#9B9EA4] hover:bg-slate-100 dark:hover:bg-[#212327] border border-transparent hover:border-slate-200 dark:border-[#2A2D31] transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
+            >
+              {mobileNavOpen ? <X className="w-5 h-5 text-[#FE760B]" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        <AnimatePresence>
+          {mobileNavOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="sm:hidden border-t border-slate-200/80 dark:border-white/10 bg-white/98 dark:bg-[#131517]/98 backdrop-blur-xl px-4 py-3 space-y-1 overflow-hidden"
+            >
+              <Link
+                href="/"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-colors"
+              >
+                <Calendar className="w-4 h-4 text-[#FE760B]" />
+                <span>Events Home</span>
+              </Link>
+              <Link
+                href="/discover"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold bg-[#FE760B]/12 text-[#FE760B] border border-[#FE760B]/25 transition-colors"
+              >
+                <Compass className="w-4 h-4 text-[#FE760B]" />
+                <span>Discover Hub</span>
+              </Link>
+              <Link
+                href="/host-event"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-colors"
+              >
+                <Building2 className="w-4 h-4 text-[#FE760B]" />
+                <span>Host an Event</span>
+              </Link>
+              <Link
+                href="/pricing"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1A1C1F] transition-colors"
+              >
+                <Tag className="w-4 h-4 text-[#FE760B]" />
+                <span>Plans &amp; Pricing</span>
+              </Link>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <main className="relative z-10 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -360,13 +424,13 @@ export default function RegisterPage() {
             <div className="inline-flex items-center justify-center w-20 h-20 bg-[#FDE003]/10 border border-[#FDE003]/20 rounded-2xl mb-6">
               <Calendar className="w-10 h-10 text-[#FDE003]" />
             </div>
-            <h3 className="text-2xl font-bold mb-2 text-white">Event unavailable</h3>
-            <p className="text-white/70 mb-6 text-sm">
+            <h3 className="text-2xl font-bold mb-2 text-slate-900 dark:text-white">Event unavailable</h3>
+            <p className="text-slate-600 dark:text-white/70 mb-6 text-sm">
               This event is either past, archived, or currently not accepting registrations.
             </p>
             <Link
               href="/#events"
-              className="inline-flex items-center gap-2 text-sm text-white bg-white/10 border border-white/20 px-5 py-2.5 rounded-xl hover:border-[#FE760B]/40 hover:bg-white/15 transition-all shadow-sm"
+              className="inline-flex items-center gap-2 text-sm text-slate-900 dark:text-white bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/20 px-5 py-2.5 rounded-xl hover:border-[#FE760B]/40 hover:bg-slate-200 dark:hover:bg-white/15 transition-all shadow-sm"
             >
               <ArrowLeft className="w-4 h-4 text-[#FE760B]" />
               <span>Back to events catalog</span>
@@ -380,22 +444,22 @@ export default function RegisterPage() {
             className="space-y-8"
           >
             {/* ── Breadcrumb & Status Ribbon ── */}
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-5">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-5">
               <Link
                 href="/#events"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-white/90 hover:text-white bg-white/[0.08] hover:bg-white/[0.14] border border-white/15 px-4 py-2 rounded-xl transition-all shadow-sm group backdrop-blur-md"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-white/90 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.14] border border-slate-200 dark:border-white/15 px-4 py-2 rounded-xl transition-all shadow-sm group backdrop-blur-md"
               >
                 <ArrowLeft className="w-4 h-4 text-[#FE760B] group-hover:-translate-x-1 transition-transform" />
                 <span>Back to events</span>
               </Link>
 
               <div className="flex items-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm backdrop-blur-md">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/25 shadow-sm backdrop-blur-md">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   ● Registration open
                 </span>
                 {event.category && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 backdrop-blur-md">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/25 backdrop-blur-md">
                     {event.category}
                   </span>
                 )}
@@ -408,39 +472,39 @@ export default function RegisterPage() {
               <div className="lg:col-span-7 space-y-6">
                 {/* Event Hero Card */}
                 <div
-                  className="relative rounded-2xl overflow-hidden border p-6 sm:p-8 shadow-xl backdrop-blur-md transition-all"
-                  style={{
-                    backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                    borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                  }}
+                  className="relative rounded-2xl overflow-hidden border p-6 sm:p-8 shadow-xl backdrop-blur-md transition-all bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                  style={!isLight ? {
+                    backgroundColor: theme.cardBg || undefined,
+                    borderColor: theme.cardBorder || undefined,
+                  } : undefined}
                 >
                   <div className="-mx-6 -mt-6 sm:-mx-8 sm:-mt-8 mb-6 overflow-hidden">
                     <EventBanner event={event} aspect="video" priority className="rounded-none sm:rounded-t-2xl border-none max-h-72" />
                   </div>
 
                   <div className="relative z-10 space-y-3">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#FE760B]/20 border border-[#FE760B]/30 text-[#FE760B] text-xs font-semibold uppercase tracking-wider">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#FE760B]/15 border border-[#FE760B]/25 text-[#FE760B] text-xs font-semibold uppercase tracking-wider">
                       <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
                       <span>Official event pass</span>
                     </div>
 
-                    <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
                       {event.name || event.title}
                     </h1>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-white/80 pt-1">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 dark:text-white/80 pt-1">
                       {event.organiserName && (
                         <p className="flex items-center gap-1.5">
-                          <span className="text-white/50">By</span>
-                          <span className="font-semibold text-white">{event.organiserName}</span>
-                          <span className="inline-flex items-center text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                          <span className="text-slate-400 dark:text-white/50">By</span>
+                          <span className="font-semibold text-slate-900 dark:text-white">{event.organiserName}</span>
+                          <span className="inline-flex items-center text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/25 px-1.5 py-0.5 rounded font-mono font-bold">
                             Verified
                           </span>
                         </p>
                       )}
                       {event.totalTickets && (
-                        <p className="flex items-center gap-1 text-xs text-white/70">
-                          <Users className="w-3.5 h-3.5 text-white/50" />
+                        <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-white/70">
+                          <Users className="w-3.5 h-3.5 text-slate-400 dark:text-white/50" />
                           <span>
                             {String(event.capacity || event.totalTickets).toLowerCase().includes("unlimited") || Number(event.totalTickets) >= 9999
                               ? "Open Access (Unlimited spots)"
@@ -456,35 +520,35 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   {/* Date & Time */}
                   <div
-                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md hover:border-white/30"
-                    style={{
-                      backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                      borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                    }}
+                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                    style={!isLight ? {
+                      backgroundColor: theme.cardBg || undefined,
+                      borderColor: theme.cardBorder || undefined,
+                    } : undefined}
                   >
-                    <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/25 shrink-0">
                       <Calendar className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Date & Time</p>
-                      <p className="text-sm font-bold text-white mt-0.5 truncate">{formattedDate}</p>
-                      <p className="text-xs text-white/75 mt-0.5">{event.time || event.startTime || "Schedule below"}</p>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-white/60 uppercase tracking-wider">Date & Time</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">{formattedDate}</p>
+                      <p className="text-xs text-slate-600 dark:text-white/75 mt-0.5">{event.time || event.startTime || "Schedule below"}</p>
                     </div>
                   </div>
 
                   {/* Venue Location / Online Event Format */}
                   <div
-                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md hover:border-white/30"
-                    style={{
-                      backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                      borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                    }}
+                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                    style={!isLight ? {
+                      backgroundColor: theme.cardBg || undefined,
+                      borderColor: theme.cardBorder || undefined,
+                    } : undefined}
                   >
-                    <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/25 shrink-0">
                       {isOnline ? <Video className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-white/60 uppercase tracking-wider">
                         {isOnline ? "Event Format" : "Venue Location"}
                       </p>
                       {isOnline ? (
@@ -493,20 +557,20 @@ export default function RegisterPage() {
                             href={onlineMeetingUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm font-bold text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
+                            className="text-sm font-bold text-slate-900 dark:text-white hover:text-[#FE760B] transition-colors mt-0.5 block truncate group"
                           >
                             <span>{onlinePlatformName}</span>
                             <span className="ml-1 text-[10px] text-[#FE760B]">↗</span>
                           </a>
                         ) : (
-                          <p className="text-sm font-bold text-white mt-0.5 truncate">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">
                             {onlinePlatformName}
                           </p>
                         )
                       ) : (
-                        <p className="text-sm font-bold text-white mt-0.5 truncate">{broadLocation}</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 truncate">{broadLocation}</p>
                       )}
-                      <p className="text-xs text-white/75 mt-0.5 truncate">
+                      <p className="text-xs text-slate-600 dark:text-white/75 mt-0.5 truncate">
                         {isOnline
                           ? (onlineMeetingUrl ? "Live meeting link • Click to join" : "Interactive live session")
                           : (event.subVenue || event.room || event.city || "Check gate on arrival")}
@@ -516,19 +580,19 @@ export default function RegisterPage() {
 
                   {/* Ticket Pricing */}
                   <div
-                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md hover:border-white/30"
-                    style={{
-                      backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                      borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                    }}
+                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                    style={!isLight ? {
+                      backgroundColor: theme.cardBg || undefined,
+                      borderColor: theme.cardBorder || undefined,
+                    } : undefined}
                   >
-                    <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/25 shrink-0">
                       <Tag className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Admission Type</p>
-                      <p className="text-sm font-bold text-white mt-0.5">{priceDisplay}</p>
-                      <p className="text-xs text-white/75 mt-0.5">
+                      <p className="text-xs font-semibold text-slate-500 dark:text-white/60 uppercase tracking-wider">Admission Type</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{priceDisplay}</p>
+                      <p className="text-xs text-slate-600 dark:text-white/75 mt-0.5">
                         {isPaid ? "Tax-inclusive (18% GST)" : "Complimentary Registration"}
                       </p>
                     </div>
@@ -536,36 +600,36 @@ export default function RegisterPage() {
 
                   {/* QR Entry */}
                   <div
-                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md hover:border-white/30"
-                    style={{
-                      backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                      borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                    }}
+                    className="p-4 rounded-2xl border flex items-start gap-3.5 transition-all shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                    style={!isLight ? {
+                      backgroundColor: theme.cardBg || undefined,
+                      borderColor: theme.cardBorder || undefined,
+                    } : undefined}
                   >
-                    <div className="p-2.5 rounded-xl bg-[#FE760B]/20 text-[#FE760B] border border-[#FE760B]/30 shrink-0">
+                    <div className="p-2.5 rounded-xl bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/25 shrink-0">
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Digital Pass</p>
-                      <p className="text-sm font-bold text-white mt-0.5">Cryptographic QR</p>
-                      <p className="text-xs text-white/75 mt-0.5">Instant PDF & Wallet ticket</p>
+                      <p className="text-xs font-semibold text-slate-500 dark:text-white/60 uppercase tracking-wider">Digital Pass</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">Cryptographic QR</p>
+                      <p className="text-xs text-slate-600 dark:text-white/75 mt-0.5">Instant PDF & Wallet ticket</p>
                     </div>
                   </div>
                 </div>
 
                 {/* About This Event Card */}
                 <div
-                  className="p-6 sm:p-7 rounded-2xl border space-y-4 shadow-md backdrop-blur-md"
-                  style={{
-                    backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                    borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                  }}
+                  className="p-6 sm:p-7 rounded-2xl border space-y-4 shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                  style={!isLight ? {
+                    backgroundColor: theme.cardBg || undefined,
+                    borderColor: theme.cardBorder || undefined,
+                  } : undefined}
                 >
-                  <div className="flex items-center gap-2 text-white font-bold text-lg border-b border-white/10 pb-3">
-                    <Info className="w-5 h-5 text-blue-400" />
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg border-b border-slate-200 dark:border-white/10 pb-3">
+                    <Info className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                     <h2>About this event</h2>
                   </div>
-                  <div className="prose max-w-none text-white/85 text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                  <div className="prose max-w-none text-slate-700 dark:text-white/85 text-sm sm:text-base leading-relaxed whitespace-pre-line">
                     {event.description || (
                       <p>
                         Welcome to {event.name || "this event"}! Register below to reserve your entry pass. Upon completing your registration, you will receive an official PDF ticket containing your signed HMAC-SHA-256 QR code for rapid contactless entry at the gate.
@@ -577,18 +641,18 @@ export default function RegisterPage() {
                 {/* Included Sub-Events / Tracks (if available) */}
                 {subEvents && subEvents.length > 0 && (
                   <div
-                    className="p-6 sm:p-7 rounded-2xl border space-y-4 shadow-md backdrop-blur-md"
-                    style={{
-                      backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                      borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                    }}
+                    className="p-6 sm:p-7 rounded-2xl border space-y-4 shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                    style={!isLight ? {
+                      backgroundColor: theme.cardBg || undefined,
+                      borderColor: theme.cardBorder || undefined,
+                    } : undefined}
                   >
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div className="flex items-center gap-2 text-white font-bold text-lg">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
+                      <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg">
                         <Layers className="w-5 h-5 text-[#FE760B]" />
                         <h2>Included tracks & sessions</h2>
                       </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#FE760B]/20 text-[#FE760B] border border-[#FE760B]/30">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/25">
                         {subEvents.length} Tracks
                       </span>
                     </div>
@@ -597,21 +661,21 @@ export default function RegisterPage() {
                       {subEvents.map((sub) => (
                         <div
                           key={sub.id}
-                          className="p-3.5 rounded-xl bg-white/[0.05] border border-white/10 space-y-1.5 hover:border-white/30 transition-colors"
+                          className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 space-y-1.5 hover:border-[#FE760B]/30 transition-colors"
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <h4 className="text-sm font-bold text-white truncate">{sub.title}</h4>
-                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{sub.title}</h4>
+                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/25 shrink-0">
                               {sub.trackType || "Track"}
                             </span>
                           </div>
-                          <p className="text-xs text-white/70 flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-white/50 shrink-0" />
+                          <p className="text-xs text-slate-600 dark:text-white/70 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-white/50 shrink-0" />
                             <span>{sub.startTime || "10:00 AM"} - {sub.endTime || "01:00 PM"}</span>
                           </p>
                           {sub.venue && (
-                            <p className="text-xs text-white/70 flex items-center gap-1.5">
-                              <MapPin className="w-3.5 h-3.5 text-white/50 shrink-0" />
+                            <p className="text-xs text-slate-600 dark:text-white/70 flex items-center gap-1.5">
+                              <MapPin className="w-3.5 h-3.5 text-slate-400 dark:text-white/50 shrink-0" />
                               <span className="truncate">{sub.venue}</span>
                             </p>
                           )}
@@ -624,18 +688,18 @@ export default function RegisterPage() {
                 {/* Combos & All-Access Bundles (if available) */}
                 {combos && combos.length > 0 && (
                   <div
-                    className="p-6 sm:p-7 rounded-2xl border space-y-4 shadow-md backdrop-blur-md"
-                    style={{
-                      backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                      borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                    }}
+                    className="p-6 sm:p-7 rounded-2xl border space-y-4 shadow-md backdrop-blur-md bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                    style={!isLight ? {
+                      backgroundColor: theme.cardBg || undefined,
+                      borderColor: theme.cardBorder || undefined,
+                    } : undefined}
                   >
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                      <div className="flex items-center gap-2 text-white font-bold text-lg">
-                        <Sparkles className="w-5 h-5 text-amber-400" />
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
+                      <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg">
+                        <Sparkles className="w-5 h-5 text-amber-500 dark:text-amber-400" />
                         <h2>Festival passes & bundles</h2>
                       </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/25">
                         {combos.length} Passes Available
                       </span>
                     </div>
@@ -644,15 +708,15 @@ export default function RegisterPage() {
                       {combos.map((combo) => (
                         <div
                           key={combo.id}
-                          className="p-4 rounded-xl bg-white/[0.05] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-white/30 transition-colors"
+                          className="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#FE760B]/30 transition-colors"
                         >
                           <div>
-                            <h4 className="text-sm font-bold text-white">{combo.title}</h4>
-                            <p className="text-xs text-white/70 mt-0.5">{combo.description || "All-access multi-track festival ticket"}</p>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">{combo.title}</h4>
+                            <p className="text-xs text-slate-600 dark:text-white/70 mt-0.5">{combo.description || "All-access multi-track festival ticket"}</p>
                             {combo.perks && combo.perks.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 mt-2">
                                 {combo.perks.slice(0, 3).map((perk, idx) => (
-                                  <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-white/10 border border-white/15 text-white/80">
+                                  <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-white dark:bg-white/10 border border-slate-200 dark:border-white/15 text-slate-700 dark:text-white/80">
                                     {perk}
                                   </span>
                                 ))}
@@ -661,7 +725,7 @@ export default function RegisterPage() {
                           </div>
                           <div className="sm:text-right shrink-0">
                             <span className="text-base font-extrabold text-[#FE760B] tabular-nums">₹{combo.price || 0}</span>
-                            <span className="block text-[11px] text-white/50">Tax Incl.</span>
+                            <span className="block text-[11px] text-slate-400 dark:text-white/50">Tax Incl.</span>
                           </div>
                         </div>
                       ))}
@@ -671,7 +735,7 @@ export default function RegisterPage() {
 
                 {/* Interactive Venue Map / Online Event Access */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-white font-bold text-lg px-1">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg px-1">
                     {isOnline ? (
                       <Video className="w-5 h-5" style={{ color: readableAccent }} />
                     ) : (
@@ -697,28 +761,28 @@ export default function RegisterPage() {
               {/* ── RIGHT COLUMN: Sticky Registration & Checkout Drawer (5 Cols) ── */}
               <div className="lg:col-span-5 lg:sticky lg:top-24">
                 <div
-                  className="rounded-2xl border p-6 sm:p-7 shadow-2xl backdrop-blur-xl transition-all"
-                  style={{
-                    backgroundColor: theme.cardBg || "rgba(255, 255, 255, 0.08)",
-                    borderColor: theme.cardBorder || "rgba(255, 255, 255, 0.12)",
-                  }}
+                  className="rounded-2xl border p-6 sm:p-7 shadow-2xl backdrop-blur-xl transition-all bg-white dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31]"
+                  style={!isLight ? {
+                    backgroundColor: theme.cardBg || undefined,
+                    borderColor: theme.cardBorder || undefined,
+                  } : undefined}
                 >
-                  <div className="border-b border-white/10 pb-5 mb-6 space-y-3">
+                  <div className="border-b border-slate-200 dark:border-white/10 pb-5 mb-6 space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-semibold">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-white text-xs font-semibold">
                         <Ticket className="w-3.5 h-3.5 text-[#FE760B]" />
                         <span>Attendee registration</span>
                       </div>
-                      <span className="text-xs font-bold text-white bg-white/10 border border-white/15 px-2.5 py-1 rounded-full">
+                      <span className="text-xs font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/15 px-2.5 py-1 rounded-full">
                         {priceDisplay}
                       </span>
                     </div>
 
                     <div>
-                      <h3 className="text-xl font-bold text-white tracking-tight">
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                         Register for {event.name || "Event"}
                       </h3>
-                      <p className="text-xs text-white/70 mt-1">
+                      <p className="text-xs text-slate-600 dark:text-white/70 mt-1">
                         Fill in your details below to generate your entry ticket and credentials.
                       </p>
                     </div>
@@ -733,9 +797,9 @@ export default function RegisterPage() {
                   />
 
                   {/* Micro Trust Strip */}
-                  <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/60">
+                  <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-500 dark:text-white/60">
                     <span className="flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                       100% secure checkout
                     </span>
                     <span>TicketLelo verified</span>

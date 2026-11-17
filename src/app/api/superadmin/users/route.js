@@ -249,7 +249,8 @@ export async function PATCH(request) {
           let count = 0;
           hrSnap.forEach((doc) => {
             if (doc.data()?.status === "approved") {
-              batch.update(doc.ref, { status: "revoked", revokedAt: nowIso });
+              // Deletes / revoked hosting requests removed when user role is changed to attendee
+              batch.delete(doc.ref);
               count++;
             }
           });

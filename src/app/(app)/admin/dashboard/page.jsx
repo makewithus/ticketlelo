@@ -16,7 +16,12 @@ import Link from "next/link";
 import { useAuth } from "@/context/auth-context";
 import { getAllEvents, getEventsByOrganiser } from "@/lib/firestore";
 import { DashboardEventsSkeleton } from "@/components/ui/skeleton";
-import { getCachedOrganiserEvents, setCachedOrganiserEvents } from "@/lib/client-cache";
+import {
+  getCachedOrganiserEvents,
+  setCachedOrganiserEvents,
+  getCachedItem,
+  setCachedItem,
+} from "@/lib/client-cache";
 
 function MetricCard({
   icon: Icon,
@@ -107,24 +112,34 @@ export default function AdminDashboardPage() {
     emailLower === "superadmin@ticketlelo.com";
   const userRole = isSuperAdmin ? "superAdmin" : user?.role;
 
-  // Safe SSR hydration - avoids hydration mismatch
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache hydration for instant 0ms rendering
+  const [events, setEvents] = useState(() => {
+    if (typeof window === "undefined" || !userId) return [];
+    try {
+      if (isSuperAdmin) {
+        const adminCached = getCachedItem("superadmin_all_events");
+        if (Array.isArray(adminCached) && adminCached.length > 0) return adminCached;
+      }
+      const cached = getCachedOrganiserEvents(userId);
+      if (Array.isArray(cached) && cached.length > 0) return cached;
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined" || !userId) return true;
+    try {
+      if (isSuperAdmin) {
+        const adminCached = getCachedItem("superadmin_all_events");
+        if (Array.isArray(adminCached) && adminCached.length > 0) return false;
+      }
+      const cached = getCachedOrganiserEvents(userId);
+      if (Array.isArray(cached) && cached.length > 0) return false;
+    } catch {}
+    return true;
+  });
   // Super Admin defaults to "all" to immediately view & manage all organizers events; normal organizers default to "my"
   const [scope, setScope] = useState(isSuperAdmin ? "all" : "my");
   const userToggledRef = useRef(false);
-
-  // Fast-path client cache check on mount (runs after hydration, so zero SSR mismatch)
-  useEffect(() => {
-    if (!userId || isSuperAdmin) return;
-    try {
-      const cached = getCachedOrganiserEvents(userId);
-      if (Array.isArray(cached) && cached.length > 0) {
-        setEvents(cached);
-        setLoading(false);
-      }
-    } catch {}
-  }, [userId, isSuperAdmin]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -195,6 +210,8 @@ export default function AdminDashboardPage() {
         setEvents(unique);
         if (userId && activeScope === "my") {
           setCachedOrganiserEvents(userId, unique);
+        } else if (isSuperAdmin && activeScope === "all") {
+          setCachedItem("superadmin_all_events", unique, 10 * 60 * 1000);
         }
       }
     } catch (e) {
@@ -265,7 +282,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 min-h-screen text-slate-900 dark:text-white transition-colors">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white">
             Admin dashboard
@@ -284,7 +301,7 @@ export default function AdminDashboardPage() {
                   setScope("my");
                   loadData(true, "my");
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[32px] flex items-center ${
                   scope === "my"
                     ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm font-bold border border-slate-200 dark:border-[#2A2D31]"
                     : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
@@ -299,7 +316,7 @@ export default function AdminDashboardPage() {
                   setScope("all");
                   loadData(true, "all");
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer min-h-[32px] flex items-center ${
                   scope === "all"
                     ? "bg-white dark:bg-[#212327] text-slate-900 dark:text-white shadow-sm font-bold border border-slate-200 dark:border-[#2A2D31]"
                     : "text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white"
@@ -312,7 +329,7 @@ export default function AdminDashboardPage() {
           {isSuperAdmin && (
             <Link
               href="/superadmin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#FE760B]/60 text-[#FE760B] hover:bg-[#FE760B]/10 text-xs font-semibold transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#FE760B]/60 text-[#FE760B] hover:bg-[#FE760B]/10 text-xs font-semibold transition-all min-h-[32px]"
             >
               <Shield className="w-3.5 h-3.5 text-[#FE760B]" />
               <span>Super Admin Suite</span>
@@ -322,7 +339,7 @@ export default function AdminDashboardPage() {
             type="button"
             onClick={() => loadData(true, scope)}
             title="Refresh metrics"
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           </button>

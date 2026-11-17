@@ -210,7 +210,12 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
         <div className="max-w-6xl mx-auto w-full h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           {/* Left Side: Brand Logo + Events + Discover */}
           <div className="flex items-center gap-6 sm:gap-8">
-            <Link href="/admin/dashboard" prefetch={false} className="flex items-center gap-2 group">
+            <Link
+              href="/admin/dashboard"
+              prefetch={true}
+              onMouseEnter={() => router.prefetch("/admin/dashboard")}
+              className="flex items-center gap-2 group"
+            >
               <Image
                 src={LOGO_SRC}
                 alt="TicketLelo"
@@ -225,7 +230,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
             <nav className="hidden md:flex items-center gap-4 sm:gap-6">
               <Link
                 href="/admin/dashboard"
-                prefetch={false}
+                prefetch={true}
+                onMouseEnter={() => router.prefetch("/admin/dashboard")}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
                   isEventsActive
                     ? "text-white font-semibold"
@@ -238,7 +244,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
               <Link
                 href="/admin/programs"
-                prefetch={false}
+                prefetch={true}
+                onMouseEnter={() => router.prefetch("/admin/programs")}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
                   pathname.startsWith("/admin/programs")
                     ? "text-white font-semibold"
@@ -251,7 +258,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
               <Link
                 href="/discover"
-                prefetch={false}
+                prefetch={true}
+                onMouseEnter={() => router.prefetch("/discover")}
                 className={`flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer ${
                   pathname === "/discover" || pathname.startsWith("/discover")
                     ? "text-white font-semibold"
@@ -282,6 +290,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
             {/* Activity Notifications Bell */}
             <Link
               href="/activity"
+              prefetch={true}
+              onMouseEnter={() => router.prefetch("/activity")}
               title="Activity Notifications"
               className="relative p-1.5 text-[#D0D0D1] hover:text-white transition-colors cursor-pointer"
             >
@@ -291,7 +301,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
             {/* Create Event CTA (clean transparent text link, hidden on small mobile, accessible via mobile drawer) */}
             <Link
               href="/admin/create-event"
-              prefetch={false}
+              prefetch={true}
+              onMouseEnter={() => router.prefetch("/admin/create-event")}
               className={`text-xs font-medium transition-colors cursor-pointer hidden sm:inline-block ${
                 pathname === "/admin/create-event"
                   ? "text-white font-semibold"
@@ -341,6 +352,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                     {isSuperAdmin && (
                       <Link
                         href="/superadmin"
+                        prefetch={true}
+                        onMouseEnter={() => router.prefetch("/superadmin")}
                         className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#FE760B] hover:bg-[#FE760B]/10 transition-colors"
                       >
                         <Shield className="w-3.5 h-3.5" />
@@ -349,6 +362,8 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                     )}
                     <Link
                       href="/dashboard"
+                      prefetch={true}
+                      onMouseEnter={() => router.prefetch("/dashboard")}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors"
                     >
                       <Ticket className="w-3.5 h-3.5" />
@@ -427,6 +442,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
                 <nav className="space-y-1">
                   <Link
                     href="/admin/dashboard"
+                    prefetch={true}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       isEventsActive
@@ -440,6 +456,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
                   <Link
                     href="/admin/programs"
+                    prefetch={true}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       pathname.startsWith("/admin/programs")
@@ -453,6 +470,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
                   <Link
                     href="/discover"
+                    prefetch={true}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       pathname === "/discover" || pathname.startsWith("/discover")
@@ -466,6 +484,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
                   <Link
                     href="/admin/create-event"
+                    prefetch={true}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       pathname === "/admin/create-event"
@@ -478,6 +497,7 @@ export function OrganiserShell({ children, allowAnyUser = false }) {
 
                   <Link
                     href="/activity"
+                    prefetch={true}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       pathname === "/activity"

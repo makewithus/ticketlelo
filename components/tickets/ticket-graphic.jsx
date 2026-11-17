@@ -148,7 +148,7 @@ export function TicketGraphic({
   return (
     <div
       data-ticket="true"
-      className={`ticket-graphic-root relative select-none flex overflow-hidden shadow-xl transition-all duration-300 ${className} ${
+      className={`ticket-graphic-root relative select-none flex overflow-hidden shadow-xl transition-all duration-300 max-w-full ${className} ${
         compact
           ? "w-[280px] xs:w-[310px] sm:w-[340px] md:w-[350px] h-[110px] xs:h-[120px] sm:h-[130px] md:h-[135px] rounded-xl"
           : horizontal

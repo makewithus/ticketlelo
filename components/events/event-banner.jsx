@@ -50,13 +50,7 @@ export function EventBanner({
     if (event?.theme === "minimal" || event?.themeName?.toLowerCase() === "minimal") return "minimal";
     if (event?.themeColor || event?.themeHex) return event.themeColor || event.themeHex;
     if (event?.theme) return event.theme;
-    const cat = String(event?.category || "").toLowerCase();
-    const title = String(event?.title || event?.name || "").toLowerCase();
-    if (cat.includes("gaming") || title.includes("gaming") || title.includes("esport")) return "pink";
-    if (cat.includes("tech") || title.includes("tech") || title.includes("dev") || title.includes("code")) return "blue";
-    if (cat.includes("music") || cat.includes("concert") || title.includes("concert") || title.includes("mic")) return "yellow";
-    if (title.includes("lab") || title.includes("workshop") || title.includes("bootcamp")) return "green";
-    return "#FE760B";
+    return "minimal";
   };
 
   const themeLook = getThemeLook(resolveFallbackTheme());

@@ -137,7 +137,7 @@ export function StyledDropdown({
               {label}:
             </span>
           )}
-          <span className="font-semibold text-slate-900 dark:text-white select-none truncate">
+          <span className="font-semibold text-inherit select-none truncate">
             {currentOption ? currentOption.label : placeholder}
           </span>
         </div>

@@ -79,6 +79,35 @@ export async function GET(request) {
       }
     }
 
+    // Helper to safely serialize Firestore Timestamp objects to standard ISO strings
+    const normalizeIsoDate = (val) => {
+      if (!val) return null;
+      if (typeof val === "string") return val;
+      if (typeof val?.toDate === "function") {
+        try {
+          return val.toDate().toISOString();
+        } catch {
+          return null;
+        }
+      }
+      if (typeof val === "object") {
+        const sec = val.seconds ?? val._seconds;
+        if (typeof sec === "number") {
+          const nano = val.nanoseconds ?? val._nanoseconds ?? 0;
+          return new Date(sec * 1000 + nano / 1000000).toISOString();
+        }
+      }
+      if (val instanceof Date) {
+        return isNaN(val.getTime()) ? null : val.toISOString();
+      }
+      if (typeof val === "number") {
+        const ms = val < 10000000000 ? val * 1000 : val;
+        const d = new Date(ms);
+        return isNaN(d.getTime()) ? null : d.toISOString();
+      }
+      return null;
+    };
+
     // Sanitize jobs list (never expose raw API keys or passwords)
     const sanitizedJobs = jobs.map((j) => ({
       id: j.id,
@@ -88,14 +117,14 @@ export async function GET(request) {
       priority: j.priority,
       status: j.status,
       attemptCount: j.attemptCount,
-      nextScheduledAttempt: j.nextScheduledAttempt,
+      nextScheduledAttempt: normalizeIsoDate(j.nextScheduledAttempt),
       providerMessageId: j.providerMessageId,
       error: j.error,
       eventId: j.eventId,
       ticketId: j.ticketId,
-      createdAt: j.createdAt,
-      sentAt: j.sentAt,
-      deliveredAt: j.deliveredAt,
+      createdAt: normalizeIsoDate(j.createdAt),
+      sentAt: normalizeIsoDate(j.sentAt),
+      deliveredAt: normalizeIsoDate(j.deliveredAt),
       subject: j.payload?.subject || "",
     }));
 

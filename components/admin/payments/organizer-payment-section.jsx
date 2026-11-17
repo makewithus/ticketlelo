@@ -25,15 +25,34 @@ import {
 } from "lucide-react";
 import { SupportTicketModal } from "@/components/admin/support/support-ticket-modal";
 import { OrganizerPayoutDetailsForm } from "./organizer-payout-details-form";
+import {
+  getCachedOrganizerPayments,
+  setCachedOrganizerPayments,
+} from "@/lib/client-cache";
 
 export function OrganizerPaymentSection({ organizerId = null, eventId = null }) {
   const [activeSubTab, setActiveSubTab] = useState("settlements"); // "settlements" | "payout-details"
-  const [summary, setSummary] = useState(null);
-  const [transactions, setTransactions] = useState([]);
-  const [settlements, setSettlements] = useState([]);
-  const [payouts, setPayouts] = useState([]);
+  const [summary, setSummary] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return getCachedOrganizerPayments(organizerId, eventId)?.summary || null;
+  });
+  const [transactions, setTransactions] = useState(() => {
+    if (typeof window === "undefined") return [];
+    return getCachedOrganizerPayments(organizerId, eventId)?.transactions || [];
+  });
+  const [settlements, setSettlements] = useState(() => {
+    if (typeof window === "undefined") return [];
+    return getCachedOrganizerPayments(organizerId, eventId)?.settlements || [];
+  });
+  const [payouts, setPayouts] = useState(() => {
+    if (typeof window === "undefined") return [];
+    return getCachedOrganizerPayments(organizerId, eventId)?.payouts || [];
+  });
   const [selectedPayout, setSelectedPayout] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !getCachedOrganizerPayments(organizerId, eventId);
+  });
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -62,16 +81,32 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
         fetch(settUrl),
       ]);
 
+      let sum = null;
+      let txs = [];
+      let setts = [];
+      let pays = [];
+
       if (sumRes.ok) {
         const sumData = await sumRes.json();
-        setSummary(sumData.summary || null);
-        setTransactions(sumData.transactions || []);
+        sum = sumData.summary || null;
+        txs = sumData.transactions || [];
+        setSummary(sum);
+        setTransactions(txs);
       }
       if (settRes.ok) {
         const settData = await settRes.json();
-        setSettlements(settData.settlements || []);
-        setPayouts(settData.payouts || []);
+        setts = settData.settlements || [];
+        pays = settData.payouts || [];
+        setSettlements(setts);
+        setPayouts(pays);
       }
+
+      setCachedOrganizerPayments(organizerId, eventId, {
+        summary: sum,
+        transactions: txs,
+        settlements: setts,
+        payouts: pays,
+      });
     } catch (err) {
       console.error("[OrganizerPaymentSection] fetch error:", err);
       setError("Failed to load payment records. Please try again.");
@@ -82,7 +117,8 @@ export function OrganizerPaymentSection({ organizerId = null, eventId = null }) 
   };
 
   useEffect(() => {
-    fetchData(false, true);
+    const hasCache = Boolean(getCachedOrganizerPayments(organizerId, eventId));
+    fetchData(false, !hasCache);
   }, [organizerId, eventId]);
 
   const handleOpenSupportForRecord = (record) => {

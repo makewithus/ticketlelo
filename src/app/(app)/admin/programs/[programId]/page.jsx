@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { authFetch } from "@/lib/auth";
+import { getCachedProgram, setCachedProgram } from "@/lib/client-cache";
 import {
   Users,
   Calendar,
@@ -51,6 +52,7 @@ import {
   Sun,
   Moon,
   RotateCcw,
+  Lightbulb,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -124,8 +126,23 @@ export default function OrganizerProgramHubPage({ params }) {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [program, setProgram] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Synchronous cache hydration for instant 0ms rendering
+  const [program, setProgram] = useState(() => {
+    if (typeof window === "undefined" || !programId) return null;
+    try {
+      const cached = getCachedProgram(programId);
+      if (cached) return cached;
+    } catch {}
+    return null;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined" || !programId) return true;
+    try {
+      const cached = getCachedProgram(programId);
+      if (cached) return false;
+    } catch {}
+    return true;
+  });
   const [activeTab, setActiveTab] = useState("overview");
 
   // Tab 2: Connected Events
@@ -312,6 +329,7 @@ export default function OrganizerProgramHubPage({ params }) {
         },
       };
       setProgram(mergedProgram);
+      setCachedProgram(programId, mergedProgram);
       if (data.program?.pointsRules) {
         setPointsRules({
           basePointsPerTicket: data.program.pointsRules.basePointsPerTicket ?? 10,
@@ -1811,7 +1829,10 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
 
                   <div className="px-4 py-2 border-t border-slate-800/80 dark:border-[#212327] bg-slate-950/40 dark:bg-[#121316] flex items-center justify-between text-[11px] text-slate-400 dark:text-[#71767B]">
-                    <span>💡 Edit or customize the code above directly — live preview below updates automatically</span>
+                    <span className="flex items-center gap-1.5">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Edit or customize the code above directly — live preview below updates automatically</span>
+                    </span>
                     <span className="font-mono text-[10px]">
                       {embedApplyCode.length} chars
                     </span>
@@ -1839,15 +1860,15 @@ export default function OrganizerProgramHubPage({ params }) {
                 {/* Features Checklist */}
                 <div className="pt-4 border-t border-slate-100 dark:border-[#26292E] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-[#9B9EA4]">
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                     <span>Auto-resizing iframe via <code>ticketlelo:resize</code> postMessage</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                     <span>Direct guest registration with zero forced login barrier</span>
                   </div>
                   <div className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold">✓</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                     <span>Theme support: append <code>?theme=light</code> or <code>?theme=dark</code></span>
                   </div>
                 </div>
@@ -2115,7 +2136,10 @@ export default function OrganizerProgramHubPage({ params }) {
                   </div>
 
                   <div className="px-4 py-2 border-t border-slate-800/80 dark:border-[#212327] bg-slate-950/40 dark:bg-[#121316] flex items-center justify-between text-[11px] text-slate-400 dark:text-[#71767B]">
-                    <span>💡 Edit or customize the code above directly — live preview below updates automatically</span>
+                    <span className="flex items-center gap-1.5">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <span>Edit or customize the code above directly — live preview below updates automatically</span>
+                    </span>
                     <span className="font-mono text-[10px]">
                       {embedLeaderboardCode.length} chars
                     </span>
