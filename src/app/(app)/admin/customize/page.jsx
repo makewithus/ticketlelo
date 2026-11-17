@@ -182,11 +182,15 @@ export default function MoreEventSettingsPage() {
                 else if (ev.ticketBackground) setTicketBgPreview(ev.ticketBackground);
 
                 // Close registration state
-                if (ev.closeRegistrationEnabled !== undefined) {
-                  setCloseRegEnabled(Boolean(ev.closeRegistrationEnabled));
-                } else if (ev.registrationStatus === "Closed" || ev.registrationClosed) {
-                  setCloseRegEnabled(true);
-                }
+                const isExplicitlyClosed = Boolean(
+                  ev.registrationStatus === "Closed" ||
+                  ev.registrationStatus === "closed" ||
+                  ev.registrationClosed === true ||
+                  ev.isRegistrationClosed === true ||
+                  ev.status === "closed" ||
+                  ev.closeRegistrationEnabled === true
+                );
+                setCloseRegEnabled(isExplicitlyClosed);
                 if (ev.closeRegistrationMode) setCloseRegMode(ev.closeRegistrationMode);
                 if (ev.closeRegistrationCapacity) setCloseRegCapacity(Number(ev.closeRegistrationCapacity));
 

@@ -67,6 +67,7 @@ import {
   setCachedRegistrations,
 } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
+import { isEventRegistrationClosed } from "@/lib/event-registration-status";
 
 const THEMES = [
   { id: "sunset", name: "Sunset", color: "#FE760B", bg: "#FE760B", sun: "#FB923C", text: "#131517" },
@@ -503,15 +504,25 @@ export default function EventOverviewPage() {
     const nextState = !isLive;
     setIsUpdatingLive(true);
     try {
-      await updateEvent(event.id, {
+      const updates = {
         status: nextState ? "live" : "draft",
         isActive: nextState,
         published: nextState,
-      });
+        isPublished: nextState,
+        visibility: nextState ? "public" : "private",
+        registrationClosed: !nextState,
+        isRegistrationClosed: !nextState,
+        registrationStatus: nextState ? "Open" : "Closed",
+      };
+      await updateEvent(event.id, updates);
+      setEvent((prev) => ({ ...(prev || {}), ...updates }));
+      if (publicSlug) {
+        setCachedEvent(publicSlug, { ...(event || {}), ...updates });
+      }
       toast.success(
         nextState
           ? "Event is now LIVE — visible to the public!"
-          : "Event is now unlisted / draft."
+          : "Event is now unlisted / draft. Registrations are closed."
       );
     } catch (err) {
       console.error("Failed to update event live status:", err);
@@ -924,7 +935,7 @@ export default function EventOverviewPage() {
                   value={user?.email || "attendee@example.com"}
                   className="bg-[#1A1C1F] border border-[#2A2D31] rounded-lg px-2.5 py-1.5 text-xs text-[#9B9EA4] flex-1 min-w-0 outline-none font-mono truncate"
                 />
-                {(event.status === "cancelled" || event.isCancelled || (event.closeRegistrationEnabled === true ? (event.closeRegistrationMode === "now" || event.registrationClosed === true) : event.closeRegistrationEnabled === false ? false : (event.registrationClosed || event.registrationStatus === "Closed" || event.status === "closed"))) ? (
+                {isEventRegistrationClosed(event) ? (
                   <span className="px-3 py-1.5 rounded-lg bg-[#212327] border border-[#2A2D31] text-[#9B9EA4] font-semibold text-xs shrink-0 text-center cursor-not-allowed">
                     Registration Closed
                   </span>

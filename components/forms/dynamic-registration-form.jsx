@@ -24,6 +24,7 @@ import { db, auth } from "@/lib/firebase";
 import { doc, onSnapshot, collection, query, where } from "firebase/firestore";
 import { useAuth } from "@/context/auth-context";
 import { getCustomFormByEvent } from "@/lib/form-generator";
+import { checkEventRegistrationStatus, isEventRegistrationClosed } from "@/lib/event-registration-status";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import {
   Loader2,
@@ -647,68 +648,14 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       : activeEvent?.themeColor || activeEvent?.themeHex || "#FE760B");
 
   // Registration Closure & Capacity Controls (Computed authoritatively in real time)
-  const isEventCancelled = Boolean(
-    activeEvent?.status === "cancelled" || activeEvent?.isCancelled
-  );
-
-  const isEventEnded = Boolean(
-    activeEvent?.status === "ended" ||
-    activeEvent?.status === "completed" ||
-    activeEvent?.isEnded === true
-  );
-
-  // Authoritative explicit closure evaluation:
-  // If closeRegistrationEnabled is explicitly false, closure rule is disabled and registration is open.
-  let isRegistrationClosedExplicit = false;
-  if (activeEvent?.closeRegistrationEnabled === true) {
-    if (activeEvent?.closeRegistrationMode === "now" || activeEvent?.registrationClosed === true) {
-      isRegistrationClosedExplicit = true;
-    }
-  } else if (activeEvent?.closeRegistrationEnabled === false) {
-    isRegistrationClosedExplicit = false;
-  } else {
-    // Fallback for older event records before closeRegistrationEnabled field was introduced
-    isRegistrationClosedExplicit = Boolean(
-      (activeEvent?.registrationClosed === true && activeEvent?.registrationStatus !== "Open") ||
-      (activeEvent?.isRegistrationClosed === true && activeEvent?.registrationStatus !== "Open") ||
-      activeEvent?.registrationStatus === "Closed" ||
-      activeEvent?.registrationStatus === "closed" ||
-      activeEvent?.status === "closed"
-    );
-  }
-
   const allocatedSeats = Math.max(
     Number(activeEvent?.allocatedSeats || 0),
     liveRegistrationsCount
   );
 
-  const isCapacityClosed = Boolean(
-    activeEvent?.closeRegistrationEnabled === true &&
-    activeEvent?.closeRegistrationMode === "capacity" &&
-    typeof activeEvent?.closeRegistrationCapacity === "number" &&
-    Number(activeEvent.closeRegistrationCapacity) > 0 &&
-    allocatedSeats >= Number(activeEvent.closeRegistrationCapacity)
-  );
-
-  const totalSeats = Number(
-    activeEvent?.globalCapacity ||
-    activeEvent?.capacity ||
-    activeEvent?.maxCapacity ||
-    0
-  );
-
-  const isGlobalCapacityReached = Boolean(
-    Boolean(activeEvent?.limitCapacity) &&
-    totalSeats > 0 &&
-    allocatedSeats >= totalSeats
-  );
-
-  const isClosedForRegistration =
-    isEventCancelled ||
-    isEventEnded ||
-    isRegistrationClosedExplicit ||
-    isCapacityClosed ||
-    isGlobalCapacityReached;
+  const regStatus = checkEventRegistrationStatus(activeEvent, allocatedSeats);
+  const isClosedForRegistration = regStatus.isClosed;
+  const isEventDraftOrPrivate = regStatus.reason === "draft_or_private";
 
   // Auto-fill and lock logged-in attendee details when auth initializes or changes
   useEffect(() => {
@@ -2501,7 +2448,13 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               className="w-full bg-slate-200 dark:bg-[#1E2024] text-slate-500 dark:text-[#9B9EA4] border border-slate-300 dark:border-[#2A2D31] cursor-not-allowed font-bold h-12 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base mt-4 opacity-80 shadow-none select-none transition-all"
             >
               <AlertCircle className="w-4 h-4 text-[#FE760B]" />
-              <span>Registration Closed</span>
+              <span>
+                {regStatus.reason === "draft_or_private"
+                  ? "Registration Closed (Draft / Private Mode)"
+                  : regStatus.reason === "capacity_reached"
+                  ? "Registration Closed (Capacity Reached)"
+                  : "Registration Closed"}
+              </span>
             </button>
           ) : emailRoleError ? (
             <button
@@ -2555,7 +2508,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto overscroll-contain animate-fade-in"
           style={{ touchAction: "pan-y" }}
         >
-          <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-7 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-white touch-pan-y overscroll-contain">
+          <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl sm:rounded-3xl p-5 xs:p-6 sm:p-7 shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-slate-900 dark:text-white touch-pan-y overscroll-contain">
             {/* Header */}
             <div className="flex items-start justify-between gap-3 mb-5 sm:mb-6">
               <div className="flex items-center gap-3">
@@ -2570,10 +2523,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   <Key className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                     Welcome Back!
                   </h3>
-                  <p className="text-xs text-[#9B9EA4] mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-[#9B9EA4] mt-0.5">
                     Sign in to your account to complete registration
                   </p>
                 </div>
@@ -2585,7 +2538,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   setLoginPassword("");
                   setIsLoading(false);
                 }}
-                className="p-1.5 rounded-lg text-[#9B9EA4] hover:text-white hover:bg-[#212327] transition-colors cursor-pointer shrink-0"
+                className="p-1.5 rounded-lg text-slate-400 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#212327] transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2593,19 +2546,19 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
             <div className="space-y-4 sm:space-y-5 mb-6">
               {/* Email Display Card */}
-              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3.5 sm:p-4">
-                <p className="text-[11px] font-bold tracking-wider uppercase text-[#9B9EA4] mb-1 flex items-center gap-1.5">
+              <div className="bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3.5 sm:p-4">
+                <p className="text-[11px] font-bold tracking-wider uppercase text-slate-500 dark:text-[#9B9EA4] mb-1 flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5" style={{ color: themeColor }} />
                   <span>Your Email Address</span>
                 </p>
-                <p className="font-mono text-sm sm:text-base font-bold text-white break-all">
+                <p className="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white break-all">
                   {tempFormData?.email || "Email not found"}
                 </p>
               </div>
 
               {/* Password Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#D0D0D1]">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-[#D0D0D1]">
                   Enter Your Password
                 </label>
                 <div className="relative">
@@ -2617,13 +2570,13 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                     onKeyDown={(e) =>
                       e.key === "Enter" && handleExistingUserLogin()
                     }
-                    className="h-11 sm:h-12 bg-[#131517] border border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] text-white font-mono rounded-xl pl-3.5 pr-11 text-sm placeholder:text-[#9B9EA4]/50 transition-all"
+                    className="h-11 sm:h-12 bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B] text-slate-900 dark:text-white font-mono rounded-xl pl-3.5 pr-11 text-sm placeholder:text-slate-400 dark:placeholder:text-[#9B9EA4]/50 transition-all"
                     autoFocus
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9B9EA4] hover:text-white transition-colors p-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors p-1"
                     title={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? (
@@ -2634,7 +2587,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   </button>
                 </div>
                 {loginPassword && loginPassword.length < 6 && (
-                  <p className="text-xs text-red-400 mt-1">
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1">
                     Password must be at least 6 characters
                   </p>
                 )}
@@ -2656,10 +2609,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
               </div>
 
               {/* Official Note */}
-              <div className="bg-[#212327] border border-[#2A2D31] rounded-xl p-3 flex items-start gap-2.5">
+              <div className="bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3 flex items-start gap-2.5">
                 <Info className="w-4 h-4 text-[#FE760B] shrink-0 mt-0.5" />
-                <p className="text-xs text-[#9B9EA4] leading-relaxed">
-                  <strong className="text-white font-semibold">Note:</strong> Use the password you set when you first registered on TicketLelo.
+                <p className="text-xs text-slate-600 dark:text-[#9B9EA4] leading-relaxed">
+                  <strong className="text-slate-900 dark:text-white font-semibold">Note:</strong> Use the password you set when you first registered on TicketLelo.
                 </p>
               </div>
             </div>
@@ -2697,7 +2650,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   setIsLoading(false);
                 }}
                 disabled={isLoggingIn}
-                className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+                className="h-11 sm:h-12 px-5 bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
               >
                 Cancel
               </button>
@@ -2716,9 +2669,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto overscroll-contain animate-fade-in"
           style={{ touchAction: "pan-y" }}
         >
-          <div className="bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-[#2A2D31] max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-white touch-pan-y overscroll-contain">
+          <div className="bg-white dark:bg-[#1A1C1F] rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-2xl max-w-lg w-full border border-slate-200 dark:border-[#2A2D31] max-h-[90vh] overflow-y-auto my-auto animate-scale-in text-slate-900 dark:text-white touch-pan-y overscroll-contain">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#2A2D31]">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-200 dark:border-[#2A2D31]">
               <div className="flex items-center gap-3">
                 <div
                   className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
@@ -2731,10 +2684,10 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   <CheckCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                     {isPendingApproval ? "Registration Submitted" : "Registration Successful!"}
                   </h3>
-                  <p className="text-xs text-[#9B9EA4]">
+                  <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
                     {isPendingApproval ? "Pending organiser review" : "Your spot is confirmed"}
                   </p>
                 </div>
@@ -2749,7 +2702,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                     document.body.classList.remove("modal-open");
                   }
                 }}
-                className="p-1.5 hover:bg-[#212327] rounded-lg text-[#9B9EA4] hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-slate-100 dark:hover:bg-[#212327] rounded-lg text-slate-400 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -2759,7 +2712,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             {/* Content */}
             <div className="space-y-4">
               {/* Description Body */}
-              <div className="space-y-2 text-sm text-[#D0D0D1] leading-relaxed">
+              <div className="space-y-2 text-sm text-slate-700 dark:text-[#D0D0D1] leading-relaxed">
                 {emailDeliveryStatus === "failed" ? (
                   <p>
                     You&apos;re successfully registered for this event. We experienced a slight delay sending your confirmation email, but your registration is fully secured.
@@ -2770,22 +2723,22 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   </p>
                 )}
                 {isFirstTimeUser ? (
-                  <p className="text-xs sm:text-sm text-[#E1E4EA] font-medium pt-1">
+                  <p className="text-xs sm:text-sm text-slate-900 dark:text-[#E1E4EA] font-medium pt-1">
                     To access your ticket and manage all your registrations, set up your TicketLelo password using the link sent to your email.
                   </p>
                 ) : (
-                  <p className="text-xs sm:text-sm text-[#D0D0D1] pt-1">
+                  <p className="text-xs sm:text-sm text-slate-700 dark:text-[#D0D0D1] pt-1">
                     To access your ticket and manage all your registrations, log in with your TicketLelo password using your registered email address.
                   </p>
                 )}
               </div>
 
               {/* Additional message box with Mail icon */}
-              <div className="bg-[#131517] border border-[#2A2D31] rounded-xl p-3.5 sm:p-4 flex items-center gap-3">
+              <div className="bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3.5 sm:p-4 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center shrink-0 text-[#FE760B]">
                   <Mail className="w-4 h-4" />
                 </div>
-                <p className="text-xs font-medium text-[#D0D0D1]">
+                <p className="text-xs font-medium text-slate-700 dark:text-[#D0D0D1]">
                   {emailDeliveryStatus === "failed"
                     ? "Check your dashboard or retry sending from account settings."
                     : "Check your inbox for your ticket confirmation email."}
@@ -2794,7 +2747,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-[#2A2D31]">
+            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-200 dark:border-[#2A2D31]">
               <button
                 type="button"
                 onClick={() => {
@@ -2824,7 +2777,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                     }
                     router.push("/dashboard");
                   }}
-                  className="h-11 sm:h-12 px-5 bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white border border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
+                  className="h-11 sm:h-12 px-5 bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] font-semibold rounded-xl transition-colors text-sm cursor-pointer"
                 >
                   View Dashboard
                 </button>

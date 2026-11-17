@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import { BrandLoader } from "@/components/ui/brand-loader";
 import { EventPageSkeleton } from "@/components/ui/skeleton";
 import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
@@ -47,6 +48,7 @@ import { formatEventDate, parseFirestoreDate } from "@/lib/date-utils";
 import { VenueMap } from "@/components/common/venue-map";
 import { useAuth } from "@/context/auth-context";
 import { getThemeLook, resolveEventTheme, getReadableAccentColor } from "@/lib/theme-utils";
+import { checkEventRegistrationStatus, isEventRegistrationClosed } from "@/lib/event-registration-status";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
@@ -333,16 +335,27 @@ export default function PublicEventBySlugPage() {
     };
   }, [event?.id]);
 
+  // Track active theme for light / dark mode adaptation
+  const { resolvedTheme } = useTheme();
+  const isLight = mounted && resolvedTheme === "light";
+
   // Derive theme properties unconditionally matching React Rules of Hooks
   const eventTheme = useMemo(() => resolveEventTheme(event), [event]);
-  const themeAccent = eventTheme?.color || eventTheme?.hex || event?.themeColor || "#FE760B";
-  const readableAccent = useMemo(() => getReadableAccentColor(themeAccent, true), [themeAccent]);
+  const isMinimal =
+    !event?.theme ||
+    event?.theme === "minimal" ||
+    eventTheme?.id === "minimal" ||
+    event?.themeName?.toLowerCase() === "minimal" ||
+    event?.theme === "default";
+  const themeAccent = isMinimal ? "#FE760B" : (eventTheme?.color || eventTheme?.hex || event?.themeColor || "#FE760B");
+  const readableAccent = useMemo(() => getReadableAccentColor(themeAccent, !isLight), [themeAccent, isLight]);
   const rawPageBg =
     eventTheme?.pageBg ||
     event?.pageBg ||
     "#131517";
-  const pageBg = rawPageBg === "#432E01" ? "#131517" : rawPageBg;
-  const themeLook = getThemeLook(event?.themeColor || event?.theme || themeAccent);
+  const darkPageBg = isMinimal ? "#131517" : (rawPageBg === "#432E01" ? "#131517" : rawPageBg);
+  const activePageBg = isLight ? "#F8FAFC" : darkPageBg;
+  const themeLook = isMinimal ? getThemeLook("minimal") : getThemeLook(event?.themeColor || event?.theme || themeAccent);
 
   // Check if event is virtual or online meeting
   const isOnline = useMemo(() => {
@@ -389,15 +402,15 @@ export default function PublicEventBySlugPage() {
     return "Virtual / Online Event";
   }, [onlineMeetingUrl, event]);
 
-  // Dynamic full-page background synchronization matching organizer's chosen theme
+  // Dynamic full-page background synchronization matching organizer's chosen theme and active mode
   useEffect(() => {
-    if (typeof document !== "undefined" && pageBg) {
+    if (typeof document !== "undefined") {
       const prevHtmlBg = document.documentElement.style.backgroundColor;
       const prevBodyBg = document.body.style.backgroundColor;
 
-      document.documentElement.style.backgroundColor = pageBg;
-      document.body.style.backgroundColor = pageBg;
-      document.documentElement.style.setProperty("--event-page-bg", pageBg);
+      document.documentElement.style.backgroundColor = activePageBg;
+      document.body.style.backgroundColor = activePageBg;
+      document.documentElement.style.setProperty("--event-page-bg", activePageBg);
       document.documentElement.style.setProperty("--event-theme-accent", themeAccent);
 
       return () => {
@@ -407,7 +420,7 @@ export default function PublicEventBySlugPage() {
         document.documentElement.style.removeProperty("--event-theme-accent");
       };
     }
-  }, [pageBg, themeAccent]);
+  }, [activePageBg, themeAccent]);
 
   // Handle smooth navigation directly to the registration div (#register or #tickets)
   useEffect(() => {
@@ -431,17 +444,17 @@ export default function PublicEventBySlugPage() {
 
   if (notFound || !event) {
     return (
-      <div className="min-h-screen bg-[#131517] text-white flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 dark:text-red-400 border border-red-500/20 flex items-center justify-center">
           <AlertCircle className="w-6 h-6" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Event Not Found</h1>
-        <p className="text-[#9B9EA4] text-xs">
-          The event <code className="px-1.5 py-0.5 rounded bg-[#212327] text-white font-mono text-xs">{slug}</code> does not exist or has not been published yet.
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Event Not Found</h1>
+        <p className="text-slate-600 dark:text-[#9B9EA4] text-xs">
+          The event <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-[#212327] text-slate-900 dark:text-white font-mono text-xs">{slug}</code> does not exist or has not been published yet.
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-black font-semibold text-xs hover:bg-slate-100 transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-black font-semibold text-xs hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" /> Return to Homepage
         </Link>
@@ -475,49 +488,9 @@ export default function PublicEventBySlugPage() {
   const takenSeats = Math.max(Number(event.allocatedSeats || 0), registrations.length);
   const seatsLeft = hasCapacityLimit ? Math.max(0, totalSeats - takenSeats) : null;
 
-  const isEventCancelled = Boolean(
-    event.status === "cancelled" || event.isCancelled
-  );
-  const isEventEnded = Boolean(
-    event.status === "ended" || event.status === "completed" || event.isEnded === true
-  );
-
-  // Authoritative explicit closure evaluation:
-  // If closeRegistrationEnabled is explicitly false, closure rule is disabled and registration is open.
-  let isRegistrationClosedExplicit = false;
-  if (event.closeRegistrationEnabled === true) {
-    if (event.closeRegistrationMode === "now" || event.registrationClosed === true) {
-      isRegistrationClosedExplicit = true;
-    }
-  } else if (event.closeRegistrationEnabled === false) {
-    isRegistrationClosedExplicit = false;
-  } else {
-    // Fallback for older event records before closeRegistrationEnabled field was introduced
-    isRegistrationClosedExplicit = Boolean(
-      (event.registrationClosed === true && event.registrationStatus !== "Open") ||
-      (event.isRegistrationClosed === true && event.registrationStatus !== "Open") ||
-      event.registrationStatus === "Closed" ||
-      event.registrationStatus === "closed" ||
-      event.status === "closed"
-    );
-  }
-
-  const isCapacityClosed = Boolean(
-    event.closeRegistrationEnabled === true &&
-    event.closeRegistrationMode === "capacity" &&
-    typeof event.closeRegistrationCapacity === "number" &&
-    Number(event.closeRegistrationCapacity) > 0 &&
-    takenSeats >= Number(event.closeRegistrationCapacity)
-  );
-  const isGlobalCapacityReached = Boolean(
-    hasCapacityLimit && seatsLeft !== null && seatsLeft <= 0
-  );
-  const isClosedForRegistration =
-    isEventCancelled ||
-    isEventEnded ||
-    isRegistrationClosedExplicit ||
-    isCapacityClosed ||
-    isGlobalCapacityReached;
+  const regStatus = checkEventRegistrationStatus(event, takenSeats);
+  const isClosedForRegistration = regStatus.isClosed;
+  const isEventDraftOrPrivate = regStatus.reason === "draft_or_private";
 
   const priceDisplay = event.price !== undefined && event.price !== "" ? (event.price.toString().startsWith("₹") ? event.price : `₹${event.price}`) : "Free";
 
@@ -594,9 +567,9 @@ export default function PublicEventBySlugPage() {
 
   return (
     <div
-      className="min-h-screen text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors duration-300 overflow-x-clip w-full max-w-full"
+      className="min-h-screen bg-slate-50 dark:bg-[#131517] text-slate-900 dark:text-white selection:bg-[#FE760B] selection:text-white flex flex-col relative transition-colors duration-300 overflow-x-clip w-full max-w-full"
       style={{
-        backgroundColor: pageBg,
+        backgroundColor: activePageBg,
       }}
     >
       {/* Top Navigation - Transparent & seamless without harsh dividing line */}
@@ -707,10 +680,10 @@ export default function PublicEventBySlugPage() {
             <Clock className="w-5 h-5 shrink-0 mt-0.5" />
             <div>
               <h3 className="text-sm font-bold">Event Postponed — Updated Dates Announced</h3>
-              <p className="text-xs text-[#D0D0D1] mt-0.5 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-[#D0D0D1] mt-0.5 leading-relaxed">
                 The organiser has postponed this event to new dates. Please review the updated schedule below.
                 {event.postponedNote && (
-                  <span className="block mt-1 font-medium text-white italic">
+                  <span className="block mt-1 font-medium text-slate-900 dark:text-white italic">
                     &ldquo;{event.postponedNote}&rdquo;
                   </span>
                 )}
@@ -1153,7 +1126,9 @@ export default function PublicEventBySlugPage() {
                 <div>
                   <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                     {isClosedForRegistration
-                      ? "Registration Closed"
+                      ? isEventDraftOrPrivate
+                        ? "Registration Closed (Draft / Private Mode)"
+                        : "Registration Closed"
                       : hasCapacityLimit
                       ? seatsLeft === 0
                         ? "Event Sold Out / Fully Booked"
@@ -1166,7 +1141,9 @@ export default function PublicEventBySlugPage() {
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-[#9B9EA4] mt-0.5">
                     {isClosedForRegistration
-                      ? "Registrations for this event have closed."
+                      ? isEventDraftOrPrivate
+                        ? "This event is currently in draft or private mode. Public registrations are closed."
+                        : "Registrations for this event have closed."
                       : hasCapacityLimit && seatsLeft === 0
                       ? "Registrations for this event have reached maximum capacity."
                       : "Hurry up and register before the event fills up!"}

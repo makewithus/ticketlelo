@@ -9,6 +9,7 @@ import { sendTicketDeliveryEmail } from "@/src/app/api/send-ticket-email/route";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { resolveReferralCode, isSelfReferral } from "@/lib/creator-campus/referral-registry";
 import { awardPointsForRegistration } from "@/lib/creator-campus/points-engine";
+import { checkEventRegistrationStatus } from "@/lib/event-registration-status";
 
 export async function POST(request) {
   try {
@@ -223,27 +224,20 @@ export async function POST(request) {
     }
     if (!eventSnap.exists) return NextResponse.json({ error: "Event not found" }, { status: 404 });
     const event = eventSnap.data();
-    if (event.status === "cancelled" || event.isCancelled) {
-      return NextResponse.json({ error: "This event has been cancelled. Registrations are closed." }, { status: 409 });
-    }
-    if (event.closeRegistrationEnabled && event.closeRegistrationMode === "now") {
-      return NextResponse.json({ error: "Registration is closed for this event." }, { status: 409 });
-    }
-    if (event.closeRegistrationEnabled && event.closeRegistrationMode === "capacity" && typeof event.closeRegistrationCapacity === "number") {
-      const curAllocated = Number(event.allocatedSeats || 0);
-      if (curAllocated >= Number(event.closeRegistrationCapacity)) {
-        return NextResponse.json({ error: "Registration capacity reached. This event is closed for registration." }, { status: 409 });
-      }
-    }
-    const isEventOpen =
-      event.isPublished === true ||
-      event.published === true ||
-      event.status === "published" ||
-      event.status === "live" ||
-      event.status === "active" ||
-      event.isActive === true;
-    if (!isEventOpen) {
-      return NextResponse.json({ error: "Event registration is not open" }, { status: 409 });
+    const curAllocated = Number(event.allocatedSeats || 0);
+    const { isClosed: isFreeClosed, reason: freeClosedReason } = checkEventRegistrationStatus(event, curAllocated);
+    if (isFreeClosed) {
+      const msg =
+        freeClosedReason === "cancelled"
+          ? "This event has been cancelled. Registrations are closed."
+          : freeClosedReason === "ended"
+          ? "This event has already ended."
+          : freeClosedReason === "capacity_reached"
+          ? "Registration capacity reached. This event is closed for registration."
+          : freeClosedReason === "draft_or_private"
+          ? "This event is currently in draft or private mode. Registrations are closed."
+          : "Registration is closed for this event.";
+      return NextResponse.json({ error: msg }, { status: 409 });
     }
     const form = formSnap.empty ? null : formSnap.docs[0].data();
     const parseSafePrice = (val) => {

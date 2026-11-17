@@ -11,6 +11,7 @@ import { getAuthenticatedUser, checkRestrictedAttendeeEmail } from "@/lib/auth-s
 import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
 import { resolveCommissionRule, calculateCommissionBreakdown } from "@/lib/payments/commission-engine";
 import { resolveReferralCode, isSelfReferral } from "@/lib/creator-campus/referral-registry";
+import { checkEventRegistrationStatus } from "@/lib/event-registration-status";
 
 /**
  * Server-Authoritative Razorpay Order Creation
@@ -128,6 +129,22 @@ export async function POST(request) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
     const event = { id: eventDoc.id, ...eventDoc.data() };
+
+    // Verify event is open for registrations
+    const { isClosed: isOrderClosed, reason: orderClosedReason } = checkEventRegistrationStatus(event);
+    if (isOrderClosed) {
+      const msg =
+        orderClosedReason === "cancelled"
+          ? "This event has been cancelled. Registrations are closed."
+          : orderClosedReason === "ended"
+          ? "This event has already ended."
+          : orderClosedReason === "capacity_reached"
+          ? "Registration capacity reached. This event is sold out."
+          : orderClosedReason === "draft_or_private"
+          ? "This event is currently in draft or private mode. Registrations are closed."
+          : "Registration is closed for this event.";
+      return NextResponse.json({ error: msg }, { status: 409 });
+    }
 
     // 2. Resolve Ticket / Combo Configuration & Base Price Server-Side
     let ticketConfig = null;

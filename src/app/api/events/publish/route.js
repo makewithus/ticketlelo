@@ -53,6 +53,10 @@ export async function POST(req) {
     await eventRef.update({
       status: "published",
       published: true,
+      isPublished: true,
+      isActive: true,
+      registrationStatus: "Open",
+      registrationClosed: false,
       publishedAt,
       slug,
       shareUrl,
@@ -112,7 +116,11 @@ export async function DELETE(req) {
 
     await eventRef.update({
       published: false,
+      isPublished: false,
       status: "draft",
+      isActive: false,
+      registrationClosed: true,
+      registrationStatus: "Closed",
       shareUrl: null,
     });
     return NextResponse.json({ success: true });
