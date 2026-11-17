@@ -166,5 +166,39 @@ test("Super Admin Plans & Facilities Suite — UI & Route Verification", async (
     assert.match(content, /id:\s*"plans"/, "Dashboard tabs must have plans");
     assert.match(content, /<SuperAdminPlansView/, "Dashboard must embed SuperAdminPlansView");
   });
+
+  await t.test("SuperAdmin Plans view mounts modals to body with full light/dark contrast and header coverage", () => {
+    const plansViewPath = path.join(root, "components/admin/plans/superadmin-plans-view.jsx");
+    const content = fs.readFileSync(plansViewPath, "utf-8");
+
+    assert.match(content, /createPortal/, "Plans view must import createPortal");
+    assert.match(content, /document\.body/, "Modals must be portaled to document.body");
+    assert.match(content, /z-\[150\]/, "Modal overlay must use elevated z-[150] to dim sticky header");
+    assert.match(content, /bg-white dark:bg-\[#16181B\]/, "Assign Plan modal must support light mode with bg-white");
+    assert.match(content, /text-slate-900 dark:text-white/, "Modal headers must use high contrast text tokens");
+    assert.match(content, /text-slate-700 dark:text-\[#D0D0D1\]/, "Labels must have dark slate contrast in light mode");
+    assert.match(content, /Escape/, "Must handle Escape key to dismiss active modals");
+  });
+
+  await t.test("SuperAdmin Plans view enforces high-contrast light mode styling and table responsiveness", () => {
+    const plansViewPath = path.join(root, "components/admin/plans/superadmin-plans-view.jsx");
+    const content = fs.readFileSync(plansViewPath, "utf-8");
+
+    // Free badge must not be washed out text-slate-300 in light mode
+    assert.match(content, /bg-slate-100 text-slate-800 border-slate-300/, "Free badge must have dark slate text in light mode");
+    // Starter badge must have crisp contrast in light mode
+    assert.match(content, /bg-blue-50 text-blue-700 border-blue-200/, "Starter badge must have high contrast in light mode");
+    // Pro badge
+    assert.match(content, /bg-purple-50 text-purple-700 border-purple-200/, "Pro badge must have high contrast in light mode");
+    // Fest badge
+    assert.match(content, /bg-orange-50 text-\[#C25800\] border-orange-200/, "Fest badge must have high contrast in light mode");
+    // Table responsiveness
+    assert.match(content, /min-w-\[980px\]/, "Table must have min-width to avoid column squeezing");
+    assert.match(content, /overflow-x-auto/, "Table must be wrapped in overflow-x-auto rail");
+    // Row divide contrast
+    assert.match(content, /divide-y divide-slate-200 dark:divide-\[#2A2D31\]\/60/, "Row divider must be crisp in light mode");
+    // Limit reached tag contrast in light mode
+    assert.match(content, /bg-amber-100 text-amber-800 border border-amber-300/, "At Limit badge must be high-contrast amber-800");
+  });
 });
 

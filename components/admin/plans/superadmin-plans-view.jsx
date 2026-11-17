@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Filter,
@@ -70,31 +71,31 @@ const FACILITY_ICONS = {
 // Color maps for plan tiers
 const PLAN_COLORS = {
   free: {
-    badge: "bg-slate-500/15 text-slate-300 border-slate-500/30",
-    pill: "border-slate-500/40 text-slate-400 hover:text-white hover:border-slate-400",
-    activePill: "bg-slate-700 text-white font-bold border-slate-500",
-    border: "border-slate-700",
+    badge: "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/30",
+    pill: "border-slate-300 text-slate-600 hover:text-slate-900 hover:border-slate-400 dark:border-slate-500/40 dark:text-slate-400 dark:hover:text-white dark:hover:border-slate-400",
+    activePill: "bg-slate-900 text-white font-bold border-slate-900 dark:bg-slate-700 dark:text-white dark:border-slate-500 shadow-xs",
+    border: "border-slate-300 dark:border-slate-700",
     glow: "bg-slate-500/5",
   },
   starter: {
-    badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    pill: "border-blue-500/30 text-blue-400 hover:text-white hover:border-blue-400",
-    activePill: "bg-blue-600 text-white font-bold border-blue-500 shadow-md shadow-blue-500/20",
-    border: "border-blue-500/40",
+    badge: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/30",
+    pill: "border-blue-200 text-blue-700 hover:text-blue-900 hover:border-blue-400 dark:border-blue-500/30 dark:text-blue-400 dark:hover:text-white dark:hover:border-blue-400",
+    activePill: "bg-blue-600 text-white font-bold border-blue-600 shadow-md shadow-blue-500/20",
+    border: "border-blue-300 dark:border-blue-500/40",
     glow: "bg-blue-500/5",
   },
   pro: {
-    badge: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-    pill: "border-purple-500/30 text-purple-400 hover:text-white hover:border-purple-400",
-    activePill: "bg-purple-600 text-white font-bold border-purple-500 shadow-md shadow-purple-500/20",
-    border: "border-purple-500/40",
+    badge: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-400 dark:border-purple-500/30",
+    pill: "border-purple-200 text-purple-700 hover:text-purple-900 hover:border-purple-400 dark:border-purple-500/30 dark:text-purple-400 dark:hover:text-white dark:hover:border-purple-400",
+    activePill: "bg-purple-600 text-white font-bold border-purple-600 shadow-md shadow-purple-500/20",
+    border: "border-purple-300 dark:border-purple-500/40",
     glow: "bg-purple-500/5",
   },
   fest: {
-    badge: "bg-[#FE760B]/15 text-[#FE760B] border-[#FE760B]/30",
-    pill: "border-[#FE760B]/30 text-[#FE760B] hover:text-white hover:border-[#FE760B]",
+    badge: "bg-orange-50 text-[#C25800] border-orange-200 dark:bg-[#FE760B]/15 dark:text-[#FE760B] dark:border-[#FE760B]/30",
+    pill: "border-orange-200 text-[#C25800] hover:text-[#943F00] hover:border-orange-400 dark:border-[#FE760B]/30 dark:text-[#FE760B] dark:hover:text-white dark:hover:border-[#FE760B]",
     activePill: "bg-[#FE760B] text-black font-bold border-[#FE760B] shadow-md shadow-[#FE760B]/20",
-    border: "border-[#FE760B]/50",
+    border: "border-orange-300 dark:border-[#FE760B]/50",
     glow: "bg-[#FE760B]/5",
   },
 };
@@ -110,8 +111,8 @@ const AVAILABLE_TIERS = [
     eventsAllowed: 1,
     attendeesDisplay: "300 Attendees / event",
     fee: "5.0%",
-    badgeClass: "bg-slate-500/15 text-slate-300 border-slate-500/30",
-    borderClass: "border-slate-700",
+    badgeClass: "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/30",
+    borderClass: "border-slate-300 dark:border-slate-700",
     icon: Shield,
     highlights: ["1 Event allowed", "300 Attendees max", "5.0% Platform Fee", "Standard ticketing features"],
   },
@@ -124,8 +125,8 @@ const AVAILABLE_TIERS = [
     eventsAllowed: 3,
     attendeesDisplay: "1,000 Attendees / event",
     fee: "4.5%",
-    badgeClass: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    borderClass: "border-blue-500/40",
+    badgeClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/30",
+    borderClass: "border-blue-300 dark:border-blue-500/40",
     icon: Zap,
     highlights: ["3 Events allowed", "1,000 Attendees max", "4.5% Platform Fee", "Custom branding & analytics"],
   },
@@ -138,8 +139,8 @@ const AVAILABLE_TIERS = [
     eventsAllowed: 10,
     attendeesDisplay: "Unlimited Attendees",
     fee: "4.5%",
-    badgeClass: "bg-purple-500/15 text-purple-400 border-purple-500/30",
-    borderClass: "border-purple-500/40",
+    badgeClass: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-400 dark:border-purple-500/30",
+    borderClass: "border-purple-300 dark:border-purple-500/40",
     icon: GraduationCap,
     highlights: ["10 Events allowed", "Unlimited Attendees", "4.5% Platform Fee", "Custom domain & broadcast messaging"],
   },
@@ -152,8 +153,8 @@ const AVAILABLE_TIERS = [
     eventsAllowed: -1,
     attendeesDisplay: "Unlimited Events & Attendees",
     fee: "3.5%",
-    badgeClass: "bg-[#FE760B]/15 text-[#FE760B] border-[#FE760B]/30",
-    borderClass: "border-[#FE760B]/50",
+    badgeClass: "bg-orange-50 text-[#C25800] border-orange-200 dark:bg-[#FE760B]/15 dark:text-[#FE760B] dark:border-[#FE760B]/30",
+    borderClass: "border-orange-300 dark:border-[#FE760B]/50",
     icon: Crown,
     highlights: ["Unlimited Events & Attendees", "Lowest 3.5% Platform Fee", "Dedicated manager & instant payouts", "Priority support & full access"],
   },
@@ -227,6 +228,11 @@ export function SuperAdminPlansView() {
   const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
   const planDropdownRef = useRef(null);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Close plan dropdown on outside click
   useEffect(() => {
     if (!planDropdownOpen) return;
@@ -238,6 +244,27 @@ export function SuperAdminPlansView() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [planDropdownOpen]);
+
+  // Global Escape key handler for active modals & dropdowns
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        if (planDropdownOpen) {
+          setPlanDropdownOpen(false);
+        } else if (showOnboardModal) {
+          setShowOnboardModal(false);
+        } else if (editingUser) {
+          setEditingUser(null);
+        } else if (viewingUserFacilities) {
+          setViewingUserFacilities(null);
+        } else if (revokingUser) {
+          setRevokingUser(null);
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [planDropdownOpen, showOnboardModal, editingUser, viewingUserFacilities, revokingUser]);
 
   const availableTiers = useMemo(() => {
     return AVAILABLE_TIERS.map((tier) => {
@@ -622,51 +649,51 @@ export function SuperAdminPlansView() {
       {/* ── 2. Top KPI Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-[#9B9EA4] mb-1.5 text-xs font-medium">
+          <div className="flex items-center justify-between text-slate-600 dark:text-[#9B9EA4] mb-1.5 text-xs font-semibold">
             <span>Total Subscribers</span>
             <Building2 size={16} className="text-[#FE760B]" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums">
             {metrics.totalUsers}
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">
+          <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">
             {metrics.paidCount} on paid tiers &bull; {metrics.freeCount} free
           </p>
         </div>
 
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-[#9B9EA4] mb-1.5 text-xs font-medium">
+          <div className="flex items-center justify-between text-slate-600 dark:text-[#9B9EA4] mb-1.5 text-xs font-semibold">
             <span>Starter Plan (Campus)</span>
-            <Zap size={16} className="text-blue-400" />
+            <Zap size={16} className="text-blue-500 dark:text-blue-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-bold text-blue-500 dark:text-blue-400 tracking-tight tabular-nums">
+          <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 tracking-tight tabular-nums">
             {metrics.starterCount}
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">₹999 / mo &bull; 4.5% fee</p>
+          <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">₹999 / mo &bull; 4.5% fee</p>
         </div>
 
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-[#9B9EA4] mb-1.5 text-xs font-medium">
+          <div className="flex items-center justify-between text-slate-600 dark:text-[#9B9EA4] mb-1.5 text-xs font-semibold">
             <span>Pro & Fest Tiers</span>
-            <Crown size={16} className="text-purple-400" />
+            <Crown size={16} className="text-purple-500 dark:text-purple-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-bold text-purple-500 dark:text-purple-400 tracking-tight tabular-nums">
+          <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 tracking-tight tabular-nums">
             {metrics.proCount + metrics.festCount}
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">
+          <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">
             {metrics.proCount} Pro &bull; {metrics.festCount} Fest (Enterprise)
           </p>
         </div>
 
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-[#9B9EA4] mb-1.5 text-xs font-medium">
+          <div className="flex items-center justify-between text-slate-600 dark:text-[#9B9EA4] mb-1.5 text-xs font-semibold">
             <span>Limit Reached</span>
-            <AlertTriangle size={16} className="text-amber-400" />
+            <AlertTriangle size={16} className="text-amber-500 dark:text-amber-400" />
           </div>
-          <div className="text-2xl sm:text-3xl font-bold text-amber-500 dark:text-amber-400 tracking-tight tabular-nums">
+          <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400 tracking-tight tabular-nums">
             {metrics.limitReachedCount}
           </div>
-          <p className="text-[10px] text-slate-400 dark:text-[#71767B] mt-1">
+          <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">
             Organizers eligible for instant upgrade
           </p>
         </div>
@@ -675,10 +702,10 @@ export function SuperAdminPlansView() {
       {/* ── 3. Plan Tier Catalog Showcase (Interactive Filter) ── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-[#9B9EA4]">
+          <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600 dark:text-[#9B9EA4]">
             Platform Subscription Tiers & Facilities Catalog
           </h3>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
             Click any plan card below to filter organizers
           </span>
         </div>
@@ -697,14 +724,14 @@ export function SuperAdminPlansView() {
                 }
                 className={`p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#17191C] border transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
-                    ? `${colors.border} ring-2 ring-[#FE760B]/50 bg-white dark:bg-[#1A1C1F] shadow-lg`
-                    : "border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#383C42]"
+                    ? `${colors.border} ring-2 ring-[#FE760B]/50 bg-orange-50/30 dark:bg-[#1A1C1F] shadow-md`
+                    : "border-slate-200 dark:border-[#2A2D31] hover:border-slate-300 dark:hover:border-[#383C42] shadow-xs"
                 }`}
               >
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${colors.badge}`}
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-2xs ${colors.badge}`}
                     >
                       {plan.name}
                     </span>
@@ -713,28 +740,28 @@ export function SuperAdminPlansView() {
                     </span>
                   </div>
 
-                  <div className="text-xs text-slate-600 dark:text-[#D0D0D1] space-y-1.5 my-3">
+                  <div className="text-xs text-slate-700 dark:text-[#D0D0D1] space-y-1.5 my-3">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Events Allowed:</span>
+                      <span className="text-slate-500 dark:text-slate-400">Events Allowed:</span>
                       <strong className="text-slate-900 dark:text-white font-semibold">
                         {plan.eventsAllowed === -1 ? "Unlimited" : plan.eventsAllowed}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Attendees / Event:</span>
+                      <span className="text-slate-500 dark:text-slate-400">Attendees / Event:</span>
                       <strong className="text-slate-900 dark:text-white font-semibold">
                         {plan.participantsPerEvent === -1 ? "Unlimited" : plan.participantsPerEvent}
                       </strong>
                     </div>
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Platform Fee:</span>
-                      <strong className="text-emerald-400 font-bold">{plan.platformFeeRate}%</strong>
+                      <span className="text-slate-500 dark:text-slate-400">Platform Fee:</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{plan.platformFeeRate}%</strong>
                     </div>
                   </div>
                 </div>
 
                 <div className="pt-2.5 border-t border-slate-100 dark:border-[#2A2D31] flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">
+                  <span className="text-slate-500 dark:text-slate-400">
                     <strong className="text-slate-900 dark:text-white font-semibold">{userCount}</strong> {userCount === 1 ? "user" : "users"} active
                   </span>
                   {isSelected ? (
@@ -742,7 +769,7 @@ export function SuperAdminPlansView() {
                       Filtered <Check size={11} />
                     </span>
                   ) : (
-                    <span className="text-[#71767B] text-[10px] hover:text-white transition-colors">
+                    <span className="text-slate-500 dark:text-[#71767B] text-[10px] hover:text-slate-900 dark:hover:text-white transition-colors">
                       Filter
                     </span>
                   )}
@@ -758,14 +785,14 @@ export function SuperAdminPlansView() {
         <div className="relative flex-1 max-w-md">
           <Search
             size={15}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500"
           />
           <input
             type="text"
             placeholder="Search by organizer name, email, phone, or organization..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#FE760B] transition-colors"
+            className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-300 dark:border-[#2A2D31] text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#71767B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/20 transition-all"
           />
         </div>
 
@@ -809,26 +836,26 @@ export function SuperAdminPlansView() {
             buttonClassName="h-9 rounded-xl bg-slate-50 dark:bg-[#131517] border-slate-200 dark:border-[#2A2D31] text-xs font-semibold"
           />
 
-          <span className="text-xs text-slate-500 dark:text-[#9B9EA4] font-medium px-2.5 py-1.5 bg-slate-100 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl whitespace-nowrap">
+          <span className="text-xs text-slate-600 dark:text-[#9B9EA4] font-medium px-2.5 py-1.5 bg-slate-100 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] rounded-xl whitespace-nowrap">
             <strong className="text-slate-900 dark:text-white font-semibold">{filteredUsers.length}</strong> {filteredUsers.length === 1 ? "organizer" : "organizers"}
           </span>
         </div>
       </div>
 
       {/* ── 5. User Plans Table (Desktop) ── */}
-      <div className="hidden md:block rounded-2xl bg-white dark:bg-[#17191C] border border-slate-200 dark:border-[#2A2D31] shadow-xl overflow-hidden">
+      <div className="hidden md:block rounded-2xl bg-white dark:bg-[#17191C] border border-slate-200 dark:border-[#2A2D31] shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse table-fixed">
+          <table className="w-full text-left text-xs border-collapse table-fixed min-w-[980px]">
             <colgroup>
-              <col className="w-[28%]" />
+              <col className="w-[27%]" />
               <col className="w-[14%]" />
               <col className="w-[14%]" />
-              <col className="w-[16%]" />
+              <col className="w-[17%]" />
               <col className="w-[18%]" />
               <col className="w-[10%]" />
             </colgroup>
             <thead>
-              <tr className="bg-slate-50 dark:bg-[#1A1C1F] border-b border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#9E9E9F] font-bold text-[11px] uppercase tracking-wider">
+              <tr className="bg-slate-50/90 dark:bg-[#1A1C1F] border-b border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#9E9E9F] font-bold text-[11px] uppercase tracking-wider">
                 <th className="py-3.5 px-4">Organizer / User</th>
                 <th className="py-3.5 px-4">Current Plan</th>
                 <th className="py-3.5 px-4">Event Usage</th>
@@ -837,10 +864,10 @@ export function SuperAdminPlansView() {
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-[#2A2D31]/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-[#2A2D31]/60">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 text-xs">
+                  <td colSpan={6} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                     No organizers found matching your search and filter criteria.
                   </td>
                 </tr>
@@ -856,12 +883,12 @@ export function SuperAdminPlansView() {
                   return (
                     <tr
                       key={u.id}
-                      className="hover:bg-slate-50/60 dark:hover:bg-[#212327]/40 transition-colors"
+                      className="hover:bg-slate-50/80 dark:hover:bg-[#212327]/40 transition-colors"
                     >
                       {/* Column 1: Organizer / User details */}
                       <td className="py-3.5 px-4 align-middle">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-xl bg-[#FE760B]/12 border border-[#FE760B]/25 flex items-center justify-center text-[#FE760B] font-bold text-xs shrink-0 shadow-xs">
+                          <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/25 flex items-center justify-center text-[#FE760B] font-bold text-xs shrink-0 shadow-xs">
                             {(u.name || "O")[0].toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -869,14 +896,14 @@ export function SuperAdminPlansView() {
                               <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate max-w-[170px]">
                                 {u.name}
                               </span>
-                              <span className="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-slate-100 dark:bg-[#212327] text-slate-500 border border-slate-200 dark:border-[#2A2D31]">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-bold bg-slate-100 dark:bg-[#212327] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-[#2A2D31]">
                                 {u.role}
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 dark:text-[#9E9E9F] truncate">
+                            <div className="text-[11px] text-slate-600 dark:text-[#9E9E9F] truncate">
                               {u.email} {u.phone ? `• ${u.phone}` : ""}
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-[#71767B] truncate">
+                            <div className="text-[10px] text-slate-500 dark:text-[#71767B] truncate">
                               {u.college || "General Organizer"}
                             </div>
                           </div>
@@ -887,14 +914,14 @@ export function SuperAdminPlansView() {
                       <td className="py-3.5 px-4 align-middle">
                         <div className="space-y-1">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${colors.badge}`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-2xs ${colors.badge}`}
                           >
                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
                             {u.planName || u.plan}
                           </span>
-                          <div className="text-[11px] text-slate-500 dark:text-[#9E9E9F] font-medium">
+                          <div className="text-[11px] text-slate-600 dark:text-[#9E9E9F] font-medium">
                             {u.price === 0 ? "Free" : `₹${u.price}/mo`} &bull;{" "}
-                            <span className="text-emerald-500 dark:text-emerald-400 font-semibold">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
                               {u.platformFeeRate}% fee
                             </span>
                           </div>
@@ -905,12 +932,12 @@ export function SuperAdminPlansView() {
                       <td className="py-3.5 px-4 align-middle">
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-700 dark:text-[#D0D0D1] font-semibold tabular-nums">
+                            <span className="text-slate-800 dark:text-[#D0D0D1] font-semibold tabular-nums">
                               <strong>{u.eventsUsed || 0}</strong> /{" "}
                               {u.eventsAllowed === -1 ? "∞" : u.eventsAllowed}
                             </span>
                             {u.isLimitReached && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/30 text-[9px] font-bold uppercase tracking-wider">
+                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30 text-[9px] font-bold uppercase tracking-wider">
                                 At Limit
                               </span>
                             )}
@@ -919,9 +946,9 @@ export function SuperAdminPlansView() {
                             <div
                               className={`h-full rounded-full transition-all ${
                                 u.isLimitReached
-                                  ? "bg-amber-400"
+                                  ? "bg-amber-500 dark:bg-amber-400"
                                   : u.eventsAllowed === -1
-                                  ? "bg-purple-500"
+                                  ? "bg-purple-600 dark:bg-purple-500"
                                   : "bg-[#FE760B]"
                               }`}
                               style={{ width: `${eventsPercent}%` }}
@@ -935,7 +962,7 @@ export function SuperAdminPlansView() {
                         <button
                           type="button"
                           onClick={() => setViewingUserFacilities(u)}
-                          className="group inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] transition-all text-left cursor-pointer w-full max-w-[170px]"
+                          className="group inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-[#212327] hover:bg-slate-100 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] transition-all text-left cursor-pointer w-full max-w-[170px] shadow-2xs"
                           title="Click to view all allocated facilities"
                         >
                           <ShieldCheck size={14} className="text-[#FE760B] shrink-0" />
@@ -943,7 +970,7 @@ export function SuperAdminPlansView() {
                             <div className="text-[11px] font-semibold text-slate-800 dark:text-white group-hover:text-[#FE760B] transition-colors truncate">
                               {u.plan === "free" ? "Free Facilities" : "Platform Privileges"}
                             </div>
-                            <div className="text-[10px] text-slate-400 dark:text-[#71767B] truncate">
+                            <div className="text-[10px] text-slate-500 dark:text-[#71767B] truncate">
                               {u.facilities?.paymentIntegration ? "Razorpay • Branding" : "Email Support"}
                             </div>
                           </div>
@@ -970,10 +997,10 @@ export function SuperAdminPlansView() {
                                 type="button"
                                 disabled={isUpdating}
                                 onClick={() => handleQuickPlanChange(u, tierId)}
-                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
                                   isCurrent
                                     ? PLAN_COLORS[tierId].activePill
-                                    : "text-slate-500 dark:text-[#71767B] hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#212327]"
+                                    : "text-slate-600 dark:text-[#71767B] hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-[#212327]"
                                 } disabled:opacity-50`}
                                 title={`1-Click update to ${tierLabel}`}
                               >
@@ -994,7 +1021,7 @@ export function SuperAdminPlansView() {
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(u)}
-                            className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-[#2A2D31] text-[11px] font-semibold transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-[#212327] hover:bg-slate-50 dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white border border-slate-300 dark:border-[#2A2D31] text-[11px] font-semibold transition-colors cursor-pointer shadow-2xs"
                             title="Customize limits and facilities"
                           >
                             Customize
@@ -1004,7 +1031,7 @@ export function SuperAdminPlansView() {
                             <button
                               type="button"
                               onClick={() => setRevokingUser(u)}
-                              className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/25 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 dark:text-rose-400 border border-rose-200 dark:border-rose-500/25 transition-colors cursor-pointer"
                               title="Revoke paid plan (reset to Free)"
                             >
                               <XCircle size={14} />
@@ -1024,7 +1051,7 @@ export function SuperAdminPlansView() {
       {/* ── 5B. Mobile Cards View (< md) ── */}
       <div className="block md:hidden space-y-3">
         {filteredUsers.length === 0 ? (
-          <div className="py-8 text-center text-slate-400 text-xs">
+          <div className="py-8 text-center text-slate-500 dark:text-slate-400 text-xs">
             No organizers found matching your criteria.
           </div>
         ) : (
@@ -1042,7 +1069,7 @@ export function SuperAdminPlansView() {
                     <div className="font-bold text-slate-900 dark:text-white truncate">
                       {u.name}
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-[#9E9E9F] truncate">
+                    <div className="text-[11px] text-slate-600 dark:text-[#9E9E9F] truncate">
                       {u.email}
                     </div>
                   </div>
@@ -1055,14 +1082,14 @@ export function SuperAdminPlansView() {
 
                 <div className="grid grid-cols-2 gap-2 text-[11px] p-2.5 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31]">
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Event Usage</span>
+                    <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Event Usage</span>
                     <strong className="text-slate-900 dark:text-white font-semibold tabular-nums">
                       {u.eventsUsed || 0} / {u.eventsAllowed === -1 ? "Unlimited" : u.eventsAllowed}
                     </strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[10px]">Fee Rate</span>
-                    <strong className="text-emerald-500 dark:text-emerald-400 font-bold tabular-nums">
+                    <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Fee Rate</span>
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-bold tabular-nums">
                       {u.platformFeeRate}%
                     </strong>
                   </div>
@@ -1070,7 +1097,7 @@ export function SuperAdminPlansView() {
 
                 {/* 1-Click Plan Switcher for Mobile */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
                     1-Click Plan Switch:
                   </span>
                   <div className="grid grid-cols-4 gap-1.5">
@@ -1085,7 +1112,7 @@ export function SuperAdminPlansView() {
                           className={`py-1.5 rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer ${
                             isCurrent
                               ? PLAN_COLORS[tierId].activePill
-                              : "bg-slate-100 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-[#71767B]"
+                              : "bg-slate-100 hover:bg-slate-200 dark:bg-[#131517] dark:hover:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#71767B]"
                           } disabled:opacity-50`}
                         >
                           {tierId.toUpperCase()}
@@ -1100,14 +1127,14 @@ export function SuperAdminPlansView() {
                   <button
                     type="button"
                     onClick={() => setViewingUserFacilities(u)}
-                    className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#212327] text-slate-700 dark:text-[#D0D0D1] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold"
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold"
                   >
                     Facilities
                   </button>
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(u)}
-                    className="px-3 py-1.5 rounded-lg bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/25 text-xs font-semibold"
+                    className="px-3 py-1.5 rounded-lg bg-[#FE760B]/10 hover:bg-[#FE760B]/20 text-[#FE760B] border border-[#FE760B]/25 text-xs font-semibold"
                   >
                     Customize
                   </button>
@@ -1119,23 +1146,31 @@ export function SuperAdminPlansView() {
       </div>
 
       {/* ── 6. MODAL 1: Edit Plan & Custom Facilities (Executive Admin Suite) ── */}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#141619] border border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-white animate-scale-in">
+      {editingUser && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[150] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+          onClick={() => setEditingUser(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-2xl bg-white dark:bg-[#141619] border border-slate-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-slate-900 dark:text-white animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="p-4 sm:p-5 bg-gradient-to-r from-[#1A1C1F] to-[#16181B] border-b border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-gradient-to-r dark:from-[#1A1C1F] dark:to-[#16181B] border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FE760B]/20 to-[#FE760B]/5 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shadow-inner shrink-0">
                   <Sliders size={20} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold text-white tracking-tight truncate">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate">
                     Customize Plan & Facilities
                   </h3>
-                  <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-[#9E9E9F] truncate mt-0.5">
+                  <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 dark:text-[#9E9E9F] truncate mt-0.5">
                     <span>Configuring subscription privileges for</span>
-                    <span className="font-semibold text-white">{editingUser.name}</span>
-                    <span className="text-[10px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-slate-300 font-medium">
+                    <span className="font-semibold text-slate-900 dark:text-white">{editingUser.name}</span>
+                    <span className="text-[10px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300 font-medium">
                       {editingUser.email}
                     </span>
                   </div>
@@ -1144,7 +1179,7 @@ export function SuperAdminPlansView() {
               <button
                 type="button"
                 onClick={() => setEditingUser(null)}
-                className="p-2 rounded-xl text-[#9E9E9F] hover:text-white hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:text-[#9E9E9F] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors shrink-0 cursor-pointer"
                 aria-label="Close Modal"
               >
                 <X size={18} />
@@ -1156,10 +1191,10 @@ export function SuperAdminPlansView() {
               {/* Select Plan Tier */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold text-white uppercase tracking-wider">
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                     Select Base Subscription Tier <span className="text-[#FE760B]">*</span>
                   </label>
-                  <span className="text-[10px] text-[#9E9E9F]">
+                  <span className="text-[10px] text-slate-500 dark:text-[#9E9E9F]">
                     Click to load tier defaults
                   </span>
                 </div>
@@ -1183,13 +1218,13 @@ export function SuperAdminPlansView() {
                         onClick={() => handleModalPlanSelect(p.id)}
                         className={`relative p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           isSelected
-                            ? `${colors.border} bg-[#212327] ring-2 ring-[#FE760B] shadow-lg shadow-[#FE760B]/10`
-                            : "border-[#2A2D31] bg-[#1A1C1F]/80 hover:bg-[#212327] hover:border-[#383C42]"
+                            ? `${colors.border} bg-[#FE760B]/10 dark:bg-[#212327] ring-2 ring-[#FE760B] shadow-sm`
+                            : "border-slate-200 dark:border-[#2A2D31] bg-slate-50 dark:bg-[#1A1C1F]/80 hover:bg-slate-100 dark:hover:bg-[#212327] hover:border-slate-300 dark:hover:border-[#383C42]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1 mb-1.5">
                           <span
-                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${colors.badge}`}
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border shadow-2xs ${colors.badge}`}
                           >
                             <TierIcon size={10} className="shrink-0" />
                             <span>{p.name}</span>
@@ -1200,10 +1235,10 @@ export function SuperAdminPlansView() {
                             </span>
                           )}
                         </div>
-                        <div className="text-white text-sm font-bold mt-0.5 tabular-nums">
+                        <div className="text-slate-900 dark:text-white text-sm font-bold mt-0.5 tabular-nums">
                           {p.price === 0 ? "Free" : `₹${p.price.toLocaleString()}`}
                         </div>
-                        <div className="text-[10px] text-emerald-400 mt-0.5 font-semibold">
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5 font-semibold">
                           {p.platformFeeRate}% fee
                         </div>
                       </button>
@@ -1213,15 +1248,15 @@ export function SuperAdminPlansView() {
               </div>
 
               {/* Limits Configuration */}
-              <div className="p-3.5 sm:p-4 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#2A2D31]/70 pb-2">
+              <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#2A2D31]/70 pb-2">
                   <div className="flex items-center gap-2">
                     <Sliders size={14} className="text-[#FE760B]" />
-                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                    <span className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                       Usage Quotas & Rate Limits
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#9E9E9F]">
+                  <span className="text-[10px] text-slate-500 dark:text-[#9E9E9F]">
                     Fine-tune per-organizer allowances
                   </span>
                 </div>
@@ -1230,10 +1265,10 @@ export function SuperAdminPlansView() {
                   {/* Events Allowed */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-semibold text-[#D0D0D1]">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1]">
                         Events Allowed
                       </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white cursor-pointer select-none">
+                      <label className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={editFormData.isUnlimitedEvents}
@@ -1262,7 +1297,7 @@ export function SuperAdminPlansView() {
                             eventsAllowed: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white disabled:opacity-50 text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white disabled:opacity-50 text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -1270,10 +1305,10 @@ export function SuperAdminPlansView() {
                   {/* Attendees per Event */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-semibold text-[#D0D0D1]">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1]">
                         Attendees / Event
                       </label>
-                      <label className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white cursor-pointer select-none">
+                      <label className="flex items-center gap-1.5 text-[10px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={editFormData.isUnlimitedParticipants}
@@ -1302,7 +1337,7 @@ export function SuperAdminPlansView() {
                             participantsPerEvent: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white disabled:opacity-50 text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white disabled:opacity-50 text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -1310,10 +1345,10 @@ export function SuperAdminPlansView() {
                   {/* Platform Fee Rate % */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-semibold text-[#D0D0D1]">
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1]">
                         Platform Fee Rate (%)
                       </label>
-                      <span className="text-[10px] text-emerald-400 font-semibold">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                         Base: {planCatalog[editFormData.planId]?.platformFeeRate ?? 4.5}%
                       </span>
                     </div>
@@ -1330,9 +1365,9 @@ export function SuperAdminPlansView() {
                             platformFeeRate: e.target.value,
                           })
                         }
-                        className="w-full pl-3 pr-7 py-2 rounded-lg bg-[#212327] border border-[#2A2D31] text-white text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
+                        className="w-full pl-3 pr-7 py-2 rounded-lg bg-white dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs focus:border-[#FE760B] focus:outline-none transition-colors"
                       />
-                      <span className="absolute right-2.5 text-xs text-[#9E9E9F] pointer-events-none">
+                      <span className="absolute right-2.5 text-xs text-slate-400 dark:text-[#9E9E9F] pointer-events-none">
                         %
                       </span>
                     </div>
@@ -1345,11 +1380,11 @@ export function SuperAdminPlansView() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck size={14} className="text-[#FE760B]" />
-                    <label className="text-xs font-bold text-white uppercase tracking-wider">
+                    <label className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                       Granted Organizer Facilities & Permissions
                     </label>
                   </div>
-                  <span className="text-[10px] text-[#9E9E9F]">
+                  <span className="text-[10px] text-slate-500 dark:text-[#9E9E9F]">
                     {Object.values(editFormData.facilities).filter(Boolean).length} / {facilityDefs.length} Active
                   </span>
                 </div>
@@ -1373,8 +1408,8 @@ export function SuperAdminPlansView() {
                         }
                         className={`p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all select-none ${
                           isEnabled
-                            ? "bg-[#FE760B]/[0.09] border-[#FE760B]/40 hover:bg-[#FE760B]/[0.14] text-white shadow-xs"
-                            : "bg-[#1A1C1F] border-[#2A2D31] hover:bg-[#212327] hover:border-[#383C42] text-[#9E9E9F]"
+                            ? "bg-orange-50/70 dark:bg-[#FE760B]/[0.09] border-[#FE760B]/40 hover:bg-orange-50 text-slate-900 dark:text-white shadow-xs"
+                            : "bg-slate-50 dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] hover:bg-slate-100 dark:hover:bg-[#212327] hover:border-slate-300 dark:hover:border-[#383C42] text-slate-600 dark:text-[#9E9E9F]"
                         }`}
                       >
                         {/* Facility Feature Icon */}
@@ -1382,7 +1417,7 @@ export function SuperAdminPlansView() {
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
                             isEnabled
                               ? "bg-[#FE760B]/20 border-[#FE760B]/35 text-[#FE760B] shadow-inner"
-                              : "bg-[#212327] border-[#2A2D31] text-slate-400"
+                              : "bg-slate-100 dark:bg-[#212327] border-slate-200 dark:border-[#2A2D31] text-slate-500 dark:text-slate-400"
                           }`}
                         >
                           <FacilityIcon size={18} />
@@ -1390,10 +1425,10 @@ export function SuperAdminPlansView() {
 
                         {/* Title and Description */}
                         <div className="min-w-0 flex-1">
-                          <div className={`font-semibold text-xs leading-snug truncate ${isEnabled ? "text-white" : "text-slate-300"}`}>
+                          <div className={`font-semibold text-xs leading-snug truncate ${isEnabled ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"}`}>
                             {facility.label}
                           </div>
-                          <div className="text-[10px] text-slate-400 line-clamp-1 mt-0.5 leading-tight">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 leading-tight">
                             {facility.description}
                           </div>
                         </div>
@@ -1403,7 +1438,7 @@ export function SuperAdminPlansView() {
                           className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-all ${
                             isEnabled
                               ? "bg-[#FE760B] border-[#FE760B] text-black shadow-xs"
-                              : "border-[#383C42] bg-[#17191C]"
+                              : "border-slate-300 dark:border-[#383C42] bg-white dark:bg-[#17191C]"
                           }`}
                         >
                           {isEnabled && <Check size={13} className="stroke-[3]" />}
@@ -1416,7 +1451,7 @@ export function SuperAdminPlansView() {
 
               {/* Audit Reason */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-[#D0D0D1] mb-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] mb-1.5">
                   <FileText size={13} className="text-[#FE760B]" />
                   <span>Audit Reason / Note <span className="text-[#FE760B]">*</span></span>
                 </label>
@@ -1428,32 +1463,32 @@ export function SuperAdminPlansView() {
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, auditReason: e.target.value })
                   }
-                  className="w-full p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] text-white text-xs placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all resize-none"
+                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-[#1A1C1F] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all resize-none"
                 />
               </div>
 
               {/* Footer */}
-              <div className="pt-3 border-t border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
+              <div className="pt-3 border-t border-slate-200 dark:border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-[#2A2D31]"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-slate-200 dark:border-[#2A2D31]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-black font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-[#131517] font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   {savingEdit ? (
                     <>
-                      <Loader2 size={15} className="animate-spin text-black" />
+                      <Loader2 size={15} className="animate-spin text-[#131517]" />
                       <span>Applying Changes...</span>
                     </>
                   ) : (
                     <>
-                      <Check size={16} className="text-black stroke-[3]" />
+                      <Check size={16} className="text-[#131517] stroke-[3]" />
                       <span>Save & Apply Facilities</span>
                     </>
                   )}
@@ -1461,24 +1496,33 @@ export function SuperAdminPlansView() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── 7. MODAL 2: View Facilities Checklist (Exact Visual Style with Cross Icon) ── */}
-      {viewingUserFacilities && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[#17191C] border border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-white animate-scale-in">
+      {viewingUserFacilities && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[150] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+          onClick={() => setViewingUserFacilities(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-lg bg-white dark:bg-[#17191C] border border-slate-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-slate-900 dark:text-white animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="p-4 sm:p-5 bg-[#1A1C1F] border-b border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1A1C1F] border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-[#FE760B]/12 border border-[#FE760B]/25 flex items-center justify-center text-[#FE760B] shrink-0">
                   <ShieldCheck size={18} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                     Granted Facilities & Permissions
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-[#9E9E9F] truncate">
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9E9E9F] truncate">
                     {viewingUserFacilities.name} &bull; {viewingUserFacilities.planName || viewingUserFacilities.plan} Plan
                   </p>
                 </div>
@@ -1486,7 +1530,7 @@ export function SuperAdminPlansView() {
               <button
                 type="button"
                 onClick={() => setViewingUserFacilities(null)}
-                className="p-2 rounded-lg text-[#9E9E9F] hover:text-white hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:text-[#9E9E9F] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
                 aria-label="Close Modal"
               >
                 <X size={18} />
@@ -1496,32 +1540,32 @@ export function SuperAdminPlansView() {
             {/* Scrollable Body */}
             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto text-xs">
               {/* Entitlement Summary Pill */}
-              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-[#212327] border border-[#2A2D31] text-center">
+              <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-center">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-bold">
                     Events Limit
                   </span>
-                  <span className="text-sm font-bold text-white tabular-nums">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
                     {viewingUserFacilities.eventsAllowed === -1
                       ? "Unlimited"
                       : viewingUserFacilities.eventsAllowed}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-bold">
                     Attendee Cap
                   </span>
-                  <span className="text-sm font-bold text-white tabular-nums">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
                     {viewingUserFacilities.participantsPerEvent === -1
                       ? "Unlimited"
                       : viewingUserFacilities.participantsPerEvent}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block uppercase font-bold">
                     Platform Fee
                   </span>
-                  <span className="text-sm font-bold text-emerald-400 tabular-nums">
+                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                     {viewingUserFacilities.platformFeeRate}%
                   </span>
                 </div>
@@ -1529,7 +1573,7 @@ export function SuperAdminPlansView() {
 
               {/* Complete Facilities List */}
               <div className="space-y-2">
-                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Active Platform Capabilities
                 </h4>
                 <div className="space-y-1.5">
@@ -1542,33 +1586,33 @@ export function SuperAdminPlansView() {
                         key={f.key}
                         className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
                           isGranted
-                            ? "bg-[#212327] border-emerald-500/30 text-white"
-                            : "bg-[#17191C] border-[#2A2D31]/60 text-slate-500"
+                            ? "bg-slate-50 dark:bg-[#212327] border-emerald-500/30 text-slate-900 dark:text-white"
+                            : "bg-slate-50/60 dark:bg-[#17191C] border-slate-200 dark:border-[#2A2D31]/60 text-slate-600 dark:text-slate-500"
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div
                             className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
                               isGranted
-                                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                                : "bg-[#1A1C1F] border-[#2A2D31] text-slate-600"
+                                ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                                : "bg-slate-100 dark:bg-[#1A1C1F] border-slate-200 dark:border-[#2A2D31] text-slate-400 dark:text-slate-600"
                             }`}
                           >
                             <FacilityIcon size={16} />
                           </div>
                           <div className="min-w-0">
-                            <div className={`font-semibold text-xs truncate ${isGranted ? "text-white" : "text-slate-500"}`}>
+                            <div className={`font-semibold text-xs truncate ${isGranted ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-400"}`}>
                               {f.label}
                             </div>
-                            <div className="text-[10px] text-slate-400 truncate">{f.description}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-500 truncate">{f.description}</div>
                           </div>
                         </div>
 
                         <span
                           className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                             isGranted
-                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                              : "bg-slate-800 text-slate-500 border border-slate-700"
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
                           }`}
                         >
                           {isGranted ? "Active" : "Locked"}
@@ -1581,11 +1625,11 @@ export function SuperAdminPlansView() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 sm:p-5 bg-[#1A1C1F]/60 border-t border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1A1C1F]/60 border-t border-slate-200 dark:border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setViewingUserFacilities(null)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-slate-200 dark:border-[#2A2D31]"
               >
                 Close
               </button>
@@ -1596,30 +1640,42 @@ export function SuperAdminPlansView() {
                   setViewingUserFacilities(null);
                   handleOpenEditModal(u);
                 }}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black font-bold transition-all cursor-pointer text-center text-xs sm:text-sm"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] font-bold transition-all cursor-pointer text-center text-xs sm:text-sm shadow-md shadow-[#FE760B]/20"
               >
                 Customize Facilities
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── 8. MODAL 3: Assign Plan to User / Organiser (High-Fidelity Styled Form & Custom Dropdown) ── */}
-      {showOnboardModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-          <div className="w-full max-w-lg bg-[#16181B] border border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-white animate-scale-in">
+      {showOnboardModal && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[150] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+          onClick={() => {
+            setShowOnboardModal(false);
+            setPlanDropdownOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-lg bg-white dark:bg-[#16181B] border border-slate-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-slate-900 dark:text-white animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="p-4 sm:p-5 bg-[#1A1C1F] border-b border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1A1C1F] border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FE760B]/20 to-[#FE760B]/5 border border-[#FE760B]/30 flex items-center justify-center text-[#FE760B] shadow-inner shrink-0">
                   <Building2 size={20} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                     Assign Plan to User / Organiser
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-[#9E9E9F] truncate">
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9E9E9F] truncate">
                     Provision subscription privileges and facilities by email
                   </p>
                 </div>
@@ -1630,7 +1686,7 @@ export function SuperAdminPlansView() {
                   setShowOnboardModal(false);
                   setPlanDropdownOpen(false);
                 }}
-                className="p-2 rounded-lg text-[#9E9E9F] hover:text-white hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:text-[#9E9E9F] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
                 aria-label="Close Modal"
               >
                 <X size={18} />
@@ -1641,11 +1697,11 @@ export function SuperAdminPlansView() {
             <form onSubmit={handleOnboardSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar text-xs flex-1">
               {/* User Email Address */}
               <div>
-                <label className="block text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
+                <label className="block text-slate-700 dark:text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
                   User Email Address <span className="text-[#FE760B]">*</span>
                 </label>
                 <div className="relative flex items-center group">
-                  <div className="absolute left-3.5 pointer-events-none text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
+                  <div className="absolute left-3.5 pointer-events-none text-slate-400 dark:text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
                     <Mail size={15} />
                   </div>
                   <input
@@ -1654,18 +1710,18 @@ export function SuperAdminPlansView() {
                     placeholder="Enter organizer email address"
                     value={onboardForm.email}
                     onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
                   />
                 </div>
               </div>
 
               {/* Full Name / Organizer Name */}
               <div>
-                <label className="block text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
+                <label className="block text-slate-700 dark:text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
                   Full Name / Organizer Name
                 </label>
                 <div className="relative flex items-center group">
-                  <div className="absolute left-3.5 pointer-events-none text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
+                  <div className="absolute left-3.5 pointer-events-none text-slate-400 dark:text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
                     <User size={15} />
                   </div>
                   <input
@@ -1673,7 +1729,7 @@ export function SuperAdminPlansView() {
                     placeholder="Enter organization or team name"
                     value={onboardForm.fullName}
                     onChange={(e) => setOnboardForm({ ...onboardForm, fullName: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
                   />
                 </div>
               </div>
@@ -1681,11 +1737,11 @@ export function SuperAdminPlansView() {
               {/* Phone & College Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
+                  <label className="block text-slate-700 dark:text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
                     Phone Number
                   </label>
                   <div className="relative flex items-center group">
-                    <div className="absolute left-3.5 pointer-events-none text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
+                    <div className="absolute left-3.5 pointer-events-none text-slate-400 dark:text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
                       <Phone size={15} />
                     </div>
                     <input
@@ -1693,17 +1749,17 @@ export function SuperAdminPlansView() {
                       placeholder="Enter contact number"
                       value={onboardForm.phone}
                       onChange={(e) => setOnboardForm({ ...onboardForm, phone: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
+                  <label className="block text-slate-700 dark:text-[#D0D0D1] font-semibold mb-1.5 text-[11px] sm:text-xs">
                     College / Organization
                   </label>
                   <div className="relative flex items-center group">
-                    <div className="absolute left-3.5 pointer-events-none text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
+                    <div className="absolute left-3.5 pointer-events-none text-slate-400 dark:text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
                       <GraduationCap size={15} />
                     </div>
                     <input
@@ -1711,7 +1767,7 @@ export function SuperAdminPlansView() {
                       placeholder="Enter institution or campus"
                       value={onboardForm.college}
                       onChange={(e) => setOnboardForm({ ...onboardForm, college: e.target.value })}
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all text-xs sm:text-sm"
                     />
                   </div>
                 </div>
@@ -1720,10 +1776,10 @@ export function SuperAdminPlansView() {
               {/* Initial Plan Tier — Custom Organized Dropdown */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[#D0D0D1] font-semibold text-[11px] sm:text-xs">
+                  <label className="block text-slate-700 dark:text-[#D0D0D1] font-semibold text-[11px] sm:text-xs">
                     Initial Plan Tier <span className="text-[#FE760B]">*</span>
                   </label>
-                  <span className="text-[10px] text-[#9E9E9F]">
+                  <span className="text-[10px] text-slate-500 dark:text-[#9E9E9F]">
                     Base Platform Rate
                   </span>
                 </div>
@@ -1733,10 +1789,10 @@ export function SuperAdminPlansView() {
                   <button
                     type="button"
                     onClick={() => setPlanDropdownOpen((prev) => !prev)}
-                    className={`w-full p-3 rounded-xl bg-[#212327] hover:bg-[#26282E] border text-left transition-all flex items-center justify-between gap-3 cursor-pointer shadow-sm select-none ${
+                    className={`w-full p-3 rounded-xl bg-slate-50 dark:bg-[#212327] hover:bg-slate-100 dark:hover:bg-[#26282E] border text-left transition-all flex items-center justify-between gap-3 cursor-pointer shadow-xs select-none ${
                       planDropdownOpen
-                        ? "border-[#FE760B] ring-2 ring-[#FE760B]/20 bg-[#25282D]"
-                        : "border-[#2A2D31] hover:border-[#3A3D42]"
+                        ? "border-[#FE760B] ring-2 ring-[#FE760B]/20 bg-slate-100 dark:bg-[#25282D]"
+                        : "border-slate-300 dark:border-[#2A2D31] hover:border-slate-400 dark:hover:border-[#3A3D42]"
                     }`}
                     aria-haspopup="listbox"
                     aria-expanded={planDropdownOpen}
@@ -1754,7 +1810,7 @@ export function SuperAdminPlansView() {
                       })()}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-sm font-bold text-white truncate">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                             {selectedTier.name}
                           </span>
                           <span
@@ -1763,19 +1819,19 @@ export function SuperAdminPlansView() {
                             {selectedTier.tag}
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#9E9E9F] truncate mt-0.5">
-                          {selectedTier.attendeesDisplay} · <span className="text-emerald-400 font-semibold">{selectedTier.fee} fee</span>
+                        <p className="text-[11px] text-slate-500 dark:text-[#9E9E9F] truncate mt-0.5">
+                          {selectedTier.attendeesDisplay} · <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{selectedTier.fee} fee</span>
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2.5 shrink-0">
-                      <span className="text-xs sm:text-sm font-bold text-white bg-[#1A1C1F] px-2.5 py-1 rounded-lg border border-[#2A2D31] tabular-nums">
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-[#1A1C1F] px-2.5 py-1 rounded-lg border border-slate-200 dark:border-[#2A2D31] tabular-nums">
                         {selectedTier.priceDisplay}
                       </span>
                       <ChevronDown
                         size={16}
-                        className={`text-[#9E9E9F] transition-transform duration-200 ${
+                        className={`text-slate-400 dark:text-[#9E9E9F] transition-transform duration-200 ${
                           planDropdownOpen ? "rotate-180 text-[#FE760B]" : ""
                         }`}
                       />
@@ -1786,9 +1842,9 @@ export function SuperAdminPlansView() {
                   {planDropdownOpen && (
                     <div
                       role="listbox"
-                      className="absolute z-50 left-0 right-0 mt-2 p-1.5 rounded-2xl bg-[#1A1C1F] border border-[#2A2D31] shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 space-y-1 max-h-72 overflow-y-auto custom-scrollbar"
+                      className="absolute z-50 left-0 right-0 mt-2 p-1.5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-150 space-y-1 max-h-72 overflow-y-auto custom-scrollbar"
                     >
-                      <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#71767B] border-b border-[#2A2D31]/60 mb-1 select-none flex items-center justify-between">
+                      <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-[#71767B] border-b border-slate-100 dark:border-[#2A2D31]/60 mb-1 select-none flex items-center justify-between">
                         <span>Select Tier</span>
                         <span>Fee Rate</span>
                       </div>
@@ -1807,8 +1863,8 @@ export function SuperAdminPlansView() {
                             }}
                             className={`w-full p-2.5 rounded-xl text-left transition-all flex items-center justify-between gap-3 cursor-pointer group ${
                               isCurrent
-                                ? "bg-[#FE760B]/12 border border-[#FE760B]/40 text-white shadow-sm"
-                                : "hover:bg-[#25282D] border border-transparent text-[#D0D0D1] hover:text-white"
+                                ? "bg-[#FE760B]/15 border border-[#FE760B]/40 text-[#FE760B] font-bold shadow-xs"
+                                : "hover:bg-slate-100 dark:hover:bg-[#25282D] border border-transparent text-slate-700 dark:text-[#D0D0D1] hover:text-slate-900 dark:hover:text-white"
                             }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
@@ -1821,7 +1877,7 @@ export function SuperAdminPlansView() {
                                 <div className="flex items-center gap-2">
                                   <span
                                     className={`text-xs font-bold truncate ${
-                                      isCurrent ? "text-white" : "text-[#D0D0D1] group-hover:text-white"
+                                      isCurrent ? "text-[#FE760B]" : "text-slate-900 dark:text-[#D0D0D1] group-hover:text-slate-900 dark:group-hover:text-white"
                                     }`}
                                   >
                                     {tier.name}
@@ -1832,16 +1888,16 @@ export function SuperAdminPlansView() {
                                     {tier.tag}
                                   </span>
                                 </div>
-                                <p className="text-[10px] text-[#9E9E9F] truncate mt-0.5">
+                                <p className="text-[10px] text-slate-500 dark:text-[#9E9E9F] truncate mt-0.5">
                                   {tier.eventsAllowed === -1 ? "Unlimited" : tier.eventsAllowed}{" "}
                                   {tier.eventsAllowed === 1 ? "Event" : "Events"} · {tier.attendeesDisplay} ·{" "}
-                                  <span className="text-emerald-400 font-semibold">{tier.fee} fee</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{tier.fee} fee</span>
                                 </p>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2.5 shrink-0">
-                              <span className="text-xs font-bold text-white bg-[#131517] px-2 py-0.5 rounded-md border border-[#2A2D31] tabular-nums">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-[#131517] px-2 py-0.5 rounded-md border border-slate-200 dark:border-[#2A2D31] tabular-nums">
                                 {tier.priceDisplay}
                               </span>
                               {isCurrent ? (
@@ -1849,7 +1905,7 @@ export function SuperAdminPlansView() {
                                   <Check size={12} strokeWidth={3} />
                                 </div>
                               ) : (
-                                <div className="w-5 h-5 rounded-full border border-[#2A2D31] group-hover:border-[#FE760B]/40" />
+                                <div className="w-5 h-5 rounded-full border border-slate-300 dark:border-[#2A2D31] group-hover:border-[#FE760B]/40" />
                               )}
                             </div>
                           </button>
@@ -1860,20 +1916,20 @@ export function SuperAdminPlansView() {
                 </div>
 
                 {/* Live Included Perks Summary Pill Card */}
-                <div className="p-3 rounded-xl bg-[#1A1C1F] border border-[#2A2D31] space-y-2 mt-2">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] space-y-2 mt-2">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-[#9E9E9F] flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-600 dark:text-[#9E9E9F] flex items-center gap-1.5">
                       <ShieldCheck size={13} className="text-[#FE760B]" />
                       <span>Included Privileges ({selectedTier.name})</span>
                     </span>
-                    <span className="text-emerald-400 font-bold text-[10px]">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
                       {selectedTier.fee} Fee
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
                     {selectedTier.highlights.map((h, i) => (
-                      <div key={i} className="flex items-center gap-1.5 text-[#D0D0D1]">
-                        <CheckCircle2 size={12} className="text-emerald-400 shrink-0" />
+                      <div key={i} className="flex items-center gap-1.5 text-slate-700 dark:text-[#D0D0D1]">
+                        <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                         <span className="truncate">{h}</span>
                       </div>
                     ))}
@@ -1884,12 +1940,12 @@ export function SuperAdminPlansView() {
               {/* Audit Reason / Admin Note */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[#D0D0D1] font-semibold text-[11px] sm:text-xs">
-                    Audit Reason / Note <span className="text-[#5E626B] font-normal">(Optional)</span>
+                  <label className="block text-slate-700 dark:text-[#D0D0D1] font-semibold text-[11px] sm:text-xs">
+                    Audit Reason / Note <span className="text-slate-400 dark:text-[#5E626B] font-normal">(Optional)</span>
                   </label>
                 </div>
                 <div className="relative flex items-start group">
-                  <div className="absolute left-3.5 top-3 pointer-events-none text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
+                  <div className="absolute left-3.5 top-3 pointer-events-none text-slate-400 dark:text-[#9E9E9F] group-focus-within:text-[#FE760B] transition-colors">
                     <FileText size={15} />
                   </div>
                   <textarea
@@ -1897,36 +1953,36 @@ export function SuperAdminPlansView() {
                     placeholder="Enter onboarding notes or instructions..."
                     value={onboardForm.auditReason}
                     onChange={(e) => setOnboardForm({ ...onboardForm, auditReason: e.target.value })}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white text-xs sm:text-sm placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all resize-none"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs sm:text-sm placeholder-slate-400 dark:placeholder-[#5E626B] focus:outline-none focus:border-[#FE760B] focus:ring-1 focus:ring-[#FE760B]/30 transition-all resize-none"
                   />
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="pt-3 border-t border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
+              <div className="pt-3 border-t border-slate-200 dark:border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setShowOnboardModal(false);
                     setPlanDropdownOpen(false);
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-[#2A2D31]"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-slate-200 dark:border-[#2A2D31]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingOnboard}
-                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-black font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FE760B] to-[#FF8A2B] hover:brightness-105 active:scale-[0.98] text-[#131517] font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-[#FE760B]/20 text-center text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
                   {submittingOnboard ? (
                     <>
-                      <Loader2 size={15} className="animate-spin text-black" />
+                      <Loader2 size={15} className="animate-spin text-[#131517]" />
                       <span>Provisioning Plan...</span>
                     </>
                   ) : (
                     <>
-                      <Plus size={15} className="text-black stroke-[3]" />
+                      <Plus size={15} className="text-[#131517] stroke-[3]" />
                       <span>Provision Plan</span>
                     </>
                   )}
@@ -1934,24 +1990,33 @@ export function SuperAdminPlansView() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── 9. MODAL 4: Revoke Plan Confirmation (Exact Visual Style with Cross Icon) ── */}
-      {revokingUser && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
-          <div className="w-full max-w-md bg-[#17191C] border border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-white animate-scale-in">
+      {revokingUser && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[150] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+          onClick={() => setRevokingUser(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#17191C] border border-slate-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-slate-900 dark:text-white animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
-            <div className="p-4 sm:p-5 bg-[#1A1C1F] border-b border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1A1C1F] border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-rose-500/12 border border-rose-500/25 flex items-center justify-center text-rose-400 shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/12 border border-rose-500/25 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
                   <AlertTriangle size={18} />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
                     Revoke Paid Plan
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-[#9E9E9F] truncate">
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-[#9E9E9F] truncate">
                     Reset {revokingUser.name} back to Free tier
                   </p>
                 </div>
@@ -1959,7 +2024,7 @@ export function SuperAdminPlansView() {
               <button
                 type="button"
                 onClick={() => setRevokingUser(null)}
-                className="p-2 rounded-lg text-[#9E9E9F] hover:text-white hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
+                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:text-[#9E9E9F] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#212327] transition-colors shrink-0 cursor-pointer"
                 aria-label="Close Modal"
               >
                 <X size={18} />
@@ -1968,12 +2033,12 @@ export function SuperAdminPlansView() {
 
             {/* Scrollable Body */}
             <div className="p-4 sm:p-6 space-y-4 overflow-y-auto text-xs">
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs leading-relaxed">
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs leading-relaxed">
                 Revoking this plan will reset the organizer to the baseline Free tier (1 event allowed, 300 attendee cap, 5% fee rate) and lock premium facilities (custom branding, priority support, and broadcast messaging).
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#D0D0D1] mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] mb-1">
                   Reason for Revocation <span className="text-[#FE760B]">*</span>
                 </label>
                 <textarea
@@ -1981,17 +2046,17 @@ export function SuperAdminPlansView() {
                   placeholder="Enter reason for revocation..."
                   value={revokeReason}
                   onChange={(e) => setRevokeReason(e.target.value)}
-                  className="w-full p-2.5 rounded-xl bg-[#212327] border border-[#2A2D31] text-white text-xs placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] resize-none"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B] resize-none"
                 />
               </div>
             </div>
 
             {/* Footer */}
-            <div className="p-4 sm:p-5 bg-[#1A1C1F]/60 border-t border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
+            <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1A1C1F]/60 border-t border-slate-200 dark:border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setRevokingUser(null)}
-                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#212327] hover:bg-[#2A2D31] text-[#D0D0D1] hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-slate-200 dark:border-[#2A2D31]"
               >
                 Cancel
               </button>
@@ -2005,7 +2070,8 @@ export function SuperAdminPlansView() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
