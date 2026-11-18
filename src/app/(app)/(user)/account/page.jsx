@@ -81,7 +81,6 @@ export default function AccountPage() {
   const isSuperAdmin =
     user?.role === "superAdmin" ||
     user?.role === "superadmin" ||
-    Boolean(user?.isAdmin) ||
     emailLower === "adil4ticketlelo@gmail.com" ||
     emailLower === "superadmin@ticketlelo.com" ||
     (superAdminEnv && emailLower === superAdminEnv);
@@ -539,7 +538,7 @@ export default function AccountPage() {
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Header: Title */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             Account
           </h1>
           {isSuperAdmin && (
@@ -554,7 +553,7 @@ export default function AccountPage() {
         </div>
 
         {/* 1. User Profile Card */}
-        <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-full bg-[#FE760B] flex items-center justify-center text-white font-bold text-base shrink-0 shadow-xs overflow-hidden">
               {photoURL ? (
@@ -570,29 +569,29 @@ export default function AccountPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-white tracking-tight">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">
                   {displayName}
                 </h2>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#212327] border border-[#2A2D31] text-[11px] text-[#9B9EA4] font-normal">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-[11px] text-slate-700 dark:text-[#9B9EA4] font-medium">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
                       isSuperAdmin
                         ? "bg-[#FE760B]"
                         : isOrganiser
                         ? "bg-[#3DD68C]"
-                        : "bg-[#9B9EA4]"
+                        : "bg-slate-400 dark:bg-[#9B9EA4]"
                     }`}
                   />
                   <span>
                     {isSuperAdmin
                       ? "Super Admin"
                       : isOrganiser
-                      ? `${plan.name} plan`
+                      ? "Organiser"
                       : "Attendee"}
                   </span>
                 </div>
               </div>
-              <p className="text-xs text-[#9B9EA4] font-normal mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-[#9B9EA4] font-normal mt-0.5">
                 {displayEmail}
               </p>
             </div>
@@ -601,14 +600,14 @@ export default function AccountPage() {
           {isOrganiser ? (
             <Link
               href="/pricing"
-              className="bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-medium text-xs px-4 py-2 rounded-xl transition-all shadow-md shadow-[#FE760B]/20 text-center shrink-0"
+              className="bg-[#FE760B] hover:bg-[#FF8A2B] text-black font-semibold text-xs px-4 py-2 rounded-xl transition-all shadow-md shadow-[#FE760B]/20 text-center shrink-0 cursor-pointer"
             >
               Upgrade plan
             </Link>
           ) : (
             <Link
               href="/my-tickets"
-              className="bg-[#212327] hover:bg-[#2A2D31] border border-[#2A2D31] text-white font-medium text-xs px-4 py-2 rounded-xl transition-all text-center shrink-0"
+              className="bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] text-slate-800 dark:text-white font-medium text-xs px-4 py-2 rounded-xl transition-all text-center shrink-0 cursor-pointer"
             >
               My Tickets →
             </Link>
@@ -618,21 +617,21 @@ export default function AccountPage() {
         {/* 2. ORGANISER ONLY: Real Usage Section */}
         {isOrganiser && (
           <div>
-            <h2 className="text-sm font-bold text-white mb-2.5">Usage</h2>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2.5">Usage</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Events Usage Card */}
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#9B9EA4] font-normal">Events</span>
-                  <span className="text-sm font-bold text-white">
+                  <span className="text-xs text-slate-500 dark:text-[#9B9EA4] font-normal">Events</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">
                     {eventsCount}{" "}
-                    <span className="text-[#9B9EA4] font-normal text-xs">
+                    <span className="text-slate-500 dark:text-[#9B9EA4] font-normal text-xs">
                       / {eventsLimit >= 999 ? "Unlimited" : eventsLimit}
                     </span>
                   </span>
                 </div>
                 {/* Progress bar */}
-                <div className="h-1.5 w-full bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
                   <div
                     className={`h-full rounded-full transition-all ${
                       isOverLimit
@@ -652,7 +651,7 @@ export default function AccountPage() {
                     <span>Over limit — upgrade to create more events</span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-xs text-[#3DD68C] font-medium">
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-[#3DD68C] font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                     <span>
                       {eventsLimit >= 999
@@ -666,18 +665,18 @@ export default function AccountPage() {
               </div>
 
               {/* Guests per event Card */}
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-4 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-[#9B9EA4] font-normal">Guests per event</span>
-                  <span className="text-sm font-bold text-white">
+                  <span className="text-xs text-slate-500 dark:text-[#9B9EA4] font-normal">Guests per event</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white">
                     {plan?.maxAttendees && plan.maxAttendees < 9999
                       ? plan.maxAttendees
                       : "300"}{" "}
-                    <span className="text-[#9B9EA4] font-normal text-xs">max</span>
+                    <span className="text-slate-500 dark:text-[#9B9EA4] font-normal text-xs">max</span>
                   </span>
                 </div>
                 {/* Progress bar */}
-                <div className="h-1.5 w-full bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
+                <div className="h-1.5 w-full bg-slate-100 dark:bg-[#2A2D31] rounded-full overflow-hidden mt-3 mb-2.5">
                   <div
                     className="h-full rounded-full bg-[#3DD68C] transition-all"
                     style={{
@@ -685,7 +684,7 @@ export default function AccountPage() {
                     }}
                   />
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-[#3DD68C] font-medium">
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-[#3DD68C] font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
                   <span>
                     {largestGuestCount > 0
@@ -702,29 +701,29 @@ export default function AccountPage() {
         {isOrganiser && (
           <div>
             <div className="flex items-center justify-between mb-2.5">
-              <h2 className="text-sm font-bold text-white">Your events</h2>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Your events</h2>
               <Link
                 href="/admin/dashboard"
-                className="text-xs text-[#9B9EA4] hover:text-white transition-colors flex items-center gap-1 font-semibold"
+                className="text-xs text-slate-500 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-1 font-semibold"
               >
                 Manage in Dashboard →
               </Link>
             </div>
 
             {loadingEvents ? (
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-8 text-center text-xs text-[#9B9EA4]">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-8 text-center text-xs text-slate-500 dark:text-[#9B9EA4] shadow-xs">
                 Loading your events...
               </div>
             ) : events.length === 0 ? (
-              <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-8 text-center space-y-3">
-                <p className="text-sm font-semibold text-white">No events created yet</p>
-                <p className="text-xs text-[#9B9EA4] max-w-sm mx-auto">
+              <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-8 text-center space-y-3 shadow-xs">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">No events created yet</p>
+                <p className="text-xs text-slate-500 dark:text-[#9B9EA4] max-w-sm mx-auto">
                   You haven&apos;t created any events under this organiser account.
                 </p>
                 <div className="pt-1">
                   <Link
                     href="/admin/create-event"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white text-xs font-semibold shadow-xs transition-all"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-black text-xs font-semibold shadow-xs transition-all cursor-pointer"
                   >
                     <span>Create Your First Event</span>
                     <ArrowRight className="w-3.5 h-3.5" />
