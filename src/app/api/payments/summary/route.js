@@ -76,7 +76,7 @@ export async function GET(request) {
         const d = doc.data();
         const isPaid = d.status === 'paid' || d.paymentStatus === 'CAPTURED' || d.status === 'success';
         if (isPaid) {
-          const gross = Number(d.amount || d.finalPayablePaise || 0);
+          const gross = Number(d.pricing?.finalPayablePaise || d.amount || 0);
           const fee = Number(d.platformCommissionPaise || d.platformFee || Math.round(gross * 0.05));
           const refund = Number(d.refundedAmountPaise || 0);
           calcGross += gross;
@@ -109,9 +109,9 @@ export async function GET(request) {
 
     const transactions = ordersSnap.docs.map((doc) => {
       const data = doc.data();
-      const grossPaise = Number(data.amount || data.finalPayablePaise || 0);
+      const grossPaise = Number(data.pricing?.finalPayablePaise || data.amount || 0);
       const platformFeePaise = Number(data.platformCommissionPaise || data.platformFee || 0);
-      const organizerSharePaise = grossPaise - platformFeePaise;
+      const organizerSharePaise = Number(data.organizerSharePaise || (grossPaise - platformFeePaise));
 
       return {
         id: doc.id,

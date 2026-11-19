@@ -3,7 +3,6 @@ import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
 
 const SETTINGS_REF = () => adminDb.collection("siteSettings").doc("homepage");
-const DEFAULT_COUNTDOWN_AT = "2026-11-04T18:30:00+05:30";
 
 const DEFAULT_SITE_CONFIG = {
   platformName: "TicketLelo",
@@ -17,7 +16,8 @@ export async function GET() {
   try {
     if (!isFirebaseAdminReady() || !adminDb) {
       return NextResponse.json({
-        countdownAt: DEFAULT_COUNTDOWN_AT,
+        countdownAt: null,
+        countdownEnabled: false,
         siteConfig: DEFAULT_SITE_CONFIG,
         updatedAt: null,
       });
@@ -26,7 +26,13 @@ export async function GET() {
     const snapshot = await SETTINGS_REF().get();
     const data = snapshot.exists ? snapshot.data() : {};
     const stored = data?.countdownAt;
+    const storedEnabled = data?.countdownEnabled;
     const updatedAt = data?.updatedAt || null;
+
+    const parsedDate = typeof stored === "string" ? Date.parse(stored) : NaN;
+    const isValidDate = !Number.isNaN(parsedDate);
+    const isFuture = isValidDate && parsedDate > Date.now();
+    const countdownEnabled = storedEnabled === false ? false : (isValidDate && isFuture);
 
     const siteConfig = {
       platformName: data?.siteConfig?.platformName || data?.platformName || DEFAULT_SITE_CONFIG.platformName,
@@ -38,9 +44,9 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        countdownAt: typeof stored === "string" && !Number.isNaN(Date.parse(stored))
-          ? stored
-          : DEFAULT_COUNTDOWN_AT,
+        countdownAt: isValidDate ? stored : null,
+        countdownEnabled: Boolean(countdownEnabled),
+        isExpired: isValidDate && !isFuture,
         siteConfig,
         updatedAt,
       },
@@ -73,6 +79,8 @@ async function handleUpdate(request) {
     const superAdminEnv = (process.env.SUPER_ADMIN_EMAIL || "").toLowerCase().trim();
     const isSuperAdmin =
       caller?.role === "superAdmin" ||
+      caller?.role === "superadmin" ||
+      caller?.role === "admin" ||
       caller?.isAdmin === true ||
       emailLower === "adil4ticketlelo@gmail.com" ||
       emailLower === "superadmin@ticketlelo.com" ||
@@ -83,7 +91,7 @@ async function handleUpdate(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { countdownAt, siteConfig } = body;
+    const { countdownAt, countdownEnabled, siteConfig } = body;
 
     const nowIso = new Date().toISOString();
     const updatePayload = {
@@ -91,8 +99,27 @@ async function handleUpdate(request) {
       updatedBy: caller.uid || caller.id,
     };
 
-    if (countdownAt && typeof countdownAt === "string" && !Number.isNaN(Date.parse(countdownAt))) {
-      updatePayload.countdownAt = countdownAt;
+    // Explicitly handle disable / clear
+    if (countdownEnabled === false || countdownAt === null || countdownAt === "") {
+      updatePayload.countdownEnabled = false;
+      updatePayload.countdownAt = null;
+    } else if (countdownAt !== undefined) {
+      // Validate countdown date
+      if (typeof countdownAt !== "string" || Number.isNaN(Date.parse(countdownAt))) {
+        return NextResponse.json(
+          { error: "Invalid countdown date: Please provide a valid date and time string." },
+          { status: 400 }
+        );
+      }
+      const parsedMs = new Date(countdownAt).getTime();
+      if (parsedMs <= Date.now()) {
+        return NextResponse.json(
+          { error: "Countdown target date cannot be in the past. Please select a future date and time." },
+          { status: 400 }
+        );
+      }
+      updatePayload.countdownAt = new Date(countdownAt).toISOString();
+      updatePayload.countdownEnabled = true;
     }
 
     if (siteConfig && typeof siteConfig === "object") {
@@ -114,7 +141,8 @@ async function handleUpdate(request) {
 
     return NextResponse.json({
       success: true,
-      countdownAt: updatePayload.countdownAt || countdownAt,
+      countdownAt: updatePayload.countdownAt ?? null,
+      countdownEnabled: updatePayload.countdownEnabled ?? Boolean(countdownEnabled),
       siteConfig: updatePayload.siteConfig || siteConfig,
       updatedAt: nowIso,
     });

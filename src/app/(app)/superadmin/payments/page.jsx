@@ -72,11 +72,14 @@ function FinancialChartTooltip({ active, payload, label }) {
 }
 
 const SETTLEMENT_STATUS_STYLES = {
+  ELIGIBLE: "bg-teal-500/10 text-teal-400 border-teal-500/30 font-bold",
   SCHEDULED: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   PENDING: "bg-amber-500/10 text-amber-400 border-amber-500/30",
   PROCESSING: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
   COMPLETED: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  SETTLED: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 font-bold",
   HELD: "bg-rose-500/10 text-rose-400 border-rose-500/30 font-bold",
+  ON_HOLD: "bg-rose-500/10 text-rose-400 border-rose-500/30 font-bold",
   FAILED: "bg-red-500/15 text-red-400 border-red-500/40 font-bold",
   REVERSED: "bg-slate-500/10 text-slate-400 border-slate-500/30",
 };
@@ -160,7 +163,7 @@ export default function SuperAdminPaymentsPage() {
       }
       if (commRes.ok) {
         const commD = await commRes.json();
-        setCommissionPlans(commD.planRules || []);
+        setCommissionPlans(commD.configurations || commD.planRules || []);
       }
     } catch (err) {
       console.error("[SuperAdminPayments] loadData error:", err);
@@ -232,7 +235,7 @@ export default function SuperAdminPaymentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           settlementId: selectedSettlementForHold.id,
-          action: holdModalAction,
+          action: (holdModalAction || "hold").toUpperCase(),
           reason: holdReasonInput.trim() || "Released by Super Admin",
         }),
       });
@@ -665,6 +668,7 @@ export default function SuperAdminPaymentsPage() {
                 className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] text-xs text-slate-800 dark:text-[#D0D0D1] focus:outline-none focus:border-[#FE760B]"
               >
                 <option value="ALL">All Statuses</option>
+                <option value="ELIGIBLE">Eligible (T+4 Matured)</option>
                 <option value="SCHEDULED">Scheduled</option>
                 <option value="PENDING">Pending</option>
                 <option value="PROCESSING">Processing</option>
@@ -711,16 +715,18 @@ export default function SuperAdminPaymentsPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-semibold text-slate-900 dark:text-white">
-                              {st.organizerName || st.organizerId}
+                              {st.organizerName || st.organizerEmail || st.organizerId || "Independent Organizer"}
                             </div>
-                            <div className="text-[10px] text-slate-400">{st.organizerEmail || st.organizationId}</div>
+                            <div className="text-[10px] text-slate-400">
+                              {st.organizerEmail || (st.organizerId ? `ID: ${st.organizerId}` : "Platform Account")}
+                            </div>
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-mono text-slate-600 dark:text-slate-300">{st.orderId}</div>
                             <div className="text-[10px] text-slate-400">{st.eventTitle || st.eventId}</div>
                           </td>
                           <td className="py-3 px-4 text-right font-mono font-bold text-emerald-500">
-                            ₹{((st.netPayablePaise || st.amountPaise || 0) / 100).toFixed(2)}
+                            ₹{(((st.netOrganizerPaise ?? st.netPayablePaise ?? (Number(st.grossAmountPaise || 0) - Number(st.platformFeePaise || 0))) || 0) / 100).toFixed(2)}
                           </td>
                           <td className="py-3 px-4 text-right font-mono text-amber-500 font-semibold">
                             ₹{((st.platformFeePaise || 0) / 100).toFixed(2)}
@@ -731,7 +737,20 @@ export default function SuperAdminPaymentsPage() {
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-1 text-slate-700 dark:text-slate-300">
                               <Calendar size={12} className="text-slate-400" />
-                              <span>{st.scheduledSettlementDate || (st.scheduledFor ? new Date(st.scheduledFor).toLocaleDateString("en-IN") : "T+4")}</span>
+                              <span>
+                                {st.dueDateFormatted ||
+                                  st.scheduledSettlementDate ||
+                                  (st.tPlus4OrganizerDate
+                                    ? new Date(st.tPlus4OrganizerDate).toLocaleDateString("en-IN", {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                      })
+                                    : null) ||
+                                  (st.scheduledFor
+                                    ? new Date(st.scheduledFor).toLocaleDateString("en-IN")
+                                    : "Pending schedule")}
+                              </span>
                             </div>
                           </td>
                           <td className="py-3 px-4">
@@ -804,19 +823,20 @@ export default function SuperAdminPaymentsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {commissionPlans.map((plan) => {
+              const planId = plan.planId || plan.planTier || "START";
               const defaultRates = { START: 5.0, CAMPUS: 4.5, FEST: 3.5 };
-              const currentRate = plan.percentage ?? defaultRates[plan.planId] ?? 5.0;
+              const currentRate = plan.percentage ?? plan.currentRate ?? defaultRates[planId] ?? 5.0;
 
               return (
                 <div
-                  key={plan.planId}
+                  key={planId}
                   className="p-6 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-sm space-y-4 relative overflow-hidden"
                 >
                   <div className="flex items-center justify-between">
                     <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold uppercase tracking-wider bg-[#FE760B]/10 text-[#FE760B] border border-[#FE760B]/30">
-                      {plan.planId} Plan
+                      {plan.name || `${planId} Plan`}
                     </span>
-                    <span className="text-[11px] text-slate-400">Tier #{plan.planId}</span>
+                    <span className="text-[11px] text-slate-400">Tier #{planId}</span>
                   </div>
 
                   <div>
@@ -829,7 +849,7 @@ export default function SuperAdminPaymentsPage() {
                   <div className="pt-3 border-t border-slate-100 dark:border-[#2A2D31] text-[11px] text-slate-500 dark:text-[#9B9EA4] space-y-1">
                     <div>
                       Last updated:{" "}
-                      <span className="text-white">
+                      <span className="text-slate-700 dark:text-white">
                         {plan.updatedAt ? new Date(plan.updatedAt).toLocaleDateString("en-IN") : "Default Baseline"}
                       </span>
                     </div>
@@ -841,14 +861,14 @@ export default function SuperAdminPaymentsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingPlan(plan);
+                      setEditingPlan({ ...plan, planId, currentRate });
                       setNewFeePercent(String(currentRate));
                       setFeeUpdateReason("");
                     }}
                     className="w-full py-2 rounded-xl bg-slate-100 dark:bg-[#212327] hover:bg-[#FE760B] hover:text-white text-slate-800 dark:text-[#D0D0D1] text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Settings2 size={13} />
-                    <span>Configure {plan.planId} Rate</span>
+                    <span>Configure {planId} Rate</span>
                   </button>
                 </div>
               );

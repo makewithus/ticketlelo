@@ -29,7 +29,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'settlementId is required' }, { status: 400 });
     }
 
-    if (action === 'HOLD') {
+    const normalizedAction = String(action || 'HOLD').toUpperCase().trim();
+
+    if (normalizedAction === 'HOLD') {
       if (!reason || !reason.trim()) {
         return NextResponse.json(
           { error: 'A mandatory reason is required to place a settlement on hold' },
@@ -47,10 +49,10 @@ export async function POST(request) {
         message: `Settlement ${settlementId} placed on hold`,
         settlement: result,
       });
-    } else if (action === 'RELEASE') {
+    } else if (normalizedAction === 'RELEASE') {
       const result = await releaseSettlementHold(settlementId, {
         adminId: caller.uid || caller.email,
-        reason: reason || 'Admin released hold',
+        reason: reason?.trim() || 'Admin released hold',
       });
 
       return NextResponse.json({

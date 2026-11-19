@@ -58,8 +58,11 @@ export async function GET(request) {
     if (eventId) {
       query = query.where('eventId', '==', String(eventId));
     }
-    if (statusFilter && statusFilter !== 'ALL' && SETTLEMENT_STATUSES[statusFilter]) {
-      query = query.where('status', '==', statusFilter);
+
+    const rawFilter = (statusFilter || 'ALL').toUpperCase();
+    const normalizedFilter = rawFilter === 'HELD' ? 'ON_HOLD' : (rawFilter === 'COMPLETED' ? 'SETTLED' : rawFilter);
+    if (normalizedFilter !== 'ALL' && SETTLEMENT_STATUSES[normalizedFilter]) {
+      query = query.where('status', '==', normalizedFilter);
     }
 
     query = query.orderBy('createdAt', 'desc').limit(limitParam);
@@ -75,11 +78,86 @@ export async function GET(request) {
       settlementsSnap = await fallbackQuery.get();
     }
 
-    const settlements = settlementsSnap.docs.map((doc) => {
-      const d = doc.data();
+    const rawSettlements = settlementsSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Distinguish test vs production (H2)
+    const isTestRecord = (s) =>
+      Boolean(
+        s.isTest ||
+        s.testMode ||
+        s.environment === 'test' ||
+        String(s.orderId || '').startsWith('test_') ||
+        String(s.orderId || '') === 'legacy_order_9999' ||
+        String(s.orderId || '').startsWith('ord_test') ||
+        String(s.organizerId || '').startsWith('org_test') ||
+        String(s.id || '').includes('test_settle') ||
+        String(s.id || '').includes('legacy_order_9999')
+      );
+
+    const includeTest = searchParams.get('includeTest') === 'true';
+    const filteredSettlements = includeTest ? rawSettlements : rawSettlements.filter((s) => !isTestRecord(s));
+
+    // Resolve organizer names from users collection (H2)
+    const orgIds = Array.from(new Set(filteredSettlements.map((s) => s.organizerId).filter(Boolean)));
+    const organizerNameMap = new Map();
+    if (orgIds.length > 0 && adminDb) {
+      try {
+        for (let i = 0; i < orgIds.length; i += 30) {
+          const chunk = orgIds.slice(i, i + 30);
+          const usersSnap = await adminDb.collection('users').where('__name__', 'in', chunk).get();
+          usersSnap.forEach((uDoc) => {
+            const u = uDoc.data();
+            const resolvedName = u.displayName || u.name || u.organizationName || u.college || u.email;
+            if (resolvedName) organizerNameMap.set(uDoc.id, resolvedName);
+          });
+        }
+      } catch (_orgErr) {
+        console.warn('Failed to resolve organizer names:', _orgErr.message);
+      }
+    }
+
+    const nowMs = Date.now();
+    const settlements = filteredSettlements.map((d) => {
+      const gross = Number(d.grossAmountPaise || 0);
+      const fee = Number(d.platformFeePaise || 0);
+      const net = Number(d.netOrganizerPaise ?? (gross - fee));
+      const maturityMs = d.tPlus4OrganizerDate ? new Date(d.tPlus4OrganizerDate).getTime() : 0;
+      const isMatured = maturityMs > 0 && nowMs >= maturityMs;
+
+      let effectiveStatus = d.status;
+      if (effectiveStatus === SETTLEMENT_STATUSES.PENDING && isMatured) {
+        effectiveStatus = SETTLEMENT_STATUSES.ELIGIBLE;
+      }
+
+      const formattedDate = d.tPlus4OrganizerDate
+        ? new Date(d.tPlus4OrganizerDate).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          })
+        : null;
+
+      const resolvedOrgName =
+        d.organizerName ||
+        organizerNameMap.get(d.organizerId) ||
+        (d.organizerId ? `Organizer (${d.organizerId.slice(0, 8)})` : 'Independent Organizer');
+
       return {
-        id: doc.id,
         ...d,
+        id: d.id,
+        settlementId: d.settlementId || d.id,
+        status: effectiveStatus,
+        netOrganizerPaise: net,
+        netPayablePaise: net,
+        grossAmountPaise: gross,
+        platformFeePaise: fee,
+        organizerName: resolvedOrgName,
+        dueDateFormatted: formattedDate,
+        scheduledSettlementDate: formattedDate,
+        dueDate: d.tPlus4OrganizerDate,
       };
     });
 

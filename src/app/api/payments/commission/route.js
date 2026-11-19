@@ -21,7 +21,12 @@ export async function GET(request) {
 
     if (fetchAll) {
       const configurations = await getAllCommissionConfigurations();
-      return NextResponse.json({ success: true, configurations });
+      const enriched = configurations.map((c) => ({
+        ...c,
+        planId: c.planTier,
+        percentage: c.currentRate,
+      }));
+      return NextResponse.json({ success: true, configurations: enriched, planRules: enriched });
     }
 
     const rule = await resolveCommissionRule({ eventId, organizerId, planId });

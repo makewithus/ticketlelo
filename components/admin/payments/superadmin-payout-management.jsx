@@ -88,23 +88,34 @@ export function SuperAdminPayoutManagement() {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const [payoutsRes, notifsRes] = await Promise.all([
-        fetch(`/api/superadmin/payouts?status=${statusFilter}&search=${encodeURIComponent(searchTerm)}`),
-        fetch("/api/superadmin/notifications?limit=10"),
-      ]);
+      const payoutsPromise = fetch(
+        `/api/superadmin/payouts?status=${statusFilter}&search=${encodeURIComponent(searchTerm)}`
+      )
+        .then(async (res) => {
+          if (res.ok) {
+            const data = await res.json();
+            setSummary(data.summary || null);
+            setPayouts(data.payouts || []);
+            setCachedItem("superadmin_payout_summary", data.summary || null, 5 * 60 * 1000);
+            setCachedItem("superadmin_payouts", data.payouts || [], 5 * 60 * 1000);
+          } else {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to fetch payouts");
+          }
+        });
 
-      if (payoutsRes.ok) {
-        const data = await payoutsRes.json();
-        setSummary(data.summary || null);
-        setPayouts(data.payouts || []);
-        setCachedItem("superadmin_payout_summary", data.summary || null, 5 * 60 * 1000);
-        setCachedItem("superadmin_payouts", data.payouts || [], 5 * 60 * 1000);
-      }
+      const notifsPromise = fetch("/api/superadmin/notifications?limit=10")
+        .then(async (res) => {
+          if (res.ok) {
+            const nData = await res.json();
+            setNotifications(nData.notifications || []);
+          }
+        })
+        .catch((_notifErr) => {
+          console.warn("[SuperAdminPayoutManagement] Notifications fetch failed non-fatally:", _notifErr);
+        });
 
-      if (notifsRes.ok) {
-        const nData = await notifsRes.json();
-        setNotifications(nData.notifications || []);
-      }
+      await Promise.allSettled([payoutsPromise, notifsPromise]);
     } catch (err) {
       console.error("[SuperAdminPayoutManagement] fetch error:", err);
       toast.error("Failed to load payouts data.");

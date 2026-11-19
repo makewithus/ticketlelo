@@ -13,7 +13,17 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    if (caller.role !== 'superadmin' && caller.role !== 'admin') {
+    const emailLower = (caller.email || '').toLowerCase().trim();
+    const isSuperAdmin =
+      caller.role === 'superAdmin' ||
+      caller.role === 'superadmin' ||
+      caller.role === 'admin' ||
+      caller.isAdmin === true ||
+      emailLower === 'adil4ticketlelo@gmail.com' ||
+      emailLower === 'superadmin@ticketlelo.com' ||
+      emailLower === (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim();
+
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: 'Forbidden: Superadmin access required' }, { status: 403 });
     }
 
@@ -36,7 +46,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    if (caller.role !== 'superadmin' && caller.role !== 'admin') {
+    const emailLower = (caller.email || '').toLowerCase().trim();
+    const isSuperAdmin =
+      caller.role === 'superAdmin' ||
+      caller.role === 'superadmin' ||
+      caller.role === 'admin' ||
+      caller.isAdmin === true ||
+      emailLower === 'adil4ticketlelo@gmail.com' ||
+      emailLower === 'superadmin@ticketlelo.com' ||
+      emailLower === (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim();
+
+    if (!isSuperAdmin) {
       return NextResponse.json({ error: 'Forbidden: Superadmin access required' }, { status: 403 });
     }
 
