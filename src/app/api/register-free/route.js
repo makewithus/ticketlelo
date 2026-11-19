@@ -256,8 +256,41 @@ export async function POST(request) {
       if (!validation.isValid) return NextResponse.json({ error: "Form validation failed", fields: validation.errors }, { status: 400 });
     }
 
-    const identity = crypto.createHash("sha256").update(`${userUid}:${actualEventId}`).digest("hex");
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check pre-existing registration by eventId and email before processing
+    try {
+      const existingByEmailSnap = await adminDb
+        .collection("registrations")
+        .where("eventId", "==", actualEventId)
+        .where("email", "==", normalizedEmail)
+        .limit(1)
+        .get();
+
+      if (!existingByEmailSnap.empty) {
+        const existingData = existingByEmailSnap.docs[0].data() || {};
+        console.log(`[register-free] Pre-check idempotent hit: ${normalizedEmail} already registered for event ${actualEventId}. Ticket: ${existingData.ticketId || existingByEmailSnap.docs[0].id}`);
+        return NextResponse.json({
+          success: true,
+          alreadyRegistered: true,
+          ticketId: existingData.ticketId || existingByEmailSnap.docs[0].id,
+          requiresApproval: Boolean(existingData.requireApproval),
+          isFirstTimeUser: false,
+          emailStatus: "skipped",
+          message: "You are already registered for this event.",
+        });
+      }
+    } catch (preCheckErr) {
+      console.warn("[register-free] Pre-check registration query warning:", preCheckErr?.message);
+    }
+
+    // Canonical event + attendee unique registration identity
+    const identity = crypto.createHash("sha256").update(`${actualEventId}:${normalizedEmail}`).digest("hex");
     const registrationRef = adminDb.collection("registrations").doc(identity);
+    // Legacy userUid:actualEventId identity for backward compatibility
+    const legacyUserIdentity = userUid ? crypto.createHash("sha256").update(`${userUid}:${actualEventId}`).digest("hex") : null;
+    const legacyUserRegRef = legacyUserIdentity && legacyUserIdentity !== identity ? adminDb.collection("registrations").doc(legacyUserIdentity) : null;
+
     // Human-typeable XXXX-XXXX format (e.g. "7ABA-D722")
     const shortTicketId = `${identity.slice(0, 4)}-${identity.slice(4, 8)}`.toUpperCase();
     const legacyTicketId = `TKT-${identity.slice(0, 28).toUpperCase()}`;
@@ -324,12 +357,26 @@ export async function POST(request) {
     }
 
     const result = await adminDb.runTransaction(async (transaction) => {
-      const [existingRegistration, currentEvent] = await Promise.all([
+      const [existingRegistration, existingLegacyReg, currentEvent] = await Promise.all([
         transaction.get(registrationRef),
+        legacyUserRegRef ? transaction.get(legacyUserRegRef) : Promise.resolve(null),
         transaction.get(eventRef),
       ]);
       if (existingRegistration.exists) {
-        return { alreadyRegistered: true, ticketId: existingRegistration.data().ticketId };
+        const existingData = existingRegistration.data() || {};
+        return {
+          alreadyRegistered: true,
+          ticketId: existingData.ticketId || existingData.id,
+          requiresApproval: Boolean(existingData.requireApproval),
+        };
+      }
+      if (existingLegacyReg && existingLegacyReg.exists) {
+        const existingData = existingLegacyReg.data() || {};
+        return {
+          alreadyRegistered: true,
+          ticketId: existingData.ticketId || existingData.id,
+          requiresApproval: Boolean(existingData.requireApproval),
+        };
       }
       const current = currentEvent.data() || {};
       const capacity = Number(current.globalCapacity || 0);
@@ -427,6 +474,20 @@ export async function POST(request) {
       return { alreadyRegistered: false, ticketId, requiresApproval };
     });
 
+    // Handle idempotent duplicate registration: Skip email, skip points, return truthful alreadyRegistered
+    if (result.alreadyRegistered) {
+      console.log(`[register-free] Idempotent registration hit: ${normalizedEmail} already registered for event ${actualEventId}. Ticket: ${result.ticketId}`);
+      return NextResponse.json({
+        success: true,
+        alreadyRegistered: true,
+        ticketId: result.ticketId,
+        requiresApproval: result.requiresApproval,
+        isFirstTimeUser: false,
+        emailStatus: "skipped",
+        message: "You are already registered for this event.",
+      });
+    }
+
     // Award points for free registration if referral attribution exists and not already registered
     if (!result.alreadyRegistered && referralAttribution?.ambassadorId && referralAttribution?.programId) {
       try {
@@ -450,9 +511,9 @@ export async function POST(request) {
       }
     }
 
-    // Enqueue branded confirmation email directly from the server (BUG-1, R30)
+    // Enqueue branded confirmation email directly from the server only for new, unapproved registrations (BUG-1, R30)
     let emailStatus = "skipped";
-    if (!result.requiresApproval) {
+    if (!result.requiresApproval && !result.alreadyRegistered) {
       try {
         await sendTicketDeliveryEmail({
           ticketId: result.ticketId,

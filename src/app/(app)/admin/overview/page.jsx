@@ -67,7 +67,12 @@ import {
   setCachedRegistrations,
 } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
-import { isEventRegistrationClosed } from "@/lib/event-registration-status";
+import {
+  isEventRegistrationClosed,
+  getAuthoritativeEventCapacity,
+  getAuthoritativeOrganiser,
+} from "@/lib/event-registration-status";
+import { formatStandardTime, normalizeDisplayText } from "@/lib/date-utils";
 
 const THEMES = [
   { id: "sunset", name: "Sunset", color: "#FE760B", bg: "#FE760B", sun: "#FB923C", text: "#131517" },
@@ -447,11 +452,20 @@ export default function EventOverviewPage() {
   const safeCheckedInCount = Number.isFinite(checkedInCount) ? checkedInCount : 0;
   const notYetCount = Math.max(0, safeTotalGuests - safeCheckedInCount);
 
-  const rawCap = event?.capacity ?? event?.totalTickets ?? 150;
-  const digits = String(rawCap).replace(/[^\d]/g, "");
-  const parsedCap = digits ? parseInt(digits, 10) : 150;
-  const totalCapacity = Number.isFinite(parsedCap) && parsedCap > 0 ? parsedCap : 150;
-  const seatsLeft = Math.max(0, totalCapacity - safeTotalGuests);
+  const authoritativeCapacity = useMemo(
+    () => getAuthoritativeEventCapacity(event),
+    [event]
+  );
+  const isUnlimitedCap = authoritativeCapacity.isUnlimited;
+  const totalCapacity = isUnlimitedCap ? null : authoritativeCapacity.capacity;
+  const seatsLeft = isUnlimitedCap
+    ? Infinity
+    : Math.max(0, (totalCapacity || 0) - safeTotalGuests);
+
+  const authoritativeOrganiser = useMemo(
+    () => getAuthoritativeOrganiser(event, user),
+    [event, user]
+  );
 
   // Live Location search for real-time venue editing (Image 5)
   useEffect(() => {
@@ -707,7 +721,7 @@ export default function EventOverviewPage() {
 
   // Theme & Poster Typography
   const selectedTheme = getThemeLook(event?.themeColor || event?.theme || "#FE760B");
-  const canonicalEventTitle = (event?.name || event?.title || "Event Name").trim();
+  const canonicalEventTitle = normalizeDisplayText((event?.name || event?.title || "Event Name").trim());
 
   const posterLines = getPosterLines(
     canonicalEventTitle,
@@ -741,8 +755,8 @@ export default function EventOverviewPage() {
       }
     } catch {}
 
-    const startTime = event.startTime || "12:00 PM";
-    const endTime = event.endTime || "5:00 PM";
+    const startTime = formatStandardTime(event.startTime || "12:00 PM");
+    const endTime = formatStandardTime(event.endTime || "5:00 PM");
     const tz = event.timezone || "GMT+5:30";
     const timeRange = `${startTime} – ${endTime} ${tz}`;
 
@@ -830,7 +844,7 @@ export default function EventOverviewPage() {
                           ev.id === selectedEventId ? "bg-[#FE760B]/10 text-[#FE760B] font-bold" : "text-white"
                         }`}
                       >
-                        <span className="truncate">{ev.name || ev.title || "Untitled Event"}</span>
+                        <span className="truncate">{normalizeDisplayText(ev.name || ev.title || "Untitled Event")}</span>
                         {ev.id === selectedEventId && <Check className="w-3.5 h-3.5 shrink-0" />}
                       </button>
                     ))}
@@ -878,7 +892,7 @@ export default function EventOverviewPage() {
               {isCancelled ? "Invitations Closed" : "Invite Guests"}
             </h3>
             <p className="text-[11px] text-[#9B9EA4]">
-              {totalGuests} registered {totalCapacity ? `(of ${totalCapacity})` : ""}
+              {totalGuests} registered {isUnlimitedCap ? "(Unlimited)" : totalCapacity ? `(of ${totalCapacity})` : ""}
             </p>
           </div>
         </button>
@@ -1418,15 +1432,17 @@ export default function EventOverviewPage() {
         <div className="bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#183124] border border-[#3DD68C]/30 flex items-center justify-center text-xs font-bold text-[#3DD68C] shrink-0">
-              {(user?.fullName || "Krrish Singhal")[0].toUpperCase()}
+              {(authoritativeOrganiser?.name || "O")[0].toUpperCase()}
             </div>
             <div className="min-w-0 flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-white truncate">
-                {user?.fullName || "Krrish Singhal"}
+                {authoritativeOrganiser?.name || "Event Organiser"}
               </span>
-              <span className="text-xs text-[#9B9EA4] font-mono truncate">
-                {user?.email || "krrishsinghal62@gmail.com"}
-              </span>
+              {authoritativeOrganiser?.email ? (
+                <span className="text-xs text-[#9B9EA4] font-mono truncate">
+                  {authoritativeOrganiser.email}
+                </span>
+              ) : null}
               <span className="px-2 py-0.5 rounded-md bg-[#183124] text-[#3DD68C] border border-[#3DD68C]/30 text-[10px] font-bold uppercase tracking-wider">
                 Creator
               </span>
@@ -1530,7 +1546,7 @@ export default function EventOverviewPage() {
             <span className="text-xs font-semibold text-[#9B9EA4]">guests</span>
           </p>
           <span className="text-xs text-[#9B9EA4] font-medium font-mono">
-            cap {String(Number.isFinite(totalCapacity) ? totalCapacity : 150)}
+            cap {isUnlimitedCap ? "∞" : String(totalCapacity)}
           </span>
         </div>
 
@@ -1538,12 +1554,26 @@ export default function EventOverviewPage() {
         <div className="w-full h-2 rounded-full bg-[#2A2D31] overflow-hidden flex mb-2.5">
           <div
             className="h-full bg-[#3DD68C] transition-all duration-500"
-            style={{ width: `${Math.min(100, ((safeCheckedInCount || 0) / Math.max(1, totalCapacity)) * 100)}%` }}
+            style={{
+              width: `${Math.min(
+                100,
+                isUnlimitedCap
+                  ? ((safeCheckedInCount || 0) / Math.max(1, safeTotalGuests || 1)) * 100
+                  : ((safeCheckedInCount || 0) / Math.max(1, totalCapacity || 1)) * 100
+              )}%`,
+            }}
             title={`${safeCheckedInCount} checked in`}
           />
           <div
             className="h-full bg-[#FE760B] transition-all duration-500"
-            style={{ width: `${Math.min(100, ((notYetCount || 0) / Math.max(1, totalCapacity)) * 100)}%` }}
+            style={{
+              width: `${Math.min(
+                100,
+                isUnlimitedCap
+                  ? ((notYetCount || 0) / Math.max(1, safeTotalGuests || 1)) * 100
+                  : ((notYetCount || 0) / Math.max(1, totalCapacity || 1)) * 100
+              )}%`,
+            }}
             title={`${notYetCount} not yet checked in`}
           />
         </div>
@@ -1560,7 +1590,7 @@ export default function EventOverviewPage() {
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[#9B9EA4]" />
-            <strong className="text-white">{String(seatsLeft)}</strong> seats left
+            <strong className="text-white">{isUnlimitedCap ? "∞" : String(seatsLeft)}</strong> seats left
           </span>
         </div>
       </div>

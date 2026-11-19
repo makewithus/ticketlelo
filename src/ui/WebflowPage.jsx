@@ -27,6 +27,32 @@ const NAVBAR_SPACING_FIXES = `
     .navbar .timeline-wrapper p { max-width:38vw; }
     .navbar .nav-right { gap:.35rem; }
   }
+
+  /* Fast preloader dismissal & instant hero image delivery (M11) */
+  .preloader {
+    animation: tlPreloaderFadeOut 0.2s 0.05s ease-out forwards !important;
+  }
+  @keyframes tlPreloaderFadeOut {
+    to {
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      display: none !important;
+    }
+  }
+  .hero_image, .hero_h1-image {
+    content-visibility: visible;
+  }
+  .hero_h1-image {
+    aspect-ratio: 1986 / 556;
+    max-width: 100%;
+    height: auto;
+  }
+  .hero_image {
+    aspect-ratio: 1241 / 1268;
+    max-width: 100%;
+    height: auto;
+  }
 `;
 
 /** Renders one page of the UI dev's static export (see scripts/sync-ui.mjs). */
@@ -36,6 +62,8 @@ export default function WebflowPage({ page, children, skipStaticCountdown = fals
     : page.scripts;
   return (
     <>
+      <link rel="preload" as="image" href="/logo/ticketlelomain.webp" type="image/webp" fetchPriority="high" />
+      <link rel="preload" as="image" href="/logo/Ticketlelo-hero.webp" type="image/webp" fetchPriority="high" />
       {page.stylesheets.map((href) => (
         <link key={href} rel="stylesheet" href={href} suppressHydrationWarning />
       ))}

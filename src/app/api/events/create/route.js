@@ -2,6 +2,7 @@ import admin, { adminAuth, adminDb, isFirebaseAdminReady } from "@/lib/firebase-
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth-server";
 import { sanitizeAndOffloadImages } from "@/lib/server-image-storage";
+import { assertCanCreateEvent } from "@/lib/plan-enforcement";
 
 export async function POST(req) {
   try {
@@ -15,6 +16,24 @@ export async function POST(req) {
     const creatorId = caller?.uid || body?.createdBy || body?.userId || body?.organiserId || body?.organizerId || null;
     if (!creatorId) {
       return NextResponse.json({ error: "Authentication required to create event" }, { status: 401 });
+    }
+
+    // Backend plan usage enforcement: Verify organizer has quota to create another event
+    const planCheck = await assertCanCreateEvent(adminDb, caller, creatorId);
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: planCheck.reason || "Event limit reached for your subscription plan",
+          code: planCheck.code || "EVENT_LIMIT_REACHED",
+          limit: planCheck.limit,
+          current: planCheck.current,
+          standardLimit: planCheck.standardLimit,
+          hasCustomOverride: planCheck.hasCustomOverride,
+          plan: planCheck.plan,
+          upgradeRequired: true,
+        },
+        { status: 403 }
+      );
     }
 
     // Clean undefined values

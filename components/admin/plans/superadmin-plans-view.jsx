@@ -124,11 +124,11 @@ const AVAILABLE_TIERS = [
     priceDisplay: "₹999",
     eventsAllowed: 3,
     attendeesDisplay: "1,000 Attendees / event",
-    fee: "4.5%",
+    fee: "5.0%",
     badgeClass: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-400 dark:border-blue-500/30",
     borderClass: "border-blue-300 dark:border-blue-500/40",
     icon: Zap,
-    highlights: ["3 Events allowed", "1,000 Attendees max", "4.5% Platform Fee", "Custom branding & analytics"],
+    highlights: ["3 Events allowed", "1,000 Attendees max", "5.0% Platform Fee", "Custom branding & analytics"],
   },
   {
     id: "pro",
@@ -197,6 +197,7 @@ export function SuperAdminPlansView() {
 
   // Modals state
   const [editingUser, setEditingUser] = useState(null); // Edit Plan & Custom Facilities Modal
+  const [planChangeTarget, setPlanChangeTarget] = useState(null); // Safe Plan Change Confirmation Modal
   const [viewingUserFacilities, setViewingUserFacilities] = useState(null); // View Facilities Modal
   const [revokingUser, setRevokingUser] = useState(null); // Revoke Plan Confirmation Modal
   const [showOnboardModal, setShowOnboardModal] = useState(false); // Onboard User Modal
@@ -208,7 +209,7 @@ export function SuperAdminPlansView() {
     isUnlimitedEvents: false,
     participantsPerEvent: 1000,
     isUnlimitedParticipants: false,
-    platformFeeRate: 4.5,
+    platformFeeRate: 5.0,
     facilities: {},
     auditReason: "",
   });
@@ -253,6 +254,8 @@ export function SuperAdminPlansView() {
           setPlanDropdownOpen(false);
         } else if (showOnboardModal) {
           setShowOnboardModal(false);
+        } else if (planChangeTarget) {
+          setPlanChangeTarget(null);
         } else if (editingUser) {
           setEditingUser(null);
         } else if (viewingUserFacilities) {
@@ -355,22 +358,39 @@ export function SuperAdminPlansView() {
     fetchPlansData();
   }, []);
 
-  // 1-Click Quick Plan Switcher
-  const handleQuickPlanChange = async (user, targetPlanId) => {
+  // Safe Plan Switcher: Opens Confirmation Dialog instead of blindly changing plans
+  const handleQuickPlanChange = (user, targetPlanId) => {
     if (user.plan === targetPlanId) return; // already on this plan
+    const currentPlanName = planCatalog[user.plan]?.name || user.plan;
+    const targetPlanName = planCatalog[targetPlanId]?.name || targetPlanId;
+    setPlanChangeTarget({
+      user,
+      proposedPlanId: targetPlanId,
+      preserveOverrides: true,
+      auditReason: `Plan transition from ${currentPlanName} to ${targetPlanName}`,
+    });
+  };
+
+  // Confirmed Plan Change Executor with atomic backend transaction
+  const executeConfirmedPlanChange = async () => {
+    if (!planChangeTarget) return;
+    const { user, proposedPlanId, preserveOverrides, auditReason } = planChangeTarget;
     setUpdatingUserId(user.id);
 
     try {
       const headers = await getAuthHeaders();
-      const targetPlanName = planCatalog[targetPlanId]?.name || targetPlanId;
+      const targetPlanName = planCatalog[proposedPlanId]?.name || proposedPlanId;
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
       const res = await fetch("/api/superadmin/plans", {
         method: "POST",
         headers,
         body: JSON.stringify({
           userId: user.id,
-          planId: targetPlanId,
-          auditReason: `Instant 1-Click update to ${targetPlanName} tier`,
+          planId: proposedPlanId,
+          preserveCustomOverrides: preserveOverrides,
+          auditReason: auditReason?.trim() || `Plan changed to ${targetPlanName}`,
+          requestId,
         }),
       });
 
@@ -381,34 +401,15 @@ export function SuperAdminPlansView() {
 
       const data = await res.json();
       toast.success(
-        `Plan updated to ${targetPlanName}! All respective facilities allocated to ${user.name}.`,
+        `Plan updated to ${targetPlanName}! ${
+          preserveOverrides && user.hasCustomEvents
+            ? `Custom limit (${data.eventsAllowed} events) preserved.`
+            : `All respective facilities allocated to ${user.name}.`
+        }`
       );
 
-      // Optimistically update local state
-      setUsers((prev) =>
-        prev.map((u) => {
-          if (u.id === user.id) {
-            const planDef = planCatalog[targetPlanId] || {};
-            return {
-              ...u,
-              plan: targetPlanId,
-              planName: planDef.name || targetPlanId,
-              subscriptionTier: planDef.tier || targetPlanId.toUpperCase(),
-              price: planDef.price || 0,
-              platformFeeRate: planDef.platformFeeRate || u.platformFeeRate,
-              eventsAllowed: data.eventsAllowed ?? planDef.eventsAllowed ?? u.eventsAllowed,
-              participantsPerEvent: data.participantsPerEvent ?? planDef.participantsPerEvent ?? u.participantsPerEvent,
-              facilities: data.facilities || u.facilities,
-              isLimitReached:
-                planDef.eventsAllowed !== -1 && (u.eventsUsed || 0) >= (planDef.eventsAllowed || 1),
-            };
-          }
-          return u;
-        }),
-      );
-
-      // Refresh aggregate metrics quietly
-      fetchPlansData(false);
+      setPlanChangeTarget(null);
+      await fetchPlansData(true);
     } catch (err) {
       toast.error(err.message || "Could not update plan");
     } finally {
@@ -451,7 +452,7 @@ export function SuperAdminPlansView() {
       isUnlimitedEvents: planDef.eventsAllowed === -1,
       participantsPerEvent: planDef.participantsPerEvent === -1 ? 1000 : planDef.participantsPerEvent ?? 1000,
       isUnlimitedParticipants: planDef.participantsPerEvent === -1,
-      platformFeeRate: planDef.platformFeeRate ?? 4.5,
+      platformFeeRate: planDef.platformFeeRate ?? 5.0,
       facilities: baseFacilities,
     }));
   };
@@ -600,6 +601,21 @@ export function SuperAdminPlansView() {
     });
   }, [users, searchQuery, selectedPlanFilter, selectedStatusFilter, selectedRoleFilter]);
 
+  const [plansPage, setPlansPage] = useState(1);
+  const plansPageSize = 10;
+  const totalPlansPages = Math.max(1, Math.ceil(filteredUsers.length / plansPageSize));
+  const currentPlansPage = Math.min(plansPage, totalPlansPages);
+  const paginatedUsers = useMemo(() => {
+    return filteredUsers.slice(
+      (currentPlansPage - 1) * plansPageSize,
+      currentPlansPage * plansPageSize
+    );
+  }, [filteredUsers, currentPlansPage, plansPageSize]);
+
+  useEffect(() => {
+    setPlansPage(1);
+  }, [searchQuery, selectedPlanFilter, selectedStatusFilter, selectedRoleFilter]);
+
   if (loading && users.length === 0) {
     return <SuperAdminTableSkeleton />;
   }
@@ -643,14 +659,14 @@ export function SuperAdminPlansView() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-xs">
           <div className="flex items-center justify-between text-slate-600 dark:text-[#9B9EA4] mb-1.5 text-xs font-semibold">
-            <span>Total Subscribers</span>
+            <span>Organiser Plan Subscribers</span>
             <Building2 size={16} className="text-[#FE760B]" />
           </div>
           <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums">
             {metrics.totalUsers}
           </div>
           <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">
-            {metrics.paidCount} on paid tiers &bull; {metrics.freeCount} free
+            {metrics.paidCount} on paid tiers &bull; {metrics.freeCount} free tier
           </p>
         </div>
 
@@ -662,7 +678,7 @@ export function SuperAdminPlansView() {
           <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 tracking-tight tabular-nums">
             {metrics.starterCount}
           </div>
-          <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">₹999 / mo &bull; 4.5% fee</p>
+          <p className="text-[10px] text-slate-500 dark:text-[#71767B] mt-1">₹999 / mo &bull; 5.0% fee</p>
         </div>
 
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] shadow-xs">
@@ -865,7 +881,7 @@ export function SuperAdminPlansView() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((u) => {
+                paginatedUsers.map((u) => {
                   const colors = PLAN_COLORS[u.plan] || PLAN_COLORS.free;
                   const isUpdating = updatingUserId === u.id;
                   const eventsPercent =
@@ -929,16 +945,27 @@ export function SuperAdminPlansView() {
                               <strong>{u.eventsUsed || 0}</strong> /{" "}
                               {u.eventsAllowed === -1 ? "∞" : u.eventsAllowed}
                             </span>
-                            {u.isLimitReached && (
+                            {u.isOverLimit ? (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30 text-[9px] font-bold uppercase tracking-wider">
+                                Over Limit
+                              </span>
+                            ) : u.isLimitReached ? (
                               <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30 text-[9px] font-bold uppercase tracking-wider">
                                 At Limit
                               </span>
-                            )}
+                            ) : null}
                           </div>
+                          {u.hasCustomEvents && (
+                            <div className="text-[10px] text-purple-700 dark:text-purple-400 font-medium">
+                              Custom Override ({u.eventsAllowed} max)
+                            </div>
+                          )}
                           <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-[#131517] overflow-hidden border border-slate-200 dark:border-[#2A2D31]/40">
                             <div
                               className={`h-full rounded-full transition-all ${
-                                u.isLimitReached
+                                u.isOverLimit
+                                  ? "bg-rose-500 dark:bg-rose-400"
+                                  : u.isLimitReached
                                   ? "bg-amber-500 dark:bg-amber-400"
                                   : u.eventsAllowed === -1
                                   ? "bg-purple-600 dark:bg-purple-500"
@@ -1048,7 +1075,7 @@ export function SuperAdminPlansView() {
             No organizers found matching your criteria.
           </div>
         ) : (
-          filteredUsers.map((u) => {
+          paginatedUsers.map((u) => {
             const colors = PLAN_COLORS[u.plan] || PLAN_COLORS.free;
             const isUpdating = updatingUserId === u.id;
 
@@ -1079,6 +1106,16 @@ export function SuperAdminPlansView() {
                     <strong className="text-slate-900 dark:text-white font-semibold tabular-nums">
                       {u.eventsUsed || 0} / {u.eventsAllowed === -1 ? "Unlimited" : u.eventsAllowed}
                     </strong>
+                    {u.hasCustomEvents && (
+                      <span className="text-[9px] text-purple-700 dark:text-purple-400 font-semibold block">
+                        Custom Limit ({u.eventsAllowed})
+                      </span>
+                    )}
+                    {u.isOverLimit && (
+                      <span className="text-[9px] text-rose-700 dark:text-rose-400 font-bold block">
+                        Over Limit
+                      </span>
+                    )}
                   </div>
                   <div>
                     <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Fee Rate</span>
@@ -1088,10 +1125,10 @@ export function SuperAdminPlansView() {
                   </div>
                 </div>
 
-                {/* 1-Click Plan Switcher for Mobile */}
+                {/* Safe Plan Switcher for Mobile */}
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
-                    1-Click Plan Switch:
+                    Switch Plan (with confirmation):
                   </span>
                   <div className="grid grid-cols-4 gap-1.5">
                     {["free", "starter", "pro", "fest"].map((tierId) => {
@@ -1137,6 +1174,36 @@ export function SuperAdminPlansView() {
           })
         )}
       </div>
+
+      {/* ── 5C. Pagination Controls ── */}
+      {filteredUsers.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 px-1">
+          <div className="text-xs text-slate-500 dark:text-[#71767B]">
+            Showing {paginatedUsers.length} of {filteredUsers.length} organizer{filteredUsers.length === 1 ? "" : "s"}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPlansPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentPlansPage <= 1}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-slate-600 dark:text-[#9B9EA4] font-medium font-mono">
+              {currentPlansPage} / {totalPlansPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPlansPage((prev) => Math.min(totalPlansPages, prev + 1))}
+              disabled={currentPlansPage >= totalPlansPages}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── 6. MODAL 1: Edit Plan & Custom Facilities (Executive Admin Suite) ── */}
       {editingUser && mounted && typeof document !== "undefined" && createPortal(
@@ -1342,7 +1409,7 @@ export function SuperAdminPlansView() {
                         Platform Fee Rate (%)
                       </label>
                       <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Base: {planCatalog[editFormData.planId]?.platformFeeRate ?? 4.5}%
+                        Base: {planCatalog[editFormData.planId]?.platformFeeRate ?? 5.0}%
                       </span>
                     </div>
                     <div className="relative flex items-center">
@@ -2063,6 +2130,217 @@ export function SuperAdminPlansView() {
               </button>
             </div>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {/* 5. Safe Plan Change Confirmation Modal */}
+      {planChangeTarget && mounted && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[150] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto"
+          onClick={() => !updatingUserId && setPlanChangeTarget(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          {(() => {
+            const u = planChangeTarget.user;
+            const targetTierId = planChangeTarget.proposedPlanId;
+            const currentPlanDef = planCatalog[u?.plan] || { name: u?.plan || "Free", price: 0, platformFeeRate: 5.0, eventsAllowed: 1 };
+            const proposedPlanDef = planCatalog[targetTierId] || { name: targetTierId, price: 0, platformFeeRate: 5.0, eventsAllowed: 1 };
+            const preserve = planChangeTarget.preserveOverrides !== false;
+            const hasCustomEvents = u?.hasCustomEvents || (typeof u?.eventsAllowed === "number" && u.eventsAllowed !== currentPlanDef.eventsAllowed);
+            const customLimitValue = u?.eventsAllowed ?? currentPlanDef.eventsAllowed;
+
+            const effectiveEvents = preserve && hasCustomEvents ? customLimitValue : proposedPlanDef.eventsAllowed;
+            const isOverCapacityUnderNewPlan = effectiveEvents !== -1 && (u?.eventsUsed || 0) > effectiveEvents;
+
+            return (
+              <div
+                className="w-full max-w-lg bg-white dark:bg-[#141619] border border-slate-200 dark:border-[#2A2D31] rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col text-slate-900 dark:text-white animate-scale-in"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-[#2A2D31] flex items-center justify-between shrink-0 bg-slate-50/80 dark:bg-[#1A1C1F]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FE760B]/10 border border-[#FE760B]/20 flex items-center justify-center text-[#FE760B]">
+                      <ShieldCheck size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        Confirm Subscription Plan Change
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-[#9E9E9F]">
+                        Review effective limits and custom overrides before applying
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={Boolean(updatingUserId)}
+                    onClick={() => setPlanChangeTarget(null)}
+                    className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:text-[#9E9E9F] dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-[#212327] transition-colors shrink-0 cursor-pointer disabled:opacity-50"
+                    aria-label="Close Modal"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-4 sm:p-6 space-y-4 overflow-y-auto text-xs">
+                  {/* Organiser Summary Card */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-900 dark:text-white text-sm">
+                        {u.name}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-[#9E9E9F]">
+                        {u.email} &bull; {u.college || "General Organizer"}
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-[#2A2D31] text-slate-700 dark:text-slate-300">
+                      {u.role}
+                    </span>
+                  </div>
+
+                  {/* Plan Comparison Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Current Plan */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#16181B] border border-slate-200 dark:border-[#2A2D31] space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                        Current Plan
+                      </span>
+                      <div className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>{currentPlanDef.name || u.plan}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 dark:text-[#9E9E9F]">
+                        {currentPlanDef.price === 0 ? "Free" : `₹${currentPlanDef.price}/mo`} &bull; {u.platformFeeRate ?? currentPlanDef.platformFeeRate}% fee
+                      </div>
+                      <div className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 pt-1">
+                        Limit: {u.eventsAllowed === -1 ? "Unlimited" : `${u.eventsAllowed} events`}
+                        {hasCustomEvents && <span className="text-purple-600 dark:text-purple-400 ml-1">(Custom)</span>}
+                      </div>
+                    </div>
+
+                    {/* Proposed Plan */}
+                    <div className="p-3 rounded-xl bg-[#FE760B]/5 border-2 border-[#FE760B]/40 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#FE760B] block">
+                        Proposed Plan
+                      </span>
+                      <div className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>{proposedPlanDef.name || targetTierId}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 dark:text-[#9E9E9F]">
+                        {proposedPlanDef.price === 0 ? "Free" : `₹${proposedPlanDef.price}/mo`} &bull; {proposedPlanDef.platformFeeRate}% fee
+                      </div>
+                      <div className="text-[10px] font-semibold text-[#FE760B] pt-1">
+                        Standard: {proposedPlanDef.eventsAllowed === -1 ? "Unlimited" : `${proposedPlanDef.eventsAllowed} events`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Custom Overrides Preservation Toggle */}
+                  {hasCustomEvents && (
+                    <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/40 space-y-2">
+                      <div className="flex items-start gap-2.5">
+                        <input
+                          type="checkbox"
+                          id="preserveCustomOverridesCheck"
+                          checked={preserve}
+                          onChange={(e) =>
+                            setPlanChangeTarget((prev) => ({
+                              ...prev,
+                              preserveOverrides: e.target.checked,
+                            }))
+                          }
+                          className="mt-0.5 rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer w-4 h-4"
+                        />
+                        <label htmlFor="preserveCustomOverridesCheck" className="text-xs text-purple-900 dark:text-purple-200 cursor-pointer">
+                          <strong className="block font-bold">
+                            Preserve custom event limit ({customLimitValue} events)
+                          </strong>
+                          <span className="text-[11px] text-purple-700 dark:text-purple-300/80 leading-relaxed block mt-0.5">
+                            This organizer has an approved custom limit override of {customLimitValue} events.
+                            Keeping this checked retains their {customLimitValue} events quota instead of resetting to standard {proposedPlanDef.name} limit ({proposedPlanDef.eventsAllowed === -1 ? "Unlimited" : proposedPlanDef.eventsAllowed}).
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Effective Limits & Impact Analysis */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#131517] border border-slate-200 dark:border-[#2A2D31] space-y-2">
+                    <div className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center justify-between">
+                      <span>Effective New Limits:</span>
+                      <span className="text-[#FE760B] font-mono">
+                        {effectiveEvents === -1 ? "Unlimited Events" : `${effectiveEvents} Events Allowed`}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-600 dark:text-[#9E9E9F] space-y-1">
+                      <div>
+                        &bull; <strong>Current Usage:</strong> {u.eventsUsed || 0} event(s) created ({u.activeEvents || 0} active/live).
+                      </div>
+                      {isOverCapacityUnderNewPlan ? (
+                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-300 font-semibold text-[11px]">
+                          ⚠️ Organiser currently has {u.eventsUsed} events. All existing events will remain active and intact, but organiser will be at/over capacity and unable to create new events without upgrading.
+                        </div>
+                      ) : (
+                        <div className="text-emerald-700 dark:text-emerald-400 font-medium">
+                          ✓ Organiser can create {effectiveEvents === -1 ? "unlimited" : Math.max(0, effectiveEvents - (u.eventsUsed || 0))} more event(s) under this configuration.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Audit Reason Input */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] mb-1">
+                      Audit Reason & Authorisation <span className="text-[#FE760B]">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Approved upgrade for annual campus festival"
+                      value={planChangeTarget.auditReason || ""}
+                      onChange={(e) =>
+                        setPlanChangeTarget((prev) => ({
+                          ...prev,
+                          auditReason: e.target.value,
+                        }))
+                      }
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-[#212327] border border-slate-300 dark:border-[#2A2D31] text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-[#9E9E9F] focus:outline-none focus:border-[#FE760B]"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 sm:p-5 bg-slate-50 dark:bg-[#1A1C1F]/60 border-t border-slate-200 dark:border-[#2A2D31] flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={Boolean(updatingUserId)}
+                    onClick={() => setPlanChangeTarget(null)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#212327] dark:hover:bg-[#2A2D31] text-slate-700 hover:text-slate-900 dark:text-[#D0D0D1] dark:hover:text-white transition-colors cursor-pointer text-center font-semibold text-xs sm:text-sm border border-slate-200 dark:border-[#2A2D31] disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(updatingUserId) || !planChangeTarget.auditReason?.trim()}
+                    onClick={executeConfirmedPlanChange}
+                    className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#FE760B] hover:bg-[#FF8A2B] text-white font-bold transition-all disabled:opacity-50 cursor-pointer text-center text-xs sm:text-sm shadow-lg shadow-[#FE760B]/20 flex items-center justify-center gap-2"
+                  >
+                    {updatingUserId === u.id ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>Updating Plan...</span>
+                      </>
+                    ) : (
+                      <span>Confirm Plan Change</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>,
         document.body
       )}

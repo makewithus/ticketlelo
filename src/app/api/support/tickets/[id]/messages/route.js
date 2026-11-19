@@ -35,7 +35,7 @@ export async function POST(request, { params }) {
       senderId,
       senderName,
       senderRole,
-      content: body.content,
+      content: body.content || body.message,
       isInternalNote: isSuperAdmin ? Boolean(body.isInternalNote) : false,
       attachments: body.attachments || [],
     });

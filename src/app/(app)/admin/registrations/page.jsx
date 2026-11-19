@@ -46,6 +46,7 @@ import {
   getCachedRegistrations,
   setCachedRegistrations,
 } from "@/lib/client-cache";
+import { getAuthoritativeEventCapacity } from "@/lib/event-registration-status";
 
 function formatRelativeTime(ts) {
   if (!ts) return "recently";
@@ -314,11 +315,10 @@ export default function RegistrationsGuestsPage() {
 
   // Real Stats
   const totalGuests = registrations.length;
-  const rawCap = event?.capacity ?? event?.totalTickets ?? 150;
-  const isUnlimited = typeof rawCap === "string" && (rawCap.toLowerCase().includes("unlimited") || rawCap.toLowerCase().includes("open"));
-  const digits = String(rawCap || "").replace(/[^\d]/g, "");
-  const parsedCap = digits ? parseInt(digits, 10) : 150;
-  const totalCapacity = !isUnlimited && Number.isFinite(parsedCap) && parsedCap > 0 ? parsedCap : 150;
+  const capInfo = getAuthoritativeEventCapacity(event);
+  const isUnlimited = capInfo.isUnlimited;
+  const totalCapacity = capInfo.isUnlimited ? 0 : capInfo.capacity;
+  const maxProgressCap = isUnlimited ? Math.max(totalGuests, 1) : Math.max(1, totalCapacity);
   const isCancelled = Boolean(event?.isCancelled || event?.status === "cancelled");
   const isCancellationPending = Boolean(event?.cancellationRequest?.status === "pending");
 

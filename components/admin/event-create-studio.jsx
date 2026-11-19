@@ -176,14 +176,13 @@ const ARTWORK_PRESETS = [
 ];
 
 
-// 30-minute interval time options from 12:00 am to 11:30 pm matching Image 2
+// 30-minute interval time options from 12:00 AM to 11:30 PM (standardized uppercase AM/PM)
 const TIME_OPTIONS = (() => {
   const options = [];
   for (let hour = 0; hour < 24; hour++) {
     for (const min of [0, 30]) {
       const h12 = hour % 12 === 0 ? 12 : hour % 12;
-      const ampm = hour < 12 ? "pm" : "pm"; // default format helper
-      const actualAmpm = hour < 12 ? "am" : "pm";
+      const actualAmpm = hour < 12 ? "AM" : "PM";
       const minStr = min === 0 ? "00" : String(min);
       const str = `${String(h12).padStart(2, "0")}:${minStr} ${actualAmpm}`;
       options.push(str);
@@ -194,7 +193,7 @@ const TIME_OPTIONS = (() => {
 
 function normalizeTime(t) {
   if (!t) return "";
-  return t.trim().toLowerCase().replace(/\s+/g, " ");
+  return t.trim().toUpperCase().replace(/\s+/g, " ");
 }
 
 export function getTodayStr() {
@@ -563,9 +562,9 @@ export function EventCreateStudio({
       }
       return {
         startDate: editingEvent.startDate || sDate || todayStr,
-        startTime: editingEvent.startTime || "11:30 pm",
+        startTime: editingEvent.startTime ? editingEvent.startTime.toUpperCase() : "11:30 PM",
         endDate: editingEvent.endDate || sDate || todayStr,
-        endTime: editingEvent.endTime || "12:30 am",
+        endTime: editingEvent.endTime ? editingEvent.endTime.toUpperCase() : "12:30 AM",
       };
     }
 
@@ -573,8 +572,8 @@ export function EventCreateStudio({
     const nextHour = now.getHours() + 1;
     const startH = nextHour < 24 ? nextHour : 18;
     const endH = (startH + 2) < 24 ? startH + 2 : 23;
-    const startAmpm = startH >= 12 ? "pm" : "am";
-    const endAmpm = endH >= 12 ? "pm" : "am";
+    const startAmpm = startH >= 12 ? "PM" : "AM";
+    const endAmpm = endH >= 12 ? "PM" : "AM";
     const startH12 = startH % 12 === 0 ? 12 : startH % 12;
     const endH12 = endH % 12 === 0 ? 12 : endH % 12;
 

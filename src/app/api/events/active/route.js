@@ -1,5 +1,5 @@
 import { adminDb, isFirebaseAdminReady } from "@/lib/firebase-admin";
-import { parseFirestoreDate, getEventDateRange, getEventLiveStatus } from "@/lib/date-utils";
+import { parseFirestoreDate, getEventDateRange, getEventLiveStatus, getAuthoritativeEventCapacity } from "@/lib/date-utils";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -51,13 +51,13 @@ function serializePublicEvent(id, data) {
     ticketsSold: data.ticketsSold || data.registrationsCount || 0,
     registrationsCount: data.registrationsCount || data.ticketsSold || 0,
     totalTickets: (() => {
-      const raw = data.totalTickets ?? data.capacity ?? data.maxCapacity ?? 150;
-      if (typeof raw === "number" && !isNaN(raw)) return raw;
-      const digits = String(raw || "").replace(/[^\d]/g, "");
-      const parsed = digits ? parseInt(digits, 10) : 150;
-      return !isNaN(parsed) && parsed > 0 ? parsed : 150;
+      const capInfo = getAuthoritativeEventCapacity(data);
+      return capInfo.isUnlimited ? 0 : capInfo.capacity;
     })(),
-    capacity: data.capacity || data.maxCapacity || data.totalTickets || 150,
+    capacity: (() => {
+      const capInfo = getAuthoritativeEventCapacity(data);
+      return capInfo.isUnlimited ? "Unlimited" : capInfo.capacity;
+    })(),
     coverImage: data.coverImage || data.bannerUrl || data.posterUrl || data.image || data.imageUrl || "",
     bannerUrl: data.bannerUrl || data.coverImage || data.posterUrl || data.image || data.imageUrl || "",
     posterUrl: data.posterUrl || data.bannerUrl || data.coverImage || "",

@@ -82,6 +82,7 @@ export function SupportTicketModal({
     try {
       const payload = {
         ...formData,
+        eventId: initialData?.eventId || (relatedEntity?.type === "event" ? relatedEntity.id : null),
         relatedEntity: relatedEntity || null,
         attachments: attachments || [],
       };
@@ -118,7 +119,11 @@ export function SupportTicketModal({
             </div>
             <div className="min-w-0">
               <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                {relatedEntity ? "Raise Support Ticket for Financial Record" : "Create New Support Ticket"}
+                {relatedEntity?.type === "event"
+                  ? "Raise Support Ticket for Event"
+                  : relatedEntity
+                  ? "Raise Support Ticket for Financial Record"
+                  : "Create New Support Ticket"}
               </h3>
               <p className="text-[11px] sm:text-xs text-[#9E9E9F] truncate">
                 Direct line to TicketLelo operations and Super Admin support

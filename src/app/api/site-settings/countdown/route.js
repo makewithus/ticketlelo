@@ -103,10 +103,9 @@ export async function PUT(request) {
           { status: 400 }
         );
       }
-      const parsedMs = new Date(countdownAt).getTime();
-      if (parsedMs <= Date.now()) {
+      if (new Date(countdownAt).getTime() <= Date.now()) {
         return NextResponse.json(
-          { error: "Countdown target date cannot be in the past. Please select a future date and time." },
+          { error: "Countdown target date must be in the future. Please select a future date and time." },
           { status: 400 }
         );
       }

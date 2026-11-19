@@ -31,6 +31,7 @@ import {
   subscribeToEvent,
   subscribeToEventRegistrations,
 } from "@/lib/firestore";
+import { getAuthoritativeEventCapacity } from "@/lib/event-registration-status";
 
 function formatRelativeTime(ts) {
   if (!ts) return "recently";
@@ -342,14 +343,36 @@ export default function AnalyticsInsightsPage() {
   }, [scopedRegistrations]);
 
   const couponCount = useMemo(() => {
-    return scopedRegistrations.filter(
-      (r) =>
-        r.coupon ||
-        r.couponCode ||
-        r.promoCode ||
-        r.paymentStatus === "free" ||
-        (r.discount && Number(r.discount) > 0)
-    ).length;
+    return scopedRegistrations.filter((r) => {
+      // Free events without coupons MUST NOT count as coupon use
+      const hasCouponCode = Boolean(r.couponCode || r.coupon || r.promoCode);
+      const hasDiscount = Boolean(Number(r.discountAmount || r.discount || 0) > 0);
+      const isExplicitCoupon = Boolean(r.isCouponApplied === true || r.couponId);
+      return (hasCouponCode && hasDiscount) || isExplicitCoupon;
+    }).length;
+  }, [scopedRegistrations]);
+
+  const freeRegistrationsCount = useMemo(() => {
+    return scopedRegistrations.filter((r) => {
+      const hasCouponCode = Boolean(r.couponCode || r.coupon || r.promoCode);
+      const hasDiscount = Boolean(Number(r.discountAmount || r.discount || 0) > 0);
+      const isExplicitCoupon = Boolean(r.isCouponApplied === true || r.couponId);
+      const isCoupon = (hasCouponCode && hasDiscount) || isExplicitCoupon;
+      return !isCoupon && (r.paymentStatus === "free" || Number(r.amountPaid ?? r.amount ?? 0) === 0);
+    }).length;
+  }, [scopedRegistrations]);
+
+  // Total coupon discount amount reconciled
+  const totalCouponDiscounts = useMemo(() => {
+    return scopedRegistrations.reduce((acc, r) => {
+      const hasCouponCode = Boolean(r.couponCode || r.coupon || r.promoCode);
+      const isExplicitCoupon = Boolean(r.isCouponApplied === true || r.couponId);
+      if (hasCouponCode || isExplicitCoupon) {
+        const disc = parseSafeNumber(r.discountAmount ?? r.discount ?? 0, 0);
+        return acc + (disc > 0 ? disc : 0);
+      }
+      return acc;
+    }, 0);
   }, [scopedRegistrations]);
 
   // Revenue calculation
@@ -371,21 +394,12 @@ export default function AnalyticsInsightsPage() {
     return Number.isFinite(rev) ? rev : 0;
   }, [scopedRegistrations, event]);
 
-  const rawCap = event?.capacity ?? event?.totalTickets;
-  const rawCapStr = String(rawCap || "").trim();
-  const isExplicitOpenAccess =
-    rawCapStr === "Open Access" ||
-    rawCapStr === "Unlimited" ||
-    rawCapStr.toLowerCase().includes("open") ||
-    rawCapStr.toLowerCase().includes("unlimited");
-
-  const parsedCap = parseInt(rawCapStr, 10);
-  const isOpenAccess =
-    isExplicitOpenAccess || !Number.isFinite(parsedCap) || parsedCap <= 0;
-  const capacityDisplay = isOpenAccess ? "Open Access" : parsedCap;
-  const seatsLeftDisplay = isOpenAccess
+  const capInfo = useMemo(() => getAuthoritativeEventCapacity(event), [event]);
+  const isOpenAccess = capInfo.isUnlimited;
+  const capacityDisplay = capInfo.isUnlimited ? "Open Access" : capInfo.capacity;
+  const seatsLeftDisplay = capInfo.isUnlimited
     ? "∞"
-    : Math.max(0, parsedCap - (registrations?.length || 0));
+    : Math.max(0, capInfo.capacity - (registrations?.length || 0));
 
   // ── 24-Hour Stacked Hourly Distribution from Real DB ──
   // Image 4 shows 4 day layers: Mon, Tue, Wed, Today
@@ -799,7 +813,7 @@ export default function AnalyticsInsightsPage() {
               </div>
             </div>
 
-            {/* Used a coupon / Free */}
+            {/* Used a coupon */}
             <div>
               <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
                 <span className="inline-flex items-center gap-1.5 text-white">
@@ -808,6 +822,7 @@ export default function AnalyticsInsightsPage() {
                 </span>
                 <span className="text-[#9B9EA4] tabular-nums">
                   {String(couponCount)}
+                  {totalCouponDiscounts > 0 ? ` (₹${totalCouponDiscounts} saved)` : ""}
                 </span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-[#2A2D31] overflow-hidden">
@@ -823,6 +838,33 @@ export default function AnalyticsInsightsPage() {
                 />
               </div>
             </div>
+
+            {/* Free Registration */}
+            {freeRegistrationsCount > 0 && (
+              <div>
+                <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-white">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#3DD68C]" />
+                    Free registration
+                  </span>
+                  <span className="text-[#9B9EA4] tabular-nums">
+                    {String(freeRegistrationsCount)}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-[#2A2D31] overflow-hidden">
+                  <div
+                    className="h-full bg-[#3DD68C] rounded-full transition-all duration-500"
+                    style={{
+                      width: `${
+                        totalRegistrations > 0
+                          ? (freeRegistrationsCount / totalRegistrations) * 100
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -847,7 +889,8 @@ export default function AnalyticsInsightsPage() {
                 guest.status === "checked-in" ||
                 guest.checkedIn === true;
               const hasCoupon = Boolean(
-                guest.coupon || guest.couponCode || guest.promoCode
+                (guest.coupon || guest.couponCode || guest.promoCode) &&
+                (Number(guest.discountAmount || guest.discount || 0) > 0 || guest.couponId || guest.isCouponApplied)
               );
               const price = parseSafeNumber(guest.amount || event?.ticketPrice || event?.price || 0, 0);
 
@@ -858,6 +901,8 @@ export default function AnalyticsInsightsPage() {
                 actionText = "used a coupon";
               } else if (guest.paymentStatus === "paid" && price > 0) {
                 actionText = `registered - ₹${price}`;
+              } else if (guest.paymentStatus === "free" || Number(guest.amount || 0) === 0) {
+                actionText = "registered (free)";
               }
 
               return (

@@ -76,6 +76,24 @@ export async function POST(request) {
       redirectUrl = "/superadmin/hosting-requests";
     }
 
+    // Record audit log for security compliance and tracking
+    try {
+      await adminDb.collection("adminAuditLogs").add({
+        action: "USER_IMPERSONATION_STARTED",
+        adminUid: caller.uid || "superadmin",
+        adminEmail: caller.email,
+        targetUid: effectiveUid,
+        targetEmail: userData.email || targetUserRecord?.email,
+        targetRole: role,
+        createdAt: new Date().toISOString(),
+        timestamp: Date.now(),
+        ipAddress: request.headers.get("x-forwarded-for") || "unknown",
+        userAgent: request.headers.get("user-agent") || "unknown",
+      });
+    } catch (auditErr) {
+      console.warn("[superadmin/users/impersonate] Audit logging warning:", auditErr.message);
+    }
+
     return NextResponse.json({
       success: true,
       customToken,

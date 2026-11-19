@@ -63,12 +63,41 @@ export async function POST(request) {
         return;
       }
       if (latestOrder.data().status !== "pending") throw new Error("Plan order is not pending");
-      transaction.update(adminDb.collection("users").doc(caller.uid), {
+
+      const userRef = adminDb.collection("users").doc(caller.uid);
+      const userSnap = await transaction.get(userRef);
+      const userData = userSnap.exists ? userSnap.data() : {};
+      const existingOverrides = userData.customOverrides || {};
+
+      // Preserve custom overrides if custom override is higher than standard plan default
+      const effectiveEventsAllowed =
+        plan.eventsAllowed === -1
+          ? -1
+          : typeof existingOverrides.eventsAllowed === "number" && existingOverrides.eventsAllowed > plan.eventsAllowed
+          ? existingOverrides.eventsAllowed
+          : typeof userData.eventsAllowed === "number" && userData.eventsAllowed > plan.eventsAllowed
+          ? userData.eventsAllowed
+          : plan.eventsAllowed;
+
+      const previousSubscription = {
+        plan: userData.plan || "free",
+        eventsAllowed: userData.eventsAllowed || 1,
+        platformFeeRate: userData.platformFeeRate || 5.0,
+        facilities: userData.facilities || {},
+        updatedAt: userData.planUpdatedAt || null,
+      };
+
+      transaction.update(userRef, {
         plan: planOrder.planId,
-        eventsAllowed: plan.eventsAllowed,
+        subscriptionPlan: plan.tier || planOrder.planId.toUpperCase(),
+        standardEventsAllowed: plan.eventsAllowed,
+        eventsAllowed: effectiveEventsAllowed,
+        platformFeeRate: plan.platformFeeRate,
+        previousSubscription,
         planStartDate: new Date(),
         planPaymentId: paymentId,
         planOrderId: orderId,
+        planStatus: "active",
         updatedAt: new Date(),
       });
       transaction.update(planOrderRef, { status: "paid", paymentId, paidAt: new Date(), updatedAt: new Date() });

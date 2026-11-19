@@ -1,0 +1,273 @@
+import fs from "node:fs";
+import path from "node:path";
+import { execSync } from "node:child_process";
+
+const root = process.cwd();
+const screenshotsDir = path.join(root, "public", "screenshots");
+fs.mkdirSync(screenshotsDir, { recursive: true });
+
+// HTML template with Tailwind CSS matching TicketLelo theme
+function buildHtml({ showModal = false } = {}) {
+  return `<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketLelo - Mobile Hosting Requests Verification</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: '#FE760B',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0F1012;
+      color: #FFFFFF;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body class="p-3 sm:p-6 min-h-screen">
+  <div class="max-w-md mx-auto space-y-4">
+    <!-- Header -->
+    <div class="pb-2">
+      <div class="flex items-center gap-2.5">
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">
+          Hosting requests
+        </h1>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#212327] border border-[#2A2D31] text-[#9B9EA4]">
+          40
+        </span>
+      </div>
+      <p class="text-xs text-[#9B9EA4] mt-0.5">
+        Approve who can host events on TicketLelo.
+      </p>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#212327] text-white border border-[#2A2D31] shrink-0">
+        All (40)
+      </button>
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30 shrink-0">
+        Pending (1)
+      </button>
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#1A1C1F] text-[#9B9EA4] border border-[#2A2D31] shrink-0">
+        Approved (33)
+      </button>
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#1A1C1F] text-[#9B9EA4] border border-[#2A2D31] shrink-0">
+        Rejected (6)
+      </button>
+    </div>
+
+    <!-- Mobile Cards Container (md:hidden) -->
+    <div class="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden divide-y divide-[#2A2D31]">
+      
+      <!-- Card 1: Pending Request -->
+      <div class="p-4 space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-sm text-[#FE760B]">
+              AI
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-white truncate">
+                AI Innovation Summit 2026
+              </div>
+              <div class="text-[11px] text-[#9B9EA4]">
+                Sent 18 Nov 2026
+              </div>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/25 shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            Pending
+          </span>
+        </div>
+
+        <div class="space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Host:</span>
+            <span class="font-semibold text-white">Rohan Verma &bull; IIT Delhi</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Email:</span>
+            <span class="font-mono text-[#D0D0D1]">rohan@iitd.ac.in</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Tickets / Tier:</span>
+            <span class="text-[#D0D0D1]">500 tickets &bull; <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#FE760B]/15 text-[#FE760B]">Paid</span></span>
+          </div>
+        </div>
+
+        <!-- 44px Accessible Mobile Action Buttons -->
+        <div class="pt-1 grid grid-cols-2 gap-2.5">
+          <button type="button" class="h-11 rounded-xl text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 flex items-center justify-center gap-1 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <span>Reject</span>
+          </button>
+          <button type="button" class="h-11 rounded-xl text-xs font-bold text-white bg-emerald-600 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            <span>Approve</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Approved Request -->
+      <div class="p-4 space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-sm text-emerald-400">
+              HF
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-white truncate">
+                HackFest 2026
+              </div>
+              <div class="text-[11px] text-[#9B9EA4]">
+                Sent 18 Nov 2026
+              </div>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Approved
+          </span>
+        </div>
+
+        <div class="space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Host:</span>
+            <span class="font-semibold text-white">Tech Club &bull; BITS Pilani</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Email:</span>
+            <span class="font-mono text-[#D0D0D1]">techclub@bits-pilani.ac.in</span>
+          </div>
+        </div>
+
+        <button type="button" class="w-full h-11 rounded-xl text-xs font-semibold text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] flex items-center justify-center gap-2 cursor-pointer">
+          <svg class="w-4 h-4 text-[#FE760B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span>Resend Approval Email</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  ${showModal ? `
+  <!-- Pre-Approval Confirmation Dialog Modal -->
+  <div class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-[#1A1C1F] border border-[#2A2D31] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-3 pb-3 border-b border-[#2A2D31]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">
+              Confirm Organizer Approval
+            </h3>
+            <p class="text-xs text-[#9B9EA4]">
+              Review details before granting organizer permissions
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Request Details Card -->
+      <div class="bg-[#131517] border border-[#2A2D31] rounded-xl p-3.5 space-y-2 text-xs">
+        <div class="flex justify-between">
+          <span class="text-[#9B9EA4]">Applicant:</span>
+          <span class="font-semibold text-white">Rohan Verma</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[#9B9EA4]">College / Org:</span>
+          <span class="text-white">IIT Delhi</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[#9B9EA4]">Event Title:</span>
+          <span class="font-semibold text-[#FE760B]">AI Innovation Summit 2026</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[#9B9EA4]">Tickets Requested:</span>
+          <span class="font-mono text-white">500 tickets</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-[#9B9EA4]">Applicant Email:</span>
+          <span class="font-mono text-[#D0D0D1]">rohan@iitd.ac.in</span>
+        </div>
+      </div>
+
+      <!-- Effects Notice -->
+      <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 space-y-1">
+        <div class="font-semibold flex items-center gap-1.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Actions executed upon confirmation:</span>
+        </div>
+        <ul class="list-disc list-inside text-[11px] text-emerald-300/80 space-y-0.5 ml-1">
+          <li>Publishes draft event to TicketLelo platform</li>
+          <li>Provisions organizer credentials and plan limits</li>
+          <li>Dispatches automated welcome and onboarding email</li>
+          <li>Logs action to immutable administrator audit trail</li>
+        </ul>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-2 flex items-center justify-end gap-2.5">
+        <button type="button" class="h-10 px-4 rounded-xl text-xs font-semibold text-[#9B9EA4] bg-[#212327] border border-[#2A2D31] hover:text-white cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" class="h-10 px-5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md flex items-center gap-1.5 cursor-pointer">
+          <svg class="w-4 h-4 stroke-[3]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+          <span>Confirm &amp; Approve Event</span>
+        </button>
+      </div>
+    </div>
+  </div>` : ""}
+</body>
+</html>`;
+}
+
+// Generate HTML files
+const listHtmlPath = path.join(screenshotsDir, "preview-list.html");
+const modalHtmlPath = path.join(screenshotsDir, "preview-modal.html");
+fs.writeFileSync(listHtmlPath, buildHtml({ showModal: false }));
+fs.writeFileSync(modalHtmlPath, buildHtml({ showModal: true }));
+
+// Target viewports
+const viewports = [
+  { name: "375px", width: 375, height: 812, desc: "iPhone SE / Mini" },
+  { name: "390px", width: 390, height: 844, desc: "iPhone 12 / 13 / 14 / 15" },
+  { name: "430px", width: 430, height: 932, desc: "iPhone 14 / 15 / 16 Pro Max" },
+];
+
+console.log("Capturing responsive mobile screenshots with headless Chrome...");
+
+viewports.forEach(({ name, width, height }) => {
+  const listImg = path.join(screenshotsDir, `mobile-hosting-${name}.png`);
+  execSync(
+    `/usr/bin/google-chrome --headless --disable-gpu --screenshot="${listImg}" --window-size=${width},${height} "file://${listHtmlPath}"`,
+    { stdio: "inherit" }
+  );
+  console.log(`Captured list view at ${name} (${width}x${height}) -> ${listImg}`);
+
+  const modalImg = path.join(screenshotsDir, `mobile-modal-${name}.png`);
+  execSync(
+    `/usr/bin/google-chrome --headless --disable-gpu --screenshot="${modalImg}" --window-size=${width},${height} "file://${modalHtmlPath}"`,
+    { stdio: "inherit" }
+  );
+  console.log(`Captured modal view at ${name} (${width}x${height}) -> ${modalImg}`);
+});
+
+console.log("All screenshots successfully captured!");

@@ -11,6 +11,7 @@ import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import {
   ArrowLeft,
+  ArrowRight,
   Loader2,
   Calendar,
   MapPin,
@@ -52,7 +53,13 @@ import { formatEventDate, parseFirestoreDate } from "@/lib/date-utils";
 import { VenueMap } from "@/components/common/venue-map";
 import { useAuth } from "@/context/auth-context";
 import { getThemeLook, resolveEventTheme, getReadableAccentColor } from "@/lib/theme-utils";
-import { checkEventRegistrationStatus, isEventRegistrationClosed } from "@/lib/event-registration-status";
+import {
+  checkEventRegistrationStatus,
+  isEventRegistrationClosed,
+  getAuthoritativeEventCapacity,
+  getAuthoritativeOrganiser,
+  getAuthoritativeRegisteredCount,
+} from "@/lib/event-registration-status";
 import { getPosterLines } from "@/components/admin/event-create-studio";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { EmbedRegistrationModal } from "@/components/embed/embed-registration-modal";
@@ -78,6 +85,52 @@ export default function PublicEventBySlugPage() {
   const [mounted, setMounted] = useState(false);
   const [hostImageError, setHostImageError] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [myRegistration, setMyRegistration] = useState(null);
+
+  // Persistent attendee registration state for current user/browser
+  useEffect(() => {
+    if (!event?.id) return;
+
+    // 1. Check local storage for persistent guest/client registration state
+    try {
+      const stored =
+        localStorage.getItem(`ticketlelo_reg_${event.id}`) ||
+        (event.slug ? localStorage.getItem(`ticketlelo_reg_${event.slug}`) : null);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.ticketId) {
+          setMyRegistration(parsed);
+          return;
+        }
+      }
+    } catch {}
+
+    // 2. Check Firestore registration if authenticated user
+    if (user?.email && db) {
+      const emailLower = user.email.toLowerCase().trim();
+      const q = query(
+        collection(db, "registrations"),
+        where("eventId", "==", event.id),
+        where("email", "==", emailLower)
+      );
+      getDocs(q)
+        .then((snap) => {
+          if (!snap.empty) {
+            const docData = snap.docs[0].data();
+            const regInfo = {
+              ticketId: docData.ticketId || snap.docs[0].id,
+              email: docData.email,
+              status: docData.status,
+            };
+            setMyRegistration(regInfo);
+            try {
+              localStorage.setItem(`ticketlelo_reg_${event.id}`, JSON.stringify(regInfo));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+  }, [event?.id, event?.slug, user?.email]);
 
   // Live local time formatted matching Image 1
   useEffect(() => {
@@ -480,17 +533,12 @@ export default function PublicEventBySlugPage() {
     ? `${event.time} GMT+5:30`
     : "10:00 AM – 5:00 PM GMT+5:30";
 
-  const rawSeats = event.globalCapacity ?? event.capacity ?? event.maxCapacity;
-  const isUnlimitedCapacity =
-    typeof rawSeats === "string"
-      ? rawSeats.toLowerCase().includes("unlimited") || rawSeats.toLowerCase().includes("open")
-      : event.isUnlimitedCapacity === true || event.limitCapacity === false;
-
-  const digits = String(rawSeats || "").replace(/[^\d]/g, "");
-  const parsedCap = digits ? parseInt(digits, 10) : 0;
-  const totalSeats = !isUnlimitedCapacity && !isNaN(parsedCap) && parsedCap > 0 ? parsedCap : 0;
-  const hasCapacityLimit = totalSeats > 0;
-  const takenSeats = Math.max(Number(event.allocatedSeats || 0), registrations.length);
+  const authCap = getAuthoritativeEventCapacity(event);
+  const isUnlimitedCapacity = authCap.isUnlimited;
+  const totalSeats = isUnlimitedCapacity ? 0 : authCap.capacity;
+  const hasCapacityLimit = !isUnlimitedCapacity && totalSeats > 0;
+  const attendeeCount = getAuthoritativeRegisteredCount(event, registrations);
+  const takenSeats = attendeeCount;
   const seatsLeft = hasCapacityLimit ? Math.max(0, totalSeats - takenSeats) : null;
 
   const regStatus = checkEventRegistrationStatus(event, takenSeats);
@@ -520,39 +568,10 @@ export default function PublicEventBySlugPage() {
     event.posterTextMode === "custom" ? event.posterLine2 : ""
   );
 
-  // Sanitize out stale generic defaults like "School of Engineering" or "support@ticketlelo.com"
-  const cleanOrgName =
-    event.organizerName && event.organizerName !== "School of Engineering"
-      ? event.organizerName
-      : null;
-  const cleanOrgEmail =
-    event.organizerEmail && event.organizerEmail !== "support@ticketlelo.com"
-      ? event.organizerEmail
-      : null;
-
-  const organizerName =
-    organizerUser?.name ||
-    organizerUser?.fullName ||
-    organizerUser?.displayName ||
-    cleanOrgName ||
-    (event.hostName && event.hostName !== "School of Engineering" ? event.hostName : null) ||
-    (organizerUser?.email ? organizerUser.email.split("@")[0] : null) ||
-    (cleanOrgEmail ? cleanOrgEmail.split("@")[0] : null) ||
-    "Host";
-
-  const organizerEmail =
-    organizerUser?.email ||
-    cleanOrgEmail ||
-    (event.hostEmail && event.hostEmail !== "support@ticketlelo.com" ? event.hostEmail : null) ||
-    (event.contactEmail && event.contactEmail !== "support@ticketlelo.com" ? event.contactEmail : null) ||
-    (event.email && event.email !== "support@ticketlelo.com" ? event.email : null) ||
-    "";
-
-  const organizerPhoto =
-    organizerUser?.photoURL ||
-    event.organizerPhotoUrl ||
-    event.hostPhotoUrl ||
-    null;
+  const authOrg = getAuthoritativeOrganiser(event, organizerUser);
+  const organizerName = authOrg.name || "Event Organiser";
+  const organizerEmail = authOrg.email || "";
+  const organizerPhoto = authOrg.photoURL || null;
 
   const broadLocation =
     event.locationVenue ||
@@ -571,16 +590,24 @@ export default function PublicEventBySlugPage() {
     "bg-teal-600",
   ];
 
-  const attendeeCount = registrations.length;
+  // Protect attendee PII publicly (Safety Rule 9)
   let attendeeSummaryText = "";
-  if (attendeeCount === 1) {
-    attendeeSummaryText = registrations[0].fullName;
-  } else if (attendeeCount === 2) {
-    attendeeSummaryText = `${registrations[0].fullName} and ${registrations[1].fullName}`;
-  } else if (attendeeCount > 2) {
-    attendeeSummaryText = `${registrations[0].fullName}, ${registrations[1].fullName} and ${attendeeCount - 2} ${
-      attendeeCount - 2 === 1 ? "other" : "others"
-    }`;
+  if (myRegistration) {
+    if (attendeeCount <= 1) {
+      attendeeSummaryText = "You're registered!";
+    } else {
+      attendeeSummaryText = `You and ${attendeeCount - 1} other${attendeeCount - 1 === 1 ? "" : "s"} are going`;
+    }
+  } else if (canReadRegistrations && registrations.length > 0) {
+    if (attendeeCount === 1) {
+      attendeeSummaryText = registrations[0]?.fullName || "1 attendee";
+    } else if (attendeeCount === 2) {
+      attendeeSummaryText = `${registrations[0]?.fullName || "Attendee"} and ${registrations[1]?.fullName || "1 other"}`;
+    } else {
+      attendeeSummaryText = `${registrations[0]?.fullName || "Attendee"}, ${registrations[1]?.fullName || "Attendee"} and ${attendeeCount - 2} others`;
+    }
+  } else {
+    attendeeSummaryText = `${attendeeCount} ${attendeeCount === 1 ? "attendee" : "attendees"} registered`;
   }
 
   return (
@@ -1017,30 +1044,41 @@ export default function PublicEventBySlugPage() {
               {attendeeCount > 0 ? (
                 <div className="flex items-center">
                   <div className="flex items-center -space-x-2 shrink-0">
-                    {registrations.slice(0, 6).map((reg, idx) => (
-                      reg.photoURL ? (
-                        <img
-                          key={reg.id || idx}
-                          src={reg.photoURL}
-                          alt={reg.fullName}
-                          referrerPolicy="no-referrer"
-                          title={reg.fullName}
-                          className="w-8 h-8 rounded-full object-cover border-2 border-white dark:border-[#131517] shadow-xs"
-                        />
-                      ) : (
-                        <div
-                          key={reg.id || idx}
-                          title={reg.fullName}
-                          className={`w-8 h-8 rounded-full border-2 border-white dark:border-[#131517] flex items-center justify-center text-[10px] font-bold text-white shadow-xs ${
-                            AVATAR_COLORS[idx % AVATAR_COLORS.length]
-                          }`}
-                        >
-                          {String(reg.fullName || "A").charAt(0).toUpperCase()}
-                        </div>
-                      )
-                    ))}
+                    {canReadRegistrations && registrations.length > 0
+                      ? registrations.slice(0, 6).map((reg, idx) =>
+                          reg.photoURL ? (
+                            <img
+                              key={reg.id || idx}
+                              src={reg.photoURL}
+                              alt={reg.fullName}
+                              referrerPolicy="no-referrer"
+                              title={reg.fullName}
+                              className="w-8 h-8 rounded-full object-cover border-2 border-white dark:border-[#131517] shadow-xs"
+                            />
+                          ) : (
+                            <div
+                              key={reg.id || idx}
+                              title={reg.fullName}
+                              className={`w-8 h-8 rounded-full border-2 border-white dark:border-[#131517] flex items-center justify-center text-[10px] font-bold text-white shadow-xs ${
+                                AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                              }`}
+                            >
+                              {String(reg.fullName || "A").charAt(0).toUpperCase()}
+                            </div>
+                          )
+                        )
+                      : Array.from({ length: Math.min(6, attendeeCount) }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            className={`w-8 h-8 rounded-full border-2 border-white dark:border-[#131517] flex items-center justify-center text-[10px] font-bold text-white shadow-xs ${
+                              AVATAR_COLORS[idx % AVATAR_COLORS.length]
+                            }`}
+                          >
+                            <Users className="w-3.5 h-3.5 text-white/90" />
+                          </div>
+                        ))}
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] ml-3 truncate">
+                  <p className="text-xs text-slate-600 dark:text-[#9B9EA4] ml-3 truncate font-medium">
                     {attendeeSummaryText}
                   </p>
                 </div>
@@ -1266,16 +1304,56 @@ export default function PublicEventBySlugPage() {
                 </div>
               )}
 
-              {/* Dynamic Registration Form */}
+              {/* Dynamic Registration Form or Truthful Registered Card (M6) */}
               <div className="mt-1">
-                <DynamicRegistrationForm
-                  eventId={event.id}
-                  event={event}
-                  themeColor={themeAccent}
-                  subEvents={subEvents}
-                  combos={combos}
-                  defaultReferralCode={referralCode}
-                />
+                {myRegistration ? (
+                  <div className="p-5 sm:p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">You&apos;re Registered!</h3>
+                        <p className="text-xs text-slate-600 dark:text-[#9B9EA4]">
+                          Your spot for this event is secured.
+                        </p>
+                      </div>
+                    </div>
+                    {myRegistration.ticketId && (
+                      <div className="flex items-center justify-between p-3.5 rounded-xl bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] text-xs">
+                        <span className="font-mono text-slate-600 dark:text-[#9B9EA4]">
+                          Ticket: <strong className="text-slate-900 dark:text-white font-bold">{myRegistration.ticketId}</strong>
+                        </span>
+                        <Link
+                          href={`/e-tickets?ticketId=${encodeURIComponent(myRegistration.ticketId)}`}
+                          className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1"
+                        >
+                          <span>View Ticket</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <DynamicRegistrationForm
+                    eventId={event.id}
+                    event={event}
+                    themeColor={themeAccent}
+                    subEvents={subEvents}
+                    combos={combos}
+                    defaultReferralCode={referralCode}
+                    onRegistrationSuccess={(regData) => {
+                      setMyRegistration(regData);
+                      if (event?.id) {
+                        setEvent((prev) => ({
+                          ...prev,
+                          registrationsCount: (prev?.registrationsCount || 0) + 1,
+                          allocatedSeats: (prev?.allocatedSeats || 0) + 1,
+                        }));
+                      }
+                    }}
+                  />
+                )}
               </div>
 
               {/* Micro Trust Strip */}

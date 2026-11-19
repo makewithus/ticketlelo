@@ -9,7 +9,7 @@ import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { parseFirestoreDate } from "@/lib/date-utils";
 import { getThemeLook } from "@/lib/theme-utils";
 import { enqueueEmail } from "@/lib/email/queue";
-import { buildTicketPassEmail } from "@/lib/email/templates/ticket-pass";
+import { buildTicketPassEmail, buildTicketEmailSubject } from "@/lib/email/templates/ticket-pass";
 import { EmailPriority, EmailType } from "@/lib/email/types";
 import { getEmailConfig } from "@/lib/email/config";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
@@ -365,9 +365,7 @@ export async function sendTicketDeliveryEmail({
     email: ownerEmail,
   });
 
-  const emailSubject = effectiveFirstTime
-    ? `You're Registered! Your Ticket Is Ready on TicketLelo`
-    : `You're Registered! Your Ticket for ${eventTitle} is Ready`;
+  const emailSubject = buildTicketEmailSubject(eventTitle, { isFirstTimeUser: effectiveFirstTime });
 
   // Enqueue job with Critical P0 priority and deduplicating idempotency key
   const enqueueResult = await enqueueEmail({

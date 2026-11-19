@@ -27,7 +27,7 @@ export async function GET(request) {
       emailLower === 'superadmin@ticketlelo.com' ||
       emailLower === (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase().trim();
 
-    if (isSuperAdmin && searchParams.get('all') === 'true') {
+    if (isSuperAdmin && (searchParams.get('all') === 'true' || !searchParams.get('organizerId'))) {
       const tickets = await listTicketsForSuperAdmin({
         status,
         category: searchParams.get('category') || 'ALL',
@@ -70,6 +70,7 @@ export async function POST(request) {
       subject: body.subject,
       description: body.description,
       priority: body.priority,
+      eventId: body.eventId || (body.relatedEntity?.type === 'event' ? body.relatedEntity.id : null),
       relatedEntity: body.relatedEntity,
       attachments: body.attachments,
     });

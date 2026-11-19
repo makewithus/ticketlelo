@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAppBaseUrl } from "@/lib/app-url";
 import { getAuthenticatedUser, canManageEventId } from "@/lib/auth-server";
 import { checkOrganizerEligibilityForPaidEvents } from "@/lib/payments/connected-accounts";
+import { assertCanPublishEvent } from "@/lib/plan-enforcement";
 
 // POST /api/events/publish  — publish event and generate shareable link
 export async function POST(req) {
@@ -28,6 +29,21 @@ export async function POST(req) {
 
     if (!await canManageEventId(caller, eventId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // Backend plan usage enforcement: Verify organizer has quota to publish this event
+    const publishCheck = await assertCanPublishEvent(adminDb, caller, eventId);
+    if (!publishCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: publishCheck.reason || "Event limit reached for your subscription plan",
+          code: publishCheck.code || "EVENT_LIMIT_EXCEEDED",
+          limit: publishCheck.limit,
+          current: publishCheck.current,
+          upgradeRequired: true,
+        },
+        { status: 403 }
+      );
     }
 
     // Independent Settlement Architecture: Paid events are collected through TicketLelo's master gateway

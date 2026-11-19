@@ -10,7 +10,7 @@ function SupportContent({ searchParams }) {
   return (
     <div className="py-4 sm:py-6 px-3 sm:px-6 lg:px-8 max-w-6xl mx-auto w-full min-h-screen bg-[#131517] text-white space-y-4 sm:space-y-6">
       <EventControlHeader activeTab="Support" eventId={eventId} />
-      <SupportCenter initialTicketId={ticketId} />
+      <SupportCenter eventId={eventId} initialTicketId={ticketId} />
     </div>
   );
 }

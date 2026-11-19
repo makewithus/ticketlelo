@@ -40,7 +40,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Email job not found" }, { status: 404 });
     }
 
-    // Reset job status to QUEUED
+    // Reset job status to QUEUED and clear transient error
     await EmailJobRepository.updateJob(jobId, {
       status: EmailStatus.QUEUED,
       error: null,
@@ -48,15 +48,22 @@ export async function POST(request) {
       updatedAt: new Date(),
     });
 
-    // Trigger immediate async execution
-    setImmediate(() => {
-      processEmailJob(jobId, "admin-retry").catch(console.error);
-    });
+    // Execute retry attempt directly
+    const executionResult = await processEmailJob(jobId, "admin-retry");
+
+    const isSuccess = executionResult.success === true;
+    const isScheduled = executionResult.retryScheduled === true;
 
     return NextResponse.json({
-      success: true,
-      message: `Job ${jobId} successfully re-queued for processing`,
+      success: isSuccess || isScheduled,
+      status: isSuccess ? "SENT" : isScheduled ? "SCHEDULED" : "FAILED",
+      message: isSuccess
+        ? `Job ${jobId} resent successfully via provider`
+        : isScheduled
+        ? `Job ${jobId} scheduled for retry with exponential backoff`
+        : `Job ${jobId} retry failed: ${executionResult.error || executionResult.reason || "Provider error"}`,
       jobId,
+      result: executionResult,
     });
   } catch (error) {
     console.error("[admin/emails/retry] Error:", error);

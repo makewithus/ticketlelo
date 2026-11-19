@@ -50,6 +50,7 @@ import {
   UploadCloud,
   FileText,
   Upload,
+  ArrowRight,
 } from "lucide-react";
 
 /**
@@ -212,6 +213,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [isPendingApproval, setIsPendingApproval] = useState(false);
+  const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
+  const [createdTicketId, setCreatedTicketId] = useState("");
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(true);
   const [emailDeliveryStatus, setEmailDeliveryStatus] = useState("queued");
   const [formLoadError, setFormLoadError] = useState(null);
@@ -1232,12 +1235,35 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
+
+      const isAlready = Boolean(result.alreadyRegistered);
+      setIsAlreadyRegistered(isAlready);
+      if (result.ticketId) {
+        setCreatedTicketId(result.ticketId);
+        try {
+          localStorage.setItem(`ticketlelo_reg_${eventId}`, JSON.stringify({
+            ticketId: result.ticketId,
+            email: user?.email,
+            registeredAt: Date.now(),
+          }));
+        } catch {}
+        if (typeof props.onRegistrationSuccess === "function") {
+          props.onRegistrationSuccess({
+            ticketId: result.ticketId,
+            email: user?.email,
+            alreadyRegistered: isAlready,
+          });
+        }
+      }
+
       setIsFirstTimeUser(Boolean(result.isFirstTimeUser));
       if (result.emailStatus) setEmailDeliveryStatus(result.emailStatus);
       const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
       setIsPendingApproval(requiresApproval);
       if (requiresApproval) {
         toast.info("Registration submitted! Organiser approval is required.");
+      } else if (isAlready) {
+        toast.info("You are already registered for this event.");
       } else {
         const attendeeName = dataToSend.fullName || tempFormData?.fullName || user.fullName || user.email;
         sendRegistrationConfirmation(
@@ -1246,11 +1272,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           event?.name || "Event",
           result.ticketId
         ).catch((err) => console.warn("[Email] Background confirmation delivery:", err));
-        toast.success(
-          result.alreadyRegistered
-            ? "You are already registered for this event"
-            : "Registration successful"
-        );
+        toast.success("Registration successful");
       }
       setShowSuccessModal(true);
     } catch (error) {
@@ -1514,6 +1536,26 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
 
+      const isAlready = Boolean(result.alreadyRegistered);
+      setIsAlreadyRegistered(isAlready);
+      if (result.ticketId) {
+        setCreatedTicketId(result.ticketId);
+        try {
+          localStorage.setItem(`ticketlelo_reg_${eventId}`, JSON.stringify({
+            ticketId: result.ticketId,
+            email: email,
+            registeredAt: Date.now(),
+          }));
+        } catch {}
+        if (typeof props.onRegistrationSuccess === "function") {
+          props.onRegistrationSuccess({
+            ticketId: result.ticketId,
+            email: email,
+            alreadyRegistered: isAlready,
+          });
+        }
+      }
+
       const isFirst = Boolean(result.isFirstTimeUser);
       setIsFirstTimeUser(isFirst);
 
@@ -1522,6 +1564,8 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
 
       if (requiresApproval) {
         toast.info("Registration submitted! Organiser approval is required.");
+      } else if (isAlready) {
+        toast.info("You are already registered for this event.");
       } else {
         await sendRegistrationConfirmation(
           email,
@@ -1529,11 +1573,7 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
           event?.name || "Event",
           result.ticketId
         );
-        toast.success(
-          result.alreadyRegistered
-            ? "You are already registered for this event"
-            : "Registration successful"
-        );
+        toast.success("Registration successful");
       }
       setShowSuccessModal(true);
     } catch (error) {
@@ -1724,10 +1764,33 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Registration failed");
+
+      const isAlready = Boolean(result.alreadyRegistered);
+      setIsAlreadyRegistered(isAlready);
+      if (result.ticketId) {
+        setCreatedTicketId(result.ticketId);
+        try {
+          localStorage.setItem(`ticketlelo_reg_${eventId}`, JSON.stringify({
+            ticketId: result.ticketId,
+            email: email,
+            registeredAt: Date.now(),
+          }));
+        } catch {}
+        if (typeof props.onRegistrationSuccess === "function") {
+          props.onRegistrationSuccess({
+            ticketId: result.ticketId,
+            email: email,
+            alreadyRegistered: isAlready,
+          });
+        }
+      }
+
       const requiresApproval = Boolean(event?.requireApproval || result.requiresApproval);
       setIsPendingApproval(requiresApproval);
       if (requiresApproval) {
         toast.info("Registration submitted! Organiser approval is required.");
+      } else if (isAlready) {
+        toast.info("You are already registered for this event.");
       } else {
         sendRegistrationConfirmation(
           email,
@@ -2685,10 +2748,18 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                 </div>
                 <div>
                   <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                    {isPendingApproval ? "Registration Submitted" : "Registration Successful!"}
+                    {isAlreadyRegistered
+                      ? "Already Registered"
+                      : isPendingApproval
+                      ? "Registration Submitted"
+                      : "Registration Successful!"}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
-                    {isPendingApproval ? "Pending organiser review" : "Your spot is confirmed"}
+                    {isAlreadyRegistered
+                      ? "Your spot is already reserved"
+                      : isPendingApproval
+                      ? "Pending organiser review"
+                      : "Your spot is confirmed"}
                   </p>
                 </div>
               </div>
@@ -2713,7 +2784,11 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
             <div className="space-y-4">
               {/* Description Body */}
               <div className="space-y-2 text-sm text-slate-700 dark:text-[#D0D0D1] leading-relaxed">
-                {emailDeliveryStatus === "failed" ? (
+                {isAlreadyRegistered ? (
+                  <p>
+                    You are already registered for this event. Your existing ticket is active and ready to use.
+                  </p>
+                ) : emailDeliveryStatus === "failed" ? (
                   <p>
                     You&apos;re successfully registered for this event. We experienced a slight delay sending your confirmation email, but your registration is fully secured.
                   </p>
@@ -2722,7 +2797,19 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                     You&apos;re successfully registered for this event. Your ticket confirmation has been sent to your email.
                   </p>
                 )}
-                {isFirstTimeUser ? (
+                {isAlreadyRegistered ? (
+                  createdTicketId ? (
+                    <div className="pt-2">
+                      <Link
+                        href={`/e-tickets?ticketId=${encodeURIComponent(createdTicketId)}`}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FE760B] hover:underline"
+                      >
+                        <span>Access Ticket ({createdTicketId})</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  ) : null
+                ) : isFirstTimeUser ? (
                   <p className="text-xs sm:text-sm text-slate-900 dark:text-[#E1E4EA] font-medium pt-1">
                     To access your ticket and manage all your registrations, set up your TicketLelo password using the link sent to your email.
                   </p>
@@ -2739,7 +2826,9 @@ export function DynamicRegistrationForm({ eventId, event: initialEvent, initialF
                   <Mail className="w-4 h-4" />
                 </div>
                 <p className="text-xs font-medium text-slate-700 dark:text-[#D0D0D1]">
-                  {emailDeliveryStatus === "failed"
+                  {isAlreadyRegistered
+                    ? "Your ticket details are saved under your registered email."
+                    : emailDeliveryStatus === "failed"
                     ? "Check your dashboard or retry sending from account settings."
                     : "Check your inbox for your ticket confirmation email."}
                 </p>

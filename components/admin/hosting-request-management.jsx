@@ -41,6 +41,7 @@ import {
 } from "@/lib/hosting-requests";
 import { doc, updateDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { formatPhoneDisplay } from "@/lib/phone-validation";
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -77,6 +78,8 @@ function formatRequestDate(ts) {
     return d.toLocaleDateString("en-IN", {
       day: "numeric",
       month: "short",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
     });
   } catch {
     return "Recently";
@@ -93,6 +96,7 @@ function formatFullRequestDate(ts) {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Kolkata",
     });
   } catch {
     return "Recently";
@@ -126,6 +130,9 @@ export function HostingRequestManagement() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [requestToReject, setRequestToReject] = useState(null);
+  const [approvalConfirmModalOpen, setApprovalConfirmModalOpen] = useState(false);
+  const [requestToApprove, setRequestToApprove] = useState(null);
+  const [isApproving, setIsApproving] = useState(false);
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [approvedCredentials, setApprovedCredentials] = useState(null);
   const [approvedRequestData, setApprovedRequestData] = useState(null);
@@ -221,7 +228,7 @@ export function HostingRequestManagement() {
   }, []);
 
   const isAnyModalOpen = Boolean(
-    selectedDetailRequest || rejectModalOpen || approvalModalOpen
+    selectedDetailRequest || rejectModalOpen || approvalModalOpen || approvalConfirmModalOpen
   );
 
   // Prevent background scrolling when any modal is open
@@ -244,7 +251,12 @@ export function HostingRequestManagement() {
 
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        if (approvalModalOpen) {
+        if (approvalConfirmModalOpen) {
+          if (!isApproving) {
+            setApprovalConfirmModalOpen(false);
+            setRequestToApprove(null);
+          }
+        } else if (approvalModalOpen) {
           setApprovalModalOpen(false);
           setApprovedCredentials(null);
           setApprovedRequestData(null);
@@ -267,7 +279,7 @@ export function HostingRequestManagement() {
       document.body.style.paddingRight = originalPaddingRight;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isAnyModalOpen, approvalModalOpen, rejectModalOpen, selectedDetailRequest]);
+  }, [isAnyModalOpen, approvalModalOpen, approvalConfirmModalOpen, isApproving, rejectModalOpen, selectedDetailRequest]);
 
   const handleManualRefresh = async (silent = false) => {
     setIsRefreshing(true);
@@ -308,6 +320,8 @@ export function HostingRequestManagement() {
           eventTitle: req.eventTitle,
           organiserEmail: req.organiserEmail || req.email,
           isExisting: Boolean(req.isExisting),
+          isResend: true,
+          requestId: reqId,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -383,30 +397,52 @@ export function HostingRequestManagement() {
     });
 
     list.sort((a, b) => {
-      // Pending requests always rank first so superadmins can act on new submissions immediately
-      const aPending = a.status === "pending";
-      const bPending = b.status === "pending";
-      if (aPending && !bPending) return -1;
-      if (!aPending && bPending) return 1;
+      const rawAStatus = (a.status || "pending").toLowerCase().trim();
+      const rawBStatus = (b.status || "pending").toLowerCase().trim();
+      const aPending = rawAStatus === "pending";
+      const bPending = rawBStatus === "pending";
 
-      const ta = a.createdAt?.toDate
-        ? a.createdAt.toDate().getTime()
-        : new Date(a.createdAt || 0).getTime();
-      const tb = b.createdAt?.toDate
-        ? b.createdAt.toDate().getTime()
-        : new Date(b.createdAt || 0).getTime();
+      const getTime = (item) => {
+        if (!item?.createdAt) return 0;
+        if (typeof item.createdAt.toMillis === "function") return item.createdAt.toMillis();
+        if (typeof item.createdAt.toDate === "function") return item.createdAt.toDate().getTime();
+        if (typeof item.createdAt.seconds === "number") return item.createdAt.seconds * 1000;
+        const parsed = new Date(item.createdAt).getTime();
+        return isNaN(parsed) ? 0 : parsed;
+      };
 
-      if (sortBy === "oldest") return ta - tb;
-      if (sortBy === "urgent") return tb - ta;
-      if (sortBy === "title") {
-        return (a.eventTitle || "").localeCompare(b.eventTitle || "");
+      const ta = getTime(a);
+      const tb = getTime(b);
+
+      const tieBreak = (itemA, itemB) => (itemA.id || "").localeCompare(itemB.id || "");
+
+      if (sortBy === "urgent") {
+        if (aPending && !bPending) return -1;
+        if (!aPending && bPending) return 1;
+        const diff = tb - ta;
+        return diff !== 0 ? diff : tieBreak(a, b);
       }
+
+      if (sortBy === "oldest") {
+        const diff = ta - tb;
+        return diff !== 0 ? diff : tieBreak(a, b);
+      }
+
+      if (sortBy === "title") {
+        const diff = (a.eventTitle || "").localeCompare(b.eventTitle || "");
+        return diff !== 0 ? diff : tieBreak(a, b);
+      }
+
       if (sortBy === "tickets") {
         const tA = Number(a.numberOfTickets || a.expectedAttendees || 0);
         const tB = Number(b.numberOfTickets || b.expectedAttendees || 0);
-        return tB - tA;
+        const diff = tB - tA;
+        return diff !== 0 ? diff : tieBreak(a, b);
       }
-      return tb - ta;
+
+      // Default: newest
+      const diff = tb - ta;
+      return diff !== 0 ? diff : tieBreak(a, b);
     });
 
     return list;
@@ -433,22 +469,45 @@ export function HostingRequestManagement() {
     setCurrentTime(Date.now());
   };
 
-  const handleApprove = async (requestId, requestData) => {
-    setProcessingId(requestId);
-    const toastId = `approve-${requestId}`;
-    toast.loading("Approving organizer access...", { id: toastId });
-    try {
-      const organiserEmail = requestData.email;
+  const openApproveModal = (req) => {
+    const rawStatus = (req?.status || "pending").toLowerCase().trim();
+    if (rawStatus !== "pending") {
+      toast.error(`Cannot approve request: this request is already ${rawStatus}.`);
+      return;
+    }
+    setRequestToApprove(req);
+    setApprovalConfirmModalOpen(true);
+  };
 
+  const handleConfirmApprove = async () => {
+    if (!requestToApprove) return;
+    const reqId = requestToApprove.id;
+    const rawStatus = (requestToApprove.status || "pending").toLowerCase().trim();
+    if (rawStatus !== "pending") {
+      toast.error(`Cannot approve request: request is already ${rawStatus}.`);
+      setApprovalConfirmModalOpen(false);
+      return;
+    }
+
+    setProcessingId(reqId);
+    setIsApproving(true);
+    const toastId = `approve-${reqId}`;
+    toast.loading("Approving organizer access...", { id: toastId });
+
+    const startOverall = performance.now();
+    try {
+      const organiserEmail = requestToApprove.email;
+
+      const tCreateStart = performance.now();
       const createResponse = await fetch("/api/create-organiser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: organiserEmail,
-          name: requestData.name,
-          phone: requestData.phone,
-          college: requestData.college,
-          eventTitle: requestData.eventTitle,
+          name: requestToApprove.name,
+          phone: requestToApprove.phone,
+          college: requestToApprove.college,
+          eventTitle: requestToApprove.eventTitle,
         }),
       });
 
@@ -460,6 +519,8 @@ export function HostingRequestManagement() {
       }
 
       const createData = await createResponse.json().catch(() => ({}));
+      const createDuration = Math.round(performance.now() - tCreateStart);
+
       const {
         organiserId,
         isExisting,
@@ -468,33 +529,37 @@ export function HostingRequestManagement() {
 
       const finalEmail = responseEmail || organiserEmail;
 
-      await updateDoc(doc(db, "hostingRequests", requestId), {
+      const tDbStart = performance.now();
+      await updateDoc(doc(db, "hostingRequests", reqId), {
         status: "approved",
         organiserId,
         organiserEmail: finalEmail,
         approvedAt: Timestamp.now(),
         isExisting,
       });
+      const dbDuration = Math.round(performance.now() - tDbStart);
 
       const credentials = {
         organiserId,
         organiserEmail: finalEmail,
       };
 
+      setApprovalConfirmModalOpen(false);
       setApprovedCredentials(credentials);
-      setApprovedRequestData(requestData);
+      setApprovedRequestData(requestToApprove);
       setIsExistingOrganiser(isExisting);
       setApprovalModalOpen(true);
 
       let emailSent = false;
+      const tEmailStart = performance.now();
       try {
         const emailResponse = await fetch("/api/send-approval-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: requestData.name,
-            email: requestData.email,
-            eventTitle: requestData.eventTitle,
+            name: requestToApprove.name,
+            email: requestToApprove.email,
+            eventTitle: requestToApprove.eventTitle,
             organiserEmail: credentials.organiserEmail,
             isExisting,
           }),
@@ -507,20 +572,30 @@ export function HostingRequestManagement() {
       } catch (emailError) {
         console.error("Email sending error:", emailError);
       }
+      const emailDuration = Math.round(performance.now() - tEmailStart);
+      const totalDuration = Math.round(performance.now() - startOverall);
+
+      console.log(`[Approval Performance] Account Provisioning: ${createDuration}ms, Firestore Update: ${dbDuration}ms, Email Dispatch: ${emailDuration}ms, Total: ${totalDuration}ms`);
 
       if (emailSent) {
-        toast.success("Approved! Email sent to " + requestData.email, { id: toastId });
+        toast.success("Approved! Email sent to " + requestToApprove.email, { id: toastId });
       } else {
         toast.warning("Approved! (Account active, but email delivery had an issue)", { id: toastId });
       }
 
+      setRequestToApprove(null);
       await loadRequests();
     } catch (error) {
       console.error("Approval failed:", error);
       toast.error(error?.message || "Failed to approve request", { id: toastId });
     } finally {
       setProcessingId(null);
+      setIsApproving(false);
     }
+  };
+
+  const handleApprove = (requestId, requestData) => {
+    openApproveModal({ id: requestId, ...requestData });
   };
 
   const handleReject = async () => {
@@ -640,7 +715,7 @@ export function HostingRequestManagement() {
               </button>
               <button
                 onClick={() => {
-                  setStatusFilter(statusFilter === "pending" ? "all" : "pending");
+                  setStatusFilter("pending");
                   setCurrentPage(1);
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
@@ -654,7 +729,7 @@ export function HostingRequestManagement() {
               </button>
               <button
                 onClick={() => {
-                  setStatusFilter(statusFilter === "approved" ? "all" : "approved");
+                  setStatusFilter("approved");
                   setCurrentPage(1);
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
@@ -668,7 +743,7 @@ export function HostingRequestManagement() {
               </button>
               <button
                 onClick={() => {
-                  setStatusFilter(statusFilter === "rejected" ? "all" : "rejected");
+                  setStatusFilter("rejected");
                   setCurrentPage(1);
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 ${
@@ -731,9 +806,10 @@ export function HostingRequestManagement() {
         </div>
       </div>
 
-      {/* Requests Table Container */}
+      {/* Requests Table Container (Desktop table & Mobile card layout) */}
       <div className="bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
+        {/* Desktop Table: Hidden on screens < md */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[800px] text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-[#2A2D31] bg-slate-50/70 dark:bg-[#131517]/50">
@@ -871,7 +947,7 @@ export function HostingRequestManagement() {
                               Reject
                             </button>
                             <button
-                              onClick={() => handleApprove(request.id, request)}
+                              onClick={() => openApproveModal(request)}
                               disabled={processingId === request.id}
                               className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-xs transition-all disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
                             >
@@ -903,6 +979,155 @@ export function HostingRequestManagement() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card Layout: Rendered on screens < md (375px, 390px, 430px) */}
+        <div className="md:hidden divide-y divide-slate-200 dark:divide-[#2A2D31]">
+          {paginatedRequests.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 dark:text-[#9B9EA4] text-xs">
+              No hosting requests found matching your filter.
+            </div>
+          ) : (
+            paginatedRequests.map((request) => {
+              const rawStatus = (request.status || "pending").toLowerCase().trim();
+              const isPending = rawStatus === "pending";
+              const isApproved = rawStatus === "approved";
+              const isRejected = rawStatus === "rejected";
+
+              return (
+                <div
+                  key={request.id}
+                  className="p-4 space-y-3 hover:bg-slate-50/50 dark:hover:bg-[#212327]/40 transition-colors"
+                >
+                  {/* Top: Event Title + Status Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                      onClick={() => setSelectedDetailRequest(request)}
+                    >
+                      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] flex items-center justify-center font-bold text-xs text-slate-900 dark:text-white">
+                        {request.coverUrl ? (
+                          <img
+                            src={request.coverUrl}
+                            alt={request.eventTitle}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-[#FE760B]">
+                            {request.eventTitle?.charAt(0) || "E"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                          {request.eventTitle}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                          Sent {formatRequestDate(request.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="shrink-0">
+                      {isPending ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/25">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Pending
+                        </span>
+                      ) : isApproved ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Approved
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/25">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          Rejected
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Organizer Details */}
+                  <div
+                    className="bg-slate-50 dark:bg-[#131517]/60 p-3 rounded-xl border border-slate-200 dark:border-[#2A2D31] text-xs space-y-1.5 cursor-pointer"
+                    onClick={() => setSelectedDetailRequest(request)}
+                  >
+                    <div className="flex items-center justify-between text-slate-700 dark:text-[#D0D0D1]">
+                      <span className="font-semibold text-slate-900 dark:text-white">{request.name}</span>
+                      <span className="text-[11px] text-slate-500 dark:text-[#9B9EA4] truncate max-w-[140px]">
+                        {request.college || "Independent Organiser"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-[#9B9EA4]">
+                      <span className="truncate max-w-[180px]">{request.email}</span>
+                      <span className="font-mono">{formatPhoneDisplay(request.phone)}</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 dark:border-[#2A2D31]/50 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-400">Type:</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          request.isPaid
+                            ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30"
+                            : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300"
+                        }`}>
+                          {request.isPaid ? "Paid" : "Free"}
+                        </span>
+                      </div>
+                      <div className="text-slate-700 dark:text-[#D0D0D1]">
+                        Tickets: <span className="font-mono font-semibold">{request.numberOfTickets || "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Actions: Accessible touch target >= 44px */}
+                  <div className="pt-1">
+                    {isPending ? (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => openRejectModal(request)}
+                          disabled={processingId === request.id}
+                          className="h-11 rounded-xl text-xs font-semibold text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                          <span>Reject</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openApproveModal(request)}
+                          disabled={processingId === request.id}
+                          className="h-11 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-sm active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {processingId === request.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4 stroke-[3]" />
+                          )}
+                          <span>Approve</span>
+                        </button>
+                      </div>
+                    ) : isApproved ? (
+                      <button
+                        type="button"
+                        onClick={() => handleResendApprovalEmail(request)}
+                        disabled={processingId === request.id}
+                        className="w-full h-11 rounded-xl text-xs font-semibold text-slate-700 dark:text-[#D0D0D1] bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                      >
+                        <Mail className="w-4 h-4 text-[#FE760B]" />
+                        <span>Resend Approval Email</span>
+                      </button>
+                    ) : (
+                      <div className="text-center py-1.5 px-3 rounded-lg bg-red-500/5 border border-red-500/10 text-xs text-red-500 dark:text-red-400">
+                        {request.rejectionReason ? `Reason: ${request.rejectionReason}` : "Request Rejected"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination Controls */}
@@ -1161,13 +1386,11 @@ export function HostingRequestManagement() {
                   </Button>
                   <Button
                     onClick={() => {
-                      handleApprove(
-                        selectedDetailRequest.id,
-                        selectedDetailRequest,
-                      );
+                      const req = selectedDetailRequest;
                       setSelectedDetailRequest(null);
+                      openApproveModal(req);
                     }}
-                    className="flex-1 bg-[#FE760B] hover:bg-[#FF8A2B] text-[#131517] h-10 rounded-xl text-xs font-semibold shadow-none border-none"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white h-10 rounded-xl text-xs font-semibold shadow-none border-none cursor-pointer"
                   >
                     Approve Request
                   </Button>
@@ -1283,6 +1506,166 @@ export function HostingRequestManagement() {
                   className="flex-1 bg-[#212327] hover:bg-[#2A2D31] text-white border border-[#2A2D31] h-10 rounded-xl text-xs font-medium"
                 >
                   Cancel
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Approval Confirmation Dialog (Pre-approval guard) */}
+      {approvalConfirmModalOpen &&
+        requestToApprove &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overscroll-contain animate-in fade-in duration-200"
+            onClick={() => {
+              if (!isApproving) {
+                setApprovalConfirmModalOpen(false);
+                setRequestToApprove(null);
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="approve-confirm-title"
+          >
+            <div
+              className="w-full max-w-md bg-white dark:bg-[#1A1C1F] border border-slate-200 dark:border-[#2A2D31] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200 dark:border-[#2A2D31]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3
+                      id="approve-confirm-title"
+                      className="text-base font-bold text-slate-900 dark:text-white"
+                    >
+                      Confirm Organizer Approval
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-[#9B9EA4]">
+                      Review details before granting organizer permissions
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (!isApproving) {
+                      setApprovalConfirmModalOpen(false);
+                      setRequestToApprove(null);
+                    }
+                  }}
+                  disabled={isApproving}
+                  className="p-1 hover:bg-slate-100 dark:hover:bg-[#212327] rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors disabled:opacity-50"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Request & Organiser Summary Card */}
+              <div className="bg-slate-50 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] rounded-xl p-3.5 space-y-2 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-[#9B9EA4] tracking-wider">
+                    EVENT
+                  </span>
+                  <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
+                    {requestToApprove.eventTitle}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200 dark:border-[#2A2D31]">
+                  <div>
+                    <span className="text-[10px] text-slate-400 dark:text-[#9B9EA4]">Host Name</span>
+                    <div className="font-semibold text-slate-800 dark:text-[#D0D0D1]">
+                      {requestToApprove.name}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 dark:text-[#9B9EA4]">College / Org</span>
+                    <div className="font-semibold text-slate-800 dark:text-[#D0D0D1] truncate">
+                      {requestToApprove.college || "Independent Organiser"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 dark:text-[#9B9EA4]">Email</span>
+                    <div className="font-mono text-slate-800 dark:text-[#D0D0D1] truncate">
+                      {requestToApprove.email}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 dark:text-[#9B9EA4]">Phone</span>
+                    <div className="font-mono text-slate-800 dark:text-[#D0D0D1]">
+                      {formatPhoneDisplay(requestToApprove.phone)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-[#2A2D31]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 dark:text-[#9B9EA4]">Type:</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      requestToApprove.isPaid
+                        ? "bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30"
+                        : "bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-300"
+                    }`}>
+                      {requestToApprove.isPaid ? "Paid Event" : "Free Event"}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-700 dark:text-[#D0D0D1]">
+                    Tickets: <span className="font-mono">{requestToApprove.numberOfTickets || "—"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Effect of Approval Explanation */}
+              <div className="p-3 bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 rounded-xl space-y-1 text-xs text-amber-700 dark:text-amber-300">
+                <div className="font-bold flex items-center gap-1.5 text-xs text-amber-800 dark:text-amber-200">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  <span>Effect of Approval:</span>
+                </div>
+                <ul className="list-disc pl-5 space-y-0.5 text-[11px] text-slate-600 dark:text-[#9B9EA4]">
+                  <li>Creates or links an organizer account for this email.</li>
+                  <li>Grants organizer privileges to create and publish events.</li>
+                  <li>Sends an official approval notification email to {requestToApprove.email}.</li>
+                </ul>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2.5 pt-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setApprovalConfirmModalOpen(false);
+                    setRequestToApprove(null);
+                  }}
+                  disabled={isApproving}
+                  variant="outline"
+                  className="flex-1 bg-slate-100 dark:bg-[#212327] hover:bg-slate-200 dark:hover:bg-[#2A2D31] text-slate-700 dark:text-white border border-slate-200 dark:border-[#2A2D31] h-10 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleConfirmApprove}
+                  disabled={isApproving}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-10 rounded-xl text-xs shadow-md transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isApproving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Approving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Confirm & Approve</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

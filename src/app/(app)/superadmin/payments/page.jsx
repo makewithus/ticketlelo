@@ -128,42 +128,88 @@ export default function SuperAdminPaymentsPage() {
   const [feeUpdateReason, setFeeUpdateReason] = useState("");
   const [updatingFee, setUpdatingFee] = useState(false);
 
-  const loadData = async (showSpinner = false) => {
+  const [settlementPage, setSettlementPage] = useState(1);
+  const settlementPageSize = 10;
+  const [loadingSettlements, setLoadingSettlements] = useState(false);
+  const [loadingCommissions, setLoadingCommissions] = useState(false);
+  const [loadingRecon, setLoadingRecon] = useState(false);
+
+  const fetchSummary = async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
-      const [sumRes, reconRes, overviewRes, settleRes, commRes] = await Promise.all([
-        fetch("/api/payments/summary"),
-        fetch("/api/payments/reconcile"),
-        fetch("/api/superadmin/overview"),
-        fetch("/api/payments/settlements"),
-        fetch("/api/payments/commission?all=true"),
-      ]);
-
-      if (sumRes.ok) {
-        const d = await sumRes.json();
+      const res = await fetch("/api/payments/summary");
+      if (res.ok) {
+        const d = await res.json();
         setSummary(d.summary || null);
         if (d.summary) {
           setCachedItem("superadmin_payments_summary", d.summary, 15 * 60 * 1000);
         }
       }
-      if (reconRes.ok) {
-        const d = await reconRes.json();
-        setReconReports(d.reports || []);
-      }
-      if (overviewRes.ok) {
-        const ov = await overviewRes.json();
-        if (Array.isArray(ov.revenueTrendData) && ov.revenueTrendData.length > 0) {
-          setTrendData(ov.revenueTrendData);
-        }
-      }
-      if (settleRes.ok) {
-        const setD = await settleRes.json();
+    } catch (err) {
+      console.error("[SuperAdminPayments] fetchSummary error:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const fetchSettlements = async () => {
+    setLoadingSettlements(true);
+    try {
+      const res = await fetch("/api/payments/settlements");
+      if (res.ok) {
+        const setD = await res.json();
         setSettlements(setD.settlements || []);
         setSettlementSummary(setD.summary || null);
       }
-      if (commRes.ok) {
-        const commD = await commRes.json();
+    } catch (err) {
+      console.error("[SuperAdminPayments] fetchSettlements error:", err);
+    } finally {
+      setLoadingSettlements(false);
+    }
+  };
+
+  const fetchCommissions = async () => {
+    setLoadingCommissions(true);
+    try {
+      const res = await fetch("/api/payments/commission?all=true");
+      if (res.ok) {
+        const commD = await res.json();
         setCommissionPlans(commD.configurations || commD.planRules || []);
+      }
+    } catch (err) {
+      console.error("[SuperAdminPayments] fetchCommissions error:", err);
+    } finally {
+      setLoadingCommissions(false);
+    }
+  };
+
+  const fetchRecon = async () => {
+    setLoadingRecon(true);
+    try {
+      const res = await fetch("/api/payments/reconcile");
+      if (res.ok) {
+        const d = await res.json();
+        setReconReports(d.reports || []);
+      }
+    } catch (err) {
+      console.error("[SuperAdminPayments] fetchRecon error:", err);
+    } finally {
+      setLoadingRecon(false);
+    }
+  };
+
+  const loadData = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    setRefreshing(true);
+    try {
+      await fetchSummary();
+      if (activeTab === "settlements") {
+        await fetchSettlements();
+      } else if (activeTab === "commissions") {
+        await fetchCommissions();
+      } else if (activeTab === "reconcile") {
+        await fetchRecon();
       }
     } catch (err) {
       console.error("[SuperAdminPayments] loadData error:", err);
@@ -175,8 +221,19 @@ export default function SuperAdminPaymentsPage() {
   };
 
   useEffect(() => {
-    loadData();
+    fetchSummary();
   }, []);
+
+  // Lazy-load active tab data on demand
+  useEffect(() => {
+    if (activeTab === "settlements" && settlements.length === 0) {
+      fetchSettlements();
+    } else if (activeTab === "commissions" && commissionPlans.length === 0) {
+      fetchCommissions();
+    } else if (activeTab === "reconcile" && reconReports.length === 0) {
+      fetchRecon();
+    }
+  }, [activeTab]);
 
   const handleRunRecon = async () => {
     setRunningRecon(true);
@@ -330,6 +387,19 @@ export default function SuperAdminPaymentsPage() {
       return matchesStatus && matchesSearch;
     });
   }, [settlements, settlementStatusFilter, settlementSearch]);
+
+  const totalSettlementPages = Math.max(1, Math.ceil(filteredSettlements.length / settlementPageSize));
+  const currentSettlementPage = Math.min(settlementPage, totalSettlementPages);
+  const paginatedSettlements = useMemo(() => {
+    return filteredSettlements.slice(
+      (currentSettlementPage - 1) * settlementPageSize,
+      currentSettlementPage * settlementPageSize
+    );
+  }, [filteredSettlements, currentSettlementPage, settlementPageSize]);
+
+  useEffect(() => {
+    setSettlementPage(1);
+  }, [settlementSearch, settlementStatusFilter]);
 
   // Financial values
   const grossVal = summary ? (summary.grossSalesPaise || 0) / 100 : 0;
@@ -697,14 +767,23 @@ export default function SuperAdminPaymentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[#2A2D31]">
-                  {filteredSettlements.length === 0 ? (
+                  {loadingSettlements && settlements.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <div className="flex items-center justify-center gap-2">
+                          <RefreshCw className="w-4 h-4 animate-spin text-[#FE760B]" />
+                          <span>Loading settlement records...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredSettlements.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-12 text-center text-slate-400">
                         No settlement records matching the criteria.
                       </td>
                     </tr>
                   ) : (
-                    filteredSettlements.map((st) => {
+                    paginatedSettlements.map((st) => {
                       const statusStyle =
                         SETTLEMENT_STATUS_STYLES[st.status] || SETTLEMENT_STATUS_STYLES.SCHEDULED;
 
@@ -807,6 +886,36 @@ export default function SuperAdminPaymentsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredSettlements.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 px-4 pb-4 border-t border-slate-200 dark:border-[#2A2D31]">
+                <div className="text-xs text-slate-500 dark:text-[#71767B]">
+                  Showing {paginatedSettlements.length} of {filteredSettlements.length} settlement{filteredSettlements.length === 1 ? "" : "s"}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSettlementPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentSettlementPage <= 1}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-slate-600 dark:text-[#9B9EA4] font-medium font-mono">
+                    {currentSettlementPage} / {totalSettlementPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSettlementPage((prev) => Math.min(totalSettlementPages, prev + 1))}
+                    disabled={currentSettlementPage >= totalSettlementPages}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-[#2A2D31] transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

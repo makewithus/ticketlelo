@@ -146,6 +146,23 @@ export async function POST(request) {
       return NextResponse.json({ error: msg }, { status: 409 });
     }
 
+    // Verify attendee is not already registered (Prevents duplicate charges & orders - M8)
+    const existingRegistration = await adminDb
+      .collection("registrations")
+      .where("eventId", "==", eventId)
+      .where("email", "==", safeEmail)
+      .limit(1)
+      .get();
+
+    if (!existingRegistration.empty) {
+      const regData = existingRegistration.docs[0].data() || {};
+      return NextResponse.json({
+        error: "You are already registered for this event. Duplicate registration is not permitted.",
+        alreadyRegistered: true,
+        ticketId: regData.ticketId || existingRegistration.docs[0].id,
+      }, { status: 409 });
+    }
+
     // 2. Resolve Ticket / Combo Configuration & Base Price Server-Side
     let ticketConfig = null;
     let basePrice = parseSafePrice(event.ticketPrice ?? event.price ?? event.amount ?? 0);

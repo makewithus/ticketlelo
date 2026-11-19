@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Ticket, ArrowUpRight, AlertTriangle, Clock } from "lucide-react";
 import { getEvent } from "@/lib/firestore";
 import { getCachedEvent, setCachedEvent } from "@/lib/client-cache";
+import { normalizeDisplayText } from "@/lib/date-utils";
 
 export function EventControlHeader({
   activeTab = "Overview",
@@ -32,15 +33,15 @@ export function EventControlHeader({
   const currentEventId = eventId || urlEventId || storedEventId;
 
   const [resolvedTitle, setResolvedTitle] = useState(() => {
-    if (eventTitle && eventTitle !== "Tech Fest 2026") return eventTitle;
+    if (eventTitle && eventTitle !== "Tech Fest 2026") return normalizeDisplayText(eventTitle);
     if (typeof window !== "undefined") {
       const id = eventId || (typeof window !== "undefined" ? localStorage.getItem("admin_selected_event_id") : null);
       if (id) {
         const cached = getCachedEvent(id);
-        if (cached?.name || cached?.title) return (cached.name || cached.title).trim();
+        if (cached?.name || cached?.title) return normalizeDisplayText((cached.name || cached.title).trim());
       }
     }
-    return eventTitle || "";
+    return normalizeDisplayText(eventTitle || "");
   });
   const [resolvedSlug, setResolvedSlug] = useState(() => {
     if (eventSlug && eventSlug !== "tech-fest-2026") return eventSlug;
@@ -80,7 +81,7 @@ export function EventControlHeader({
       // Fast cache check
       const cached = getCachedEvent(currentEventId);
       if (cached && (cached.name || cached.title)) {
-        setResolvedTitle((cached.name || cached.title).trim());
+        setResolvedTitle(normalizeDisplayText((cached.name || cached.title).trim()));
         if (cached.slug) setResolvedSlug(cached.slug);
       }
 
@@ -89,7 +90,7 @@ export function EventControlHeader({
           if (ev) {
             const canonical = (ev.name || ev.title || "").trim();
             if (canonical) {
-              setResolvedTitle(canonical);
+              setResolvedTitle(normalizeDisplayText(canonical));
               setCachedEvent(currentEventId, ev);
             }
             if (ev.slug) setResolvedSlug(ev.slug);

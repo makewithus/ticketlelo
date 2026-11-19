@@ -194,6 +194,27 @@ export async function POST(req) {
       });
       return { status: "admitted" };
     });
+
+    if (admission.status === "admitted") {
+      // Synchronize check-in status to registrations collection for live Insights and Guests tab updates
+      try {
+        const regSnap = await adminDb
+          .collection("registrations")
+          .where("ticketId", "==", ticketId)
+          .limit(1)
+          .get();
+        if (!regSnap.empty) {
+          await regSnap.docs[0].ref.update({
+            status: "Used",
+            checkedIn: true,
+            usedAt: now,
+            updatedAt: now,
+          });
+        }
+      } catch (syncErr) {
+        console.warn("[verify-ticket] Registration check-in sync warning:", syncErr?.message);
+      }
+    }
     if (admission.status !== "admitted") {
       const priorTime = admission.prior?.time?.toDate?.();
       const usedTime = priorTime ? priorTime.toLocaleTimeString("en-IN") : "Earlier";

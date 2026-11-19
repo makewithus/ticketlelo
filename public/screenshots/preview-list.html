@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketLelo - Mobile Hosting Requests Verification</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: '#FE760B',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0F1012;
+      color: #FFFFFF;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body class="p-3 sm:p-6 min-h-screen">
+  <div class="max-w-md mx-auto space-y-4">
+    <!-- Header -->
+    <div class="pb-2">
+      <div class="flex items-center gap-2.5">
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">
+          Hosting requests
+        </h1>
+        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#212327] border border-[#2A2D31] text-[#9B9EA4]">
+          40
+        </span>
+      </div>
+      <p class="text-xs text-[#9B9EA4] mt-0.5">
+        Approve who can host events on TicketLelo.
+      </p>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#212327] text-white border border-[#2A2D31] shrink-0">
+        All (40)
+      </button>
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#FE760B]/15 text-[#FE760B] border border-[#FE760B]/30 shrink-0">
+        Pending (1)
+      </button>
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#1A1C1F] text-[#9B9EA4] border border-[#2A2D31] shrink-0">
+        Approved (33)
+      </button>
+      <button class="px-3 py-1.5 rounded-lg font-semibold bg-[#1A1C1F] text-[#9B9EA4] border border-[#2A2D31] shrink-0">
+        Rejected (6)
+      </button>
+    </div>
+
+    <!-- Mobile Cards Container (md:hidden) -->
+    <div class="rounded-2xl border border-[#2A2D31] bg-[#1A1C1F] overflow-hidden divide-y divide-[#2A2D31]">
+      
+      <!-- Card 1: Pending Request -->
+      <div class="p-4 space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-sm text-[#FE760B]">
+              AI
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-white truncate">
+                AI Innovation Summit 2026
+              </div>
+              <div class="text-[11px] text-[#9B9EA4]">
+                Sent 18 Nov 2026
+              </div>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/25 shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            Pending
+          </span>
+        </div>
+
+        <div class="space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Host:</span>
+            <span class="font-semibold text-white">Rohan Verma &bull; IIT Delhi</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Email:</span>
+            <span class="font-mono text-[#D0D0D1]">rohan@iitd.ac.in</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Tickets / Tier:</span>
+            <span class="text-[#D0D0D1]">500 tickets &bull; <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#FE760B]/15 text-[#FE760B]">Paid</span></span>
+          </div>
+        </div>
+
+        <!-- 44px Accessible Mobile Action Buttons -->
+        <div class="pt-1 grid grid-cols-2 gap-2.5">
+          <button type="button" class="h-11 rounded-xl text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 flex items-center justify-center gap-1 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            <span>Reject</span>
+          </button>
+          <button type="button" class="h-11 rounded-xl text-xs font-bold text-white bg-emerald-600 shadow-sm flex items-center justify-center gap-1.5 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            <span>Approve</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Approved Request -->
+      <div class="p-4 space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[#212327] border border-[#2A2D31] flex items-center justify-center font-bold text-sm text-emerald-400">
+              HF
+            </div>
+            <div class="min-w-0">
+              <div class="text-sm font-bold text-white truncate">
+                HackFest 2026
+              </div>
+              <div class="text-[11px] text-[#9B9EA4]">
+                Sent 18 Nov 2026
+              </div>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shrink-0">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Approved
+          </span>
+        </div>
+
+        <div class="space-y-1.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Host:</span>
+            <span class="font-semibold text-white">Tech Club &bull; BITS Pilani</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[#9B9EA4]">Email:</span>
+            <span class="font-mono text-[#D0D0D1]">techclub@bits-pilani.ac.in</span>
+          </div>
+        </div>
+
+        <button type="button" class="w-full h-11 rounded-xl text-xs font-semibold text-[#D0D0D1] bg-[#212327] border border-[#2A2D31] flex items-center justify-center gap-2 cursor-pointer">
+          <svg class="w-4 h-4 text-[#FE760B]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span>Resend Approval Email</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  
+</body>
+</html>

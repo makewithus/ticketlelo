@@ -318,18 +318,33 @@ export function EmailMonitoringDashboard() {
   const monthlyPct = Math.min(100, Math.round(((quota.monthlyUsed || 0) / (quota.monthlyLimit || 1)) * 100));
 
   // Counts for segmented tabs
-  const totalCount = stats.totalSent || rawJobs.length;
+  const totalCount =
+    stats.totalAll ??
+    (stats.totalSent !== undefined
+      ? (stats.totalSent +
+         (stats.totalDelivered || 0) +
+         (stats.totalPending || 0) +
+         (stats.totalScheduled || 0) +
+         (stats.totalFailed || 0) +
+         (stats.totalBounced || 0) +
+         (stats.totalComplained || 0))
+      : rawJobs.length);
   const deliveredCount =
-    stats.totalDelivered ||
-    rawJobs.filter((j) => j.status === "DELIVERED" || j.status === "SENT").length;
+    stats.totalDelivered !== undefined || stats.totalSent !== undefined
+      ? (stats.totalDelivered || 0) + (stats.totalSent || 0)
+      : rawJobs.filter((j) => j.status === "DELIVERED" || j.status === "SENT").length;
   const pendingCount =
-    stats.totalPending ||
-    rawJobs.filter((j) => j.status === "PENDING" || j.status === "QUEUED" || j.status === "PROCESSING").length;
+    stats.totalPending !== undefined
+      ? stats.totalPending
+      : rawJobs.filter((j) => j.status === "PENDING" || j.status === "QUEUED" || j.status === "PROCESSING").length;
   const scheduledCount =
-    stats.totalScheduled || rawJobs.filter((j) => j.status === "SCHEDULED").length;
+    stats.totalScheduled !== undefined
+      ? stats.totalScheduled
+      : rawJobs.filter((j) => j.status === "SCHEDULED").length;
   const failedCount =
-    stats.totalFailed ||
-    rawJobs.filter((j) => j.status === "FAILED" || j.status === "BOUNCED" || j.status === "COMPLAINED").length;
+    stats.totalFailed !== undefined || stats.totalBounced !== undefined || stats.totalComplained !== undefined
+      ? (stats.totalFailed || 0) + (stats.totalBounced || 0) + (stats.totalComplained || 0)
+      : rawJobs.filter((j) => j.status === "FAILED" || j.status === "BOUNCED" || j.status === "COMPLAINED").length;
 
   if (loading && !rawJobs.length && !stats.totalSent) {
     return <EmailMonitoringSkeleton />;
@@ -740,12 +755,12 @@ export function EmailMonitoringDashboard() {
 
                       {/* Column 7: ACTIONS */}
                       <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                        {isFailed || isScheduled ? (
+                        {isFailed || isScheduled || isPending ? (
                           <button
                             type="button"
                             onClick={() => handleRetry(job.id)}
                             disabled={retryingId === job.id}
-                            title={`Resend email to ${job.recipient}`}
+                            title={`Resend or retry email to ${job.recipient}`}
                             className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-[#9B9EA4] hover:text-slate-900 dark:hover:text-white bg-white dark:bg-[#212327] hover:bg-slate-50 dark:hover:bg-[#2A2D31] border border-slate-200 dark:border-[#2A2D31] transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs"
                           >
                             <RotateCcw
@@ -783,7 +798,7 @@ export function EmailMonitoringDashboard() {
               <strong className="text-slate-900 dark:text-white font-semibold">
                 {filteredJobs.length}
               </strong>{" "}
-              jobs
+              matching jobs {hasActiveFilters ? `(${totalCount} total records)` : `(${totalCount} total)`}
             </div>
 
             <div className="flex items-center gap-2">

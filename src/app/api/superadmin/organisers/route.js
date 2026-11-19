@@ -26,53 +26,46 @@ export async function GET(request) {
       return NextResponse.json({ error: "Super administrator access required" }, { status: 403 });
     }
 
-    // 1. Fetch approved hosting requests (excluding deleted requests)
+    // Execute independent collection queries in parallel for high-performance load times
+    const [hrSnapResult, usersSnapResult, eventsSnapResult] = await Promise.allSettled([
+      adminDb.collection("hostingRequests").where("status", "==", "approved").get(),
+      adminDb.collection("users").where("role", "in", ["organiser", "organizer"]).get().catch(async () => {
+        return await adminDb.collection("users").get();
+      }),
+      adminDb.collection("events").get(),
+    ]);
+
+    // 1. Process approved hosting requests (excluding deleted requests)
     let hrDocs = [];
-    try {
-      const hrSnap = await adminDb
-        .collection("hostingRequests")
-        .where("status", "==", "approved")
-        .get();
-      hrDocs = hrSnap.docs.filter((doc) => {
+    if (hrSnapResult.status === "fulfilled" && hrSnapResult.value) {
+      hrDocs = hrSnapResult.value.docs.filter((doc) => {
         const d = doc.data() || {};
         return d.deleted !== true && d.isDeleted !== true && d.status !== "deleted";
       });
-    } catch (hrErr) {
-      console.warn("Failed querying approved hostingRequests:", hrErr.message);
+    } else if (hrSnapResult.status === "rejected") {
+      console.warn("Failed querying approved hostingRequests:", hrSnapResult.reason?.message);
     }
 
-    // 2. Fetch users with organiser role (excluding deleted users)
+    // 2. Process users with organiser role (excluding deleted users)
     let organiserUsers = [];
-    try {
-      const usersSnap = await adminDb
-        .collection("users")
-        .where("role", "in", ["organiser", "organizer"])
-        .get();
-      organiserUsers = usersSnap.docs
+    if (usersSnapResult.status === "fulfilled" && usersSnapResult.value) {
+      organiserUsers = usersSnapResult.value.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((u) => u.deleted !== true && u.isDeleted !== true && u.status !== "deleted");
-    } catch (_) {
-      try {
-        const usersSnap = await adminDb.collection("users").get();
-        organiserUsers = usersSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter(
-            (u) =>
-              (u.role === "organiser" || u.role === "organizer") &&
-              u.deleted !== true &&
-              u.isDeleted !== true &&
-              u.status !== "deleted",
-          );
-      } catch (uErr) {
-        console.warn("Failed querying organiser users:", uErr.message);
-      }
+        .filter(
+          (u) =>
+            (u.role === "organiser" || u.role === "organizer") &&
+            u.deleted !== true &&
+            u.isDeleted !== true &&
+            u.status !== "deleted",
+        );
+    } else if (usersSnapResult.status === "rejected") {
+      console.warn("Failed querying organiser users:", usersSnapResult.reason?.message);
     }
 
-    // 3. Fetch active events (strictly excluding deleted events)
+    // 3. Process active events (strictly excluding deleted events)
     let eventsList = [];
-    try {
-      const eventsSnap = await adminDb.collection("events").get();
-      eventsList = eventsSnap.docs
+    if (eventsSnapResult.status === "fulfilled" && eventsSnapResult.value) {
+      eventsList = eventsSnapResult.value.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter(
           (e) =>
@@ -80,8 +73,8 @@ export async function GET(request) {
             e.isDeleted !== true &&
             e.status !== "deleted",
         );
-    } catch (eErr) {
-      console.warn("Failed querying events:", eErr.message);
+    } else if (eventsSnapResult.status === "rejected") {
+      console.warn("Failed querying events:", eventsSnapResult.reason?.message);
     }
 
     // Count email occurrences to detect duplicates across all requests
@@ -270,8 +263,21 @@ export async function GET(request) {
       return tb - ta;
     });
 
+    const uniqueEmailSet = new Set();
+    organisers.forEach((o) => {
+      const em = (o.loginEmail || "").toLowerCase().trim();
+      if (em && em !== "—") uniqueEmailSet.add(em);
+      else if (o.userId || o.organiserId) uniqueEmailSet.add(o.userId || o.organiserId);
+    });
+
+    const metrics = {
+      totalAllocations: organisers.length,
+      uniqueOrganisers: uniqueEmailSet.size,
+      approvedHostingRequests: hrDocs.length,
+    };
+
     return NextResponse.json(
-      { success: true, organisers, total: organisers.length },
+      { success: true, organisers, total: organisers.length, metrics },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

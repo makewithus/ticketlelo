@@ -376,6 +376,16 @@ export function OrganisersManagement() {
     });
   }, [organisers, searchTerm, activeFilter]);
 
+  const uniqueOrganisersCount = useMemo(() => {
+    const unique = new Set();
+    organisers.forEach((o) => {
+      const em = (o.loginEmail || "").toLowerCase().trim();
+      if (em && em !== "—") unique.add(em);
+      else if (o.userId || o.organiserId) unique.add(o.userId || o.organiserId);
+    });
+    return unique.size;
+  }, [organisers]);
+
   const totalPages = Math.max(1, Math.ceil(filteredOrganisers.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paginatedOrganisers = filteredOrganisers.slice(
@@ -532,11 +542,11 @@ export function OrganisersManagement() {
             Organisers
           </h1>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-[#212327] border border-slate-200 dark:border-[#2A2D31] text-slate-600 dark:text-[#9B9EA4]">
-            {organisers.length}
+            {organisers.length} Allocations &bull; {uniqueOrganisersCount} Unique Organisers
           </span>
         </div>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-[#9B9EA4] mt-1">
-          Everyone approved to host events.
+          Approved event allocations across {uniqueOrganisersCount} active organisers.
         </p>
       </div>
 

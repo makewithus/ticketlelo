@@ -6,13 +6,15 @@ import {
   canCreateEvent,
   canAddParticipant,
   hasFeature,
+  getEffectivePlanLimits,
 } from "@/lib/plans";
+import { getOrganizerUsage } from "@/lib/plan-enforcement";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Middleware-style plan enforcement for API routes.
- * Returns { allowed: true } or { allowed: false, reason, code }
+ * Middleware-style plan enforcement for API routes and pre-flight checks.
+ * Returns { allowed: true, limit, current } or { allowed: false, reason, code, limit, current }
  */
 
 export async function enforcePlanLimit(userId, action, context = {}) {
@@ -33,61 +35,76 @@ export async function enforcePlanLimit(userId, action, context = {}) {
 
   // Super admins are never limited
   if (user.role === "superAdmin") {
-    return { allowed: true };
+    return { allowed: true, isSuperAdmin: true };
   }
 
-  const planId = user.plan || "free";
-  const plan = PLANS[planId] || PLANS.free;
+  const effective = getEffectivePlanLimits(user);
 
   switch (action) {
     case "createEvent": {
-      // Count actual events in Firestore to avoid stale counter drift
-      const eventsSnap = await adminDb
-        .collection("events")
-        .where("organiserId", "==", userId)
-        .get();
-      const currentCount = eventsSnap.size;
+      // Authoritatively count actual non-deleted events in Firestore to avoid counter drift
+      const usage = await getOrganizerUsage(adminDb, userId, user.email);
+      const currentCount = usage.totalEvents;
 
-      if (!canCreateEvent(planId, currentCount)) {
+      if (!canCreateEvent(user, currentCount)) {
+        const overrideMsg = effective.hasCustomEvents ? ` (custom limit: ${effective.eventsAllowed})` : "";
         return {
           allowed: false,
-          reason: `You've reached your event limit (${plan.eventsAllowed} event${plan.eventsAllowed === 1 ? "" : "s"} on ${plan.name} plan). Please upgrade to create more events.`,
+          reason: `You've reached your event limit (${currentCount}/${effective.eventsAllowed === -1 ? "Unlimited" : effective.eventsAllowed} events on ${effective.planName} plan${overrideMsg}). Please upgrade to create more events.`,
           code: "EVENT_LIMIT_REACHED",
-          limit: plan.eventsAllowed,
+          limit: effective.eventsAllowed,
+          standardLimit: effective.standardEventsAllowed,
+          hasCustomOverride: effective.hasCustomEvents,
           current: currentCount,
+          plan: effective.planId,
+          planName: effective.planName,
           upgradeRequired: true,
         };
       }
-      return { allowed: true };
+      return {
+        allowed: true,
+        limit: effective.eventsAllowed,
+        standardLimit: effective.standardEventsAllowed,
+        hasCustomOverride: effective.hasCustomEvents,
+        current: currentCount,
+        plan: effective.planId,
+        planName: effective.planName,
+      };
     }
 
     case "addParticipant": {
       const { currentCount } = context;
-      if (!canAddParticipant(planId, currentCount)) {
+      if (!canAddParticipant(user, currentCount)) {
         return {
           allowed: false,
-          reason: `This event has reached the participant limit (${plan.participantsPerEvent} on ${plan.name} plan).`,
+          reason: `This event has reached the participant limit (${effective.participantsPerEvent} on ${effective.planName} plan).`,
           code: "PARTICIPANT_LIMIT_REACHED",
-          limit: plan.participantsPerEvent,
+          limit: effective.participantsPerEvent,
+          standardLimit: effective.standardParticipantsPerEvent,
+          hasCustomOverride: effective.hasCustomParticipants,
           current: currentCount,
           upgradeRequired: true,
         };
       }
-      return { allowed: true };
+      return {
+        allowed: true,
+        limit: effective.participantsPerEvent,
+        current: currentCount,
+      };
     }
 
     case "useFeature": {
       const { feature } = context;
-      if (!hasFeature(planId, feature)) {
+      if (!hasFeature(user, feature)) {
         return {
           allowed: false,
-          reason: `This feature is not available on the ${plan.name} plan. Please upgrade to access it.`,
+          reason: `This feature is not available on the ${effective.planName} plan. Please upgrade to access it.`,
           code: "FEATURE_NOT_AVAILABLE",
           feature,
           upgradeRequired: true,
         };
       }
-      return { allowed: true };
+      return { allowed: true, feature };
     }
 
     default:

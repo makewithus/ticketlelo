@@ -124,6 +124,7 @@ export function SuperAdminSupportView() {
     try {
       if (isManual) setRefreshing(true);
       const params = new URLSearchParams();
+      params.set("all", "true");
       if (statusFilter !== "ALL") params.set("status", statusFilter);
       if (categoryFilter !== "ALL") params.set("category", categoryFilter);
       if (priorityFilter !== "ALL") params.set("priority", priorityFilter);
@@ -163,13 +164,15 @@ export function SuperAdminSupportView() {
 
   const handleSelectTicket = (tkt) => {
     setSelectedTicket(tkt);
-    fetchTicketDetails(tkt.id);
+    const targetId = tkt.id || tkt.ticketId;
+    if (targetId) fetchTicketDetails(targetId);
   };
 
   const handleStatusChange = async (newStatus) => {
-    if (!ticketDetails) return;
+    const targetId = ticketDetails?.id || ticketDetails?.ticketId;
+    if (!targetId) return;
     try {
-      const res = await fetch(`/api/support/tickets/${ticketDetails.id}`, {
+      const res = await fetch(`/api/support/tickets/${targetId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -185,9 +188,10 @@ export function SuperAdminSupportView() {
   };
 
   const handlePriorityChange = async (newPriority) => {
-    if (!ticketDetails) return;
+    const targetId = ticketDetails?.id || ticketDetails?.ticketId;
+    if (!targetId) return;
     try {
-      const res = await fetch(`/api/support/tickets/${ticketDetails.id}`, {
+      const res = await fetch(`/api/support/tickets/${targetId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priority: newPriority }),
@@ -203,7 +207,8 @@ export function SuperAdminSupportView() {
   };
 
   const handleSendReply = async (andStatus = null) => {
-    if (!ticketDetails || !replyText.trim()) {
+    const targetId = ticketDetails?.id || ticketDetails?.ticketId;
+    if (!targetId || !replyText.trim()) {
       toast.error("Please enter a response message");
       return;
     }
@@ -213,10 +218,11 @@ export function SuperAdminSupportView() {
         ? [{ url: attachmentUrl.trim(), name: "Attachment" }]
         : [];
 
-      const res = await fetch(`/api/support/tickets/${ticketDetails.id}/messages`, {
+      const res = await fetch(`/api/support/tickets/${targetId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          content: replyText.trim(),
           message: replyText.trim(),
           isInternalNote,
           attachments,
@@ -237,7 +243,7 @@ export function SuperAdminSupportView() {
       if (andStatus) {
         await handleStatusChange(andStatus);
       } else {
-        await fetchTicketDetails(ticketDetails.id);
+        await fetchTicketDetails(targetId);
         fetchTickets();
       }
     } catch (err) {
@@ -249,7 +255,9 @@ export function SuperAdminSupportView() {
 
   // Settlement Actions linked directly to ticket
   const handleHoldSettlement = async () => {
-    if (!ticketDetails?.financialRecord?.settlementId) return;
+    const settlementId =
+      ticketDetails?.financialRecord?.settlementId || ticketDetails?.relatedEntity?.settlementId;
+    if (!settlementId) return;
     if (!holdReason.trim()) {
       toast.error("Please provide a reason for holding the settlement");
       return;
@@ -260,7 +268,7 @@ export function SuperAdminSupportView() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          settlementId: ticketDetails.financialRecord.settlementId,
+          settlementId,
           action: "hold",
           reason: holdReason.trim(),
         }),
@@ -270,7 +278,8 @@ export function SuperAdminSupportView() {
       toast.success("Settlement placed on administrative hold");
       setShowHoldModal(false);
       setHoldReason("");
-      fetchTicketDetails(ticketDetails.id);
+      const targetId = ticketDetails.id || ticketDetails.ticketId;
+      fetchTicketDetails(targetId);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -279,14 +288,16 @@ export function SuperAdminSupportView() {
   };
 
   const handleReleaseSettlement = async () => {
-    if (!ticketDetails?.financialRecord?.settlementId) return;
+    const settlementId =
+      ticketDetails?.financialRecord?.settlementId || ticketDetails?.relatedEntity?.settlementId;
+    if (!settlementId) return;
     setSettlementActionLoading(true);
     try {
       const res = await fetch("/api/superadmin/settlements/hold", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          settlementId: ticketDetails.financialRecord.settlementId,
+          settlementId,
           action: "release",
           reason: "Hold released by Super Admin via ticket resolution",
         }),
@@ -294,7 +305,8 @@ export function SuperAdminSupportView() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to release settlement");
       toast.success("Settlement hold released successfully");
-      fetchTicketDetails(ticketDetails.id);
+      const targetId = ticketDetails.id || ticketDetails.ticketId;
+      fetchTicketDetails(targetId);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -777,18 +789,18 @@ export function SuperAdminSupportView() {
                     <div className="flex items-center gap-2 text-slate-600 dark:text-[#9B9EA4] truncate">
                       <User size={13} className="text-[#FE760B] shrink-0" />
                       <span className="font-semibold text-slate-900 dark:text-white truncate">
-                        {ticketDetails.organizerName || "Organizer"}
+                        {ticketDetails.organizerName || ticketDetails.fullName || "Organizer"}
                       </span>
                     </div>
 
                     <div className="flex items-center justify-between gap-1 text-slate-600 dark:text-[#9B9EA4] truncate">
                       <div className="flex items-center gap-2 truncate">
                         <Mail size={13} className="text-[#FE760B] shrink-0" />
-                        <span className="truncate">{ticketDetails.organizerEmail}</span>
+                        <span className="truncate">{ticketDetails.organizerEmail || ticketDetails.email}</span>
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleCopyText(ticketDetails.organizerEmail, "Email")}
+                        onClick={() => handleCopyText(ticketDetails.organizerEmail || ticketDetails.email, "Email")}
                         className="p-1 hover:text-white text-slate-400 cursor-pointer shrink-0"
                         title="Copy email"
                       >
@@ -799,12 +811,12 @@ export function SuperAdminSupportView() {
                     <div className="flex items-center justify-between gap-1 text-slate-600 dark:text-[#9B9EA4] truncate">
                       <div className="flex items-center gap-2 truncate">
                         <Phone size={13} className="text-[#FE760B] shrink-0" />
-                        <span className="truncate">{ticketDetails.organizerPhone || "No Phone"}</span>
+                        <span className="truncate">{ticketDetails.organizerPhone || ticketDetails.phone || "No Phone"}</span>
                       </div>
-                      {ticketDetails.organizerPhone && (
+                      {(ticketDetails.organizerPhone || ticketDetails.phone) && (
                         <button
                           type="button"
-                          onClick={() => handleCopyText(ticketDetails.organizerPhone, "Phone")}
+                          onClick={() => handleCopyText(ticketDetails.organizerPhone || ticketDetails.phone, "Phone")}
                           className="p-1 hover:text-white text-slate-400 cursor-pointer shrink-0"
                           title="Copy phone"
                         >
@@ -815,31 +827,31 @@ export function SuperAdminSupportView() {
                   </div>
 
                   {/* Linked Financial Record Banner (if any) */}
-                  {ticketDetails.financialRecord && (
+                  {(ticketDetails.financialRecord || ticketDetails.relatedEntity) && (
                     <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 font-bold text-amber-500">
                           <Receipt size={14} />
                           <span>Linked Financial Transaction</span>
                         </div>
-                        {ticketDetails.financialRecord.amountPaise && (
+                        {(ticketDetails.financialRecord?.amountPaise || ticketDetails.relatedEntity?.amountPaise) && (
                           <span className="font-mono font-bold text-amber-400">
-                            ₹{(ticketDetails.financialRecord.amountPaise / 100).toFixed(2)}
+                            ₹{(Number(ticketDetails.financialRecord?.amountPaise || ticketDetails.relatedEntity?.amountPaise) / 100).toFixed(2)}
                           </span>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-400">
-                        {ticketDetails.financialRecord.orderId && (
-                          <div>Order ID: <span className="text-white font-mono">{ticketDetails.financialRecord.orderId}</span></div>
+                        {(ticketDetails.financialRecord?.orderId || ticketDetails.relatedEntity?.orderId) && (
+                          <div>Order ID: <span className="text-white font-mono">{ticketDetails.financialRecord?.orderId || ticketDetails.relatedEntity?.orderId}</span></div>
                         )}
-                        {ticketDetails.financialRecord.settlementId && (
-                          <div>Settlement ID: <span className="text-white font-mono">{ticketDetails.financialRecord.settlementId}</span></div>
+                        {(ticketDetails.financialRecord?.settlementId || ticketDetails.relatedEntity?.settlementId) && (
+                          <div>Settlement ID: <span className="text-white font-mono">{ticketDetails.financialRecord?.settlementId || ticketDetails.relatedEntity?.settlementId}</span></div>
                         )}
                       </div>
 
                       {/* Settlement Action Controls */}
-                      {ticketDetails.financialRecord.settlementId && (
+                      {(ticketDetails.financialRecord?.settlementId || ticketDetails.relatedEntity?.settlementId) && (
                         <div className="flex items-center gap-2 pt-1 border-t border-amber-500/20">
                           <button
                             type="button"

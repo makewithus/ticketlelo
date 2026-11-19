@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminDb, adminAuth, isFirebaseAdminReady } from "@/lib/firebase-admin";
 import { getAuthenticatedUser } from "@/lib/auth-server";
+import { validatePhoneNumber, formatPhoneDisplay } from "@/lib/phone-validation";
 
 function isAuthorizedSuperAdmin(caller) {
   if (!caller) return false;
@@ -17,7 +18,7 @@ function isAuthorizedSuperAdmin(caller) {
 
 /**
  * GET /api/superadmin/users
- * Returns list of all system users.
+ * Returns list of system users with server-side pagination, search, and role filtering.
  */
 export async function GET(request) {
   try {
@@ -30,9 +31,27 @@ export async function GET(request) {
       return NextResponse.json({ error: "Super administrator access required" }, { status: 403 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const returnAll = searchParams.get("all") === "true";
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "10", 10)));
+    const roleFilter = (searchParams.get("role") || "all").trim();
+    const searchQuery = (searchParams.get("search") || "").toLowerCase().trim();
+    const sortBy = (searchParams.get("sortBy") || "createdAt").trim();
+    const sortOrder = (searchParams.get("sortOrder") || "desc").trim();
+
     const snapshot = await adminDb.collection("users").get();
-    const users = snapshot.docs.map((doc) => {
+    const allUsers = [];
+    let attendees = 0;
+    let organisers = 0;
+    let superAdmins = 0;
+
+    snapshot.docs.forEach((doc) => {
       const data = doc.data() || {};
+      if (data.deleted === true || data.isDeleted === true || data.status === "deleted") {
+        return;
+      }
+
       const createdAtRaw = data.createdAt;
       let createdAtStr = null;
       if (createdAtRaw) {
@@ -47,29 +66,106 @@ export async function GET(request) {
       const role = rawRole || (data.isAdmin ? "organiser" : "user");
       const isAdmin = role === "superAdmin" || role === "organiser";
 
-      return {
+      if (role === "superAdmin") superAdmins++;
+      else if (role === "organiser" || role === "organizer") organisers++;
+      else attendees++;
+
+      const rawPhone = data.whatsappPhone || data.phone || "";
+      const displayPhone = formatPhoneDisplay(rawPhone);
+
+      allUsers.push({
         id: doc.id,
         uid: doc.id,
         email: data.email || "",
         fullName: data.fullName || data.displayName || data.name || "User",
         displayName: data.displayName || data.fullName || "",
-        whatsappPhone: data.whatsappPhone || data.phone || "",
-        phone: data.phone || data.whatsappPhone || "",
+        whatsappPhone: rawPhone,
+        phone: rawPhone,
+        displayPhone,
         role,
         isAdmin,
         createdAt: createdAtStr,
         hasSetPassword: data.hasSetPassword !== false,
-      };
+      });
     });
 
-    // Sort by createdAt descending
-    users.sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return timeB - timeA;
+    const stats = {
+      total: allUsers.length,
+      attendees,
+      organisers,
+      superAdmins,
+    };
+
+    // Filter matching role and search query
+    let filtered = allUsers.filter((u) => {
+      const matchesRole =
+        roleFilter === "all" ||
+        (roleFilter === "user" && (u.role === "user" || !u.role)) ||
+        (roleFilter === "organiser" && (u.role === "organiser" || u.role === "organizer")) ||
+        (roleFilter === "superAdmin" && u.role === "superAdmin");
+
+      if (!matchesRole) return false;
+
+      if (!searchQuery) return true;
+
+      const nameMatch = (u.fullName || "").toLowerCase().includes(searchQuery);
+      const emailMatch = (u.email || "").toLowerCase().includes(searchQuery);
+      const phoneMatch = (u.phone || "").toLowerCase().includes(searchQuery);
+      const displayPhoneMatch = (u.displayPhone || "").toLowerCase().includes(searchQuery);
+
+      return nameMatch || emailMatch || phoneMatch || displayPhoneMatch;
     });
 
-    return NextResponse.json({ success: true, users, total: users.length });
+    // Sort deterministically
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === "name") {
+        comparison = (a.fullName || "").localeCompare(b.fullName || "");
+      } else if (sortBy === "email") {
+        comparison = (a.email || "").localeCompare(b.email || "");
+      } else if (sortBy === "role") {
+        comparison = (a.role || "").localeCompare(b.role || "");
+      } else {
+        // Default: createdAt
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        comparison = timeA - timeB;
+      }
+
+      if (sortOrder === "desc") {
+        comparison = -comparison;
+      }
+
+      // Secondary deterministic tie-breaker
+      return comparison || (a.id || "").localeCompare(b.id || "");
+    });
+
+    if (returnAll) {
+      return NextResponse.json({
+        success: true,
+        users: filtered,
+        total: filtered.length,
+        totalAllUsers: allUsers.length,
+        stats,
+      });
+    }
+
+    const totalMatching = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalMatching / pageSize));
+    const validPage = Math.min(page, totalPages);
+    const startIndex = (validPage - 1) * pageSize;
+    const paginatedUsers = filtered.slice(startIndex, startIndex + pageSize);
+
+    return NextResponse.json({
+      success: true,
+      users: paginatedUsers,
+      total: totalMatching,
+      totalAllUsers: allUsers.length,
+      page: validPage,
+      pageSize,
+      totalPages,
+      stats,
+    });
   } catch (error) {
     console.error("[superadmin/users] GET error:", error);
     return NextResponse.json(
@@ -82,6 +178,7 @@ export async function GET(request) {
 /**
  * POST /api/superadmin/users
  * Super Admin creates a new user (user, organiser, or superAdmin) directly with credentials and role.
+ * Enforces strict phone validation, E.164 normalization, and phone uniqueness.
  */
 export async function POST(request) {
   try {
@@ -98,7 +195,7 @@ export async function POST(request) {
     const cleanEmail = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "").trim();
     const fullName = String(body.fullName || body.name || "").trim();
-    const phone = String(body.phone || body.whatsappPhone || "").trim();
+    const rawPhone = body.phone !== undefined ? body.phone : body.whatsappPhone;
     const role = String(body.role || "user").trim();
 
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
@@ -114,10 +211,45 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid role specified. Must be user, organiser, or superAdmin." }, { status: 400 });
     }
 
-    // Check if user already exists
-    let userRecord;
+    // Phone validation & normalization
+    let normalizedPhone = "";
+    if (rawPhone !== undefined && rawPhone !== null && String(rawPhone).trim() !== "") {
+      const phoneCheck = validatePhoneNumber(rawPhone, { required: false });
+      if (!phoneCheck.isValid) {
+        return NextResponse.json({ error: phoneCheck.error || "Invalid phone number." }, { status: 400 });
+      }
+      normalizedPhone = phoneCheck.e164 || "";
+
+      // Phone uniqueness check: Ensure no other user already uses this phone number
+      if (normalizedPhone) {
+        const cleanDigits = normalizedPhone.replace(/\D/g, "");
+        const national10 = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
+        const usersSnap = await adminDb.collection("users").get();
+        for (const doc of usersSnap.docs) {
+          const u = doc.data() || {};
+          if (u.deleted === true || u.isDeleted === true) continue;
+          const existingPhone = String(u.whatsappPhone || u.phone || "").replace(/\D/g, "");
+          if (!existingPhone) continue;
+
+          if (
+            existingPhone === cleanDigits ||
+            (existingPhone.length >= 10 && existingPhone.slice(-10) === national10)
+          ) {
+            return NextResponse.json(
+              {
+                error: `This phone number is already registered to another account (${u.email || "existing user"}). Each user must have a unique phone number.`,
+              },
+              { status: 409 }
+            );
+          }
+        }
+      }
+    }
+
+    // Check if user already exists in Firebase Auth
     try {
-      userRecord = await adminAuth.getUserByEmail(cleanEmail);
+      await adminAuth.getUserByEmail(cleanEmail);
       return NextResponse.json(
         { error: "A user with this email already exists in Firebase Auth." },
         { status: 409 }
@@ -129,7 +261,7 @@ export async function POST(request) {
     }
 
     // Create Firebase Auth user
-    userRecord = await adminAuth.createUser({
+    const userRecord = await adminAuth.createUser({
       email: cleanEmail,
       password,
       displayName: fullName || (role === "organiser" ? "Organiser" : "User"),
@@ -152,8 +284,8 @@ export async function POST(request) {
       email: cleanEmail,
       fullName: fullName || userRecord.displayName,
       displayName: fullName || userRecord.displayName,
-      whatsappPhone: phone,
-      phone,
+      whatsappPhone: normalizedPhone,
+      phone: normalizedPhone,
       role,
       isAdmin,
       hasSetPassword: true,
@@ -171,6 +303,8 @@ export async function POST(request) {
         uid: userRecord.uid,
         email: cleanEmail,
         fullName: fullName || userRecord.displayName,
+        phone: normalizedPhone,
+        whatsappPhone: normalizedPhone,
         role,
         isAdmin,
       },
@@ -278,4 +412,3 @@ export async function PATCH(request) {
     );
   }
 }
-

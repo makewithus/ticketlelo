@@ -36,6 +36,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getCachedOrganiserEvents, setCachedOrganiserEvents, setCachedEvent } from "@/lib/client-cache";
 import { EventBanner } from "@/components/events/event-banner";
 import { SubEventModal } from "@/components/admin/sub-event-modal";
+import { getEventLifecycleState } from "@/lib/event-registration-status";
+import { formatStandardTime, normalizeDisplayText } from "@/lib/date-utils";
 
 export function parseEventDate(event) {
   if (!event) return null;
@@ -153,12 +155,11 @@ export function EventManagement({
         }
 
         const data = await res.json();
+        setPlanLimitInfo(data);
         if (data && data.allowed === false) {
           setCanCreateEvent(false);
-          setPlanLimitInfo(data);
         } else {
           setCanCreateEvent(true);
-          setPlanLimitInfo(null);
         }
       } catch (err) {
         console.warn("Could not verify event creation eligibility:", err);
@@ -273,37 +274,19 @@ export function EventManagement({
   const [now] = useState(() => Date.now());
 
   const realUpcoming = useMemo(() => {
-    const cutoff = new Date(now - 24 * 60 * 60 * 1000);
     const list = effectiveEvents.filter((e) => {
       if (!e || e.isDeleted === true || e.deleted === true || e.status === "deleted") return false;
-      const isLive =
-        (e.published === true || e.isPublished === true || e.status === "live" || e.status === "published") &&
-        e.status !== "ended" &&
-        e.status !== "completed" &&
-        e.status !== "cancelled" &&
-        !e.isEnded;
-      if (isLive) return true;
-      const d = parseEventDate(e);
-      if (!d) return true;
-      return d >= cutoff;
+      const lifecycle = getEventLifecycleState(e, new Date(now));
+      return lifecycle.state === "upcoming" || lifecycle.state === "live";
     });
     return list.sort((a, b) => getEventCreatedTime(b) - getEventCreatedTime(a));
   }, [effectiveEvents, now]);
 
   const realPast = useMemo(() => {
-    const cutoff = new Date(now - 24 * 60 * 60 * 1000);
     const list = effectiveEvents.filter((e) => {
       if (!e || e.isDeleted === true || e.deleted === true || e.status === "deleted") return false;
-      const isLive =
-        (e.published === true || e.isPublished === true || e.status === "live" || e.status === "published") &&
-        e.status !== "ended" &&
-        e.status !== "completed" &&
-        e.status !== "cancelled" &&
-        !e.isEnded;
-      if (isLive) return false;
-      const d = parseEventDate(e);
-      if (!d) return false;
-      return d < cutoff || e.status === "ended" || e.status === "completed" || e.isEnded === true;
+      const lifecycle = getEventLifecycleState(e, new Date(now));
+      return lifecycle.state === "completed" || lifecycle.state === "ended" || lifecycle.isCompleted || lifecycle.isEnded;
     });
     return list.sort((a, b) => getEventCreatedTime(b) - getEventCreatedTime(a));
   }, [effectiveEvents, now]);
@@ -518,11 +501,7 @@ export function EventManagement({
                             month: "short",
                           });
                       dayPart = d.toLocaleDateString("en-IN", { weekday: "long" });
-                      timePart = event.startTime || d.toLocaleTimeString("en-IN", {
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                      });
+                      timePart = formatStandardTime(event.startTime || d);
                     } else {
                       datePart = "Upcoming";
                       dayPart = "";
@@ -533,13 +512,14 @@ export function EventManagement({
                   }
                 }
 
-                // Mutually exclusive status badge
-                const isCancelled = Boolean(event.isCancelled || event.status === "cancelled");
+                // Mutually exclusive status badge derived from authoritative lifecycle
+                const lifecycle = getEventLifecycleState(event, new Date(now));
+                const isCancelled = lifecycle.isCancelled;
                 const isCancelPending = Boolean(event.cancellationRequest?.status === "pending");
-                const isLive = !isCancelled && (event.status === "live" || event.isLive === true);
-                const isEnded = !isCancelled && (event.status === "ended" || event.status === "completed" || event.isEnded === true);
-                const isDraft = !isCancelled && !isEnded && event.status === "draft";
-                const isPublished = !isCancelled && !isLive && !isEnded && !isDraft && (event.published === true || event.isPublished === true || event.status === "published");
+                const isLive = lifecycle.isLive;
+                const isEnded = lifecycle.isCompleted;
+                const isDraft = lifecycle.isDraft;
+                const isPublished = !isCancelled && !isLive && !isEnded && !isDraft && lifecycle.isPublished;
 
                 return (
                   <div
@@ -621,7 +601,7 @@ export function EventManagement({
 
                           {/* Event Title */}
                           <h3 className={`text-base sm:text-lg font-bold transition-colors truncate ${isCancelled ? "text-white/80 line-through decoration-rose-500/50" : "text-white group-hover:text-[#FE760B]"}`}>
-                            {event.name || event.title || "Untitled Event"}
+                            {normalizeDisplayText(event.name || event.title || "Untitled Event")}
                           </h3>
 
                           {/* Venue / Location */}

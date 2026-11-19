@@ -21,7 +21,7 @@ import { SUPPORT_STATUSES, SUPPORT_CATEGORIES } from "@/lib/support/types";
 import { SupportTicketModal } from "./support-ticket-modal";
 import { getCachedItem, setCachedItem } from "@/lib/client-cache";
 
-export function SupportCenter({ initialTicketId = null }) {
+export function SupportCenter({ initialTicketId = null, eventId = null }) {
   // Synchronous cache hydration for instant 0ms rendering
   const [tickets, setTickets] = useState(() => {
     if (typeof window === "undefined") return [];
@@ -498,8 +498,20 @@ export function SupportCenter({ initialTicketId = null }) {
       <SupportTicketModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onTicketCreated={() => {
+        initialData={
+          eventId
+            ? {
+                eventId,
+                category: "Event Management",
+                relatedEntity: { type: "event", id: eventId },
+              }
+            : {}
+        }
+        onTicketCreated={(newTicket) => {
           fetchTickets(false);
+          if (newTicket?.ticketId || newTicket?.id) {
+            fetchTicketDetails(newTicket.ticketId || newTicket.id);
+          }
         }}
       />
     </div>
