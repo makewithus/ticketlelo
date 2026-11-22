@@ -1516,10 +1516,10 @@ export function EventCreateStudio({
         )}
         <form
           onSubmit={handleFormSubmit}
-          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start"
         >
           {/* ================= LEFT COLUMN: POSTER & THEME ================= */}
-          <div className="lg:col-span-5 flex flex-col justify-between items-center lg:items-start space-y-4 lg:sticky lg:top-20 w-full h-full">
+          <div className="lg:col-span-5 flex flex-col items-center lg:items-start space-y-4 lg:sticky lg:top-20 w-full self-start">
             {/* Column Label matching Right Column "EVENT NAME *" */}
             <div className="space-y-1 w-full">
               <label className="text-[11px] font-bold uppercase tracking-wider text-white/50 block">
@@ -2009,7 +2009,7 @@ export function EventCreateStudio({
           </div>
 
           {/* ================= RIGHT COLUMN: EVENT DETAILS ================= */}
-          <div className="lg:col-span-7 flex flex-col justify-between space-y-4 w-full h-full">
+          <div className="lg:col-span-7 flex flex-col space-y-4 w-full">
 
             {/* Event Name Input (Cleanly labeled & aligned with top of poster card) */}
             <div className="space-y-1">

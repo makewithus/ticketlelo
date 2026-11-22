@@ -591,6 +591,19 @@ export default function PublicEventBySlugPage() {
   ];
 
   // Protect attendee PII publicly (Safety Rule 9)
+  const userEmailLower = (user?.email || "").toLowerCase().trim();
+  const canReadRegistrations = Boolean(
+    user &&
+    (user.role === "superAdmin" ||
+      user.role === "superadmin" ||
+      userEmailLower === "adil4ticketlelo@gmail.com" ||
+      userEmailLower === "superadmin@ticketlelo.com" ||
+      user.uid === event?.organizerId ||
+      user.uid === event?.createdBy ||
+      user.id === event?.organizerId ||
+      user.id === event?.createdBy)
+  );
+
   let attendeeSummaryText = "";
   if (myRegistration) {
     if (attendeeCount <= 1) {
