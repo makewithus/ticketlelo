@@ -7,12 +7,14 @@ import { EmailPriority, EmailType, EmailStatus } from "@/lib/email/types";
 import { getEmailConfig } from "@/lib/email/config";
 
 function getEmailBaseUrl() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-  if (appUrl && !appUrl.includes("localhost") && !appUrl.includes("127.0.0.1")) {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").trim();
+  if (
+    appUrl &&
+    !appUrl.includes("localhost") &&
+    !appUrl.includes("127.0.0.1") &&
+    !appUrl.includes("vercel.app")
+  ) {
     return appUrl.replace(/\/+$/, "");
-  }
-  if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes("localhost")) {
-    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, "");
   }
   return "https://ticketlelo.in";
 }

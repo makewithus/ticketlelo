@@ -15,13 +15,16 @@ import { getEmailConfig } from "@/lib/email/config";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 function getEmailBaseUrl() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-  if (appUrl && !appUrl.includes("localhost") && !appUrl.includes("127.0.0.1")) {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").trim();
+  if (
+    appUrl &&
+    !appUrl.includes("localhost") &&
+    !appUrl.includes("127.0.0.1") &&
+    !appUrl.includes("vercel.app")
+  ) {
     return appUrl.replace(/\/+$/, "");
   }
-  if (process.env.VERCEL_URL && !process.env.VERCEL_URL.includes("localhost")) {
-    return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, "");
-  }
+  // Customer-facing email links must strictly use canonical production domain
   return "https://ticketlelo.in";
 }
 
@@ -197,14 +200,9 @@ export async function sendTicketDeliveryEmail({
 
   const displayTicketId = formatDisplayTicketId(ticketId, eventTitle);
 
-  // Prepare attachments: strictly the PDF pass generated according to organizer's selected design
-  const attachments = [
-    {
-      filename: `${eventTitle.replace(/[^a-zA-Z0-9_-]/g, "_")}-Ticket-${displayTicketId}.pdf`,
-      content: pdfBuffer,
-      contentType: "application/pdf",
-    },
-  ];
+  // Attendees access their tickets & scannable QR passes securely through their TicketLelo dashboard
+  // Do not attach the ticket PDF to the email confirmation
+  const attachments = [];
 
   const logoPath = path.join(process.cwd(), "public", "logo", "ticketlelo-logo-nav.png");
   const hasLogo = fs.existsSync(logoPath);

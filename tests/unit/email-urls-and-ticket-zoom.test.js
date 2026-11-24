@@ -108,5 +108,40 @@ describe("Email URLs & Ticket Deck Proportions Verification", () => {
     assert.ok(loginContent.includes("Create Account & Go to Dashboard"), "Includes explicit dashboard creation CTA");
     assert.ok(loginContent.includes("isUserNotFound && initialEmail"), "Auto-transitions to signup if account does not exist");
   });
+
+  test("Ticket Pass Email template sanitizes any vercel.app URLs to canonical ticketlelo.in domain", () => {
+    const { html, text } = buildTicketPassEmail({
+      eventTitle: "Karn Men Meet",
+      guestName: "Vaishnav S U",
+      ticketId: "KARN-246",
+      venue: "School of Engineering, CUSAT",
+      formattedDate: "Sun, 22 Nov 2026",
+      formattedTime: "11:00 PM",
+      tierName: "General",
+      priceDisplay: "₹10",
+      isFirstTimeUser: true,
+      email: "vaishnav@example.com",
+      emailBaseUrl: "https://ticketlelo-ifvqmcup2-mwuclofounder-5100.vercel.app",
+      setupPasswordUrl: "https://ticketlelo-ifvqmcup2-mwuclofounder-5100.vercel.app/setup-password?email=vaishnav%40example.com&ticketId=KARN-246",
+      loginUrl: "https://ticketlelo-ifvqmcup2-mwuclofounder-5100.vercel.app/login?email=vaishnav%40example.com&redirect=/dashboard",
+    });
+
+    // Zero vercel.app occurrences in HTML or text
+    assert.strictEqual(html.includes("vercel.app"), false, "HTML must NOT contain any vercel.app domain link");
+    assert.strictEqual(text.includes("vercel.app"), false, "Plain text must NOT contain any vercel.app domain link");
+
+    // All links must strictly point to ticketlelo.in
+    assert.ok(html.includes("https://ticketlelo.in/setup-password?email=vaishnav%40example.com&amp;ticketId=KARN-246") || html.includes("https://ticketlelo.in/setup-password?email=vaishnav%40example.com&ticketId=KARN-246"));
+    assert.ok(html.includes("https://ticketlelo.in/login?email=vaishnav%40example.com&amp;redirect=/dashboard") || html.includes("https://ticketlelo.in/login?email=vaishnav%40example.com&redirect=/dashboard"));
+    assert.ok(html.includes("https://ticketlelo.in/tickets/KARN-246"));
+
+    // Scannable QR image and entry instruction must NOT be present in the email (ticket is accessed via dashboard)
+    assert.strictEqual(html.includes("Show this QR code at the entrance for verification"), false, "Must NOT tell attendee to show email QR code at entrance");
+    assert.strictEqual(html.includes('alt="Ticket QR Pass"'), false, "Must NOT embed scannable QR image directly in email");
+
+    // Must clearly state that pass is stored securely in dashboard
+    assert.ok(html.includes("dashboard"), "Directs attendee to dashboard for entry pass");
+    assert.ok(html.includes("BOOKING REFERENCE CODE"), "Displays booking reference code");
+  });
 });
 
